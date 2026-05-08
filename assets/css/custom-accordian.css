@@ -1,0 +1,49 @@
+.custom-accordion {
+    --bs-accordion-btn-color: var(--sub-topic);
+}
+
+.accordion-button::after {
+    order: -1;
+    margin-left: 0;
+    margin-right: 20px;
+    transform: rotate(0deg);
+}
+
+.accordion-button:not(.collapsed)::after {
+    transform: rotate(180deg);
+}
+
+.accordion-button {
+    justify-content: flex-start;
+}
+
+.accordion-icon {
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.accordion-actions {
+    gap: 12px;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.icon-btn iconify-icon {
+    color: var(--sub-topic);
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.icon-btn:hover iconify-icon {
+    color: var(--primary);
+    transform: scale(1.1);
+}
+
+.icon-btn.text-danger iconify-icon {
+    color: #dc3545;
+}

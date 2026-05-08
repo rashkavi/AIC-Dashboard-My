@@ -1,0 +1,337 @@
+<?php
+require_once './includes/UserClass.php';
+require_once './includes/UserPermissionsClass.php';
+require_once "./includes/connection.php";
+require_once './includes/Project.php';
+if (!SessionUser::hasValidSession()) {
+    header("Location: ./index");
+} else {
+    $sessionUserRole = SessionUser::getCurrentUserRole();
+    if ($sessionUserRole == null) {
+        header("Location: ./index");
+    } else {
+        $sessionUserObject = SessionUser::getCurrentUserObject();
+        if (!SessionUser::ifUserIsPro($sessionUserRole)) {
+            header("Location: ./payments");
+        } else {
+            $dateTime = new DateTime("now", new DateTimeZone("Asia/Colombo"));
+            UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+            $query = "
+            SELECT 
+                psp.portal_subscription_payment_id,
+                psp.date_paid,
+                psp.students_count,
+              
+                psp.total_amount
+                                                                             
+            FROM 
+                `portal_subscription_payments` psp
+          
+            ORDER BY 
+                psp.`portal_subscription_payment_id` DESC
+        ";
+
+            $results = Database::search($query);
+
+            $totalSubscrption = Database::search("
+            SELECT SUM(`total_amount`) AS `total` 
+            FROM `portal_subscription_payments`
+            ")->fetch_assoc()['total'] ?? 0;
+
+            $subscribedStudents = Database::search("
+            SELECT SUM(`amount`) AS `total` 
+            FROM `portal_payment`
+            WHERE `portal_payment`.`portal_payment_plan_portal_payment_plan_id` != '1'
+            ")->fetch_assoc()['total'] ?? 0;
+
+            $balance = $totalSubscrption - $subscribedStudents;
+
+?>
+            <!DOCTYPE html>
+            <html lang="en">
+
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="robots" content="noindex, nofollow">
+                <title>Portal Subscriptions - Admin Dashboard | <?= Project::getBaseName() ?> </title>
+
+                <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
+                <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
+                <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css">
+
+                <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+                <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
+
+            </head>
+
+            <body class="overflow-hidden">
+                <div class="notifications"></div>
+                <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
+                    <div id="appContainer" class="row p-0">
+                        <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
+                            <?php
+                            include "includes/side-menu.php";
+                            load_side_menu::load("Payments");
+                            ?>
+                        </div>
+                        <div id="app-wrapper" class="app-wrapper p-0 m-0">
+                            <div class="row p-0 m-0 g-0 h-100">
+                                <div class="col-12 p-0 m-0 g-0">
+                                    <?php
+                                    include "./includes/header.php";
+                                    selectItem::setSelected("Payments");
+                                    ?>
+                                </div>
+                                <div class="container p-4 m-0" id="skeleton-list">
+                                    <?php
+                                    include "./includes/components/skeleton-header.php";
+                                    include "./includes/components/skeleton-table.php"; ?>
+                                </div>
+
+                                <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
+                                    <div class="row p-4 m-0 g-0">
+                                        <div class="col-12 px-4 py-3 component-theme mb-4">
+                                            <div class="row align-items-center p-0 m-0 g-0">
+                                                <div class="col-12 col-md-12 col-lg-8">
+                                                    <div class="row">
+                                                        <span class="main-topic lh-lg">Portal Subscriptions</span>
+                                                        <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                            <ol class="breadcrumb m-0">
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./payments'>Payments</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./students-payments'>Students Payments</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./portal-subscriptions'>Portal Subscriptions</a></li>
+                                                            </ol>
+                                                        </nav>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
+                                                    <div class="row gx-3 justify-content-end">
+
+                                                        <?php
+                                                        if ($sessionUserRole == "Developer") {
+                                                        ?>
+                                                            <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                <button class="custom-btn w-100" data-bs-target="#addSubscriptions" data-bs-toggle="modal">Add Payment</button>
+                                                            </div>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 px-4 py-4 component-theme">
+                                            <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
+                                                <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
+                                                    <div class="d-flex custom-div align-items-center justify-content-center">
+                                                        <?php
+                                                        $studentCount = Database::search("SELECT COUNT(DISTINCT `portal_subscription_payment_id`) AS unique_student_count FROM `portal_subscription_payments`");
+                                                        $data = $studentCount->fetch_assoc();
+                                                        ?>
+                                                        <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> Subscriptions</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
+                                                    <div class="h-100 d-flex align-items-center p-1 bl-solid">
+                                                        <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 pt-2 pb-2"></iconify-icon>
+                                                        <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." id="search-text" onkeyup="handlePortalSubscriptionPaymentPagination('filter')">
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-4 col-lg-1 d-flex flex-column justify-content-end">
+                                                    <button class="custom-btn w-100" type="button">
+                                                        <iconify-icon icon="mage:filter" width="26" height="26" class="text-white px-3 pe-3 py-2"></iconify-icon>
+                                                    </button>
+                                                </div>
+                                                <div class="col-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-end">
+                                                    <label for="" class="pe-2 sub-text">Results Per Page</label>
+                                                    <select class="form-select custom-select w-25" aria-label="Default select example" id="show-result-selector" onchange="handlePortalSubscriptionPaymentPagination('filter')">
+                                                        <option selected value="10">10</option>
+                                                        <option value="25">25</option>
+                                                        <option value="50">50</option>
+                                                        <option value="100">100</option>
+                                                        <option value="250">250</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 px-4 pb-4 component-theme">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="table-responsive-wrapper">
+                                                    <div class="table-responsive" id="students-table-container">
+                                                        <table class="table bl-solid m-0 p-0 g-0" id="students-table">
+                                                            <thead>
+                                                                <tr class="br-t-5">
+                                                                    <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                        <div class="d-flex flex-row align-items-center">
+                                                                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all">
+                                                                            <span class="text-14 main-text fw-medium mx-2"></span>
+                                                                        </div>
+                                                                    </th>
+                                                                    <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Total Amount</th>
+                                                                    <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Paid Date</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="user-table-data">
+                                                                <?php
+                                                                $pageno = 1;
+                                                                $results_count = $results->num_rows;
+                                                                $result_per_page = 10;  // Consistent variable name
+
+                                                                if ($results_count > $result_per_page) {
+                                                                    $number_of_pages = ceil($results_count / $result_per_page);  // Corrected variable name
+                                                                } else {
+                                                                    $number_of_pages = 1;
+                                                                }
+
+                                                                $page_results = ($pageno - 1) * $result_per_page;
+                                                                $payments = Database::search("" . $query . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
+
+                                                                if ($payments->num_rows > 0) {
+                                                                    while ($data = $payments->fetch_assoc()) {
+                                                                ?>
+                                                                        <tr>
+                                                                            <td class="px-4 py-3 pe-0 align-middle">
+                                                                                <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
+                                                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check">
+                                                                                    <span class="text-14 main-text">#<?php echo $data['portal_subscription_payment_id'] ?> Subscription</span>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text">LKR <?php echo number_format($data["total_amount"]); ?></span></td>
+                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?php echo date("Y-m-d h:i A", strtotime($data["date_paid"])); ?></span></td>
+                                                                        </tr>
+                                                                    <?php
+                                                                    }
+                                                                } else {
+                                                                    ?>
+                                                                    <tr class="justify-content-center align-middle">
+                                                                        <td colspan="13" class="align-middle justify-content-center">
+                                                                            <div class="d-flex flex-column align-items-center">
+                                                                                <img src="./assets/imgs/common/no-data.png" class="w-25 h-auto" alt="No data" class="empty-icon" />
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                <?php
+                                                                }
+                                                                ?>
+                                                            </tbody>
+                                                        </table>
+                                                        <div class="bl-solid-lrb br-b-5 m-0 g-0 component-theme" id="pagination-container">
+                                                            <nav aria-label="..." class="col-12 px-2 pe-2 m-0 container-fluid">
+                                                                <div class="row p-4 align-items-center">
+                                                                    <!-- Previous Button (col-1) -->
+                                                                    <button class="col-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handlePortalSubscriptionPaymentPagination('previousPage');">
+                                                                        <iconify-icon icon="tabler:arrow-left" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
+                                                                        <span class="text-14 main-text fw-semibold">Previous</span>
+                                                                    </button>
+                                                                    <!-- Page Numbers (col-10, centered) -->
+                                                                    <div class="col-10 custom-pagination d-flex justify-content-center">
+                                                                        <ul class="pagination-list d-flex mb-0">
+                                                                            <?php
+                                                                            $shudderPages1 = false;
+                                                                            $shudderPages2 = false;
+
+                                                                            function renderPageButton($i, $isActive = false)
+                                                                            {
+                                                                                $activeClass = $isActive ? 'active' : '';
+                                                                                $action = $isActive ? '' : "onclick=\"handlePortalSubscriptionPaymentPagination('goToPage', '{$i}')\"";
+                                                                                echo "<li class='page-item {$activeClass}' id='page-{$i}'><button class='py-2 px-3' {$action}>{$i}</button></li>";
+                                                                            }
+
+                                                                            for ($i = 1; $i <= $number_of_pages; $i++) {
+                                                                                if ($i == 1 || $i == $number_of_pages || abs($pageno - $i) <= 2) {
+                                                                                    renderPageButton($i, $pageno == $i);
+                                                                                } elseif (!$shudderPages1 && ($i < $pageno - 2 && $i > 1)) {
+                                                                                    $shudderPages1 = true;
+                                                                                    echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
+                                                                                } elseif (!$shudderPages2 && ($i > $pageno + 2 && $i < $number_of_pages)) {
+                                                                                    $shudderPages2 = true;
+                                                                                    echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
+                                                                                }
+                                                                            }
+                                                                            ?>
+                                                                        </ul>
+                                                                    </div>
+                                                                    <!-- Next Button (col-1) -->
+                                                                    <button class="col-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handlePortalSubscriptionPaymentPagination('nextPage',<?= $number_of_pages ?>);">
+                                                                        <span class="text-14 main-text fw-semibold">Next</span>
+                                                                        <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
+                                                                    </button>
+                                                                </div>
+                                                            </nav>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1"></div>
+                                    <footer>
+                                        <?php include './includes/footer.php' ?>
+                                    </footer>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php
+                if ($sessionUserRole == "Developer") {
+                ?>
+
+                    <!-- Student Bulk Upload Model => Start -->
+                    <div class="modal fade br-0" id="addSubscriptions" aria-hidden="true" aria-labelledby="addSubscriptionsLabel" tabindex="-1">
+                        <div class="modal-dialog modal-lg modal-dialog-centered br-0">
+                            <div class="modal-content p-4">
+                                <div class="modal-header p-0 border-0">
+                                    <h1 class="modal-title text-16 text-dark-color" id="addSubscriptionsLabel">Add Subscrition</h1>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body p-0 mt-3">
+                                    <div class="col-12 container-fluid">
+                                        <div class="row gx-4 gy-4">
+
+                                            <div class="col-12 col-md-6 d-flex flex-column">
+                                                <label class="text-14 main-text required" for="">Students Count</label>
+                                                <input type="number" class="form-control custom-input mt-2" id="student-count" maxlength="45">
+                                                <span id="sc-feedback" class="text-dark-red text-12"></span>
+                                            </div>
+                                            <div class="col-12 col-md-6 d-flex flex-column">
+                                                <label class="text-14 main-text required" for="">Total Amount</label>
+                                                <input type="text" class="form-control custom-input mt-2" id="amount" maxlength="45">
+                                                <span id="am-feedback" class="text-dark-red text-12"></span>
+                                            </div>
+
+                                            <div class="col-12 d-flex flex-column">
+                                                <label class="text-14 main-text required" for="">Note</label>
+                                                <textarea type="text" class="form-control custom-input mt-2" id="note"></textarea>
+                                                <span id="note-feedback" class="text-dark-red text-12"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer p-0 m-0 border-0 mt-4">
+                                    <button class="col-12 col-lg-4 custom-btn m-0" onclick="addPortalSubscription();">Add Subscription</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php
+                }
+                ?>
+                <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+                <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+                <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+                <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                <script src="./assets/js/fileChooser.js"></script>
+            </body>
+
+            </html>
+<?php
+        }
+    }
+}
+?>

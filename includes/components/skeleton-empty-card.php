@@ -1,0 +1,1 @@
+<div class="post-card-skeleton skeleton w-100 px-5 py-3"></div>

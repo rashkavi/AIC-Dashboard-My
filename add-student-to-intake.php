@@ -1,0 +1,457 @@
+<?php
+require_once './includes/UserClass.php';
+require_once './includes/UserPermissionsClass.php';
+require_once "./includes/connection.php";
+require_once "./includes/Project.php";
+require_once "./includes/Limitation.php";
+if (!SessionUser::hasValidSession()) {
+    header("Location: ./index");
+} else {
+    $sessionUserRole = SessionUser::getCurrentUserRole();
+    if ($sessionUserRole == null) {
+        header("Location: ./index");
+    } else {
+        $sessionUserObject = SessionUser::getCurrentUserObject();
+        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['intake-id']) && !empty($_GET['intake-id']))) {
+            header("Location: ./faculties");
+        } else {
+
+            $id = $_GET['intake-id'];
+            $intake = Database::search("SELECT * FROM `intakes`
+                                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id`=`programmes`.`programme_id`
+                                        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id`=`faculties`.`faculty_id`
+                                        WHERE `intake_id` = '" . $id . "'");
+            if ($intake->num_rows == 0) {
+                header("Location: ./intake-details");
+            } else {
+                $intakeData = $intake->fetch_assoc();
+                UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id))) {
+                    header("Location: ./intake-details.php?intake-id=" . $id);
+                } else {
+?>
+                    <!DOCTYPE html>
+                    <html lang="en">
+
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta name="robots" content="noindex, nofollow">
+                        <title>Add Student to Intake - Admin Dashboard | <?= Project::getBaseName() ?></title>
+
+                        <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
+                        <link href="./assets/plugins/cropperjs/cropper.min.css" rel="stylesheet">
+
+                        <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
+                        <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+                        <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
+                    </head>
+
+                    <body class="overflow-hidden" onload="initializeAddStudent()">
+                        <div class="notifications"></div>
+                        <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
+                            <div id="appContainer" class="row p-0">
+                                <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
+                                    <?php
+                                    include "includes/side-menu.php";
+                                    load_side_menu::load("Course Overview");
+                                    ?>
+                                </div>
+                                <div id="app-wrapper" class="app-wrapper p-0 m-0">
+                                    <div class="row p-0 m-0 g-0">
+                                        <div class="col-12 p-0 m-0 g-0">
+                                            <?php
+                                            include "./includes/header.php";
+                                            selectItem::setSelected("Course Overview");
+                                            ?>
+                                        </div>
+                                        <div class="container p-4 m-0" id="skeleton-list">
+                                            <?php
+                                            include "./includes/components/skeleton-header.php";
+                                            include "./includes/components/skeleton-add-edit.php"; ?>
+                                        </div>
+
+                                        <div class="col-12 p-0 m-0 g-0 contentBodyArea vh-100 d-flex flex-column d-none" id="real-list">
+                                            <div class="row p-4 m-0 g-0">
+                                                <div class="col-12 px-4 py-3 component-theme mb-4">
+                                                    <div class="row p-0 m-0 g-0 align-items-center">
+                                                        <div class="col-12 col-md-8">
+                                                            <div class="row">
+                                                                <span class="main-topic lh-lg">Add Student</span>
+                                                                <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                                    <ol class="breadcrumb m-0">
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./faculties'>Faculties</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./faculties?id=<?php echo $intakeData['faculties_faculty_id'] ?>'>...</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intake-details?intake-id=<?= $id ?>"><?= $intakeData["intake"] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $intakeData["intake"] ?></a></li>
+                                                                    </ol>
+                                                                </nav>
+                                                            </div>
+                                                        </div>
+                                                        <?php
+                                                        if (Limitation::availableStudents()) {
+                                                        ?>
+                                                            <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
+                                                                <div class="row justify-content-end gx-3">
+                                                                    <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                        <button class="custom-btn w-100" onclick="addStudentToIntake(this,<?= $id ?>);">Add Student</button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+
+                                                <?php
+                                                if (!Limitation::availableStudents()) {
+                                                    echo Limitation::getLimitExceededMessage();
+                                                } else {
+                                                ?>
+                                                    <div class="col-12 p-4 component-theme">
+                                                        <div class="row p-0 m-0 align-content-center">
+                                                            <div class="col-12 p-0 m-0 g-0">
+                                                                <div class="row justify-content-center p-0 m-0 g-0">
+                                                                    <div class="col-8 col-md-3 col-xl-3 col-xxl-2 d-flex flex-column p-0 m-0">
+                                                                        <div class="bl-solid p-3 m-0">
+                                                                            <div class="row m-0 p-0 position-relative justify-content-center align-content-center" id="profile-image-container">
+                                                                                <img src="./assets/imgs/common/empty-img.png" alt="user profile image" id="profile-image" class="w-100 h-auto me-2 mx-2 mt-0 mb-0 p-0">
+                                                                                <div class="upload-image text-white p-2 bottom-0 start-0" onclick="uploadImage('file-input','profile-image');">
+                                                                                    <iconify-icon icon="ic:baseline-upload" width="20" height="20" class="text-white px-2"></iconify-icon>
+                                                                                    <span>Upload Image</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <!-- Hiddedn file input -->
+                                                                            <input type="file" id="file-input" class="d-none" accept="image/*" />
+                                                                            <p class="text-center text-14 sub-text mt-2 mb-0" id="profile-image-text">Image size must be 2MB or less, with a 1:1 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
+                                                                        </div>
+                                                                        <span class="image-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-9 col-xl-9 col-xxl-10 px-0 px-md-4 pe-0 pe-md-0 pe-lg-0 d-block">
+                                                                        <div class="row m-0 p-0">
+                                                                            <div class="col-12 mt-3 m-md-0 m-lg-0 p-0">
+                                                                                <div class="row gx-4 gy-4">
+                                                                                    <span class="sub-topic">Personal Details</span>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Student Intake Id</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="student-intake-id">
+                                                                                        <span id="student-intake-id-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">First Name</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="first-name" maxlength="45">
+                                                                                        <span id="fname-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Last Name</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="last-name" maxlength="45">
+                                                                                        <span id="lname-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+
+                                                                                    <div class="col-12 col-lg-7 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Full Name</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="full-name">
+                                                                                        <span id="fullname-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-5 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Name With Initials</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="name-with-initials">
+                                                                                        <span id="nwi-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Select Title</label>
+                                                                                        <select class="form-select custom-select mt-2" aria-label="Default select example" id="title-selector">
+                                                                                            <option selected value="0">- Select Title -</option>
+                                                                                            <?php
+                                                                                            $titleResult = Database::search("SELECT * FROM `title`");
+                                                                                            $titles = [];
+                                                                                            while ($data = $titleResult->fetch_assoc()) {
+                                                                                                $titles[] = $data;
+                                                                                            }
+                                                                                            foreach ($titles as $title) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $title["title_id"]; ?>"><?php echo $title["title"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
+                                                                                        <span id="title-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Select Gender</label>
+                                                                                        <select class="form-select custom-select mt-2" aria-label="Default select example" id="gender-selector">
+                                                                                            <option selected value="0">- Select Gender -</option>
+                                                                                            <?php
+                                                                                            $genders = Database::search("SELECT * FROM `gender`");
+                                                                                            while ($data = $genders->fetch_assoc()) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $data["gender_id"]; ?>"><?php echo $data["gender"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+
+                                                                                            ?>
+                                                                                        </select>
+                                                                                        <span id="gender-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text not-required" for="">Select Marital Status<Title></Title></label>
+                                                                                        <select class="form-select custom-select mt-2" aria-label="Default select example" id="marital-status-selector">
+                                                                                            <option selected value="0">- Select Marital Status -</option>
+                                                                                            <?php
+                                                                                            $marital_status = Database::search("SELECT * FROM `marital_status`");
+                                                                                            while ($data = $marital_status->fetch_assoc()) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $data["marital_status_id"]; ?>"><?php echo $data["marital_status"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
+                                                                                        <span id="marital-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text d-inline-flex align-items-center not-required" for="">
+                                                                                            NIC
+                                                                                            <span class="chip-info-icon me-0 d-flex align-items-center mx-1" data-tooltip="National Id Card Number">
+                                                                                                <iconify-icon icon="iwwa:info" width="18" height="18"></iconify-icon>
+                                                                                            </span>
+                                                                                        </label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="nic" maxlength="12">
+                                                                                        <span id="nic-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text not-required" for="">Passport Number</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" id="passport">
+                                                                                        <span id="passport-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+
+
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text required" for="">Date of Birth</label>
+                                                                                        <input type="date" class="form-control custom-input mt-2" id="dob">
+                                                                                        <span id="dob-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text not-required" for="">Nationality</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" value="Sri Lanka" id="nationality" maxlength="45">
+                                                                                        <span id="nationality-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text not-required" for="">Country of Birth</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" disabled value="Sri Lanka" id="country-of-birth" maxlength="45">
+                                                                                        <span id="cob-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                                        <label class="text-14 main-text not-required" for="">Country of Residence</label>
+                                                                                        <input type="text" class="form-control custom-input mt-2" disabled value="Sri Lanka" id="country-of-residence" maxlength="45">
+                                                                                        <span id="cor-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-12 p-0 g-0 mt-5">
+                                                                <div class="row gx-4 gy-3">
+                                                                    <span class="sub-topic">Contact Details</span>
+
+                                                                    <div class="col-12 col-md-6 d-flex flex-column">
+                                                                        <label class="text-14 main-text required" for="">Email</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="email">
+                                                                        <span id="email-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text required" for="">Mobile</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="mobile">
+                                                                        <span id="mobile-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text required" for="">Whatsapp</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="whatsapp">
+                                                                        <span id="whatsapp-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Address Line 1</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="address">
+                                                                        <span id="address-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Address Line 2</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="address2">
+                                                                        <span id="address2-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-4 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Province</label>
+                                                                        <select name="" id="province" class="form-select custom-select mt-2" onchange="loadDistrict();">
+                                                                            <option value="0">-Select Province-</option>
+                                                                            <?php
+                                                                            $province = Database::search("SELECT * FROM `province`");
+                                                                            while ($data = $province->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["province_id"]; ?>"><?php echo $data["province"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+
+                                                                        </select>
+                                                                        <span id="province-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-4 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">District</label>
+                                                                        <select name="" id="district" class="form-select custom-select mt-2" onchange="loadCities();">
+                                                                            <option value="0">-Select District-</option>
+                                                                            <?php
+                                                                            $district = Database::search("SELECT * FROM `district`");
+                                                                            while ($data = $district->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["district_id"]; ?>"><?php echo $data["district"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="district-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-4 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">City</label>
+                                                                        <select name="" id="city" class="form-select custom-select mt-2">
+                                                                            <option value="0">-Select City-</option>
+                                                                            <?php
+                                                                            $city = Database::search("SELECT * FROM `city`");
+                                                                            while ($data = $city->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["city_id"]; ?>"><?php echo $data["city"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="city-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Postal Code</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="postal-code">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-12 p-0 g-0 mt-5">
+                                                                <div class="row gx-4 gy-3">
+                                                                    <span class="sub-topic">Gurdian Details</span>
+                                                                    <div class="col-12 col-md-6 col-xxl-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Guardian Relationship</label>
+                                                                        <select name="" id="grelationship-selector" class="form-select custom-select mt-2">
+                                                                            <option value="0">- Select Relationship -</option>
+                                                                            <?php
+                                                                            $guardianRelationships = Database::search("SELECT * FROM `guardian_relation`");
+                                                                            while ($data = $guardianRelationships->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["guardian_relation_id"]; ?>"><?php echo $data["guardian_relation"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="grelationship-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 col-md-6 col-xxl-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Title</label>
+                                                                        <select name="" id="gtitle-selector" class="form-select custom-select mt-2">
+                                                                            <option value="0">- Select Title -</option>
+                                                                            <?php
+                                                                            foreach ($titles as $title) {
+                                                                            ?>
+                                                                                <option value="<?php echo $title["title_id"]; ?>"><?php echo $title["title"]; ?></option>
+                                                                            <?php
+
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="gtitle-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-xxl-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">First Name</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="guardian-fname">
+                                                                        <span id="gfname-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Last Name</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="guardian-lname">
+                                                                        <span id="glname-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-6 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Email</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="guardian-email">
+                                                                        <span id="gemail-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">Mobile</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="guardian-mobile">
+                                                                        <span id="gmobile-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text" for="">WhatsApp</label>
+                                                                        <input type="text" class="form-control custom-input mt-2" id="guardian-whatsapp" maxlength="10">
+                                                                        <span id="gwhatsapp-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="col-12 p-0 g-0 mt-5">
+                                                                <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
+                                                                    <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
+                                                                        <button class="custom-btn w-100" onclick="addStudentToIntake(this,<?= $id ?>);">Add Student</button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <?php
+                                                }
+                                                ?>
+
+
+                                            </div>
+                                            <div class="flex-grow-1"></div>
+                                            <footer>
+                                                <?php include './includes/footer.php' ?>
+                                            </footer>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Crop Image</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body text-center">
+                                        <img id="image" class="img-fluid" />
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button id="crop-button" type="button" class="custom-btn px-5 pe-5">Crop</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+                        <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                    </body>
+
+                    </html>
+<?php
+
+                }
+            }
+        }
+    }
+}
+?>

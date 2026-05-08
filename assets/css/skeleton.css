@@ -1,0 +1,85 @@
+.skeleton {
+    background: linear-gradient(90deg,
+            var(--skeleton-color-1) 25%,
+            var(--skeleton-color-2) 37%,
+            var(--skeleton-color-3) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.3s infinite ease;
+}
+
+/* Sizes matching your component */
+
+.skeleton-img {
+    height: 70px;
+}
+
+.skeleton-title {
+    height: 15px;
+    width: 60%;
+}
+
+.skeleton-text {
+    height: 12px;
+    width: 40%;
+}
+
+.skeleton-btn {
+    height: 48px;
+}
+
+.skeleton-card {
+    height: 150px;
+}
+
+.calendar-skeleton {
+    width: 100%;
+    padding: 20px;
+}
+
+.skeleton-row{
+    height: 55px;
+}
+.calendar-skeleton-header {
+    height: 40px;
+    width: 50%;
+    margin: auto;
+    background: linear-gradient(90deg, var(--skeleton-color-1) 25%, var(--skeleton-color-2) 50%, var(--skeleton-color-3) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.calendar-skeleton-grid {
+    margin-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+}
+
+.skeleton-cell {
+    height: 110px;
+    background: linear-gradient(90deg, var(--skeleton-color-1) 25%, var(--skeleton-color-2) 50%, var(--skeleton-color-3) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 100% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
