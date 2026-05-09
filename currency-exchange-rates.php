@@ -85,7 +85,7 @@ if (!SessionUser::hasValidSession()) {
                     <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                         <?php
                         include "./includes/side-menu.php";
-                        load_side_menu::load("Users");
+                        load_side_menu::load("Payments");
                         ?>
                     </div>
                     <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -93,7 +93,7 @@ if (!SessionUser::hasValidSession()) {
                             <div class="col-12 p-0 m-0 g-0">
                                 <?php
                                 include "./includes/header.php";
-                                selectItem::setSelected("Users");
+                                selectItem::setSelected("Payments");
                                 ?>
                             </div>
 
@@ -127,7 +127,7 @@ if (!SessionUser::hasValidSession()) {
                                                     ?>
                                                         <div class="col-6 mt-3 mt-lg-0 m-md-0">
                                                             <button class="custom-btn w-100" data-i18n="add-new" type="button" data-bs-target="#exchangeRateModal" data-bs-toggle="modal">
-                                                                Add User
+                                                                Add New
                                                             </button>
                                                         </div>
                                                     <?php
