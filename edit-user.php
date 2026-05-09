@@ -360,7 +360,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 </div>
                                                                                                 <div class="col-8">
                                                                                                     <div class="file-name">
-                                                                                                        <div class="name"><?= $assignmentData["attachment"] ?></div>
+                                                                                                        <div class="name"><?= $uOptionalData["cv"] ?></div>
                                                                                                     </div>
                                                                                                 </div>
                                                                                             </div>

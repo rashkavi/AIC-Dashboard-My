@@ -126,21 +126,8 @@ class AdminDashboardSummary
             (
                 SELECT COUNT(*)
                 FROM `programmes`
-            ) AS programme_count,
-
-                    (
-                SELECT COUNT(DISTINCT `students_has_intakes_students_has_intakes_id`)
-                FROM `student_in_out_records`
-                WHERE `student_in_out_status_student_in_out_status_id` = 1
-                AND DATE(`date_updated`) = CURDATE()
-            ) AS today_check_in_count,
-            (
-                SELECT COUNT(DISTINCT `students_has_intakes_students_has_intakes_id`)
-                FROM `student_in_out_records`
-                WHERE `student_in_out_status_student_in_out_status_id` = 2
-                AND DATE(`date_updated`) = CURDATE()
-            ) AS today_check_out_count
-                  
+            ) AS programme_count
+                                   
         ");
 
         $paymentCardData = self::fetchRow("
@@ -483,25 +470,7 @@ class AdminDashboardSummary
                 'period' => $admissionsMeta['period'],
                 'chart' => $admissionsChart
             ],
-            [
-                'title' => 'Today Check IN Students',
-                'value' => number_format((int)$cardData['today_check_in_count']),
-                'icon' => 'ph:seal-check',
-                'change' => '',
-                'change_type' => 'neutral',
-                'period' => 'Today Total',
-                'chart' => []
-            ],
-            [
-                'title' => 'Today Check OUT Students',
-                'value' => number_format((int)$cardData['today_check_out_count']),
-                'icon' => 'uim:sign-out-alt',
-                'change' => '',
-                'change_type' => 'neutral',
-                'period' => 'Today Total',
-                'chart' => []
-            ],
-
+           
             [
                 'title' => 'Monthly Income',
                 'value' => number_format((float)$paymentCardData['monthly_batch_income'], 2),

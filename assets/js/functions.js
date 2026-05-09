@@ -11093,3 +11093,128 @@ const filterIntakePaymentPlanStudents = (id) => {
             setTimeout(() => { showToast("error", "An error occured. Please try again later."); }, 1000);
         });
 }
+
+const saveExchangeRate = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        baseCurrencyId: $("#baseCurrency").val(),
+        targetCurrencyId: $("#targetCurrency").val(),
+        rate: $("#exchangeRate").val(),
+        effectiveDate: $("#effectiveDate").val(),
+        note: $("#exchangeNote").val(),
+    };
+
+    const validationMap = {
+        baseCurrency: ["#baseCurrency", "#base-currency-feedback"],
+        targetCurrency: ["#targetCurrency", "#target-currency-feedback"],
+        rate: ["#exchangeRate", "#exchange-rate-feedback"],
+        effectiveDate: ["#effectiveDate", "#effective-date-feedback"],
+        note: ["#exchangeNote", "#exchange-note-feedback"],
+    };
+
+    fetch('api/addCurrencyExchangeRate.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            applyValidation(response, validationMap, false);
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                $("#exchangeRateModal").modal('hide');
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            setTimeout(() => {
+                showToast("error", "An error occurred. Please try again later.");
+            }, 500);
+
+        });
+
+}
+
+const updateExchangeRate = () => {
+    const data = {
+        exchangeRateId: $("#editExchangeRateId").val(),
+        rate: $("#editExchangeRate").val(),
+        effectiveDate: $("#editEffectiveDate").val(),
+        note: $("#editExchangeNote").val(),
+    };
+
+    const validationMap = {
+        rate: ["#editExchangeRate", "#edit-exchange-rate-feedback"],
+        effectiveDate: ["#editEffectiveDate", "#edit-effective-date-feedback"],
+        note: ["#editExchangeNote", "#edit-exchange-note-feedback"],
+    };
+
+    fetch("api/updateExchangeRate.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            applyValidation(response, validationMap, false);
+            if (response.hasOwnProperty("done")) {
+                showToast("success", response.done);
+                $("#editExchangeRateModal").modal("hide");
+
+                setTimeout(() => {
+                    location.reload();
+                }, 800);
+            } else if (response.hasOwnProperty("error")) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch(() => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+};
+
+const filterCurrencyExchange = (id) => {
+    const data = {
+        id: id,
+        text: $("#user-search-text").val() || "",
+        date: $("#date").val() || "",
+        resultPerPage: $("#show-result-selector").val() || 10,
+        page: selectedPage || 1,
+    };
+
+    fetch('api/filterCurrencyExchange.php', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    })
+        .then(res => res.text())
+        .then(text => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
+
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#users-table-container").html(result);
+            }
+        })
+        .catch(error => {
+            console.error("Filter users failed:", error);
+            showToast("error", "An error occurred. Please try again later.");
+        });
+};

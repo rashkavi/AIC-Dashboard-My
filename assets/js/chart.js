@@ -442,7 +442,7 @@ const initializeDashboard = async () => {
             chart.innerHTML = "";
         }
     });
-    
+
     await Promise.all([
         loadStudentEngagemnet(),
         loadAssignmentsPerformance(),
@@ -824,4 +824,109 @@ const initializeLecturerDashboard = () => {
             setTimeout(() => { showToast("error", "Something went wrong. Please try again."); }, 1000);
         });
 
+}
+
+const initializeCurrencyExchangeRates = () => {
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const firstDay = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1
+    ).toISOString().split("T")[0];
+
+    document.getElementById("fromDate").value = firstDay;
+    document.getElementById("toDate").value = today;
+
+    loadCurrencyChart();
+
+}
+let currencyRateChart = null;
+function loadCurrencyChart() {
+    const fromDate = document.getElementById("fromDate").value;
+    const toDate = document.getElementById("toDate").value;
+
+    const formData = new FormData();
+    formData.append("from_date", fromDate);
+    formData.append("to_date", toDate);
+
+    const data = {
+        fromDate: fromDate,
+        toDate: toDate
+    }
+
+    fetch("api/getCurrencyExchangeRates", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById("currencyRateChart");
+
+            if (currencyRateChart) {
+                currencyRateChart.destroy();
+            }
+
+            currencyRateChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: data.labels,
+                    datasets: data.datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                usePointStyle: true,
+                                boxWidth: 8
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    if (context.raw === null) {
+                                        return context.dataset.label + ": No rate";
+                                    }
+
+                                    return context.dataset.label + ": Rs. " +
+                                        Number(context.raw).toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                }
+                            }
+                        }
+                    },
+
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function (value) {
+                                    return "Rs. " + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
 }

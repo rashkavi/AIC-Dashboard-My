@@ -1,8 +1,7 @@
 <?php
-
+require_once './includes/connection.php';
 require_once './includes/UserClass.php';
 require_once './includes/UserPermissionsClass.php';
-require_once './includes/connection.php';
 require_once './includes/Project.php';
 if (!SessionUser::hasValidSession()) {
     header("Location: ./index");
@@ -19,9 +18,9 @@ if (!SessionUser::hasValidSession()) {
     }
 
     $alertDisplay = false;
-    if (isset($_COOKIE['times_academy_lms__user_login'])) {
-        setcookie('times_academy_lms__user_login', '', time() - 3600, '/');
-        unset($_COOKIE['times_academy_lms__user_login']);
+    if (isset($_COOKIE['aic_uni_lms__user_login'])) {
+        setcookie('aic_uni_lms__user_login', '', time() - 3600, '/');
+        unset($_COOKIE['aic_uni_lms__user_login']);
         $alertDisplay = true;
     }
 

@@ -1,4 +1,5 @@
 <?php
+require_once './includes/connection.php';
 require_once './includes/UserClass.php';
 require_once './includes/Project.php';
 if (SessionUser::hasValidSession()) {
@@ -7,11 +8,11 @@ if (SessionUser::hasValidSession()) {
     $email = null;
     $password = null;
     $rememberMe = null;
-    if (isset($_COOKIE['times_academy_lms__user_email'])) {
-        $email = $_COOKIE['times_academy_lms__user_email'];
+    if (isset($_COOKIE['aic_uni_lms__user_email'])) {
+        $email = $_COOKIE['aic_uni_lms__user_email'];
     }
-    if (isset($_COOKIE['times_academy_lms__user_password'])) {
-        $password = $_COOKIE['times_academy_lms__user_password'];
+    if (isset($_COOKIE['aic_uni_lms__user_password'])) {
+        $password = $_COOKIE['aic_uni_lms__user_password'];
     }
 
 ?>

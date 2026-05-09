@@ -5707,3 +5707,44 @@ const handleLoadPaymentPlanStudentsPagination = (id, action, pageId = null, tota
 
     filterIntakePaymentPlanStudents(id);
 }
+
+const openEditExchangeRateModal = (id, rate, effectiveDate, note) => {
+    $("#editExchangeRateId").val(id);
+    $("#editExchangeRate").val(rate);
+    $("#editEffectiveDate").val(effectiveDate);
+    $("#editExchangeNote").val(note);
+
+    $("#edit-exchange-rate-feedback").text("");
+    $("#edit-effective-date-feedback").text("");
+    $("#edit-exchange-note-feedback").text("");
+
+    $("#editExchangeRate").removeClass("is-invalid");
+    $("#editEffectiveDate").removeClass("is-invalid");
+    $("#editExchangeNote").removeClass("is-invalid");
+
+    $("#editExchangeRateModal").modal("show");
+};
+
+const handleCurrencyExchangeHistorysPagination = (id,action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+    }
+
+    filterCurrencyExchange(id);
+}
+

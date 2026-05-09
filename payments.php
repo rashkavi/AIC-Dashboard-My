@@ -99,6 +99,35 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center">
+                                                        <iconify-icon icon="icon-park-outline:currency" width="32" height="32" class="dark-theme"></iconify-icon>
+                                                    </div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Currency Exchange Rate</span>
+                                                        <span class="text-14 main-text" data-i18n="">Monitor and manage real-time currency conversions with accuracy</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <?php
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
+                                                        ?>
+                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                <a href="currency-exchange-rates" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                    <button class="custom-btn w-100" data-i18n="view">View</button>
+                                                                </a>
+                                                            </div>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
                                                     <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:student" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="student-payments">Students Payments</span>
@@ -162,70 +191,6 @@ if (!SessionUser::hasValidSession()) {
                         </div>
                     </div>
                 </div>
-
-                <?php
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
-                ?>
-                    <!-- Payment Add Model => Start -->
-                    <div class="modal fade br-0" id="addPayment" aria-hidden="true" aria-labelledby="addPaymentLabel" tabindex="-1">
-                        <div class="modal-dialog modal-lg modal-dialog-centered br-0">
-                            <div class="modal-content p-4">
-                                <div class="modal-header p-0 border-0">
-                                    <h1 class="modal-title text-16 text-dark-color" id="editPaymentLabel">Add Payment Category</h1>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body p-0 mt-3">
-                                    <div class="col-12 p-0 component-theme">
-                                        <div class="row p-0 gy-3 gx-3 align-content-center">
-                                            <div class="col-12 d-flex flex-column">
-                                                <label for="" class="text-14 main-text required">Payment Category Name</label>
-                                                <input type="text" class="form-control custom-input mt-2" id="new-category-name">
-                                                <span class="text-danger" id="new-category-name-feedback"></span>
-                                            </div>
-                                            <div class="col-12 d-flex justify-content-end">
-                                                <button class="custom-btn col-12 col-lg-4" onclick="addPaymentCategory();">Add New</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Payment Add Model => End -->
-                <?php
-                }
-
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
-                ?>
-                    <!-- Payment Edit Modal => Start -->
-                    <div class="modal fade br-0" id="editPayment" aria-hidden="true" aria-labelledby="editPaymentLabel" tabindex="-1">
-                        <div class="modal-dialog modal-lg modal-dialog-centered br-0">
-                            <div class="modal-content p-4">
-                                <div class="modal-header p-0 border-0">
-                                    <h1 class="modal-title text-16 text-dark-color" id="editPaymentLabel">Edit Payment Category</h1>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body p-0 mt-3">
-                                    <div class="col-12 p-0 component-theme">
-                                        <div class="row p-0 gy-3 gx-3 align-content-center">
-                                            <div class="col-12 d-flex flex-column">
-                                                <label for="" class="text-14 main-text required">Payment Category Name</label>
-                                                <input type="text" class="form-control custom-input mt-2" id="edit-category-name">
-                                                <span class="text-danger" id="edit-category-name-feedback"></span>
-                                            </div>
-                                            <div class="col-12 d-flex justify-content-end">
-                                                <button class="custom-btn col-12 col-lg-4" id="save-edit-category-btn">Save Changes</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Payment Edit Modal => End -->
-                <?php
-                }
-                ?>
 
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>

@@ -13,7 +13,7 @@ if (SessionUser::hasValidSession()) {
                 $status->error = "You don't have permission to add branch";
             } else {
                 $branch_name = isset($_POST['branch_name']) ? $_POST['branch_name'] : '';
-                $branch_cover;
+                $branch_cover = '';
                 if (empty($branch_name)) {
                     $status->name =  "Please enter branch name";
                 } else if (strlen($branch_name) > 100) {

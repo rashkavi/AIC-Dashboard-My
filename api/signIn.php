@@ -36,14 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 WHERE users_user_id = '" . $data["user_id"] . "' AND status_status_id = 1 AND `permission_to`.`permission_type_permission_type_id`='1'
 
                                 UNION ALL
-
-                                 SELECT 'incidents' AS permission_type, users_user_id AS permission_type_related_id, permissions_permission_id AS permission_id
-                                FROM users_has_permission_to_other
-                                INNER JOIN `permission_to` ON `users_has_permission_to_other`.`permission_to_permission_to_id` = `permission_to`.`permission_to_id`
-                                WHERE users_user_id = '" . $data["user_id"] . "' AND status_status_id = 1 AND `permission_to`.`permission_type_permission_type_id`='23'
-
-                                UNION ALL
-
+                              
                                 SELECT 'attendance' AS permission_type, users_user_id AS permission_type_related_id, permissions_permission_id AS permission_id
                                 FROM users_has_permission_to_other
                                 INNER JOIN `permission_to` ON `users_has_permission_to_other`.`permission_to_permission_to_id` = `permission_to`.`permission_to_id`
@@ -215,10 +208,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             ];
 
                             SessionUser::startSession($data['user_role'], $userData);
-                            setcookie("times_academy_lms__user_login", "login", time() + 3600, "/");
+                            setcookie("aic_uni_lms__user_login", "login", time() + 3600, "/");
                             if ($rememberMe) {
-                                setcookie("times_academy_lms__user_email", $email, time() + (86400 * 30), "/", "", true, true);
-                                setcookie("times_academy_lms__user_password", $password, time() + (86400 * 30), "/", "", true, true);
+                                setcookie("aic_uni_lms__user_email", $email, time() + (86400 * 30), "/", "", true, true);
+                                setcookie("aic_uni_lms__user_password", $password, time() + (86400 * 30), "/", "", true, true);
                             }
 
                             require '../vendor/autoload.php';
