@@ -22,13 +22,13 @@ function sendMail($to, $toName, $subject, $body)
     $mail->isSMTP();                                            //Send using SMTP
     $mail->Host       = 'smtp.titan.email';                     //Set the SMTP server to send through
     $mail->SMTPAuth   = true;                                   //Enable SMTP authentication
-    $mail->Username   = 'no-reply@zeynics.com';                     //SMTP username
-    $mail->Password   = 'Abc#@!2025';                               //SMTP password
+    $mail->Username   = 'no-reply@aiccampuslms.com';                     //SMTP username
+    $mail->Password   = 'AicLMS#@!2026Campus';                               //SMTP password
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
     $mail->Port       = 465;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
 
     //Recipients
-    $mail->setFrom('no-reply@zeynics.com', Project::getBaseName());
+    $mail->setFrom('no-reply@aiccampuslms.com', Project::getBaseName());
     $mail->addAddress($to, $toName);     //Add a recipient
     //$mail->addAddress('ellen@example.com');               //Name is optional
     //$mail->addCC('cc@example.com');
