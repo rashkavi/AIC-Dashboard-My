@@ -74,7 +74,7 @@ function renderMailBody($verificationLink, $status)
     border-radius: 10px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
     padding: 40px;
-    border-top: 5px solid #F0C71F;
+    border-top: 5px solid #21409B;
 }
 
 h1 {
@@ -94,7 +94,7 @@ p {
 /* Button */
 .button {
     display: inline-block;
-    background-color: #F0C71F;
+    background-color: #21409B;
     color: #1F2937 !important;
     text-decoration: none;
     padding: 14px 28px;
@@ -106,7 +106,7 @@ p {
 }
 
 .button:hover {
-    background-color: #E2B814;
+    background-color: #18327F;
     transform: translateY(-1px);
 }
 

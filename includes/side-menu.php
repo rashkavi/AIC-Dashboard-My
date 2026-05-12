@@ -27,7 +27,7 @@ class load_side_menu
                 ["Students", "ph:student", "students", "students"],
             ]);
         }
-  
+
         $menuItems = array_merge($menuItems, [
             ["Course Overview", "hugeicons:course", "branches", "course-overview"],
         ]);
@@ -50,11 +50,11 @@ class load_side_menu
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::validPermisisonType('attendance')) {
-            $menuItems = array_merge($menuItems, [
-                ["Attendance", "gg:check-o", "attendance", "attendance"],
-            ]);
-        }
+        // if (SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::validPermisisonType('attendance')) {
+        //     $menuItems = array_merge($menuItems, [
+        //         ["Attendance", "gg:check-o", "attendance", "attendance"],
+        //     ]);
+        // }
 
         if (!SessionUser::ifUserIsLecturer($sessionUserRole)) {
             $menuItems = array_merge($menuItems, [
@@ -71,8 +71,8 @@ class load_side_menu
 
 ?>
         <nav class="d-flex flex-column container-fluid p-0 m-0 vh-100 gap-1 component-theme">
-        <div class="flex-grow-1 overflow-scroll p-0">
-                <div class="row container-fluid overflow-hidden justify-content-center component-theme py-2 p-3 m-0">
+            <div class="flex-grow-1 overflow-scroll p-0">
+                <div class="row container-fluid overflow-hidden justify-content-center component-theme py-4 p-3 m-0">
                     <img src="" alt="<?= Project::getBaseName() ?> Logo" class="institute-logo w-100 p-0 m-0">
                 </div>
                 <div class="flex-grow-1 px-3 pe-0">

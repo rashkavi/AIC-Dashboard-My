@@ -97,7 +97,7 @@ TEXT;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
         padding: 40px;
         margin-bottom: 20px;
-        border-top: 5px solid #F0C71F;
+        border-top: 5px solid #21409B;
     }
 
     /* Button */
@@ -108,7 +108,7 @@ TEXT;
 
     .button {
         display: inline-block;
-        background-color: #F0C71F;
+        background-color: #21409B;
         color: #1A2A46 !important;
         text-decoration: none;
         padding: 13px 34px;
@@ -120,7 +120,7 @@ TEXT;
     }
 
     .button:hover {
-        background-color: #E2B814;
+        background-color: #18327F;
         transform: translateY(-1px);
     }
 

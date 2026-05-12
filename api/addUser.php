@@ -5,7 +5,9 @@ require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
 require_once("../includes/phpmailer/mail-process.php");
-require_once("../includes/phpmailer/mail-body.php");
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     $sessionUserObject = SessionUser::getCurrentUserObject();
@@ -34,8 +36,8 @@ if (SessionUser::hasValidSession()) {
                 $bio = isset($_POST['bio']) ? $_POST['bio'] : '';
                 $achivements = isset($_POST['achivements']) ? $_POST['achivements'] : '';
                 $experience = isset($_POST['experience']) ? $_POST['experience'] : '';
-                $image;
-                $cv_file_name;
+                $image = "";
+                $cv_file_name = "";
 
                 if ($title == 0) {
                     $status->title =  "Please select user title";
@@ -277,10 +279,18 @@ if (SessionUser::hasValidSession()) {
                         move_uploaded_file($_FILES["cv"]["tmp_name"], $qcv_path);
                     }
 
-                    $url = Project::getBaseUrl() . "/setup-password?token=" . $token;
+                    $mail = EmailNotificationService::build(
+                        EmailTemplateContent::PASSWORD_SETUP,
+                        [
+                            'action_url' => Project::getBaseUrl() . "/setup-password?token=" . $token
+                        ]
+                    );
+
                     $titleName = Database::search("SELECT `title` FROM `title` WHERE `title_id`='" . $title . "'")->fetch_assoc()["title"];
-                    $fullName = $titleName . "." . $fname . " " . $lname;
-                    sendMail($email, $fullName, "Verify Email", renderMailBody($url, 1));
+                    $userName = $titleName . "." . $fname . " " . $lname;
+
+                    sendMail($email, $userName, $mail['subject'], $mail['body']);
+
                     $status->done =  "User Added Successfully";
                 }
             }

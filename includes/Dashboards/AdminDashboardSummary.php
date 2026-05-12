@@ -126,7 +126,16 @@ class AdminDashboardSummary
             (
                 SELECT COUNT(*)
                 FROM `programmes`
-            ) AS programme_count
+            ) AS programme_count,
+
+            (
+                SELECT COUNT(*)
+                FROM `intakes`
+            )AS intake_count,
+             (
+                SELECT COUNT(DISTINCT subject)
+                FROM `subjects`
+            )AS subject_count
                                    
         ");
 
@@ -470,7 +479,25 @@ class AdminDashboardSummary
                 'period' => $admissionsMeta['period'],
                 'chart' => $admissionsChart
             ],
-           
+            [
+                'title' => 'Users',
+                'value' => number_format((int)$cardData['users_count']),
+                'icon' => 'mdi:account-group-outline',
+                'change' => '',
+                'change_type' => 'neutral',
+                'period' => 'Active',
+                'chart' => []
+            ],
+            [
+                'title' => 'Lecturers',
+                'value' => number_format((int)$cardData['lecturers_count']),
+                'icon' => 'mdi:teach',
+                'change' => '',
+                'change_type' => 'neutral',
+                'period' => 'Active',
+                'chart' => []
+            ],
+
             [
                 'title' => 'Monthly Income',
                 'value' => number_format((float)$paymentCardData['monthly_batch_income'], 2),
@@ -508,15 +535,7 @@ class AdminDashboardSummary
                 'period' => $rejectMeta['period'],
                 'chart' => $rejectedPaymentsChart
             ],
-            [
-                'title' => 'Users',
-                'value' => number_format((int)$cardData['users_count']),
-                'icon' => 'mdi:account-group-outline',
-                'change' => '',
-                'change_type' => 'neutral',
-                'period' => 'Active',
-                'chart' => []
-            ],
+
             [
                 'title' => 'Faculties',
                 'value' => number_format((int)$cardData['faculties_count']),
@@ -536,14 +555,24 @@ class AdminDashboardSummary
                 'chart' => []
             ],
             [
-                'title' => 'Lecturers',
-                'value' => number_format((int)$cardData['lecturers_count']),
-                'icon' => 'mdi:teach',
+                'title' => 'Intakes',
+                'value' => number_format((int)$cardData['intake_count']),
+                'icon' => 'material-symbols-light:star-rounded',
+                'change' => '',
+                'change_type' => 'neutral',
+                'period' => 'Total',
+                'chart' => []
+            ],
+            
+            [
+                'title' => 'Subjects',
+                'value' => number_format((int)$cardData['subject_count']),
+                'icon' => 'material-symbols:subject-rounded',
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Active',
                 'chart' => []
-            ],
+            ]
 
         ];
 

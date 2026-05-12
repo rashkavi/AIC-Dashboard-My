@@ -1,11 +1,11 @@
 <?php
 class Project
 {
-    private const BASE_NAME = "Times Academy";
-    private const BASE_URL = "https://dashboard.timesacademylms.com";
-    private const BASE_PORTAL_URL = "https://portal.timesacademylms.com";
+    private const BASE_NAME = "AIC Campus";
+    private const BASE_URL = "https://dashboard.aiccampuslms.com";
+    private const BASE_PORTAL_URL = "https://portal.aiccampuslms.com";
     private const INSTITUTE_LOGO = "common/logo.png";
-    private const VERSION = "2.3.51";
+    private const VERSION = "2.3.1";
 
     public static function getBaseName()
     {
