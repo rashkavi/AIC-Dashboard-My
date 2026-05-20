@@ -18,6 +18,15 @@ if (!SessionUser::hasValidSession()) {
             header("Location: ./students");
         } else {
 
+            $countries = array();
+            $countries_rs = Database::search("SELECT * FROM `countries`");
+            while ($data = $countries_rs->fetch_assoc()) {
+                array_push($countries, [
+                    'id' => $data['country_id'],
+                    'name' => $data['country_name']
+                ]);
+            }
+
 ?>
             <!DOCTYPE html>
             <html lang="en">
@@ -38,7 +47,7 @@ if (!SessionUser::hasValidSession()) {
                 <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
             </head>
 
-            <body class="overflow-hidden" onload="initializeAddStudent()">
+            <body class="overflow-hidden" onload="initializeAddStudent(),initializeStudentDocumentUploads();">
                 <div class="notifications"></div>
                 <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
                     <div id="appContainer" class="row p-0">
@@ -204,17 +213,41 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                         <div class="col-12 col-md-4 d-flex flex-column">
                                                                             <label class="text-14 main-text not-required" for="">Nationality</label>
-                                                                            <input type="text" class="form-control custom-input mt-2" value="Sri Lanka" id="nationality" maxlength="45" onkeypress="checkValidChar(event)">
+                                                                            <select class="form-select custom-select mt-2" id="nationality">
+                                                                                <?php
+                                                                                foreach ($countries as $country) {
+                                                                                ?>
+                                                                                    <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == 69 ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
                                                                             <span id="nationality-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 d-flex flex-column">
                                                                             <label class="text-14 main-text not-required" for="">Country of Birth</label>
-                                                                            <input type="text" class="form-control custom-input mt-2" disabled value="Sri Lanka" id="country-of-birth" maxlength="45">
+                                                                            <select class="form-select custom-select mt-2" id="country-of-birth">
+                                                                                <?php
+                                                                                foreach ($countries as $country) {
+                                                                                ?>
+                                                                                    <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == 69 ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
                                                                             <span id="cob-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 d-flex flex-column">
                                                                             <label class="text-14 main-text not-required" for="">Country of Residence</label>
-                                                                            <input type="text" class="form-control custom-input mt-2" disabled value="Sri Lanka" id="country-of-residence" maxlength="45">
+                                                                            <select class="form-select custom-select mt-2" id="country-of-residence" onchange="changeCountryOfResidence(this.value)">
+                                                                                <?php
+                                                                                foreach ($countries as $country) {
+                                                                                ?>
+                                                                                    <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == 69 ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
                                                                             <span id="cor-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                     </div>
@@ -312,6 +345,27 @@ if (!SessionUser::hasValidSession()) {
                                                         if (Limitation::availableStudents()) {
                                                         ?>
                                                             <div class="col-12 col-md-3 d-flex flex-column">
+                                                                <label class="text-14 main-text" for="">Branches</label>
+                                                                <?php
+                                                                $branchesResult = Database::search("SELECT * FROM `branches` ORDER BY `branch_id` ASC");
+                                                                $branches = [];
+                                                                while ($data = $branchesResult->fetch_assoc()) {
+                                                                    $branches[] = $data;
+                                                                }
+                                                                ?>
+                                                                <select id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties();">
+                                                                    <option value="0">- Select -</option>
+                                                                    <?php
+                                                                    foreach ($branches as $data) {
+                                                                    ?>
+                                                                        <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                    <?php
+                                                                    }
+                                                                    ?>
+                                                                </select>
+                                                                <span class="text-dark-red text-12" id="branch-feedback"></span>
+                                                            </div>
+                                                            <div class="col-12 col-md-3 d-flex flex-column">
                                                                 <label class="text-14 main-text" for="">Faculties</label>
                                                                 <?php
                                                                 $facultiesResult = Database::search("SELECT * FROM `faculties` ORDER BY `faculty_id` ASC");
@@ -320,7 +374,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     $faculties[] = $data;
                                                                 }
                                                                 ?>
-                                                                <select id="faculty-selector" class="form-select custom-select mt-2" onchange="loadProgrammes();">
+                                                                <select id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes();">
                                                                     <option value="0">- Select -</option>
                                                                     <?php
                                                                     foreach ($faculties as $data) {
@@ -332,46 +386,46 @@ if (!SessionUser::hasValidSession()) {
                                                                 </select>
                                                                 <span class="text-dark-red text-12" id="faculty-feedback"></span>
                                                             </div>
+
+                                                            <div class="col-12 col-md-3 d-flex flex-column">
+                                                                <label class="text-14 main-text" for="">Programmes</label>
+                                                                <?php
+                                                                $programmesResult = Database::search("SELECT * FROM `programmes` ORDER BY `programme_id` ASC");
+                                                                $programmes = [];
+                                                                while ($data = $programmesResult->fetch_assoc()) {
+                                                                    $programmes[] = $data;
+                                                                }
+                                                                ?>
+                                                                <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                                    <option value="0">- Select -</option>
+                                                                </select>
+                                                                <span class="text-dark-red text-12" id="programme-feedback"></span>
+
+                                                            </div>
+                                                            <div class="col-12 col-md-3 d-flex flex-column">
+                                                                <label class="text-14 main-text" for="">Intakes</label>
+                                                                <?php
+                                                                $intakesResult = Database::search("SELECT * FROM `intakes` ORDER BY `intake_id` ASC");
+                                                                $intakes = [];
+                                                                while ($data = $intakesResult->fetch_assoc()) {
+                                                                    $intakes[] = $data;
+                                                                }
+                                                                ?>
+                                                                <select id="intake-selector" disabled class="form-select custom-select mt-2">
+                                                                    <option value="0">- Select -</option>
+                                                                </select>
+                                                                <span class="text-dark-red text-12" id="intake-feedback"></span>
+                                                            </div>
+                                                            <div class="col-12 col-md-3 d-flex flex-column">
+                                                                <label class="text-14 main-text" for="">Student Id</label>
+                                                                <input type="text" class="form-control custom-input mt-2" id="student-intake-id">
+                                                                <span id="student-intake-id-feedback" class="text-dark-red text-12"></span>
+                                                            </div>
                                                         <?php
                                                         } else {
                                                             echo Limitation::getLimitExceededMessage();
                                                         }
                                                         ?>
-
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
-                                                            <label class="text-14 main-text" for="">Programmes</label>
-                                                            <?php
-                                                            $programmesResult = Database::search("SELECT * FROM `programmes` ORDER BY `programme_id` ASC");
-                                                            $programmes = [];
-                                                            while ($data = $programmesResult->fetch_assoc()) {
-                                                                $programmes[] = $data;
-                                                            }
-                                                            ?>
-                                                            <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
-                                                                <option value="0">- Select -</option>
-                                                            </select>
-                                                            <span class="text-dark-red text-12" id="programme-feedback"></span>
-
-                                                        </div>
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
-                                                            <label class="text-14 main-text" for="">Intakes</label>
-                                                            <?php
-                                                            $intakesResult = Database::search("SELECT * FROM `intakes` ORDER BY `intake_id` ASC");
-                                                            $intakes = [];
-                                                            while ($data = $intakesResult->fetch_assoc()) {
-                                                                $intakes[] = $data;
-                                                            }
-                                                            ?>
-                                                            <select id="intake-selector" disabled class="form-select custom-select mt-2">
-                                                                <option value="0">- Select -</option>
-                                                            </select>
-                                                            <span class="text-dark-red text-12" id="intake-feedback"></span>
-                                                        </div>
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
-                                                            <label class="text-14 main-text" for="">Student Id</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="student-intake-id">
-                                                            <span id="student-intake-id-feedback" class="text-dark-red text-12"></span>
-                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-12 p-0 g-0 mt-5">
@@ -437,6 +491,305 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 </div>
 
+                                                <div class="col-12 p-0 g-0 mt-5">
+                                                    <span class="sub-topic">Student Required Documents</span>
+
+                                                    <div class="row mt-2" id="student-documents-wrapper">
+
+                                                        <!-- AIC Application -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="aic_application">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">AIC Application</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-aic-application"
+                                                                        data-doc-key="aic_application"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-aic-application-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- University Application -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="university_application">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">University Application</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-university-application"
+                                                                        data-doc-key="university_application"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-university-application-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Signed Agreement -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="signed_agreement">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Signed Agreement with Letters</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-signed-agreement"
+                                                                        data-doc-key="signed_agreement"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-signed-agreement-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Signed Program Brief -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="signed_program_brief">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Signed Program Brief</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-signed-program-brief"
+                                                                        data-doc-key="signed_program_brief"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-signed-program-brief-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Passport / NIC -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="passport_nic">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Passport / NIC</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-passport-nic"
+                                                                        data-doc-key="passport_nic"
+                                                                        accept=".pdf,.jpg,.jpeg,.png">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-passport-nic-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Academic Documents -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="academic_documents">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Academic Documents</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop files here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse Files
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-academic-documents"
+                                                                        data-doc-key="academic_documents"
+                                                                        multiple
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-academic-documents-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Other Entry Documents -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="other_entry_documents">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Other Entry Documents</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop files here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse Files
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-other-entry-documents"
+                                                                        data-doc-key="other_entry_documents"
+                                                                        multiple
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-other-entry-documents-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Payment Slip -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="payment_slip">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Payment Slip</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-payment-slip"
+                                                                        data-doc-key="payment_slip"
+                                                                        accept=".pdf,.jpg,.jpeg,.png">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-payment-slip-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Check List Signed by Manager -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="manager_checklist">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Check List Document Signed by Manager</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-manager-checklist"
+                                                                        data-doc-key="manager_checklist"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-manager-checklist-feedback"></span>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Discount Approved Document -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Discount Approved Document</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-discount-approved-document"
+                                                                        data-doc-key="discount_approved_document"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-discount-approved-document-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                               
                                                 <div class="col-12 p-0 g-0 mt-5">
                                                     <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                         <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">

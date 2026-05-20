@@ -10,7 +10,7 @@ if (SessionUser::hasValidSession()) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $level_name = isset($_POST['level_name']) ? $_POST['level_name'] : '';
             $intake_id = isset($_POST['intake_id']) ? $_POST['intake_id'] : '';
-            $level_cover;
+            $level_cover = '';
             if (empty($intake_id)) {
                 $status->error = "Invalid intake Id";
             } else if (!is_numeric($intake_id)) {
@@ -67,8 +67,6 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select level cover";
                         }
                         if (!property_exists($status, 'name') &&  !property_exists($status, 'cover')) {
                             $timezone = new DateTimeZone("Asia/Colombo");
@@ -81,6 +79,9 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($level_cover)) {
                                 $level_insert_columns .= ", `level_cover`";
                                 $level_insert_values .= ",'" . $level_cover . "'";
+                            } else {
+                                $level_insert_columns .= ", `level_cover`";
+                                $level_insert_values .= ",'empty-thumbnail.webp'";
                             }
                             Database::iud("INSERT INTO `levels` (" . $level_insert_columns . ") VALUES (" . $level_insert_values . ")");
 

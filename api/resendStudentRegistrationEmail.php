@@ -3,6 +3,12 @@
 $status = new stdClass();
 require_once '../includes/UserClass.php';
 require_once '../includes/Project.php';
+require_once("../includes/UserPermissionsClass.php");
+require_once("../includes/Limitation.php");
+require_once("../includes/phpmailer/mail-process.php");
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -35,83 +41,36 @@ if (SessionUser::hasValidSession()) {
                             $bytes = random_bytes(75);
                             $token = substr(str_replace(['+', '/', '='], '', base64_encode($bytes)), 0, 100);
 
-                            Database::iud("UPDATE `login_details` SET `verification` = '" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
 
                             $url = "setup-password?token=" . $token;
 
-                            if (!empty($data['verification']) && empty($data['reset_time'])) {
-                                $formattedWhatsapp = normalizePhoneNumber($studentData['whatsapp']);
-
-                                $curl = curl_init();
-                                curl_setopt_array($curl, array(
-                                    CURLOPT_URL => 'https://graph.facebook.com/v22.0/1046956908493510/messages',
-                                    CURLOPT_RETURNTRANSFER => true,
-                                    CURLOPT_POST => true,
-                                    CURLOPT_HTTPHEADER => array(
-                                        "Authorization: Bearer EAAWijtYusPgBRMOqgf1ZChSWZBhrXDDKn2XZBl3mavZCkZC1mKfvDaZAfrOKTeaOJce5bMB6fJmK3qsvG545CkUJclqxBJc8aDIc2mFI4pGb1shsAW0z35XLCvugiuZCtyWhUerzoMg5lWI1Ky5hbNQs0iZC3NuoTaavKFJ8iLazqvMVPELLZAKG6FgA8kdDDgJG7zwZDZD",
-                                        "Content-Type: application/json"
-                                    ),
-                                    CURLOPT_POSTFIELDS => json_encode([
-                                        "messaging_product" => "whatsapp",
-                                        "recipient_type" => "individual",
-                                        "to" => $formattedWhatsapp,
-                                        "type" => "template",
-                                        "template" => [
-                                            "name" => "welcome_message",
-                                            "language" => [
-                                                "code" => "en_US"
-                                            ],
-                                            "components" => [
-                                                [
-                                                    "type" => "body",
-                                                    "parameters" => [
-                                                        [
-                                                            "type" => "text",
-                                                            "text" => $fullname
-                                                        ]
-                                                    ]
-                                                ],
-                                                [
-                                                    "type" => "button",
-                                                    "sub_type" => "url",
-                                                    "index" => "0",
-                                                    "parameters" => [
-                                                        [
-                                                            "type" => "text",
-                                                            "text" => $url,
-                                                        ]
-                                                    ]
-                                                ]
-
-                                            ]
+                            try {
+                                if (empty($studentData['reset_time'])) {
+                                    Database::iud("UPDATE `login_details` SET `verification` = '" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
+                                    $mail = EmailNotificationService::build(
+                                        EmailTemplateContent::PASSWORD_SETUP,
+                                        [
+                                            'action_url' => Project::getBasePortalUrl() . "/setup-password?token=" . $token
                                         ]
-                                    ])
-                                ));
-                                $response = curl_exec($curl);
-                                curl_close($curl);
-
-                                $curlData = json_decode($response, true);
-                                if (isset($curlData['error'])) {
-                                    $status->error =  "Resend registration link failed";
+                                    );
+                                    sendMail($email, $fullname, $mail['subject'], $mail['body']);
                                 } else {
-                                    $status->done =  "Resend registration link successfully";
-                                }
-                            } else {
-                                require_once("../includes/phpmailer/mail-process.php");
-                                require_once("../includes/phpmailer/student-mail-body.php");
+                                    $timezone = new DateTimeZone("Asia/Colombo");
+                                    $dateTime = new DateTime("now", $timezone);
+                                    $resetTime = $dateTime->format('Y-m-d H:i:s');
 
-                                try {
-                                    if (empty($studentData['reset_time'])) {
-                                        $url = Project::getBasePortalUrl() . "/setup-password?token=" . $token;
-                                        sendMail($email, $fullname, "Verify Email", renderMailBody($url, 1));
-                                    } else {
-                                        $url = Project::getBasePortalUrl() . "/forgot-password?token=" . $token;
-                                        sendMail($email, $fullname, "Forgoten Password", renderMailBody($url, 0));
-                                    }
-                                    $status->done =  "Email resend successfully!";
-                                } catch (Exception $e) {
-                                    $status->error = 'Email sending failed.';
+                                    Database::iud("UPDATE `login_details` SET `verification` = '" . $token . "', `reset_time` = '" . $resetTime . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
+                                    $mail = EmailNotificationService::build(
+                                        EmailTemplateContent::PASSWORD_SETUP,
+                                        [
+                                            'action_url' => Project::getBasePortalUrl() . "/forgot-password?token=" . $token
+                                        ]
+                                    );
+                                    sendMail($email, $fullname, $mail['subject'], $mail['body']);
                                 }
+                                $status->done =  "Email resend successfully!";
+                            } catch (Exception $e) {
+                                $status->error = 'Email sending failed.';
                             }
                         }
                     }

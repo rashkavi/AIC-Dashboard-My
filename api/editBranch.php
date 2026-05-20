@@ -85,7 +85,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $branch_cover;
                                 move_uploaded_file($_FILES["branch_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($branchData['branch_cover']) && file_exists($cover_path . $branchData['branch_cover'])) {
+                                if (!empty($branchData['branch_cover']) && $branchData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $branchData['branch_cover'])) {
                                     unlink($cover_path . $branchData['branch_cover']);
                                 }
                             }

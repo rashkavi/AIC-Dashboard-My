@@ -303,14 +303,14 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Programe Name</label>
+                                                    <label for="" class="text-14 main-text required">Programe Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" value="Portal Payment" id="edit-programme-name">
                                                     <span class="text-12 text-dark-red" id="ep-name-feedback"></span>
                                                 </div>
                                                 <div class="col-12">
                                                     <div class="row p-0 gy-3 gx-3 align-content-center" id="edit-programme-duration-row">
                                                         <div class="col-12 col-lg-6 d-flex flex-column" id="edit-select-duration">
-                                                            <label for="" class="text-14 main-text">Programe Duration</label>
+                                                            <label for="" class="text-14 main-text required">Programe Duration</label>
                                                             <select name="" class="form-select custom-select mt-2" id="edit-programme-duration">
                                                                 <option value="0">Select Duration</option>
                                                                 <?php
@@ -330,7 +330,7 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                     <div class="row p-0 gy-3 gx-3 align-content-center d-none" id="edit-new-programme-duration-row">
                                                         <div class="col-12 col-lg-6 d-flex flex-column">
-                                                            <label class="text-14 main-text d-inline-flex align-items-center" for="">
+                                                            <label class="text-14 main-text d-inline-flex align-items-center required" for="">
                                                                 New Programme Duration
                                                                 <span class="chip-info-icon me-0 d-flex align-items-center mx-1" data-tooltip="Add the duration for the new programme you want to create.">
                                                                     <iconify-icon icon="iwwa:info" width="18" height="18"></iconify-icon>
@@ -346,7 +346,7 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
 
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Programe Cover</label>
+                                                    <label for="" class="text-14 main-text required">Programe Cover</label>
                                                     <div class="row gx-4 mt-2 d-flex align-items-stretch">
                                                         <div class="col-12 col-lg-3 d-flex flex-column justify-content-end">
                                                             <img src="./assets/imgs/courses-thumbnails/image.png" class="w-100 h-auto" alt="edit-programme-cover" id="edit-programme-cover">

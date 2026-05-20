@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $levelData = $validLevel->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $intake_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $levelData['intakes_intake_id']))) {
                         $status->error = 'You do not have permission to add level to this intake';
                     } else {
                         $level_name = isset($_POST['level_name']) ? trim($_POST['level_name']) : '';
@@ -84,7 +84,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $level_cover;
                                 move_uploaded_file($_FILES["level_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($levelData['level_cover']) && file_exists($cover_path . $levelData['level_cover'])) {
+                                if (!empty($levelData['level_cover']) && $levelData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $levelData['level_cover'])) {
                                     unlink($cover_path . $levelData['level_cover']);
                                 }
                             }

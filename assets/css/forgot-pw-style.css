@@ -1,23 +1,23 @@
 [data-custom-theme="light"] {
-    --primary: #F0C71F;
-    --primary-light: #FFF4C4;
+    --primary: #21409B;
+    --primary-light: #E9EEFF;
     --text: #1F2A3A;
     --text-light: #5A6B84;
-    --border: #E2D89A;
+    --border: #D5DDF7;
 
     --error: #E53E3E;
     --success: #38A169;
-    --bg: #F9FAFC;
+    --bg: #F5F8FF;
 }
 
 
 [data-custom-theme="dark"] {
-    --primary: #F0C71F;
-    --primary-light: #3A3315;
+    --primary: #21409B;
+    --primary-light: #25345eb7;
 
     --text: #E6E9EF;
     --text-light: #A3ACBA;
-    --border: #4A4325;
+    --border: #3550A8;
 
     --error: #F56565;
     --success: #48BB78;

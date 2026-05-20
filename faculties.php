@@ -209,7 +209,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Faculty Name</label>
+                                                    <label for="" class="text-14 main-text required">Faculty Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="faculty-name">
                                                     <span class="text-12 text-dark-red" id="af-name-feedback"></span>
                                                 </div>
@@ -273,7 +273,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Faculty Name</label>
+                                                    <label for="" class="text-14 main-text required">Faculty Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" value="Portal Payment" id="edit-faculty-name">
                                                     <span class="text-12 text-dark-red" id="ef-name-feedback"></span>
                                                 </div>

@@ -13,7 +13,7 @@ if (SessionUser::hasValidSession()) {
             $programme_duration = isset($_POST['programme_duration']) ? $_POST['programme_duration'] : 0;
             $new_programme_duration = isset($_POST['new_programme_duration']) ? $_POST['new_programme_duration'] : 0;
             $faculty_id = isset($_POST['faculty_id']) ? $_POST['faculty_id'] : '';
-            $programme_cover;
+            $programme_cover = '';
 
             if (empty($faculty_id)) {
                 $status->error = "Invalid faculty Id";
@@ -106,9 +106,7 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select programme cover";
-                        }
+                        } 
                         if (!property_exists($status, 'name') && !property_exists($status, 'cover') && !property_exists($status, 'duration')) {
                             $timezone = new DateTimeZone("Asia/Colombo");
                             $dateTime = new DateTime("now", $timezone);
@@ -128,6 +126,9 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($programme_cover)) {
                                 $programme_insert_columns .= ", `programme_cover`";
                                 $programme_insert_values .= ",'" . $programme_cover . "'";
+                            }else{
+                                $programme_insert_columns .= ", `programme_cover`";
+                                $programme_insert_values .= ",'empty-thumbnail.webp'";
                             }
                             Database::iud("INSERT INTO `programmes` (" . $programme_insert_columns . ") VALUES (" . $programme_insert_values . ")");
 

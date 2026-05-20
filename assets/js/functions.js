@@ -399,6 +399,7 @@ const addStudent = (btn) => {
     form.append("city", $("#city").val());
     form.append("pcode", $("#postal-code").val());
     form.append("image", $("#file-input").prop("files")[0]);
+    form.append("branch", $("#branch-selector").val());
     form.append("faculty", $("#faculty-selector").val());
     form.append("programme", $("#programme-selector").val());
     form.append("intake", $("#intake-selector").val());
@@ -409,6 +410,8 @@ const addStudent = (btn) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+
+    appendStudentDocumentsToFormData(form);
 
     const validationMap = {
         id: ["#student-intake-id", "#student-intake-id-feedback"],
@@ -442,6 +445,16 @@ const addStudent = (btn) => {
         gemail: ["#guardian-email", "#gemail-feedback"],
         gmobile: ["#guardian-mobile", "#gmobile-feedback"],
         gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"]
     };
 
     fetch("api/addStudent.php", {
@@ -1101,6 +1114,34 @@ const editSubject = (btn, id) => {
             showToast("error", "An error occured. Please try again later.");
         });
 }
+const loadFaculties = () => {
+    const branch = $("#branch-selector").val();
+    fetch(`api/loadFaculties.php?id=${branch}`)
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    showToast("error", response.error);
+                    $("#faculty-selector").attr("disabled", true);
+                } else if (response.hasOwnProperty('branch')) {
+                    $("#faculty-selector").attr("disabled", true);
+                    $("#faculty-selector").html("<option value='0'>- Select -</option>");
+                    $("#branch-selector").addClass("is-invalid");
+                    $("#branch-feedback").text(response.branch);
+                }
+            } catch (error) {
+                $("#branch-selector").removeClass("is-invalid");
+                $("#branch-feedback").text("");
+                $("#faculty-selector").removeAttr("disabled");
+                $("#faculty-selector").html(data);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
 const loadProgrammes = () => {
     const faculty = $("#faculty-selector").val();
     fetch(`api/loadProgrammes.php?id=${faculty}`)
@@ -4125,6 +4166,10 @@ const addStudentToIntake = (btn, id) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("entry_type", $("input[name='entry_type']:checked").val());
+    form.append("payment_option", $("#payment-option").val());
+
+    appendStudentDocumentsToFormData(form);
 
     const validationMap = {
         id: ["#student-intake-id", "#student-intake-id-feedback"],
@@ -4158,6 +4203,16 @@ const addStudentToIntake = (btn, id) => {
         gemail: ["#guardian-email", "#gemail-feedback"],
         gmobile: ["#guardian-mobile", "#gmobile-feedback"],
         gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"]
     };
 
     fetch("api/addStudentToIntake.php", {
@@ -4234,7 +4289,9 @@ const updatePaymentStatus = (btn, paymentId) => {
     const data = {
         paymentId: paymentId,
         paymentStatus: $("#status-selector").val(),
-        receiptOption: $("#receipt-option").val(),
+        amount: $("#paid-amount").val(),
+        method: $("#payment-method").val(),
+        date: $("#paid-date").val(),
         note: $("#note").val()
     }
 
@@ -4245,7 +4302,7 @@ const updatePaymentStatus = (btn, paymentId) => {
         },
         body: JSON.stringify(data),
     })
-        .then((response) => response.text())
+        .then((response) => response.json())
         .then((data) => {
             toggleBtnLoader(btn, false);
             const response = JSON.parse(data);
@@ -4601,12 +4658,7 @@ const addStudentsToPaymentPlan = (btn, intakeId) => {
     toggleBtnLoader(btn, true);
     const data = {
         intakeId: intakeId,
-        paymentCategoryId: $("#payment-category").val(),
         paymentPlanId: $("#payment-plan").val(),
-        paymentAmount: $("#payment-amount").val(),
-        discountType: $("#discount-type").val(),
-        discountAmount: $("#discount").val(),
-        discountNote: $("#discount-note").val(),
         checkedStudents: selectedUsers,
         uncheckedStudents: unSelectedUsers,
         checkAll: $('#check-all').prop('checked')
@@ -4627,8 +4679,9 @@ const addStudentsToPaymentPlan = (btn, intakeId) => {
         },
         body: JSON.stringify(data),
     })
-        .then((res) => res.json())
+        .then((res) => res.text())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             applyValidation('', validationMap, false);
             if (response.done) {
@@ -8299,7 +8352,7 @@ const setupUserPassword = (token, status) => {
             $("#codeError").html('');
             if (response.hasOwnProperty('done')) {
                 setTimeout(() => { showToast("success", response.done); }, 1000);
-                setTimeout(() => { window.location = "https://dashboard.timesacademylms.com/"; }, 4000);
+                setTimeout(() => { window.location = "https://dashboard.aiccampuslms.com/"; }, 4000);
             } else if (response.hasOwnProperty('error')) {
                 setTimeout(() => { showToast("error", response.error); }, 1000);
                 setTimeout(() => { window.location.reload(); }, 4000);
@@ -9563,9 +9616,8 @@ const addPaymentIntakePaymentGroup = (btn, group) => {
 }
 
 
-const loadPaymentType = () => {
-    const plan = $("#payment-plan").val();
-
+const loadPaymentType = (planId = null) => {
+    const plan = planId ? planId : $("#payment-plan").val();
     fetch(`api/loadPaymentType.php?id=${plan}`)
         .then(res => res.json())
         .then(response => {
@@ -9575,42 +9627,45 @@ const loadPaymentType = () => {
                 return;
             }
 
-            if (response.plan) {
-                $("#payment-plan").addClass("is-invalid");
-                $("#payment-plan-feedback").text(response.plan);
-                $("#payment-type").prop("disabled", true).html("<option value='0'>- Select -</option>");
-                return;
-            }
-
-
-
-            if (response.types.length != 0) {
-                // Clear validation
-                $("#payment-plan").removeClass("is-invalid");
-                $("#payment-plan-feedback").text("");
-
-                // Populate payment types
-                let options = `<option value="0">- Select -</option>`;
-                response.types.forEach(type => {
-                    options += `<option value="${type.payment_type_id}">${type.payment_type}</option>`;
-                });
-
-                $("#payment-type")
-                    .html(options)
-                    .prop("disabled", false);
-                $("#fees-type").hasClass('d-none') ? $("#fees-type").removeClass('d-none') : "";
-            } else {
-                $("#plan-feedback").text("No payment type found for this plan.");
-            }
-
-            console.log(response.types.length);
             planHasPaymentTypes = response.types;
             maximumAllowedPayments = response.types.length;
-            if (response.types.length > 1) {
-                $("#add-new-payment-area").hasClass('d-none') ? $("#add-new-payment-area").removeClass('d-none') : "";
-            } else {
-                $("#add-new-payment-area").hasClass('d-none') ? '' : $("#add-new-payment-area").addClass('d-none');
+
+            if (planId == null) {
+                if (response.plan) {
+                    $("#payment-plan").addClass("is-invalid");
+                    $("#payment-plan-feedback").text(response.plan);
+                    $("#payment-type").prop("disabled", true).html("<option value='0'>- Select -</option>");
+                    return;
+                }
+
+                if (response.types.length != 0) {
+                    // Clear validation
+                    $("#payment-plan").removeClass("is-invalid");
+                    $("#payment-plan-feedback").text("");
+
+                    // Populate payment types
+                    let options = `<option value="0">- Select -</option>`;
+                    response.types.forEach(type => {
+                        options += `<option value="${type.payment_type_id}">${type.payment_type}</option>`;
+                    });
+
+                    $("#payment-type")
+                        .html(options)
+                        .prop("disabled", false);
+                    $("#fees-type").hasClass('d-none') ? $("#fees-type").removeClass('d-none') : "";
+                } else {
+                    $("#plan-feedback").text("No payment type found for this plan.");
+                }
+
+
+                if (response.types.length > 1) {
+                    $("#add-new-payment-area").hasClass('d-none') ? $("#add-new-payment-area").removeClass('d-none') : "";
+                } else {
+                    $("#add-new-payment-area").hasClass('d-none') ? '' : $("#add-new-payment-area").addClass('d-none');
+                }
             }
+
+
         })
         .catch(() => {
             showToast("error", "An error occurred. Please try again later.");
@@ -9696,7 +9751,7 @@ const addIntakeStudentsToPayments = (btn, id) => {
 const filterPaymentCategoryStudents = (id) => {
     const data = {
         id: id,
-        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
         text: $("#search-text").val(),
         sort: $("#sort-selector").val(),
         sortByName: sortCondition1,
@@ -9724,7 +9779,7 @@ const filterPaymentCategoryStudents = (id) => {
                     setTimeout(() => { showToast("error", response.error); }, 1000);
                 }
             } catch (e) {
-                $("#students-table-container").html(data);
+                $("#student-list-container").html(data);
                 $("#student-list-container").hasClass('d-none') ? $("#student-list-container").removeClass('d-none') : "";
 
             }
@@ -11101,6 +11156,7 @@ const saveExchangeRate = (btn) => {
         targetCurrencyId: $("#targetCurrency").val(),
         rate: $("#exchangeRate").val(),
         effectiveDate: $("#effectiveDate").val(),
+        effectiveTime: $("#effectiveTime").val(),
         note: $("#exchangeNote").val(),
     };
 
@@ -11109,6 +11165,7 @@ const saveExchangeRate = (btn) => {
         targetCurrency: ["#targetCurrency", "#target-currency-feedback"],
         rate: ["#exchangeRate", "#exchange-rate-feedback"],
         effectiveDate: ["#effectiveDate", "#effective-date-feedback"],
+        effectiveTime: ["#effectiveTime", "#effective-time-feedback"],
         note: ["#exchangeNote", "#exchange-note-feedback"],
     };
 
@@ -11184,9 +11241,8 @@ const updateExchangeRate = () => {
         });
 };
 
-const filterCurrencyExchange = (id) => {
+const filterCurrencyExchange = () => {
     const data = {
-        id: id,
         text: $("#user-search-text").val() || "",
         date: $("#date").val() || "",
         resultPerPage: $("#show-result-selector").val() || 10,
@@ -11218,3 +11274,890 @@ const filterCurrencyExchange = (id) => {
             showToast("error", "An error occurred. Please try again later.");
         });
 };
+
+const addLead = (btn) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("fname", $("#first-name").val());
+    form.append("lname", $("#last-name").val());
+    form.append("fullname", $("#full-name").val());
+    form.append("nwi", $("#name-with-initials").val());
+    form.append("title", $("#title-selector").val());
+    form.append("gender", $("#gender-selector").val());
+    form.append("marital_status", $("#marital-status-selector").val());
+    form.append("nationality", $("#nationality").val());
+    form.append("nic", $("#nic").val());
+    form.append("passport", $("#passport").val());
+    form.append("cob", $("#country-of-birth").val());
+    form.append("cor", $("#country-of-residence").val());
+    form.append("dob", $("#dob").val());
+    form.append("email", $("#email").val());
+    form.append("mobile", $("#mobile").val());
+    form.append("whatsapp", $("#whatsapp").val());
+    form.append("address", $("#address").val());
+    form.append("address2", $("#address2").val());
+    form.append("city", $("#city").val());
+    form.append("pcode", $("#postal-code").val());
+    form.append("image", $("#file-input").prop("files")[0]);
+    form.append("branch", $("#branch-selector").val());
+    form.append("faculty", $("#faculty-selector").val());
+    form.append("programme", $("#programme-selector").val());
+    form.append("intake", $("#intake-selector").val());
+    form.append("grelationship", $("#grelationship-selector").val());
+    form.append("gtitle", $("#gtitle-selector").val());
+    form.append("gfname", $("#guardian-fname").val());
+    form.append("glname", $("#guardian-lname").val());
+    form.append("gemail", $("#guardian-email").val());
+    form.append("gmobile", $("#guardian-mobile").val());
+    form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("entry_type", $("input[name='entry_type']:checked").val());
+    form.append("payment_option", $("#payment-option").val());
+
+    appendStudentDocumentsToFormData(form);
+
+    const validationMap = {
+        id: ["#student-intake-id", "#student-intake-id-feedback"],
+        fname: ["#first-name", "#fname-feedback"],
+        lname: ["#last-name", "#lname-feedback"],
+        fullname: ["#full-name", "#fullname-feedback"],
+        nwi: ["#name-with-initials", "#nwi-feedback"],
+        title: ["#title-selector", "#title-feedback"],
+        gender: ["#gender-selector", "#gender-feedback"],
+        marital_status: ["#marital-status-selector", "#marital-feedback"],
+        nationality: ["#nationality", "#nationality-feedback"],
+        cob: ["#country-of-birth", "#cob-feedback"],
+        cor: ["#country-of-residence", "#cor-feedback"],
+        nic: ["#nic", "#nic-feedback"],
+        passport: ["#passport", "#passport-feedback"],
+        dob: ["#dob", "#dob-feedback"],
+        email: ["#email", "#email-feedback"],
+        mobile: ["#mobile", "#mobile-feedback"],
+        whatsapp: ["#whatsapp", "#whatsapp-feedback"],
+        address: ["#address", "#address-feedback"],
+        address2: ["#address2", "#address2-feedback"],
+        city: ["#city", "#city-feedback"],
+        pcode: ["#postal-code", "#postal-code-feedback"],
+        faculty: ["#faculty-selector", "#faculty-feedback"],
+        programme: ["#programme-selector", "#programme-feedback"],
+        intake: ["#intake-selector", "#intake-feedback"],
+        grelationship: ["#grelationship-selector", "#grelationship-feedback"],
+        gtitle: ["#gtitle-selector", "#gtitle-feedback"],
+        gfname: ["#guardian-fname", "#gfname-feedback"],
+        glname: ["#guardian-lname", "#glname-feedback"],
+        gemail: ["#guardian-email", "#gemail-feedback"],
+        gmobile: ["#guardian-mobile", "#gmobile-feedback"],
+        gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"]
+    };
+
+    fetch("api/addLead.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            applyValidation(response, validationMap, false);
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => window.location.reload(), 3000);
+                return;
+            } else if (response.error) {
+
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const updateLeadStatus = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        id: id,
+        updateStatus: $("#status-selector").val(),
+        note: $("#note").val(),
+        intake: $("#intake-selector").val(),
+        sid: $("#student-intake-id").val()
+    };
+
+    fetch('api/updateLeadStatus.php', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                $("updateLead").modal('hide');
+                showToast("success", response.done);
+                setTimeout(() => window.location.reload(), 3000);
+                return;
+            } else if (response.error) {
+                showToast("error", response.error);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const addIntakePaymentPlan = (btn, id, confirmation = null) => {
+    const data = {
+        id: id,
+        planName: $("#plan-name").val(),
+        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
+        isDefault: $("#is-default").is(":checked"),
+        paymentAmount: $("#payment-amount").val(),
+        discountType: $("#plan-discount-type").val(),
+        discountAmount: $("#plan-discount").val(),
+        discountNote: $("#plan-discount-note").val(),
+        payments: collectInstallmentData(),
+        confirmation: confirmation
+
+    }
+
+    const validationMap = {
+        name: ["#plan-name", "#plan-name-feedback"],
+        discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+        paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+        discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+        discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+        category: ["#payment-category", "#payment-category-feedback"],
+        plan: ["#payment-plan", "#payment-plan-feedback"],
+    }
+
+    fetch('api/addIntakePaymentPlan.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            console.log(response);
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            $("#scheduleConfirmModal").modal('hide');
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 4000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else if (response.confirm_required) {
+
+                const confirmModal = new bootstrap.Modal(document.getElementById("scheduleConfirmModal"));
+
+                $("#confirmScheduleSave").off("click");
+                $("#confirmScheduleSave").on("click", function () {
+                    addIntakePaymentPlan(btn, id, true);
+                });
+
+                $("#scheduleConfirmModalCancel").off("click");
+                $("#scheduleConfirmModalCancel").on("click", function () {
+                    addIntakePaymentPlan(btn, id, false);
+                });
+                confirmModal.show();
+                return;
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.installments) {
+                    generatePaymentErrorPDF(response);
+                }
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+const removeIntakePaymentPlan = (id) => {
+    toggleLoader(true);
+    const data = {
+        plan: id
+    }
+    fetch('api/removeIntakePaymentPlan.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeIntakePaymentPlanConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+const editIntakePaymentPlan = (btn, id, confirmation = null) => {
+    const data = {
+        id: id,
+        planName: $("#plan-name").val(),
+        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
+        isDefault: $("#is-default").is(":checked"),
+        paymentAmount: $("#payment-amount").val(),
+        discountType: $("#plan-discount-type").val(),
+        discountAmount: $("#plan-discount").val(),
+        discountNote: $("#plan-discount-note").val(),
+        payments: collectInstallmentData(),
+        confirmation: confirmation
+    }
+
+    const validationMap = {
+        name: ["#plan-name", "#plan-name-feedback"],
+        discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+        paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+        discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+        discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+        category: ["#payment-category", "#payment-category-feedback"],
+        plan: ["#payment-plan", "#payment-plan-feedback"],
+    }
+
+    fetch('api/editIntakePaymentPlan.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            $("#scheduleConfirmModal").modal('hide');
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 4000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else if (response.confirm_required) {
+
+                const confirmModal = new bootstrap.Modal(document.getElementById("scheduleConfirmModal"));
+
+                $("#confirmScheduleSave").off("click");
+                $("#confirmScheduleSave").on("click", function () {
+                    addIntakePaymentPlan(btn, id, true);
+                });
+
+                $("#scheduleConfirmModalCancel").off("click");
+                $("#scheduleConfirmModalCancel").on("click", function () {
+                    addIntakePaymentPlan(btn, id, false);
+                });
+                confirmModal.show();
+                return;
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.installments) {
+                    generatePaymentErrorPDF(response);
+                }
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+const createStudentPaymentPlan = (btn, leadId) => {
+    toggleBtnLoader(btn, true);
+    const selectedPlan = $(".intake-plan-checkbox:checked");
+    if (selectedPlan.length === 0) {
+        toggleBtnLoader(btn, false);
+        showToast("error", "Please select an intake payment plan");
+        return;
+    }
+
+    console.log(collectMarkAsPaidPayments());
+
+    const intakePaymentPlanId = selectedPlan.val();
+    const data = {
+        leadId: leadId,
+        intakePaymentPlanId: intakePaymentPlanId,
+        paidPayments: collectMarkAsPaidPayments()
+    };
+
+    const markAsPaidValidationMap = {
+        paid_amount: ["#paid-amount", "#paid-amount-feedback"],
+        discount: ["#discount", "#discount-feedback"],
+        paid_date: ["#paid-date", "#paid-date-feedback"],
+        payment_method_id: ["#paid-method", "#method-feedback"],
+    };
+    fetch('api/createStudentPaymentPlan', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => {
+                    window.location = "inquiry-payment-plan?inquiry-id=" + leadId;
+                }, 3000);
+
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, markAsPaidValidationMap);
+            }
+        }).catch((error) => {
+
+            console.error('Error:', error);
+
+            toggleBtnLoader(btn, false);
+
+            showToast("error", "Something went wrong");
+        });
+
+};
+
+const uploadOtherDocuments = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("id", id);
+    form.append("removed_documents", removedExistingDocuments);
+    appendStudentDocumentsToFormData(form);
+
+    const validationMap = {
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"]
+    };
+
+    fetch("api/uploadOtherDocuments.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            applyValidation(response, validationMap, false);
+            if (response.done) {
+                toggleBtnLoader(btn, 'done');
+                showToast("success", response.done);
+                setTimeout(() => window.location.reload(), 3000);
+                return;
+            } else if (response.error) {
+                toggleBtnLoader(btn, false);
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+                toggleBtnLoader(btn, false);
+            }
+        })
+        .catch((error) => {
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const editInquiry = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("id", id);
+    form.append("fname", $("#first-name").val());
+    form.append("lname", $("#last-name").val());
+    form.append("fullname", $("#full-name").val());
+    form.append("nwi", $("#name-with-initials").val());
+    form.append("title", $("#title-selector").val());
+    form.append("gender", $("#gender-selector").val());
+    form.append("marital_status", $("#marital-status-selector").val());
+    form.append("nationality", $("#nationality").val());
+    form.append("nic", $("#nic").val());
+    form.append("passport", $("#passport").val());
+    form.append("cob", $("#country-of-birth").val());
+    form.append("cor", $("#country-of-residence").val());
+    form.append("dob", $("#dob").val());
+    form.append("email", $("#email").val());
+    form.append("mobile", $("#mobile").val());
+    form.append("whatsapp", $("#whatsapp").val());
+    form.append("address", $("#address").val());
+    form.append("address2", $("#address2").val());
+    form.append("city", $("#city").val());
+    form.append("pcode", $("#postal-code").val());
+    form.append("image", $("#file-input").prop("files")[0]);
+    form.append("branch", $("#branch-selector").val());
+    form.append("faculty", $("#faculty-selector").val());
+    form.append("programme", $("#programme-selector").val());
+    form.append("intake", $("#intake-selector").val());
+    form.append("grelationship", $("#grelationship-selector").val());
+    form.append("gtitle", $("#gtitle-selector").val());
+    form.append("gfname", $("#guardian-fname").val());
+    form.append("glname", $("#guardian-lname").val());
+    form.append("gemail", $("#guardian-email").val());
+    form.append("gmobile", $("#guardian-mobile").val());
+    form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("entry_type", $("input[name='entry_type']:checked").val());
+    form.append("payment_option", $("#payment-option").val());
+    form.append("removed_documents", removedExistingDocuments);
+    appendStudentDocumentsToFormData(form);
+
+    const validationMap = {
+        id: ["#student-intake-id", "#student-intake-id-feedback"],
+        fname: ["#first-name", "#fname-feedback"],
+        lname: ["#last-name", "#lname-feedback"],
+        fullname: ["#full-name", "#fullname-feedback"],
+        nwi: ["#name-with-initials", "#nwi-feedback"],
+        title: ["#title-selector", "#title-feedback"],
+        gender: ["#gender-selector", "#gender-feedback"],
+        marital_status: ["#marital-status-selector", "#marital-feedback"],
+        nationality: ["#nationality", "#nationality-feedback"],
+        cob: ["#country-of-birth", "#cob-feedback"],
+        cor: ["#country-of-residence", "#cor-feedback"],
+        nic: ["#nic", "#nic-feedback"],
+        passport: ["#passport", "#passport-feedback"],
+        dob: ["#dob", "#dob-feedback"],
+        email: ["#email", "#email-feedback"],
+        mobile: ["#mobile", "#mobile-feedback"],
+        whatsapp: ["#whatsapp", "#whatsapp-feedback"],
+        address: ["#address", "#address-feedback"],
+        address2: ["#address2", "#address2-feedback"],
+        city: ["#city", "#city-feedback"],
+        pcode: ["#postal-code", "#postal-code-feedback"],
+        faculty: ["#faculty-selector", "#faculty-feedback"],
+        programme: ["#programme-selector", "#programme-feedback"],
+        intake: ["#intake-selector", "#intake-feedback"],
+        grelationship: ["#grelationship-selector", "#grelationship-feedback"],
+        gtitle: ["#gtitle-selector", "#gtitle-feedback"],
+        gfname: ["#guardian-fname", "#gfname-feedback"],
+        glname: ["#guardian-lname", "#glname-feedback"],
+        gemail: ["#guardian-email", "#gemail-feedback"],
+        gmobile: ["#guardian-mobile", "#gmobile-feedback"],
+        gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"]
+    };
+
+    fetch("api/editInquiry.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => window.location.reload(), 3000);
+                return;
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const confirmAccountsCompletion = (btn) => {
+    const studentId = document.getElementById("accountsConfirmStudentId").value;
+
+    if (!studentId) {
+        showToast("error", "Invalid student");
+        return;
+    }
+
+    toggleBtnLoader(btn, true);
+    const data = {
+        student_id: studentId
+    }
+
+    fetch("api/confirmAccountsCompletion.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(data => {
+            toggleBtnLoader(btn, false);
+            if (data.done) {
+                showToast("success", data.done);
+                const modalEl = document.getElementById("accountsConfirmModal");
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                showToast("error", data.message || "Something went wrong");
+            }
+        })
+        .catch(error => {
+            toggleBtnLoader(btn, false);
+            console.error(error);
+            showToast("error", "Request failed. Please try again.");
+        });
+}
+
+function finalizeRegistrationVerification(btn) {
+
+    const studentId = document.getElementById("registrationVerificationStudentId").value;
+
+    if (!studentId) {
+        showToast("error", "Invalid student");
+        return;
+    }
+
+    toggleBtnLoader(btn, true);
+    const data = {
+        student_id: studentId
+    }
+
+    fetch("api/finalizeRegistrationVerification.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            toggleBtnLoader(btn, false);
+            if (data.done) {
+                showToast("success", data.done);
+                const modalEl = document.getElementById("registrationVerificationModal");
+                const modal = bootstrap.Modal.getInstance(modalEl);
+
+                if (modal) {
+                    modal.hide();
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+
+            } else if (data.error) {
+                showToast("error", data.message || "Something went wrong");
+            } else {
+                showRegistrationVerificationError(
+                    data.message || "Unable to finalize registration verification."
+                );
+            }
+
+        })
+        .catch(error => {
+            console.error(error);
+            toggleBtnLoader(btn, false);
+            showToast(
+                "error",
+                "Request failed. Please try again."
+            );
+        });
+}
+
+const confirmAcademicCompletion = (btn) => {
+
+    const studentId = document.getElementById("academicAdministrationStudentId").value;
+
+    if (!studentId) {
+        showToast("error", "Invalid student");
+        return;
+    }
+
+    toggleBtnLoader(btn, true);
+    const data = {
+        student_id: studentId
+    }
+
+    fetch("api/confirmAcademicCompletion.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(data => {
+            toggleBtnLoader(btn, false);
+            if (data.done) {
+                showToast("success", data.done);
+                const modalEl = document.getElementById("registrationVerificationModal");
+                const modal = bootstrap.Modal.getInstance(modalEl);
+
+                if (modal) {
+                    modal.hide();
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+
+            } else if (data.error) {
+                showToast("error", data.message || "Something went wrong");
+            } else {
+                showRegistrationVerificationError(
+                    data.message || "Unable to finalize registration verification."
+                );
+            }
+
+        })
+        .catch(error => {
+            console.error(error);
+            toggleBtnLoader(btn, false);
+            showToast(
+                "error",
+                "Request failed. Please try again."
+            );
+        });
+}
+
+const filterStudentsInquiries = () => {
+    const data = {
+        text: $("#search-text").val(),
+        sort: $("#sort-selector").val(),
+        sortByName: sortCondition1,
+        sortByDate: sortCondition2,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+
+    }
+
+    fetch('api/filterStudentsInquiries.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.text())
+        .then((text) => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
+
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#students-table-container").html(result);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.")
+        });
+}
+
+const reuploadRegistrationPaymentSlip = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("id", id);
+    appendStudentDocumentsToFormData(form);
+
+    const validationMap = {
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+    };
+
+    fetch("api/reuploadRegistrationPaymentSlip.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            applyValidation(response, validationMap, false);
+            if (response.done) {
+                toggleBtnLoader(btn, 'done');
+                showToast("success", response.done);
+                setTimeout(() => window.history.back(), 3000);
+                return;
+            } else if (response.error) {
+                toggleBtnLoader(btn, false);
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+                toggleBtnLoader(btn, false);
+            }
+        })
+        .catch((error) => {
+            console.log(error);
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const rejectAcademicDocuments = (btn) => {
+    const studentId = document.getElementById(
+        "academicRejectStudentId"
+    ).value;
+    const noteInput = document.getElementById(
+        "academicRejectNote"
+    );
+    const note = noteInput.value.trim();
+    const feedback = document.getElementById(
+        "academicRejectNote-feedback"
+    );
+    const errorArea = document.getElementById(
+        "academicRejectErrorArea"
+    );
+    // reset
+    noteInput.classList.remove("is-invalid");
+    feedback.innerHTML = "";
+
+    errorArea.classList.add("d-none");
+    errorArea.innerHTML = "";
+    // validation
+    if (note === "") {
+        noteInput.classList.add("is-invalid");
+        feedback.innerHTML =
+            "Rejection note is required";
+        return;
+    }
+
+    toggleBtnLoader(btn, true);
+
+    fetch("api/rejectAcademicDocuments.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            note: note
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            toggleBtnLoader(btn, false);
+            if (data.done) {
+                showToast("success", data.done);
+                const modalEl = document.getElementById("registrationVerificationModal");
+                const modal = bootstrap.Modal.getInstance(modalEl);
+
+                if (modal) {
+                    modal.hide();
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+
+            } else if (data.error) {
+                showToast("error", data.message || "Something went wrong");
+            } else {
+                showRegistrationVerificationError(
+                    data.message || "Unable to finalize registration verification."
+                );
+            }
+
+        })
+        .catch(error => {
+            console.error(error);
+            toggleBtnLoader(btn, false);
+            showToast(
+                "error",
+                "Request failed. Please try again."
+            );
+        });
+}
+
+const confirmAcademicDepartmentCompletion = (btn) => {
+
+    const studentId = document.getElementById("academicDepartmentStudentId").value;
+
+    if (!studentId) {
+        showToast("error", "Invalid student");
+        return;
+    }
+
+    toggleBtnLoader(btn, true);
+    const data = {
+        student_id: studentId
+    }
+
+    fetch("api/confirmAcademicDepartmentCompletion.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(data => {
+            toggleBtnLoader(btn, false);
+            if (data.done) {
+                showToast("success", data.done);
+                const modalEl = document.getElementById("academicDepartmentConfirmModal");
+                const modal = bootstrap.Modal.getInstance(modalEl);
+
+                if (modal) {
+                    modal.hide();
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+
+            } else if (data.error) {
+                showToast("error", data.message || "Something went wrong");
+            } else {
+                showRegistrationVerificationError(
+                    data.message || "Unable to finalize registration verification."
+                );
+            }
+
+        })
+        .catch(error => {
+            console.error(error);
+            toggleBtnLoader(btn, false);
+            showToast(
+                "error",
+                "Request failed. Please try again."
+            );
+        });
+}
+

@@ -21,6 +21,11 @@ class load_side_menu
             ]);
         }
 
+        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('inquirys')) {
+            $menuItems = array_merge($menuItems, [
+                ["Inquiries", "ix:inquiry", "inquiries", "inquiries"],
+            ]);
+        }
 
         if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
             $menuItems = array_merge($menuItems, [
@@ -64,6 +69,7 @@ class load_side_menu
                 ["Help Desk", "clarity:help-info-line", "help-desk", "help-desk"],
             ]);
         }
+
         //     $menuItems = array_merge($menuItems, [
         //         ["Notifications", "tdesign:notification", "notifications", "notifications"],
         //     ]);

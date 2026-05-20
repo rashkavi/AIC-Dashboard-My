@@ -11,7 +11,7 @@ if (SessionUser::hasValidSession()) {
 
             $branch_id = isset($_POST['branch_id']) ? $_POST['branch_id'] : '';
             $faculty_name = isset($_POST['faculty_name']) ? $_POST['faculty_name'] : '';
-            $faculty_cover;
+            $faculty_cover = '';
 
             if (empty($branch_id)) {
                 $status->error = "Invalid branch Id";
@@ -69,9 +69,7 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select faculty cover";
-                        }
+                        } 
 
                         if (!property_exists($status, 'name') &&  !property_exists($status, 'cover')) {
                             $timezone = new DateTimeZone("Asia/Colombo");
@@ -84,6 +82,9 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($faculty_cover)) {
                                 $faculty_insert_columns .= ", `faculty_cover`";
                                 $faculty_insert_values .= ",'" . $faculty_cover . "'";
+                            }else{
+                                $faculty_insert_columns .= ", `faculty_cover`";
+                                $faculty_insert_values .= ",'empty-thumbnail.webp'";
                             }
                             Database::iud("INSERT INTO `faculties` (" . $faculty_insert_columns . ") VALUES (" . $faculty_insert_values . ")");
 

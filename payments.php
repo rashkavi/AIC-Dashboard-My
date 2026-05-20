@@ -103,7 +103,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <iconify-icon icon="icon-park-outline:currency" width="32" height="32" class="dark-theme"></iconify-icon>
                                                     </div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
-                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Currency Exchange Rate</span>
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Currency Exchange Rates</span>
                                                         <span class="text-14 main-text" data-i18n="">Monitor and manage real-time currency conversions with accuracy</span>
                                                     </div>
                                                 </div>
@@ -128,6 +128,61 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center">
+                                                        <iconify-icon icon="ix:inquiry" width="32" height="32" class="dark-theme"></iconify-icon>
+                                                    </div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Registration Payments (Inquiries)</span>
+                                                        <span class="text-14 main-text" data-i18n="">Monitor and manage real-time currency conversions with accuracy</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <?php
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
+                                                        ?>
+                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                <a href="inquiries-registration-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                    <button class="custom-btn w-100" data-i18n="view">View</button>
+                                                                </a>
+                                                            </div>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="token:pay" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
+                                                            Students Payments (Receipts Approval)
+                                                        </span>
+                                                        <span class="text-14 main-text" data-i18n="">
+                                                            View, manage, and track scheduled payments assigned to students efficiently
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="students-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100" data-i18n="">View</button>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
                                                     <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:student" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="student-payments">Students Payments</span>
@@ -141,7 +196,7 @@ if (!SessionUser::hasValidSession()) {
                                                         if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="students-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <a href="manage-students-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
                                                                     <button class="custom-btn w-100" data-i18n="view">View</button>
                                                                 </a>
                                                             </div>
@@ -180,7 +235,6 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                             </div>
                                         </div>
-
                                     </div>
                                     <div class="flex-grow-1"></div>
                                     <footer>

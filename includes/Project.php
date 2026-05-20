@@ -5,7 +5,7 @@ class Project
     private const BASE_URL = "https://dashboard.aiccampuslms.com";
     private const BASE_PORTAL_URL = "https://portal.aiccampuslms.com";
     private const INSTITUTE_LOGO = "common/logo.png";
-    private const VERSION = "2.3.1";
+    private const VERSION = "2.3.8";
 
     public static function getBaseName()
     {
@@ -34,7 +34,7 @@ class Project
         if (in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1'])) {
             $path = __DIR__ . '/../secure/google-vision-key.json';
         } else {
-            $path = dirname($_SERVER['DOCUMENT_ROOT'], 3) . '/swlcerp.com/secure/google-vision-key.json';
+            $path = dirname($_SERVER['DOCUMENT_ROOT'], 3) . '/aiccampuslms.com/secure/google-vision-key.json';
         }
 
         if (!file_exists($path)) {

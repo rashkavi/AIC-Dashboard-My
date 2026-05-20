@@ -5,8 +5,10 @@ require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
 require_once("../includes/DateTimeClass.php");
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
 require_once("../includes/phpmailer/mail-process.php");
-require_once("../includes/phpmailer/student-mail-body.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -27,6 +29,7 @@ if (SessionUser::hasValidSession()) {
             `ps`.`payment_status`,
             `ps`.`payment_status_id`,
             `pgp`.`payment_type`,
+             `pgp`.`payment_type_id`,
             `cp`.`amount`,
             `cp`.`discount`,
             `cp`.`panelty_payment_option_panelty_payment_option_id`,
@@ -36,7 +39,7 @@ if (SessionUser::hasValidSession()) {
             `cp`.`due_date`,
           
             `cp`.`refference`,
-         
+            `s`.`lead_student_status_lead_student_status_id`,
             `i`.`intake_id`,
             `p`.`programme_id`,
             `f`.`faculty_id`,
@@ -46,6 +49,8 @@ if (SessionUser::hasValidSession()) {
             `t`.`title`,
             `ld`.`first_name`,
             `ld`.`last_name`,
+            `ld`.`email`,
+            `s`.`student_id`,
             `shi`.`students_has_intakes_id`,
             `ppo`.`panelty_payment_option`,
             IFNULL(pp.panelty_amount, 0) AS panelty_amount,
@@ -99,7 +104,7 @@ if (SessionUser::hasValidSession()) {
                     SUM(discount_amount) AS total_discount,
                     SUM(panelty_amount) AS total_sub_panelty_amount
                 FROM course_payment_has_payments
-                WHERE payment_status_payment_status_id IN (2,3,5,6,8)
+                WHERE payment_status_payment_status_id IN (2,3)
                 GROUP BY course_payments_course_payments_id
             ) cpp
                 ON cp.course_payments_id = cpp.course_payments_course_payments_id
@@ -113,7 +118,7 @@ if (SessionUser::hasValidSession()) {
                 $paymentData = $paymentPlan->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id']))) {
                     $status->error = 'You are not authorized to this action.';
                 } else {
 
@@ -231,10 +236,19 @@ if (SessionUser::hasValidSession()) {
                         $dateTime = new DateTime("now", $timezone);
                         $now = $dateTime->format('Y-m-d H:i:s');
 
+                        $status_status_id = 3;
+
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id']))) {
+                            $status_status_id = 2;
+                        }
+                        if ($paymentData['lead_student_status_lead_student_status_id'] == 5 || $paymentData['lead_student_status_lead_student_status_id'] == 9) {
+                            $status_status_id = 2;
+                        }
+
                         $columns = "`course_payments_course_payments_id`,`payment_method_payment_method_id`
                         ,`date_paid`,`paid_amount`,`discount_amount`,`payment_status_payment_status_id`";
 
-                        $values = "'" . $payment_id . "','" . $method . "','" . $paid_date . "','" . $amount . "','" . $discount_amount . "','8'";
+                        $values = "'" . $payment_id . "','" . $method . "','" . $paid_date . "','" . $amount . "','" . $discount_amount . "','" . $status_status_id . "'";
 
                         if (!empty($penalty_amount)) {
                             $columns .= ",`panelty_amount`";
@@ -248,9 +262,13 @@ if (SessionUser::hasValidSession()) {
 
                         $paymentId = Database::$connection->insert_id;
 
-                        if ($balance - $amount == 0) {
-                            $payment_update_query = "`payment_status_payment_status_id`='9'";
-                            Database::iud("UPDATE `course_payments` SET " . $payment_update_query . " WHERE `course_payments_id`='" . $payment_id . "'");
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
+                            if ($paymentData['lead_student_status_lead_student_status_id'] != 5 && $paymentData['lead_student_status_lead_student_status_id'] != 9) {
+                                if ($balance - $amount == 0) {
+                                    $payment_update_query = "`payment_status_payment_status_id`='5'";
+                                    Database::iud("UPDATE `course_payments` SET " . $payment_update_query . " WHERE `course_payments_id`='" . $payment_id . "'");
+                                }
+                            }
                         }
 
                         if (isset($_FILES["slips"])) {
@@ -276,6 +294,86 @@ if (SessionUser::hasValidSession()) {
                             $payment_log_values .= ",'" . Database::escape($note) . "'";
                         }
                         Database::iud("INSERT INTO `payment_logs`(" . $payment_log_columns . ") VALUES(" . $payment_log_values . ")");
+
+                        if ($paymentData['payment_type_id'] == 18 && $paymentData['lead_student_status_lead_student_status_id'] == 4) {
+                            Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '5' WHERE `student_id` = '" . $paymentData['student_id'] . "'");
+
+                            Database::iud("INSERT INTO `students_logs` 
+                            (`students_student_id`, `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                             VALUES ('" . $paymentData['student_id'] . "','" . $now . "', '" . $sessionUserObject['user_id'] . "','Registration Payment marked as paid','5')");
+                        }
+
+                        if ($status_status_id == 3) {
+                            $encodedPaymentId = base64_encode($paymentId);
+
+                            $slipUrl = Project::getBaseUrl() . '/payment-receipt?receipt-id=/' . $encodedPaymentId;
+
+                            $mail = EmailNotificationService::build(
+                                EmailTemplateContent::PAYMENT_SUCCESSFUL,
+                                [
+                                    'student_name' => $paymentData['first_name'] . ' ' . $paymentData['last_name'],
+                                    'programme' => $paymentData['programme'],
+                                    'payment_type' => $paymentData['payment_type'],
+                                    'paid_amount' => $amount,
+                                    'payment_date' => $paid_date,
+                                    'slip_url' => $slipUrl,
+                                ]
+                            );
+
+                            $fullName = $paymentData['title'] . "." . $paymentData['first_name'] . ' ' . $paymentData['last_name'];
+                            sendMail($paymentData['email'], $fullName, $mail['subject'], $mail['body']);
+                        }
+
+                        if ($paymentData['lead_student_status_lead_student_status_id'] == 5 || $paymentData['lead_student_status_lead_student_status_id'] == 9) {
+                            $isSecondStagePayment = false;
+
+                            $nextPaymentRs = Database::search("
+                            SELECT 
+                                `cp`.`course_payments_id`,
+                                `pt`.`payment_type`
+                            FROM `course_payments` cp
+                            INNER JOIN `payment_type` pt
+                                ON cp.`payment_type_payment_type_id` = pt.`payment_type_id`
+                            INNER JOIN `payment_plan_has_students_has_intakes` pshi
+                                ON cp.`payment_plan_has_students_has_intakes_id` = pshi.`payment_plan_has_students_has_intakes_id`
+                            WHERE cp.`payment_plan_has_students_has_intakes_id` = (
+                                SELECT `payment_plan_has_students_has_intakes_id`
+                                FROM `course_payments`
+                                WHERE `course_payments_id` = '" . $payment_id . "'
+                                LIMIT 1
+                            )
+                                AND pshi.`students_has_intakes_students_has_intakes_id` = '" . $paymentData['students_has_intakes_id'] . "'
+                            AND cp.`payment_status_payment_status_id` != '9'
+                            AND pt.`payment_type` NOT LIKE '%Registration%'
+                            ORDER BY cp.`due_date` ASC, cp.`course_payments_id` ASC
+                            LIMIT 1
+                        ");
+
+                            if ($nextPaymentRs->num_rows > 0) {
+                                $nextPayment = $nextPaymentRs->fetch_assoc();
+
+                                if ((int)$nextPayment['course_payments_id'] === (int)$payment_id) {
+                                    $isSecondStagePayment = true;
+                                }
+                            }
+
+                            if (
+                                $isSecondStagePayment
+                            ) {
+                                Database::iud("
+                                    INSERT INTO `students_logs`
+                                    (`students_student_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
+                                    VALUES
+                                    (
+                                        '" . $paymentData['student_id'] . "',
+                                        '" . $now . "',
+                                        '" . $sessionUserObject['user_id'] . "',
+                                        'First installment payment receipt uploaded',
+                                        '8'
+                                    )
+                                ");
+                            }
+                        }
 
                         http_response_code(200);
                         $status->done = 'Payment receipt uploaded successfully';

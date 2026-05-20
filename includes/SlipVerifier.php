@@ -1,59 +1,67 @@
 <?php
 
+use Google\Cloud\Vision\V1\AnnotateImageRequest;
+use Google\Cloud\Vision\V1\BatchAnnotateImagesRequest;
+use Google\Cloud\Vision\V1\Feature;
+use Google\Cloud\Vision\V1\Image;
+use Google\Cloud\Vision\V1\Client\ImageAnnotatorClient;
+
 require_once("connection.php");
+require_once("./vendor/autoload.php");
 
 class SlipVerifier
 {
-    private $tesseractPath;
-    private $tessdataPath;
+    private string $googleKeyPath;
 
     public function __construct()
     {
-        $this->tesseractPath = './assets/plugins/tesseract/tesseract.exe';
-        $this->tessdataPath = './assets/plugins/tesseract/tessdata';
-        putenv('TESSDATA_PREFIX=' . $this->tessdataPath);
+        $this->googleKeyPath = Project::getGoogleVisionKeyPath();
+
+
+        if (!file_exists($this->googleKeyPath)) {
+            throw new Exception("Google Vision API key file not found.");
+        }
     }
 
-    public function verifySlip(string $referenceNumber, string $accountNumber, string $fileUrl): array
+    public function verifySlip(string $referenceNumber, string $accountNumber, string $amount, string $fileUrl): array
     {
         try {
-            // Verify the file exists at the URL
-            $headers = get_headers($fileUrl, 1);
-            if (strpos($headers[0], '200') === false) {
-                throw new Exception("File not found at URL: $fileUrl");
+            $fileType = $this->checkFileType($fileUrl);
+
+            if ($fileType === 'unsupported') {
+                throw new Exception("Unsupported file type. Only JPG, JPEG, PNG and PDF allowed.");
             }
 
-            // Get text content from file
-            $fileExt = strtolower(pathinfo($fileUrl, PATHINFO_EXTENSION));
-            $text = $fileExt === 'pdf' ? $this->getPdfText($fileUrl) : $this->getImageText($fileUrl);
+            $text = $fileType === 'pdf'
+                ? $this->getPdfText($fileUrl)
+                : $this->getImageText($fileUrl);
 
-            // Normalize text for searching
-            $normalizedText = preg_replace('/\s+/', ' ', $text);
-            $normalizedText = strtoupper($normalizedText);
-            $referenceNumber = strtoupper(trim($referenceNumber));
-            $accountNumber = strtoupper(trim($accountNumber));
+            $normalizedText = $this->normalizeText($text);
+            $referenceNumber = $this->normalizeSearchValue($referenceNumber);
+            $accountNumber = $this->normalizeSearchValue($accountNumber);
+            $normalizedAmount = $this->normalizeAmount($amount);
 
-            // Check if reference exists anywhere in the text
-            $referenceFound = strpos($normalizedText, $referenceNumber) !== false;
+            $referenceFound = str_contains($normalizedText, $referenceNumber);
+            $accountFound = str_contains($normalizedText, $accountNumber);
 
-            // Check if account number exists anywhere in the text
-            $accountFound = strpos($normalizedText, $accountNumber) !== false;
-
-            // Extract transaction details
             $details = $this->extractTransactionDetails($normalizedText);
+            $amountFound = str_contains($normalizedAmount, $amount);
 
             return [
                 'verified' => $referenceFound && $accountFound,
-                'amount' => $details['amount'] ?? null,
+                'amount' => $amountFound ? $amount : null,
                 'date' => $details['date'] ?? null,
+                'time' => $details['time'] ?? null,
                 'account' => $accountFound,
                 'reference' => $referenceFound,
+                'ocr_text' => $normalizedText
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return [
                 'verified' => false,
                 'amount' => null,
                 'date' => null,
+                'time' => null,
                 'account' => false,
                 'reference' => false,
                 'error' => $e->getMessage()
@@ -61,130 +69,198 @@ class SlipVerifier
         }
     }
 
-    private function getPdfText(string $pdfUrl): string
+    public function extractSlipDetails(string $fileUrl): array
     {
-        require_once('./vendor/autoload.php');
-        $parser = new \Smalot\PdfParser\Parser();
-        $pdf = $parser->parseFile($pdfUrl);
-        return $pdf->getText();
+        try {
+    
+            if (
+                empty($this->googleKeyPath) ||
+                !file_exists($this->googleKeyPath)
+            ) {
+    
+                return [
+                    'success' => false,
+                    'paid_date' => null,
+                    'paid_time' => null,
+                    'amount' => null,
+                    'bank_account' => null,
+                    'ocr_text' => null,
+                    'error' => 'Google Vision credentials not configured'
+                ];
+            }
+    
+            $fileType = $this->checkFileType($fileUrl);
+    
+            if ($fileType === 'unsupported') {
+                throw new Exception("Unsupported file type");
+            }
+    
+            $text = $fileType === 'pdf'
+                ? $this->getPdfText($fileUrl)
+                : $this->getImageText($fileUrl);
+    
+            $normalizedText = $this->normalizeText($text);
+    
+            $details = $this->extractTransactionDetails($normalizedText);
+    
+            return [
+                'verified' => true,
+                'paid_date' => $details['date'] ?? null,
+                'paid_time' => $details['time'] ?? null,
+                'amount' => $details['amount'] ?? null,
+                'bank_account' => $details['account'] ?? null,
+                'ocr_text' => $normalizedText
+            ];
+    
+        } catch (\Throwable $e) {
+    
+            return [
+                'verified' => false,
+                'paid_date' => null,
+                'paid_time' => null,
+                'amount' => null,
+                'bank_account' => null,
+                'ocr_text' => null,
+                'error' => $e->getMessage()
+            ];
+        }
     }
 
     private function getImageText(string $imageUrl): string
     {
-        if (!file_exists($this->tesseractPath)) {
-            throw new Exception('OCR processing not available - Tesseract not found');
+        $imageContent = $this->getFileContent($imageUrl);
+
+        $client = new ImageAnnotatorClient([
+            'credentials' => $this->googleKeyPath,
+            'transport' => 'rest'
+        ]);
+
+        try {
+            $image = (new Image())
+                ->setContent($imageContent);
+
+            $feature = (new Feature())
+                ->setType(Feature\Type::DOCUMENT_TEXT_DETECTION);
+
+            $annotateRequest = (new AnnotateImageRequest())
+                ->setImage($image)
+                ->setFeatures([$feature]);
+
+            $batchRequest = (new BatchAnnotateImagesRequest())
+                ->setRequests([$annotateRequest]);
+
+            $batchResponse = $client->batchAnnotateImages($batchRequest);
+            $responses = $batchResponse->getResponses();
+
+            if (count($responses) === 0) {
+                throw new Exception("No response from Google Vision API.");
+            }
+
+            $response = $responses[0];
+
+            if ($response->hasError()) {
+                throw new Exception($response->getError()->getMessage());
+            }
+
+            $annotation = $response->getFullTextAnnotation();
+
+            if ($annotation === null || trim($annotation->getText()) === '') {
+                throw new Exception("No text detected from image.");
+            }
+
+            return $annotation->getText();
+        } finally {
+            $client->close();
         }
-
-        // 1. Download the image first
-        $tempImagePath = tempnam(sys_get_temp_dir(), 'ocr_img_');
-        file_put_contents($tempImagePath, file_get_contents($imageUrl));
-
-        // 2. Verify the image was downloaded
-        if (!file_exists($tempImagePath) || filesize($tempImagePath) === 0) {
-            throw new Exception('Failed to download image from URL');
-        }
-
-        // 3. Prepare output file
-        $tempOutputFile = tempnam(sys_get_temp_dir(), 'ocr_out_');
-        $cmd = sprintf(
-            '"%s" "%s" "%s" --psm 6 -l eng --tessdata-dir "%s" 2>&1',
-            $this->tesseractPath,
-            escapeshellarg($tempImagePath),
-            escapeshellarg($tempOutputFile),
-            escapeshellarg($this->tessdataPath)
-        );
-
-        // 4. Execute OCR
-        exec($cmd, $output, $returnVar);
-
-        // 5. Clean up image file
-        @unlink($tempImagePath);
-
-        if ($returnVar !== 0) {
-            @unlink($tempOutputFile . '.txt');
-            throw new Exception('OCR processing failed: ' . implode("\n", $output));
-        }
-
-        // 6. Get results
-        $text = file_get_contents($tempOutputFile . '.txt');
-        @unlink($tempOutputFile . '.txt');
-
-        if (empty($text)) {
-            throw new Exception('OCR returned empty text - check image quality and format');
-        }
-
-        return $text;
     }
+    private function getPdfText(string $pdfUrl): string
+    {
+        require_once('./vendor/autoload.php');
+
+        $parser = new \Smalot\PdfParser\Parser();
+        $pdf = $parser->parseFile($pdfUrl);
+
+        return $pdf->getText();
+    }
+
+    private function getFileContent(string $fileUrl): string
+    {
+        if (filter_var($fileUrl, FILTER_VALIDATE_URL)) {
+
+            $content = file_get_contents($fileUrl);
+        } else {
+            $content = file_get_contents($fileUrl);
+        }
+
+        if ($content === false || empty($content)) {
+            throw new Exception("Failed to read uploaded slip file.");
+        }
+
+        return $content;
+    }
+
+    private function normalizeText(string $text): string
+    {
+        $text = strtoupper($text);
+        $text = preg_replace('/\s+/', ' ', $text);
+        return trim($text);
+    }
+
+    private function normalizeSearchValue(string $value): string
+    {
+        $value = strtoupper(trim($value));
+        $value = preg_replace('/\s+/', '', $value);
+        return $value;
+    }
+
+    private function normalizeAmount(string $amount): float
+    {
+        $amount = preg_replace('/[^\d.]/', '', $amount);
+
+        return (float) $amount;
+    }
+
     private function extractTransactionDetails(string $text): array
     {
-        // Amount pattern (matches various amount formats)
-        preg_match('/
-            (?:AMOUNT|TOTAL|PAYMENT|LKR|RS?\.?)\s*[:=]?\s*
-            (?:LKR\s*)?
-            ([\d,]+\.\d{2})
-        /ix', $text, $amountMatch);
+        $results = [
+            'amount' => null,
+            'date' => null,
+            'time' => null,
+            'account' => null
+        ];
 
-        // First try to match combined date-time format (YYYY-MM-DD HH:MM AM/PM)
-        preg_match('/
-        (?:DATE|TIME|DATE\s*TIME|DATE\s*&\s*TIME)\s*[:=]?\s*
-        (\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}\s*[AP]M)
-    /ix', $text, $combinedMatch);
+        preg_match('/(?:AMOUNT|TOTAL|PAYMENT|LKR|RS\.?)\s*[:=]?\s*(?:LKR|RS\.?)?\s*([\d,]+\.\d{2})/i', $text, $amountMatch);
+        $results['amount'] = $amountMatch[1] ?? null;
 
-        if (!empty($combinedMatch[1])) {
-            // Split the combined format into date and time components
-            $parts = explode(' ', $combinedMatch[1]);
-            return [
-                'date' => $parts[0],  // YYYY-MM-DD
-                'time' => $parts[1] . ' ' . $parts[2]  // HH:MM AM/PM
-            ];
-        }
+        preg_match('/(\d{4}[\/\-.]\d{2}[\/\-.]\d{2})/', $text, $dateMatch1);
+        preg_match('/(\d{2}[\/\-.]\d{2}[\/\-.]\d{4})/', $text, $dateMatch2);
 
-        // Fall back to separate date and time patterns if combined not found
-        $results = [];
+        $results['date'] = $dateMatch1[1] ?? $dateMatch2[1] ?? null;
 
-        // Date pattern (matches various date formats)
-        preg_match('/
-        (?:DATE|ON|PAYMENT\s*DATE)\s*[:=]?\s*
-        (\d{2,4}[\.\/-]\d{2}[\.\/-]\d{2,4})
-    /ix', $text, $dateMatch);
-        $results['date'] = $dateMatch[1] ?? null;
-
-        // Time pattern (matches various time formats)
-        preg_match('/
-        (?:TIME|AT|PAYMENT\s*TIME)\s*[:=]?\s*
-        (\d{1,2}:\d{2}\s*[AP]M?)
-    /ix', $text, $timeMatch);
+        preg_match('/(\d{1,2}:\d{2}\s*[AP]M?)/i', $text, $timeMatch);
         $results['time'] = $timeMatch[1] ?? null;
 
-        // Account number pattern
-        preg_match('/
-            (?:ACCOUNT\s*NO?|ACC\s*NO?|ACCOUNT)\s*[:=]?\s*
-            (\d{6,})
-        /ix', $text, $accountMatch);
+        preg_match('/(?:ACCOUNT\s*NO?|ACC\s*NO?|ACCOUNT)\s*[:=]?\s*(\d{6,})/i', $text, $accountMatch);
+        $results['account'] = $accountMatch[1] ?? null;
 
-        return [
-            'amount' => $amountMatch[1] ?? null,
-            'date' => $dateMatch[1] ?? null,
-            'time' => $timeMatch[1] ?? null,
-            'account' => $accountMatch[1] ?? null
-        ];
+        return $results;
     }
 
     public function checkFileType(string $filename): string
     {
-        // Get file extension
-        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $extension = strtolower(pathinfo(parse_url($filename, PHP_URL_PATH), PATHINFO_EXTENSION));
 
-        // Define allowed file types
         $imageExtensions = ['jpg', 'jpeg', 'png'];
         $pdfExtensions = ['pdf'];
 
-        if (in_array($extension, $imageExtensions)) {
+        if (in_array($extension, $imageExtensions, true)) {
             return 'image';
-        } elseif (in_array($extension, $pdfExtensions)) {
-            return 'pdf';
-        } else {
-            return 'unsupported';
         }
+
+        if (in_array($extension, $pdfExtensions, true)) {
+            return 'pdf';
+        }
+
+        return 'unsupported';
     }
 }

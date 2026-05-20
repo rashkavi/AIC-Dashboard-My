@@ -55,13 +55,13 @@ if (SessionUser::hasValidSession()) {
             $date = new DateTime("now", new DateTimeZone("Asia/Colombo"));
             while ($row = $totalLecSchedule->fetch_assoc()) {
 
-                $subjectImage = "https://dashboard.timesacademylms.com/assets/imgs/subjects-covers/" . $row['subject_cover'];
-                $defaultImage = "https://dashboard.timesacademylms.com/assets/imgs/common/empty-thumbnail.webp";
+                $subjectImage = "https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/" . $row['subject_cover'];
+                $defaultImage = "https://dashboard.aiccampuslms.com/assets/imgs/common/empty-thumbnail.webp";
 
                 $hasSubjectImage = true;
                 if (empty($row['subject_cover'])) {
                     $hasSubjectImage = false;
-                } else if (!file_exists('https://dashboard.timesacademylms.com/assets/imgs/subjects-covers/' . $row['subject_cover'])) {
+                } else if (!file_exists('https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/' . $row['subject_cover'])) {
                     $hasSubjectImage = false;
                 }
 

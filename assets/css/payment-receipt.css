@@ -1,0 +1,224 @@
+@page {
+    size: A4;
+    margin: 0;
+}
+
+body {
+    margin: 0;
+    background: #f2f2f2;
+    font-family: "Times New Roman", serif;
+    color: #111;
+}
+
+.page {
+    width: 210mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    background: #fff;
+    margin: 0 auto;
+    padding: 10mm;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.receipt {
+    border: 2px solid #333;
+    padding: 18px;
+    height: 100%;
+    min-height: calc(297mm - 20mm);
+    max-height: calc(297mm - 20mm);
+    position: relative;
+    box-sizing: border-box;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    border-bottom: 1px solid #333;
+    padding-bottom: 12px;
+}
+
+.logo {
+    width: 125px;
+}
+
+.header-center {
+    flex: 1;
+    text-align: center;
+}
+
+.campus-name {
+    font-size: 22px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.campus-info {
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.receipt-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    margin: 22px 0;
+    text-transform: uppercase;
+}
+
+.top-meta {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 14px;
+    line-height: 1.8;
+    margin-top: 8px;
+}
+
+.line-row {
+    display: flex;
+    margin-bottom: 14px;
+    font-size: 16px;
+}
+
+.label {
+    white-space: nowrap;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.line {
+    border-bottom: 1px dotted #111;
+    flex: 1;
+    padding-left: 8px;
+}
+
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 330px;
+    gap: 25px;
+    margin-top: 15px;
+}
+
+.fee-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.fee-table th,
+.fee-table td {
+    border: 1px solid #333;
+    padding: 7px;
+}
+
+.fee-table th {
+    text-align: center;
+    font-weight: bold;
+}
+
+.fee-table td:last-child {
+    text-align: right;
+}
+
+.payment-mode {
+    margin-top: 25px;
+}
+
+.checkbox-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 14px;
+    font-size: 16px;
+}
+
+.check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.box {
+    width: 18px;
+    height: 18px;
+    border: 1px solid #111;
+    display: inline-block;
+    text-align: center;
+    line-height: 18px;
+    font-weight: bold;
+}
+
+.amount-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 30px;
+    font-size: 15px;
+}
+
+.summary-box {
+    border-bottom: 1px dotted #111;
+    padding-bottom: 5px;
+}
+
+.note {
+    font-size: 12px;
+    font-style: italic;
+    margin-top: 25px;
+    line-height: 1.5;
+}
+
+.signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    margin-top: 70px;
+    text-align: center;
+    font-style: italic;
+    font-size: 16px;
+}
+
+.signature-line {
+    border-top: 1px dotted #111;
+    padding-top: 5px;
+}
+
+.footer-row {
+    position: absolute;
+    bottom: 18px;
+    left: 18px;
+    right: 18px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+.print-btn {
+    width: 794px;
+    margin: 20px auto 0;
+    text-align: right;
+}
+
+.print-btn button {
+    background: #21409B;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+@media print {
+    body {
+        background: #fff;
+    }
+
+    .print-btn {
+        display: none;
+    }
+
+    .page {
+        margin: 0;
+        width: 100%;
+        min-height: auto;
+    }
+}

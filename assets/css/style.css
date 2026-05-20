@@ -26,7 +26,7 @@
     --side-menu-user-background: #F4F7FF;
     --white: #ffffff;
     --custom-white: #ffffff;
-    --body-color: #F5F8FF;
+    --body-color: #f8faff;
 
     --gradient-start: #5D7BE6;
     --gradient-mid: #21409B;
@@ -118,6 +118,57 @@
 
     --role-ten-background: #ffe4e1;
     --role-ten-text: #f44336;
+
+    --student-status-1-background: #FFF4CC;
+    --student-status-1-text: #C98A00;
+
+    --student-status-2-background: #FFE2E2;
+    --student-status-2-text: #D92D20;
+
+    --student-status-3-background: #DFFFE8;
+    --student-status-3-text: #16A34A;
+
+    --student-status-4-background: #E4F0FF;
+    --student-status-4-text: #2563EB;
+
+    --student-status-5-background: #F3E8FF;
+    --student-status-5-text: #9333EA;
+
+    --student-status-6-background: #FFF7D6;
+    --student-status-6-text: #CA8A04;
+
+    --student-status-7-background: #FFEFD5;
+    --student-status-7-text: #F97316;
+
+    --student-status-8-background: #FFF4CC;
+    --student-status-8-text: #D97706;
+
+    --student-status-9-background: #FFE4E6;
+    --student-status-9-text: #E11D48;
+
+    --student-status-10-background: #DCFCE7;
+    --student-status-10-text: #16A34A;
+
+    --student-status-11-background: #E0F2FE;
+    --student-status-11-text: #0284C7;
+
+    --student-status-12-background: #FEE2E2;
+    --student-status-12-text: #DC2626;
+
+    --student-status-13-background: #DCFCE7;
+    --student-status-13-text: #15803D;
+
+    --student-status-14-background: #ECFCCB;
+    --student-status-14-text: #65A30D;
+
+    --student-status-15-background: #E0E7FF;
+    --student-status-15-text: #4338CA;
+
+    --student-status-16-background: #DBEAFE;
+    --student-status-16-text: #1D4ED8;
+
+    --student-status-17-background: #DCFCE7;
+    --student-status-17-text: #15803D;
 }
 
 [data-custom-theme="dark"] {
@@ -229,6 +280,57 @@
 
     --role-ten-background: #4a2321;
     --role-ten-text: #ff867f;
+
+    --student-status-1-background: #4D3B00;
+    --student-status-1-text: #FFD84D;
+
+    --student-status-2-background: #4A1E1E;
+    --student-status-2-text: #FF6B6B;
+
+    --student-status-3-background: #163D28;
+    --student-status-3-text: #4ADE80;
+
+    --student-status-4-background: #1E3A5F;
+    --student-status-4-text: #60A5FA;
+
+    --student-status-5-background: #3B2457;
+    --student-status-5-text: #C084FC;
+
+    --student-status-6-background: #4A3A12;
+    --student-status-6-text: #FACC15;
+
+    --student-status-7-background: #4A2C12;
+    --student-status-7-text: #FB923C;
+
+    --student-status-8-background: #4A3A12;
+    --student-status-8-text: #FBBF24;
+
+    --student-status-9-background: #4A1E2B;
+    --student-status-9-text: #FB7185;
+
+    --student-status-10-background: #163D28;
+    --student-status-10-text: #4ADE80;
+
+    --student-status-11-background: #153B4A;
+    --student-status-11-text: #38BDF8;
+
+    --student-status-12-background: #4A1F1F;
+    --student-status-12-text: #F87171;
+
+    --student-status-13-background: #173A2D;
+    --student-status-13-text: #4ADE80;
+
+    --student-status-14-background: #334015;
+    --student-status-14-text: #A3E635;
+
+    --student-status-15-background: #232C5A;
+    --student-status-15-text: #818CF8;
+
+    --student-status-16-background: #1E3A5F;
+    --student-status-16-text: #60A5FA;
+
+    --student-status-17-background: #173A2D;
+    --student-status-17-text: #4ADE80;
 }
 
 /* Base transitions */
@@ -3185,6 +3287,257 @@ option {
 }
 
 /* Dashboard Card -> End */
+
+.student-doc-upload-box {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 14px;
+    background: var(--custom-white) !important;
+    height: 100%;
+    transition: 0.2s ease;
+}
+
+.student-doc-upload-box:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.doc-upload-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.doc-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark-theme);
+}
+
+.doc-required {
+    font-size: 11px;
+    padding: 4px 8px;
+    background: rgba(238, 53, 59, 0.12);
+    color: #ee353b;
+    white-space: nowrap;
+}
+
+.doc-drop-area {
+    border: 1px dashed rgba(0, 0, 0, 0.18);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.015);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+}
+
+.doc-drop-area.drag-over-effect {
+    border-color: var(--light-theme);
+    background: rgba(240, 199, 31, 0.08);
+}
+
+.doc-drop-text {
+    font-size: 13px;
+    color: var(--dark-theme);
+}
+
+.doc-or-text {
+    font-size: 12px;
+    color: #777;
+}
+
+.student-doc-file-card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--custom-white) !important;
+}
+
+.student-doc-file-name {
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.student-doc-file-meta {
+    font-size: 12px;
+    color: #777;
+}
+
+.remove-student-doc {
+    cursor: pointer;
+}
+
+/* Payments Plan Ribbon -> Start */
+
+.payment-plan-card {
+    position: relative;
+    overflow: visible;
+}
+
+.payment-plan-content {
+    padding-top: 12px;
+    padding-left: 18px;
+}
+
+.default-ribbon {
+    position: absolute;
+    top: -12px;
+    left: -8px;
+    display: inline-block;
+    background: #28a745;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 6px 10px 5px 10px;
+    border-radius: 3px 3px 3px 0;
+    z-index: 5;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.default-ribbon::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid #1e7e34;
+    border-left: 6px solid transparent;
+}
+
+.card-read-more-btn {
+    margin-top: 14px;
+    border: none;
+    outline: none;
+    background: rgba(62, 64, 149, 0.08);
+    color: white;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.card-read-more-btn:hover {
+    background: rgba(62, 64, 149, 0.14);
+}
+
+.card-read-more-btn iconify-icon {
+    transition: transform 0.3s ease;
+}
+
+.card-read-more-btn.active iconify-icon {
+    transform: rotate(180deg);
+}
+
+.lead-extra-details {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.45s ease, opacity 0.35s ease, margin-top 0.35s ease;
+    margin-top: 0;
+}
+
+.lead-extra-details.show {
+    max-height: 1200px;
+    opacity: 1;
+    margin-top: 14px;
+}
+
+/* Payments Plan Ribbon -> End */
+
+.label-student-status-1 {
+    background-color: var(--student-status-1-background);
+    color: var(--student-status-1-text);
+}
+
+.label-student-status-2 {
+    background-color: var(--student-status-2-background);
+    color: var(--student-status-2-text);
+}
+
+.label-student-status-3 {
+    background-color: var(--student-status-3-background);
+    color: var(--student-status-3-text);
+}
+
+.label-student-status-4 {
+    background-color: var(--student-status-4-background);
+    color: var(--student-status-4-text);
+}
+
+.label-student-status-5 {
+    background-color: var(--student-status-5-background);
+    color: var(--student-status-5-text);
+}
+
+.label-student-status-6 {
+    background-color: var(--student-status-6-background);
+    color: var(--student-status-6-text);
+}
+
+.label-student-status-7 {
+    background-color: var(--student-status-7-background);
+    color: var(--student-status-7-text);
+}
+
+.label-student-status-8 {
+    background-color: var(--student-status-8-background);
+    color: var(--student-status-8-text);
+}
+
+.label-student-status-9 {
+    background-color: var(--student-status-9-background);
+    color: var(--student-status-9-text);
+}
+
+.label-student-status-10 {
+    background-color: var(--student-status-10-background);
+    color: var(--student-status-10-text);
+}
+
+.label-student-status-11 {
+    background-color: var(--student-status-11-background);
+    color: var(--student-status-11-text);
+}
+
+.label-student-status-12 {
+    background-color: var(--student-status-12-background);
+    color: var(--student-status-12-text);
+}
+
+.label-student-status-13 {
+    background-color: var(--student-status-13-background);
+    color: var(--student-status-13-text);
+}
+
+.label-student-status-14 {
+    background-color: var(--student-status-14-background);
+    color: var(--student-status-14-text);
+}
+
+.label-student-status-15 {
+    background-color: var(--student-status-15-background);
+    color: var(--student-status-15-text);
+}
+
+.label-student-status-16 {
+    background-color: var(--student-status-16-background);
+    color: var(--student-status-16-text);
+}
+
+.label-student-status-17 {
+    background-color: var(--student-status-17-background);
+    color: var(--student-status-17-text);
+}
 
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {

@@ -501,7 +501,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
 
                                                                         <div class="table-responsive-wrapper">
-                                                                            <div class="table-responsive" id="students-table-container">
+                                                                            <div class="table-responsive overflow-visible" id="students-table-container">
                                                                                 <table class="table bl-solid m-0 p-0 g-0" id="students-table">
                                                                                     <thead>
                                                                                         <tr class="br-t-5">
@@ -647,10 +647,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                                             <div class="dropdown">
                                                                                                                 <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?php echo $data['sId']; ?>','<?php echo $data['shiId']; ?>')">
-                                                                                                                            <iconify-icon icon="tabler:face-id" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                                            Download Student ID Card</a></li>
-                                                                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+
                                                                                                                     <?php
                                                                                                                     if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                                                                                     ?>
@@ -795,8 +792,9 @@ if (!SessionUser::hasValidSession()) {
                                                                             Actions
                                                                         </div>
                                                                         <ul class="dropdown-menu w-100" style="min-width: max-content;">
+                                                                            <li><a class="dropdown-item" onclick="window.location = 'intake-payment-plans?intake-id=<?= $id ?>'">Intake Payment Plans</a></li>
                                                                             <li><a class="dropdown-item" onclick="window.location = 'assign-payment-plan-to-students?intake-id=<?= $id ?>'">Assign Payment Plan to Students</a></li>
-                                                                            <li><a class="dropdown-item" onclick="window.location = 'add-payments-to-intake-students?intake-id=<?= $id ?>'">Add Installments</a></li>
+
                                                                         </ul>
                                                                     </div>
                                                                 </div>
@@ -909,7 +907,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="col-12">
                                                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                                                 <div class="table-responsive-wrapper">
-                                                                                    <div class="table-responsive" id="payments-table-container">
+                                                                                    <div class="table-responsive overflow-visible" id="payments-table-container">
                                                                                         <table class="table bl-solid m-0 p-0 g-0" id="payments-table">
                                                                                             <thead>
                                                                                                 <tr class="br-t-5">
@@ -1176,9 +1174,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <?php
                                                 }
                                                 ?>
-
                                             </div>
-
                                         </div>
                                         <div class="flex-grow-1"></div>
                                         <footer>
@@ -1205,7 +1201,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Level Name</label>
+                                                    <label for="" class="text-14 main-text required">Level Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="level-name">
                                                     <span class="text-12 text-dark-red" id="al-name-feedback"></span>
                                                 </div>
@@ -1265,7 +1261,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Level Name</label>
+                                                    <label for="" class="text-14 main-text required">Level Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="edit-level-name">
                                                     <span class="text-12 text-dark-red" id="el-name-feedback"></span>
                                                 </div>

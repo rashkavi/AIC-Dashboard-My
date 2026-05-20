@@ -216,7 +216,7 @@ TEXT;
                     &copy;$currentYear ENLIXO Uni. All Rights Reserved |
                     Powered by
                     <a href="https://enviiz.com" target="_blank" style="text-decoration: none;">
-                        <img src="https://dashboard.timesacademylms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares (PVT) LTD" style="width: 35px; height: auto; vertical-align: middle;">
+                        <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares (PVT) LTD" style="width: 35px; height: auto; vertical-align: middle;">
                     </a>
                 </p>
         </div>

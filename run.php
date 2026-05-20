@@ -1,265 +1,625 @@
+<?php
+require_once './includes/UserClass.php';
+require_once './includes/UserPermissionsClass.php';
+require_once "./includes/connection.php";
+require_once "./includes/Project.php";
+require_once "./includes/SlipVerifier.php";
+if (!SessionUser::hasValidSession()) {
+    header("Location: ./index");
+    exit;
+}
+
+$sessionUserRole = SessionUser::getCurrentUserRole();
+
+if ($sessionUserRole == null) {
+    header("Location: ./index");
+    exit;
+}
+
+$sessionUserObject = SessionUser::getCurrentUserObject();
+
+UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
+    header("Location: ./inquiries");
+    exit;
+}
+
+if (!isset($_GET["inquiry-id"]) || !is_numeric($_GET["inquiry-id"])) {
+    header("Location: ./inquiries");
+    exit;
+}
+
+$leadId = (int) $_GET["inquiry-id"];
+
+$leadRs = Database::search("
+    SELECT 
+                                                             `students`.`student_id` AS 'sId', 
+                                                         
+                                                             `login_details`.`first_name`, 
+                                                             `login_details`.`last_name`, 
+                                                             `login_details`.`email`, 
+                                                         
+                                                             `students`.`mobile`, 
+                                                         
+                                                             `login_details`.`whatsapp`, 
+                                                             `students`.`profile_img`, 
+                                                             `login_details`.`date_registered`, 
+                                                         
+                                                             `title`.`title`, 
+                                                         
+                                                             `lead_student_status`.`lead_student_status`,
+                                                             `lead_student_status`.`lead_student_status_id`,
+                                                         
+                                                             `login_details`.`verification`,
+                                                             `login_details`.`reset_time`,
+                                                         
+                                                             `users`.`user_fname`,
+                                                             `users`.`user_lname`,
+                                                         
+                                                             `title2`.`title` AS `user_title`,
+                                                         
+                                                             `sl`.`students_log_id`,
+                                                             `sl`.`date_updated` AS `latest_log_date`,
+                                                             `sl`.`log` AS `latest_log`,
+                                                             `sl`.`note` AS `latest_note`,
+                                                             `sl`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`,
+                                                         
+                                                             `updated_user`.`user_id` AS `updated_user_id`,
+                                                             `updated_user`.`user_fname` AS `updated_user_fname`,
+                                                             `updated_user`.`user_lname` AS `updated_user_lname`,
+                                                         
+                                                             `updated_user_title`.`title` AS `updated_user_title`
+                                                         
+                                                         FROM `students`
+                                                         
+                                                         INNER JOIN `login_details`
+                                                             ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
+                                                         
+                                                         INNER JOIN `title`
+                                                             ON `students`.`title_title_id` = `title`.`title_id`
+                                                         
+                                                         INNER JOIN `lead_student_status`
+                                                             ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                         
+                                                         INNER JOIN `users`
+                                                             ON `students`.`users_user_id` = `users`.`user_id`
+                                                         
+                                                         INNER JOIN `title` AS `title2`
+                                                             ON `users`.`title_title_id` = `title2`.`title_id`
+                                                         
+                                                         LEFT JOIN `students_logs` AS `sl`
+                                                             ON `sl`.`students_log_id` = (
+                                                                 SELECT `sl2`.`students_log_id`
+                                                                 FROM `students_logs` AS `sl2`
+                                                                 WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                   AND `sl2`.`lead_student_status_lead_student_status_id` IN (2,3,4)
+                                                                 ORDER BY `sl2`.`date_updated` DESC
+                                                                 LIMIT 1
+                                                             )
+                                                         
+                                                         LEFT JOIN `users` AS `updated_user`
+                                                             ON `sl`.`users_user_id` = `updated_user`.`user_id`
+                                                         
+                                                         LEFT JOIN `title` AS `updated_user_title`
+                                                             ON `updated_user`.`title_title_id` = `updated_user_title`.`title_id`
+                                                         WHERE `students`.`student_id` = '" . $leadId . "'
+                                                            GROUP BY `students`.`student_id`
+                                                         ORDER BY `students`.`student_id` DESC
+");
+
+if ($leadRs->num_rows == 0) {
+    header("Location: ./inquiries");
+    exit;
+}
+
+$lead = $leadRs->fetch_assoc();
+
+
+$profileImage = "./assets/imgs/common/empty-img.png";
+
+if (!empty($lead["profile_img"])) {
+    $profileImage = "./assets/imgs/students/" . $lead["profile_img"];
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Template</title>
+    <meta name="robots" content="noindex, nofollow">
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <title>Inquiry View | <?= Project::getBaseName(); ?></title>
 
-    <style>
-        body {
-            background: #f3f4f6;
-            font-family: Arial, Helvetica, sans-serif;
-            color: #2f4058;
-        }
+    <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
+    <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
+    <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
 
-        .invoice-wrapper {
-            max-width: 850px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-
-        .invoice-card {
-            background: #ffffff;
-            border: 1px solid #d9dde3;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-            padding: 42px 46px 50px;
-            min-height: 700px;
-        }
-
-        .brand-logo {
-            max-width: 180px;
-            height: auto;
-            object-fit: contain;
-        }
-
-        .company-address {
-            margin-top: 14px;
-            font-size: 14px;
-            line-height: 1.5;
-            color: #4f5f73;
-        }
-
-        .invoice-title {
-            text-align: right;
-        }
-
-        .invoice-title h1 {
-            margin: 0;
-            font-size: 52px;
-            line-height: 1;
-            font-weight: 700;
-            color: #3f5168;
-            letter-spacing: 0.5px;
-        }
-
-        .invoice-number {
-            margin-top: 8px;
-            font-size: 32px;
-            font-weight: 700;
-            color: #3f5168;
-        }
-
-        .info-section {
-            margin-top: 44px;
-        }
-
-        .info-label {
-            display: block;
-            font-size: 15px;
-            font-weight: 700;
-            color: #3f5168;
-            margin-bottom: 6px;
-        }
-
-        .info-value {
-            font-size: 15px;
-            line-height: 1.5;
-            color: #506174;
-        }
-
-        .invoice-table-wrap {
-            margin-top: 70px;
-        }
-
-        .invoice-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .invoice-table thead th {
-            font-size: 15px;
-            font-weight: 700;
-            color: #3f5168;
-            padding: 12px 0;
-            border-bottom: 1px solid #d7dce2;
-        }
-
-        .invoice-table tbody td {
-            font-size: 15px;
-            color: #506174;
-            padding: 16px 0 6px;
-            vertical-align: top;
-        }
-
-        .invoice-table .amount-col {
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        .remarks-row td {
-            padding-top: 8px;
-            color: #5d6c7c;
-        }
-
-        .signature-section {
-            margin-top: 110px;
-        }
-
-        .signature-line {
-            width: 120px;
-            border-top: 1.5px solid #55677c;
-            margin-bottom: 8px;
-        }
-
-        .signature-text {
-            font-size: 14px;
-            color: #4f5f73;
-        }
-
-        @media (max-width: 767.98px) {
-            .invoice-card {
-                padding: 28px 22px 36px;
-            }
-
-            .invoice-title {
-                text-align: left;
-                margin-top: 25px;
-            }
-
-            .invoice-title h1 {
-                font-size: 38px;
-            }
-
-            .invoice-number {
-                font-size: 24px;
-            }
-
-            .invoice-table tbody td,
-            .invoice-table thead th,
-            .info-value,
-            .info-label,
-            .company-address {
-                font-size: 14px;
-            }
-
-            .signature-section {
-                margin-top: 70px;
-            }
-        }
-
-        @media print {
-            body {
-                background: #ffffff;
-            }
-
-            .invoice-wrapper {
-                max-width: 100%;
-                margin: 0;
-                padding: 0;
-            }
-
-            .invoice-card {
-                border: none;
-                box-shadow: none;
-                min-height: auto;
-            }
-        }
-    </style>
+    <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+    <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
 </head>
-<body>
 
-    <div class="container invoice-wrapper">
-        <div class="invoice-card">
-
-            <!-- Header -->
-            <div class="row align-items-start">
-                <div class="col-md-7">
-                    <img src="./assets/imgs/common/logo.png" alt="Logo" class="brand-logo">
-
-                    <div class="company-address">
-                        58/A1, Nugegoda Road, Pepiliyana.<br>
-                        +94 77 888 37 36 / +94 112 82 62 82
+<body class="overflow-hidden">
+    <div class="notifications"></div>
+    <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
+        <div id="appContainer" class="row p-0">
+            <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
+                <?php
+                include "includes/side-menu.php";
+                load_side_menu::load("Inquiries");
+                ?>
+            </div>
+            <div id="app-wrapper" class="app-wrapper p-0 m-0">
+                <div class="row p-0 m-0 g-0">
+                    <div class="col-12 p-0 m-0 g-0">
+                        <?php
+                        include "./includes/header.php";
+                        selectItem::setSelected("Inquiries");
+                        ?>
                     </div>
-                </div>
+                    <div class="container p-4 m-0" id="skeleton-list">
+                        <?php
+                        include "./includes/components/skeleton-header.php";
+                        include "./includes/components/skeleton-add-edit.php"; ?>
+                    </div>
 
-                <div class="col-md-5">
-                    <div class="invoice-title">
-                        <h1>Invoice</h1>
-                        <div class="invoice-number"># 4593</div>
+                    <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
+                        <div class="row p-4 m-0">
+                            <div class="col-12 px-4 py-3 component-theme mb-4 mt-0">
+                                <div class="row p-0 m-0 g-0">
+                                    <div class="col-12 col-md-8">
+                                        <div class="row">
+                                            <span class="main-topic lh-lg" data-i18n="">Inquiry Registration Payment</span>
+                                            <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                <ol class="breadcrumb m-0">
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Inquiry Registration Payments</a></li>
+                                                </ol>
+                                            </nav>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-lg-4 mt-3 mt-lg-0">
+                                        <div class="row align-items-center justify-content-end gx-3 h-100">
+                                            <?php
+                                            if ($lead['latest_log_status_id'] == 1) {
+                                            ?>
+                                                <div class="col-6 mt-3 mt-lg-0 m-md-0">
+                                                    <button class="custom-btn w-100" type="button" data-bs-target="#updateLead" data-bs-toggle="modal">
+                                                        Update Status
+                                                    </button>
+                                                </div>
+                                            <?php
+                                            }
+                                            if ($lead['latest_log_status_id'] == 3) {
+                                            ?>
+                                                <div class="col-6 mt-3 mt-lg-0 m-md-0">
+                                                    <button class="custom-btn w-100" type="button" onclick="window.location.href='create-student-payment-plan?lead-id=<?= $leadId ?>'">
+                                                        Create Payment Plan
+                                                    </button>
+                                                </div>
+                                            <?php
+                                            }
+                                            ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 p-0 m-0">
+                                <div class="row p-4 m-0 g-0 component-theme w-100">
+                                    <div class="col-12">
+                                        <div class="payment-timeline">
+                                            <div class="timeline-progress">
+                                                <?php
+                                                $query = "SELECT * FROM `lead_student_status`";
+                                                $progress = 0;
+                                                $progressColor = "";
+                                                switch ($lead['latest_log_status_id'] == null ? 0 : $lead['latest_log_status_id']) {
+                                                    case 0:
+                                                        $progressColor = "pulse";
+                                                        $progress = 100 / 2 * 0;
+                                                        $query .= " WHERE `lead_student_status_id` IN (3,4)";
+                                                        break;
+                                                    case 2:
+                                                        $progressColor = "reject";
+                                                        $progress = 100 / 2 * 1;
+                                                        $query .= " WHERE `lead_student_status_id` IN (2,4)";
+                                                        break;
+                                                    case 3:
+                                                        $progressColor = "completed";
+                                                        $progress = 100 / 2 * 1;
+                                                        $query .= " WHERE `lead_student_status_id` IN (3,4)";
+                                                        break;
+                                                    case 4:
+                                                        $progressColor = "accepted";
+                                                        $progress = 100 / 2 * 2;
+                                                        $query .= " WHERE `lead_student_status_id` IN (2,4)";
+                                                        break;
+                                                }
+
+                                                ?>
+                                                <div class="progress-bar <?= $progressColor ?>" style="width: <?= $progress ?>%"></div>
+                                            </div>
+                                            <div class="timeline-items">
+                                                <?php
+
+                                                $icons = ["majesticons:clock", "material-symbols:pending-outline", "mdi:snowflake-approve", "fontisto:close", "material-symbols:pending-outline", "mdi:snowflake-approve", "fontisto:close", "mdi:approve"];
+
+                                                $paymentStatus = Database::search($query);
+                                                while ($status = $paymentStatus->fetch_assoc()) {
+                                                    $timelineItemColor = "";
+                                                    $bubbleAction = "";
+
+                                                    if ($lead['latest_log_status_id'] >= $status['lead_student_status']) {
+                                                        if ($lead['latest_log_status_id'] == 2) {
+                                                            $timelineItemColor = "reject";
+                                                        } else if ($lead['latest_log_status_id'] == 4) {
+                                                            $timelineItemColor = "accepted";
+                                                        } else {
+                                                            if (($lead['latest_log_status_id']  ==  $status['lead_student_status']) || ($lead['latest_log_status_id'] == null)) {
+                                                                $bubbleAction = "pulse";
+                                                            } else {
+                                                                $timelineItemColor = "completed";
+                                                            }
+                                                        }
+                                                    }
+
+                                                ?>
+                                                    <div class="timeline-item <?= $timelineItemColor ?>">
+                                                        <div class="timeline-bubble <?= $bubbleAction ?>">
+                                                            <iconify-icon icon="<?= $icons[$status['lead_student_status_id'] - 1] ?>" width="25" height="25"></iconify-icon>
+                                                        </div>
+                                                        <div class="timeline-label">
+                                                            <span><?= $status['lead_student_status'] ?></span>
+                                                        </div>
+                                                    </div>
+                                                <?php
+
+                                                }
+                                                ?>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <?php
+                                    $paymnetSlips = Database::search("
+                                        SELECT *
+                                        FROM students_identity_documents
+                                        WHERE students_student_id = '" . $leadId . "'
+                                        AND `students_identity_documents_type_id` = '8'
+                                        ORDER BY students_identity_documents_type_id ASC, date_added DESC
+                                        ");
+                                    if ($paymnetSlips->num_rows > 0) {
+                                    ?>
+                                        <div class="col-12">
+                                            <div class="row p-4 m-0 g-0 align-content-center bl-solid mt-4">
+                                                <span class="main-topic lh-lg">Payment Slips</span>
+                                                <div class="accordion accordion-flush" id="accordionParent">
+                                                    <?php
+                                                    while ($paymentSlip = $paymnetSlips->fetch_assoc()) {
+                                                        $slipVerifier = new SlipVerifier();
+                                                        $fileType = $slipVerifier->checkFileType($paymentSlip['document']);
+                                                        $bankAccNo = '';
+                                                        $fileUrl = "";
+
+                                                        $fileUrl = Project::getBaseUrl() . "/assets/uploads/student-identity-documents/payment-slips/" . $paymentSlip['document'];
+
+                                                        $fileData = $slipVerifier->extractSlipDetails($fileUrl);
+                                                        $isExtracted = !empty($fileData['success']);
+
+                                                        $paidDate = $fileData['paid_date'] ?? null;
+                                                        $paidTime = $fileData['paid_time'] ?? null;
+                                                        $amount = $fileData['amount'] ?? null;
+                                                        $bankAccount = $fileData['bank_account'] ?? null;
+                                                        if ($fileType != 'unsupported') {
+                                                    ?>
+                                                            <div class="accordion-item mt-4">
+                                                                <h2 class="accordion-header bl-solid">
+                                                                    <button class="accordion-button collapsed d-flex align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapse-<?= $paymentSlip['students_identity_document_id'] ?>" aria-expanded="false" aria-controls="flush-collapse-<?= $paymentSlip['students_identity_document_id'] ?>">
+                                                                        <img src="./assets/imgs/icons/<?= $fileType ?>.png" class="img-fluid pe-4" alt="Payment Slip">
+                                                                        <?php
+                                                                        if ($fileData['verified'] == true) {
+                                                                        ?>
+                                                                            <iconify-icon icon="ph:seal-check-duotone" width="40" height="40" class="text-dark-green"></iconify-icon>
+                                                                            <div class="ms-3 d-flex flex-column">
+                                                                                <span class="text-dark-green text-16 fw-semibold">Payment slip successfully verified</span>
+                                                                                <span class="text-12">Transaction details have been authenticated.</span>
+                                                                            </div>
+                                                                        <?php
+                                                                        } else {
+                                                                        ?>
+                                                                            <iconify-icon icon="ant-design:close-circle-twotone" width="40" height="40" class="text-dark-red"></iconify-icon>
+                                                                            <div class="ms-3 d-flex flex-column">
+                                                                                <span class="text-dark-red text-16 fw-semibold">Unable to verify payment</span>
+                                                                                <span class="text-12">The uploaded slip appears to be invalid, duplicated, or altered.</span>
+                                                                            </div>
+                                                                        <?php
+                                                                        }
+                                                                        ?>
+                                                                    </button>
+                                                                </h2>
+                                                                <div id="flush-collapse-<?= $paymentSlip['students_identity_document_id'] ?>" class="accordion-collapse collapse bl-solid-lrb" data-bs-parent="#accordionParent">
+                                                                    <div class="accordion-body">
+                                                                        <div class="col-12">
+                                                                            <div class="row p-0 m-0">
+                                                                                <hr>
+                                                                                <div class="col-12 col-xl-6">
+                                                                                    <div class="row">
+                                                                                        <div class="col-12 mt-">
+                                                                                            <div class="d-flex align-items-start">
+                                                                                                <?php
+                                                                                                if (!empty($paidDate)) {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-green text-16 fw-semibold">Payment Date</span>
+                                                                                                        <span class="text-14">Payment date successfully matched with bank transaction details.</span>
+                                                                                                    </div>
+                                                                                                <?php
+
+                                                                                                } else {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-red text-16 fw-semibold">Payment Date</span>
+                                                                                                        <span class="text-14">Payment date is missing or does not correspond with the system records.</span>
+                                                                                                    </div>
+                                                                                                <?php
+                                                                                                }
+                                                                                                ?>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="col-12">
+                                                                                            <div class="d-flex align-items-start">
+                                                                                                <?php
+                                                                                                if (!empty($amount)) {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-green text-16 fw-semibold">Payment Amount</span>
+                                                                                                        <span class="text-14">LKR <?= $amount ?> Payment amount confirmed and accurately reflected in the slip.</span>
+                                                                                                    </div>
+                                                                                                <?php
+                                                                                                } else {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-red text-16 fw-semibold">Payment Amount</span>
+                                                                                                        <span class="text-14">Mismatch detected in the declared and recorded payment amount.</span>
+                                                                                                    </div>
+                                                                                                <?php
+                                                                                                }
+                                                                                                ?>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="col-12">
+                                                                                            <div class="d-flex align-items-start">
+                                                                                                <?php
+                                                                                                if (!empty($bankAccount)) {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-green text-16 fw-semibold">Account Number</span>
+                                                                                                        <span class="text-12">Institution account number is correct and consistent with transaction details.</span>
+                                                                                                    </div>
+                                                                                                <?php
+                                                                                                } else {
+                                                                                                ?>
+                                                                                                    <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                    <div class="ms-3 d-flex flex-column">
+                                                                                                        <span class="text-dark-red text-16 fw-semibold">Account Number</span>
+                                                                                                        <span class="text-12">Incorrect or unrecognized account number used for this transaction.</span>
+                                                                                                    </div>
+                                                                                                <?php
+                                                                                                }
+                                                                                                ?>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="col-12 col-xl-6 mt-3 mt-xl-0">
+                                                                                    <div class="row justify-content-end align-items-center">
+                                                                                        <?php
+                                                                                        if ($fileData['verified'] == true) {
+                                                                                        ?>
+                                                                                            <div class="alert alert-success br-0" role="alert">
+                                                                                                ✅ This payment slip has been successfully verified and is valid.
+                                                                                            </div>
+                                                                                        <?php
+                                                                                        } else {
+                                                                                        ?>
+                                                                                            <div class="alert alert-warning br-0" role="alert">
+                                                                                                ⚠️ This payment slip has not been verified yet. Please review it carefully before approval.
+                                                                                            </div>
+                                                                                        <?php
+                                                                                        }
+                                                                                        ?>
+                                                                                        <button class="custom-btn col-4" type="button" onclick="window.open('<?= $fileUrl; ?>', '_blank');">View</button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                    <?php
+                                                        }
+                                                    }
+                                                    ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php
+                                    }
+
+                                    ?>
+
+                                    <div class="col-12 mt-4">
+                                        <div class="row p-0 m-0 g-0">
+                                            <div class="col-12 mb-4">
+                                                <div class="row p-0 gy-3 gx-3 align-content-center">
+                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                        <div class="d-flex custom-div align-items-center justify-content-center">
+                                                            <?php
+                                                            $logs_count = Database::search("SELECT COUNT(*) as 'count' FROM `students_logs` 
+                                                                                    WHERE `students_student_id`='" . $lead['sId'] . "'
+                                                                                    ");
+                                                            $data = $logs_count->fetch_assoc();
+                                                            ?>
+                                                            <span class="text-14 dark-theme fw-medium"><?= $data['count']; ?> Logs</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-12">
+                                                <div class="row p-0 m-0 g-0 align-content-center">
+                                                    <div class="table-responsive-wrapper">
+                                                        <div class="table-responsive" id="users-table-container">
+                                                            <table class="table bl-solid m-0 p-0 g-0" id="users-table">
+                                                                <thead>
+                                                                    <tr class="br-t-5">
+                                                                        <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                            <div class="d-flex flex-row align-items-center">
+                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
+                                                                                <span class="text-14 main-text fw-medium mx-2">User Name</span>
+                                                                            </div>
+                                                                        </th>
+
+                                                                        <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Date Updated</th>
+                                                                        <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Updated Status</th>
+                                                                        <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Log</th>
+                                                                        <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Note</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody id="user-table-data">
+                                                                    <?php
+                                                                    $query = "SELECT * FROM `students_logs`
+                                                                    INNER JOIN `users` ON `students_logs`.`users_user_id` = `users`.`user_id`
+                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                                                                    INNER JOIN `lead_student_status` ON `students_logs`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                                     WHERE `students_student_id`='" . $lead['sId'] . "'
+                                                                    ";
+
+                                                                    $users = Database::search($query);
+                                                                    if ($users->num_rows > 0) {
+                                                                        while ($data = $users->fetch_assoc()) {
+                                                                            $sbutton_class = "label-role-" . $data["lead_student_status_id"];
+                                                                    ?>
+                                                                            <tr>
+                                                                                <td class="px-4 py-3 pe-0 align-middle">
+                                                                                    <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
+                                                                                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?= $data["user_id"]; ?>" onchange="checkRowEvents(<?= $data['user_id']; ?>);">
+                                                                                        <?php
+                                                                                        if (!empty($data["profile_img"]) && file_exists('./assets/imgs/users/' . $data["profile_img"])) {
+                                                                                        ?>
+                                                                                            <img src="./assets/imgs/users/<?= $data["profile_img"]; ?>" class="hwr-40" alt="User image">
+                                                                                        <?php
+                                                                                        } else {
+                                                                                            $firstNameInitial = strtoupper(substr($data["user_fname"], 0, 1));
+                                                                                            $lastNameInitial = strtoupper(substr($data["user_lname"], 0, 1));
+                                                                                        ?>
+                                                                                            <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= $firstNameInitial . $lastNameInitial; ?></div>
+                                                                                        <?php
+                                                                                        }
+                                                                                        ?>
+                                                                                        <span class="text-14 main-text mx-2"><?= $data["title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["date_updated"]; ?></span></td>
+                                                                                <td class="py-2 align-middle">
+                                                                                    <label class="table-btn text-center <?php echo $sbutton_class; ?> w-100"> <?php echo $data["lead_student_status"]; ?></label>
+                                                                                </td>
+                                                                                <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["log"]; ?></span></td>
+                                                                                <td colspan="4" class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["note"]; ?></span></td>
+                                                                            </tr>
+                                                                        <?php
+                                                                        }
+                                                                    } else {
+                                                                        ?>
+                                                                        <tr class="justify-content-center align-middle">
+                                                                            <td colspan="13" class="align-middle justify-content-center">
+                                                                                <div class="d-flex flex-column align-items-center">
+                                                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    <?php
+                                                                    }
+                                                                    ?>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="flex-grow-1"></div>
+                        <footer>
+                            <?php include './includes/footer.php' ?>
+                        </footer>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+    <div class="modal fade" id="updateLead" tabindex="-1" role="dialog" aria-labelledby="updateLeadTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLongTitle">Update Registration Payment</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="col-12 p-0 g-0">
+                        <div class="row gx-4 gy-3">
+                            <div class="col-12 d-flex flex-column">
+                                <label class="text-14 main-text required" for="">Payment Status</label>
+                                <select class="form-select custom-select mt-2" id="status-selector">
+                                    <option value="0" selected disabled>- Select -</option>
+                                    <?php
+                                    $query = "SELECT * FROM `lead_student_status` WHERE `lead_student_status_id` IN (2,3) ORDER BY `lead_student_status_id` DESC";
 
-            <!-- Billing info -->
-            <div class="row info-section">
-                <div class="col-md-4 col-sm-6 mb-4">
-                    <span class="info-label">Billed To:</span>
-                    <div class="info-value">
-                        S. R. B. Kavisha<br>
-                        Prabodini<br>
-                        Rathwathia
+                                    $status = Database::search($query);
+                                    while ($data = $status->fetch_assoc()) {
+                                    ?>
+                                        <option value="<?= $data["lead_student_status_id"]; ?>"><?= $data["lead_student_status"]; ?></option>
+                                    <?php
+                                    }
+                                    ?>
+                                </select>
+                                <span id="status-selector-feedback" class="text-dark-red text-12"></span>
+                            </div>
+
+                            <div class="col-12 d-flex flex-column">
+                                <label class="text-14 main-text" for="">Note</label>
+                                <textarea class="form-control custom-input mt-2" id="note" rows="5"></textarea>
+                                <span id="note-feedback" class="text-dark-red text-12"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="col-md-4 col-sm-6 mb-4">
-                    <span class="info-label">Pay Method:</span>
-                    <div class="info-value">
-                        Seylan 001
-                    </div>
-                </div>
-
-                <div class="col-md-4 col-sm-12 mb-4 text-md-end">
-                    <span class="info-label">Date:</span>
-                    <div class="info-value">
-                        2026-04-08<br>
-                        14:07:00
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="col-12 col-md-4 custom-btn" onclick="updateLeadStatus(this,<?= $leadId ?>);">Update</button>
                 </div>
             </div>
-
-            <!-- Items -->
-            <div class="invoice-table-wrap">
-                <table class="invoice-table">
-                    <thead>
-                        <tr>
-                            <th>Description</th>
-                            <th class="amount-col">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Monthly Fee - April</td>
-                            <td class="amount-col">Rs. 30,000.00</td>
-                        </tr>
-                        <tr class="remarks-row">
-                            <td>Remarks: 2026/06/08</td>
-                            <td></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Signature -->
-            <div class="signature-section">
-                <div class="signature-line"></div>
-                <div class="signature-text">Prepared by</div>
-            </div>
-
         </div>
     </div>
 
+
+
+
+    <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
+    <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+    <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+    <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+
 </body>
+
 </html>

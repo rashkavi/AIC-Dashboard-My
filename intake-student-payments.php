@@ -190,10 +190,10 @@ if (!SessionUser::hasValidSession()) {
                                                                             SUM(discount_amount) AS total_discount,
                                                                             SUM(panelty_amount) AS total_sub_panelty_amount
                                                                         FROM course_payment_has_payments
-                                                                        WHERE payment_status_payment_status_id IN (2,5,6,8)
+                                                                        WHERE payment_status_payment_status_id IN (2,3)
                                                                         GROUP BY course_payments_course_payments_id
                                                                     ) cpp
-                                                                        ON cp.course_payments_id = cpp.course_payments_course_payments_id 
+                                                                    ON cp.course_payments_id = cpp.course_payments_course_payments_id 
                                                                     WHERE `shi`.`students_has_intakes_id` = '" . $id . "'
                                                                     AND `cp`.`payment_status_payment_status_id` = '1'
                                                                     GROUP BY `cp`.`course_payments_id`
@@ -214,7 +214,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12">
                                                                 <div class="row p-0 m-0 g-0 align-content-center">
                                                                     <div class="table-responsive-wrapper">
-                                                                        <div class="table-responsive" id="payments-table-container">
+                                                                        <div class="table-responsive overflow-visible" id="payments-table-container">
                                                                             <table class="table bl-solid m-0 p-0 g-0" id="payments-table">
                                                                                 <thead>
                                                                                     <tr class="br-t-5">
@@ -731,7 +731,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                             </div>
                                                                             <div class="table-responsive-wrapper">
-                                                                                <div class="table-responsive">
+                                                                                <div class="table-responsive overflow-visible">
                                                                                     <table class="table bl-solid m-0 p-0 g-0" id="payments-table">
                                                                                         <thead>
                                                                                             <tr class="br-t-5">
@@ -1015,7 +1015,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                     View
                                                                                                                                 </a>
 
-                                                                                                                                
+
                                                                                                                         </ul>
                                                                                                                     </div>
                                                                                                                 </td>

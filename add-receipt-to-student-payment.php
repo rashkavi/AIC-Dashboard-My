@@ -17,11 +17,18 @@ if (!SessionUser::hasValidSession()) {
         } else {
             date_default_timezone_set('Asia/Colombo');
             $id = $_GET['payment-id'];
+
+            $inquiry_id = 0;
+            if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id'])) {
+                $inquiry_id = $_GET['inquiry-id'];
+            }
+
             $paymentPlan = Database::search("SELECT
                     `cp`.`course_payments_id`, 
                     `ps`.`payment_status`,
                     `ps`.`payment_status_id`,
                     `pgp`.`payment_type`,
+                    `pgp`.`payment_type_id`,
                     `cp`.`amount`,
                     `cp`.`discount`,
                     `cp`.`panelty_payment_option_panelty_payment_option_id`,
@@ -105,8 +112,18 @@ if (!SessionUser::hasValidSession()) {
                 $paymentData = $paymentPlan->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id']))) {
-                    header("Location: ./faculties");
+                $ifHasPermissions = false;
+
+                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
+                    $ifHasPermissions = true;
+                }
+
+                if ($inquiry_id != 0 && (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15))) {
+                    $ifHasPermissions = true;
+                }
+
+                if (!$ifHasPermissions) {
+                    $inquiry_id == 0 ? header("Location: ./faculties") : header("Location: ./inquiries");
                 } else {
 
                     if ($paymentData['payment_status_id'] != 1) {
@@ -148,7 +165,7 @@ if (!SessionUser::hasValidSession()) {
                                     <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                         <?php
                                         include "includes/side-menu.php";
-                                        load_side_menu::load("Course Overview");
+                                        $inquiry_id == 0 ? load_side_menu::load("Course Overview") : load_side_menu::load("Payments");
                                         ?>
                                     </div>
                                     <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -156,7 +173,7 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="col-12 p-0 m-0 g-0">
                                                 <?php
                                                 include "./includes/header.php";
-                                                selectItem::setSelected("Students");
+                                                $inquiry_id == 0 ? selectItem::setSelected("Course Overview") : selectItem::setSelected("Payments");
                                                 ?>
                                             </div>
                                             <div class="container p-4 m-0" id="skeleton-list">
@@ -173,12 +190,30 @@ if (!SessionUser::hasValidSession()) {
                                                                     <span class="main-topic lh-lg">Add Receipt to Student Payment</span>
                                                                     <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                                         <ol class="breadcrumb m-0">
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $paymentData['faculty_id'] ?>'><?= $paymentData['faculty']; ?></a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $paymentData['programme_id'] ?>'>...</a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='batch-details?batch-id=<?= $paymentData['intake_id'] ?>'><?= $paymentData['intake']; ?></a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?php echo ucwords(strtolower($paymentData['title'] . " " . $paymentData['first_name'] . " " . $paymentData['last_name'])); ?></a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
+                                                                            <?php
+                                                                            if ($inquiry_id == 0) {
+                                                                            ?>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $paymentData['faculty_id'] ?>'><?= $paymentData['faculty']; ?></a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $paymentData['programme_id'] ?>'>...</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='batch-details?batch-id=<?= $paymentData['intake_id'] ?>'><?= $paymentData['intake']; ?></a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?php echo ucwords(strtolower($paymentData['title'] . " " . $paymentData['first_name'] . " " . $paymentData['last_name'])); ?></a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
+                                                                            <?php
+                                                                            } else {
+                                                                            ?>
+                                                                                <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                                                    <ol class="breadcrumb m-0">
+                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
+                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiries-registration-payments">Inquiry Registration Payments</a></li>
+                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiry-payment-plan?inquiry-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
+                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
+                                                                                    </ol>
+                                                                                </nav>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+
                                                                         </ol>
                                                                     </nav>
                                                                 </div>
@@ -468,25 +503,75 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="text-12 text-danger" id="paid-date-feedback"></div>
                                                                             </div>
                                                                             <div class="col-lg-6"></div>
+
+                                                                            <div class="col-12 col-lg-6 d-flex flex-column">
+                                                                                <label for="" class="text-14 main-text">Payment Slip</label>
+                                                                                <?php
+                                                                                if ($inquiry_id != 0 && $paymentData['payment_type_id'] == 18) {
+                                                                                    $paymnetSlips = Database::search("
+                                                                                                SELECT *
+                                                                                                FROM students_identity_documents
+                                                                                                WHERE students_student_id = '" . $inquiry_id . "'
+                                                                                                AND `students_identity_documents_type_id` = '8'
+                                                                                                ORDER BY students_identity_documents_type_id ASC, date_added DESC
+                                                                                                ");
+
+                                                                                    if ($paymnetSlips->num_rows > 0) {
+                                                                                        $paymentSlipData = $paymnetSlips->fetch_assoc();
+                                                                                ?>
+                                                                                        <div class="col-12 my-3 file-item">
+                                                                                            <div class="p-3 bl-solid cursor-pointer" onclick="window.open('./assets/uploads/student-identity-documents/payment-slips/<?= $paymentSlipData['document'] ?>', '_blank')">
+                                                                                                <div class="row">
+                                                                                                    <div class="col-2">
+                                                                                                        <img src="assets/imgs/icons/image.png" alt="">
+                                                                                                    </div>
+                                                                                                    <div class="col-8">
+                                                                                                        <div class="file-name">
+                                                                                                            <div class="name"><?= $paymentSlipData['document'] ?></div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+                                                                                    <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2 d-none" id="drop-section">
+                                                                                        <img src="assets/imgs/icons/cloud.png" alt="cloud">
+                                                                                        <span>Drag & Drop your files here</span>
+                                                                                        <span>OR</span>
+                                                                                        <button class="custom-btn px-4" id="file-selector">Browse Files</button>
+                                                                                        <input type="file" class="d-none" id="file-selector-input" accept="image/*,application/pdf">
+                                                                                        <div class="col-12 px-1 mt-4">
+                                                                                            <div class="row" id="list-section">
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                <?php
+                                                                                } else {
+                                                                                ?>
+                                                                                    <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2" id="drop-section">
+                                                                                        <img src="assets/imgs/icons/cloud.png" alt="cloud">
+                                                                                        <span>Drag & Drop your files here</span>
+                                                                                        <span>OR</span>
+                                                                                        <button class="custom-btn px-4" id="file-selector">Browse Files</button>
+                                                                                        <input type="file" class="d-none" id="file-selector-input" accept="image/*,application/pdf">
+                                                                                        <div class="col-12 px-1 mt-4">
+                                                                                            <div class="row" id="list-section">
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+
+                                                                                <div class="mt-2" id="file-feedback"></div>
+                                                                            </div>
                                                                             <div class="col-12 col-lg-6 d-flex flex-column">
                                                                                 <label for="" class="text-14 main-text">Note</label>
                                                                                 <textarea name="note" class="form-control custom-input mt-2" id="note" rows="8"></textarea>
                                                                                 <div class="text-12 text-danger" id="note-feedback"></div>
-                                                                            </div>
-
-                                                                            <div class="col-12 col-lg-6 d-flex flex-column">
-                                                                                <label for="" class="text-14 main-text">Payment Slip</label>
-                                                                                <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2" id="drop-section">
-                                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud">
-                                                                                    <span>Drag & Drop your files here</span>
-                                                                                    <span>OR</span>
-                                                                                    <button class="custom-btn px-4" id="file-selector">Browse Files</button>
-                                                                                    <input type="file" class="d-none" id="file-selector-input" accept="image/*,application/pdf" multiple>
-                                                                                    <div class="col-12 px-1 mt-4">
-                                                                                        <div class="row" id="list-section"></div>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div class="mt-2" id="file-feedback"></div>
                                                                             </div>
                                                                             <div class="col-12 d-flex flex-column justify-content-end align-items-end">
                                                                                 <div class="col-12 d-flex justify-content-end">

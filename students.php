@@ -118,7 +118,9 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
                                                         <div class="d-flex custom-div align-items-center justify-content-center">
                                                             <?php
-                                                            $studentCount = Database::search("SELECT COUNT(DISTINCT `student_id`) AS unique_student_count FROM `students`");
+                                                            $studentCount = Database::search("SELECT COUNT(DISTINCT `student_id`) AS unique_student_count FROM `students`
+                                                            INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
+                                                            INNER JOIN `status` ON `login_details`.`status_status_id` = `status`.`status_id`");
                                                             $data = $studentCount->fetch_assoc();
                                                             ?>
                                                             <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>

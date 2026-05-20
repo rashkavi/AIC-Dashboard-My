@@ -307,13 +307,13 @@ class LecturerDashboard
                                             <div class="row align-items-center">
                                                 <div class="col-4 align-items-center justify-content-center">
                                                     <?php
-                                                    if (!empty($data["subject_cover"]) && file_exists('https://dashboard.timesacademylms.com/assets/imgs/subjects-covers/' . $data["subject_cover"])) {
+                                                    if (!empty($data["subject_cover"]) && file_exists('https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/' . $data["subject_cover"])) {
                                                     ?>
-                                                        <img src="https://dashboard.timesacademylms.com/assets/imgs/subjects-covers/<?= $data["subject_cover"]; ?>" class="w-100 h-auto" alt="Subject Cover">
+                                                        <img src="https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/<?= $data["subject_cover"]; ?>" class="w-100 h-auto" alt="Subject Cover">
                                                     <?php
                                                     } else {
                                                     ?>
-                                                        <img src="https://dashboard.timesacademylms.com/assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="Subject Cover">
+                                                        <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="Subject Cover">
                                                     <?php
                                                     }
                                                     ?>

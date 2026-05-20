@@ -20,6 +20,7 @@ if (!SessionUser::hasValidSession()) {
             cer.base_currency_id,
             cer.target_currency_id,
             cer.effective_date,
+            cer.effective_time,
             cer.rate,
             cer.note,
             cer.date_added,
@@ -56,10 +57,12 @@ if (!SessionUser::hasValidSession()) {
         WHERE bc.is_active = 1
         AND tc.is_active = 1
 
-        ORDER BY bc.code ASC
+        ORDER BY cer.effective_date DESC, cer.effective_time DESC
     ";
 
         $results = Database::search($query);
+
+        date_default_timezone_set("Asia/Colombo");
 ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -167,11 +170,60 @@ if (!SessionUser::hasValidSession()) {
 
                                     <div class="col-12 p-4 component-theme mt-4">
                                         <div class="row p-0 m-0 g-0">
+                                            <div class="col-12 mb-4">
+                                                <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
+                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                        <div class="d-flex custom-div align-items-center justify-content-center">
+                                                            <span class="text-14 dark-theme fw-medium p-0 m-0"><?php echo $results->num_rows ?> Rates</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 col-md-8 col-lg-9 d-flex flex-column">
+                                                        <div class="h-100 d-flex align-items-center p-1 bl-solid">
+                                                            <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 py-2"></iconify-icon>
+                                                            <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." data-i18n="[placeholder]search-placeholder" id="user-search-text" onkeyup="handleCurrencyExchangePagination('filter')">
+                                                        </div>
+                                                    </div>
 
+                                                    <div class="col-12 col-md-4 col-lg-1 d-flex flex-column justify-content-end">
+                                                        <button class="custom-btn w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+                                                            <iconify-icon icon="mage:filter" width="26" height="26" class="text-white px-3 pe-3 py-2"></iconify-icon>
+                                                        </button>
+                                                    </div>
+                                                    <div class="col-12 collapse" id="filterCollapse">
+                                                        <div class="card card-body border-0 p-0">
+                                                            <div class="col-12">
+                                                                <div class="row gy-3 justify-content-end">
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column" id="date-container">
+                                                                        <input
+                                                                            type="text"
+                                                                            class="form-control custom-input mt-2"
+                                                                            id="date"
+                                                                            placeholder="Select Date"
+                                                                            onfocus="this.type='date'; this.showPicker();"
+                                                                            onblur="if(!this.value){this.type='text';}"
+                                                                            onchange="handleCurrencyExchangePagination('filter');">
+                                                                        <span id="date-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-end">
+                                                        <label for="show-result-selector" class="pe-2 sub-text" data-i18n="results-per-page">Results Per Page</label>
+                                                        <select class="form-select custom-select w-25" aria-label="Default select example" id="show-result-selector" onchange="handleCurrencyExchangePagination('filter')">
+                                                            <option selected value="10">10</option>
+                                                            <option value="25">25</option>
+                                                            <option value="50">50</option>
+                                                            <option value="100">100</option>
+                                                            <option value="250">250</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <div class="col-12">
                                                 <div class="row p-0 m-0 g-0 align-content-center">
                                                     <div class="table-responsive-wrapper">
-                                                        <div class="table-responsive" id="users-table-container">
+                                                        <div class="table-responsive overflow-visible" id="users-table-container">
                                                             <table class="table bl-solid m-0 p-0 g-0" id="exchange-rates-table">
                                                                 <thead>
                                                                     <tr class="br-t-5 align-content-center">
@@ -187,7 +239,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Base Currency</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Target Currency</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Latest Rate</th>
-                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Effective Date</th>
+                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Effective Date & Time</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                     </tr>
@@ -219,10 +271,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-rate<?php echo $data['currency_exchange_rate_id']; ?>">
 
                                                                                         <div class="flex-grow-1 d-flex align-items-center">
-                                                                                            <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium">
-                                                                                                <?php echo strtoupper(substr($data["base_code"], 0, 1)); ?>
-                                                                                            </div>
-
                                                                                             <div class="d-flex flex-column mx-2">
                                                                                                 <span class="text-14 main-text">
                                                                                                     <?php echo $data["base_code"]; ?> to <?php echo $data["target_code"]; ?>
@@ -237,26 +285,26 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                 <td class="py-2 align-middle">
                                                                                     <span class="text-14 main-text">
-                                                                                        <?php echo $data["base_symbol"] . " " . $data["base_code"]; ?>
+                                                                                        <?php echo  $data["base_code"]; ?>
                                                                                     </span>
                                                                                 </td>
 
                                                                                 <td class="py-2 align-middle">
                                                                                     <span class="text-14 main-text">
-                                                                                        <?php echo $data["target_symbol"] . " " . $data["target_code"]; ?>
+                                                                                        <?php echo $data["target_code"]; ?>
                                                                                     </span>
                                                                                 </td>
 
                                                                                 <td class="py-2 align-middle">
                                                                                     <span class="text-14 main-text fw-semibold">
-                                                                                        <?php echo $data["target_symbol"]; ?>
+                                                                                        <?php echo $data["target_code"]; ?>
                                                                                         <?php echo number_format($data["rate"], 2); ?>
                                                                                     </span>
                                                                                 </td>
 
                                                                                 <td class="py-2 align-middle">
                                                                                     <span class="text-14 main-text">
-                                                                                        <?php echo date("Y-m-d", strtotime($data["effective_date"])); ?>
+                                                                                        <?php echo date("Y-m-d", strtotime($data["effective_date"])) . " " . date("h:i A", strtotime($data["effective_time"])); ?>
                                                                                     </span>
                                                                                 </td>
 
@@ -319,6 +367,51 @@ if (!SessionUser::hasValidSession()) {
                                                                     ?>
                                                                 </tbody>
                                                             </table>
+
+                                                            <div class="bl-solid-lrb br-b-5 m-0 g-0 component-theme pagination-wrapper" id="pagination-container">
+                                                                <nav aria-label="..." class="col-12 px-2 pe-2 m-0 container-fluid">
+                                                                    <div class="row p-4 align-items-center">
+                                                                        <!-- Previous Button (col-1) -->
+                                                                        <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleCurrencyExchangePagination('previousPage')">
+                                                                            <iconify-icon icon="tabler:arrow-left" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
+                                                                            <span class="text-14 main-text fw-semibold d-none d-md-block">Previous</span>
+                                                                        </button>
+                                                                        <!-- Page Numbers (col-10, centered) -->
+                                                                        <div class="col-8 col-lg-10 custom-pagination d-flex justify-content-center">
+                                                                            <ul class="pagination-list d-flex mb-0">
+                                                                                <?php
+                                                                                $shudderPages1 = false;
+                                                                                $shudderPages2 = false;
+
+                                                                                function renderPageButton($i, $isActive = false)
+                                                                                {
+                                                                                    $activeClass = $isActive ? 'active' : '';
+                                                                                    $action = $isActive ? '' : "onclick=\"handleCurrencyExchangePagination('goToPage', '{$i}')\"";
+                                                                                    echo "<li class='page-item {$activeClass}' id='page-{$i}'><button class='hw-40' {$action}>{$i}</button></li>";
+                                                                                }
+
+                                                                                for ($i = 1; $i <= $number_of_pages; $i++) {
+                                                                                    if ($i == 1 || $i == $number_of_pages || abs($pageno - $i) <= 1) {
+                                                                                        renderPageButton($i, $pageno == $i);
+                                                                                    } elseif (!$shudderPages1 && ($i < $pageno - 1 && $i > 1)) {
+                                                                                        $shudderPages1 = true;
+                                                                                        echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
+                                                                                    } elseif (!$shudderPages2 && ($i > $pageno + 1 && $i < $number_of_pages)) {
+                                                                                        $shudderPages2 = true;
+                                                                                        echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
+                                                                                    }
+                                                                                }
+                                                                                ?>
+                                                                            </ul>
+                                                                        </div>
+                                                                        <!-- Next Button (col-1) -->
+                                                                        <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleCurrencyExchangePagination('nextPage',null,'<?= $number_of_pages ?>')">
+                                                                            <span class="text-14 main-text fw-semibold d-none d-md-block">Next</span>
+                                                                            <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
+                                                                        </button>
+                                                                    </div>
+                                                                </nav>
+                                                            </div>
 
                                                         </div>
                                                     </div>
@@ -391,7 +484,7 @@ if (!SessionUser::hasValidSession()) {
                                         Target Currency
                                     </label>
 
-                                    <select class="form-select custom-input" id="targetCurrency">
+                                    <select class="form-select custom-select" id="targetCurrency">
 
                                         <?php
                                         $targetCurrencies = Database::search("
@@ -419,22 +512,31 @@ if (!SessionUser::hasValidSession()) {
                                     <input type="number"
                                         class="form-control custom-input"
                                         id="exchangeRate"
-                                        placeholder="Enter exchange rate"
-                                        step="0.000001">
+                                        step="1">
                                     <span class="sub-text text-12 text-danger" id="exchange-rate-feedback"></span>
                                 </div>
 
                                 <!-- Effective Date -->
                                 <div class="col-12 mb-3">
                                     <label class="text-13 sub-text mb-2">
-                                        Effective Date
+                                        Effective Date & Time
                                     </label>
 
-                                    <input type="date"
-                                        class="form-control custom-input"
-                                        id="effectiveDate"
-                                        value="<?= date('Y-m-d'); ?>">
-                                    <span class="sub-text text-12 text-danger" id="effective-date-feedback"></span>
+                                    <div class="d-flex justify-content-between gap-2">
+                                        <input type="date"
+                                            class="form-control custom-input"
+                                            id="effectiveDate"
+                                            value="<?= date('Y-m-d'); ?>">
+                                        <span class="sub-text text-12 text-danger" id="effective-date-feedback"></span>
+
+                                        <input type="time"
+                                            class="form-control custom-input"
+                                            id="effectiveTime"
+                                            value="<?= date('h:i'); ?>">
+                                        <span class="sub-text text-12 text-danger" id="effective-time-feedback"></span>
+                                    </div>
+
+
                                 </div>
 
                                 <!-- Note -->
@@ -445,8 +547,7 @@ if (!SessionUser::hasValidSession()) {
 
                                     <textarea class="form-control custom-input"
                                         id="exchangeNote"
-                                        rows="3"
-                                        placeholder="Optional note"></textarea>
+                                        rows="3"></textarea>
                                     <span class="sub-text text-12 text-danger" id="exchange-note-feedback"></span>
                                 </div>
 
@@ -482,12 +583,13 @@ if (!SessionUser::hasValidSession()) {
                             <div class="row">
                                 <div class="col-12 mb-3">
                                     <label class="text-13 sub-text mb-2">Exchange Rate</label>
-                                    <input type="number" class="form-control custom-input" id="editExchangeRate" step="0.000001">
+                                    <input type="number" class="form-control custom-input" id="editExchangeRate" step="1">
                                     <span class="sub-text text-12 text-danger" id="edit-exchange-rate-feedback"></span>
                                 </div>
 
                                 <div class="col-12 mb-3">
                                     <label class="text-13 sub-text mb-2">Effective Date</label>
+
                                     <input type="date" class="form-control custom-input" id="editEffectiveDate">
                                     <span class="sub-text text-12 text-danger" id="edit-effective-date-feedback"></span>
                                 </div>

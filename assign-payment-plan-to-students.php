@@ -24,6 +24,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
                 $intakeData = $intake->fetch_assoc();
+                $paymentPlan = Database::search("SELECT * FROM `intake_has_payment_plans` WHERE `intakes_intake_id`='" . $id . "'");
 ?>
                 <!DOCTYPE html>
                 <html lang="en">
@@ -80,13 +81,12 @@ if (!SessionUser::hasValidSession()) {
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./faculties'>Faculties</a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./faculties?id=<?php echo $intakeData['faculties_faculty_id'] ?>'>...</a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intake-details?intake-id=<?= $id ?>"><?= $intakeData["intake"] ?></a></li>
-
                                                                 </ol>
                                                             </nav>
                                                         </div>
                                                     </div>
                                                     <?php
-                                                    if ($sessionUserRole != null) {
+                                                    if ($paymentPlan->num_rows > 0) {
                                                     ?>
                                                         <div class="col-12 col-md-4 col-lg-2 mt-3 mt-lg-0">
                                                             <div class="row gx-3 h-100 align-items-center">
@@ -101,126 +101,174 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                             </div>
 
-                                            <div class="col-12 p-4 component-theme mb-4">
-                                                <div class="row p-0 m-0 align-content-center">
-                                                    <div class="col-12 p-0 g-0">
-                                                        <div class="row gx-4 gy-3">
-                                                            <div class="col-12 col-md-4 d-flex flex-column">
-                                                                <label class="text-14 main-text required" for="">Payment Category</label>
-                                                                <select id="payment-category" class="form-select custom-select mt-2" onchange="handleSelectedPaymentCategoryStudents(<?= $id ?>)">
-                                                                    <option selected value="0">- Select -</option>
-                                                                    <?php
-                                                                    $paymentCategory = Database::search("SELECT * FROM `payment_category`");
-                                                                    while ($paymentCategoryData = $paymentCategory->fetch_assoc()) {
-                                                                    ?>
-                                                                        <option value="<?= $paymentCategoryData['payment_category_id'] ?>"><?= $paymentCategoryData['payment_category'] ?></option>
-                                                                    <?php
-                                                                    }
-                                                                    ?>
-                                                                </select>
-                                                                <span id="payment-category-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-                                                            <div class="col-12 col-md-4 d-flex flex-column">
-                                                                <label class="text-14 main-text required" for="">Payment Plan</label>
-                                                                <select id="payment-plan" class="form-select custom-select mt-2">
-                                                                    <option selected value="0">- Select -</option>
-                                                                    <?php
-                                                                    $paymentsPlan = Database::search("SELECT * FROM `payment_plan`");
-                                                                    while ($paymentPlan = $paymentsPlan->fetch_assoc()) {
-                                                                    ?>
-                                                                        <option value="<?= $paymentPlan['payment_plan_id'] ?>"><?= $paymentPlan['payment_plan'] ?></option>
-                                                                    <?php
-                                                                    }
-                                                                    ?>
-                                                                </select>
-                                                                <span id="payment-plan-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-                                                            <div class="col-12 col-md-4 d-flex flex-column">
-                                                                <label class="text-14 main-text required" for="">Amount</label>
-                                                                <input type="number" class="form-control custom-input mt-2" id="payment-amount" min="0">
-                                                                <span id="payment-amount-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-                                                            <div class="col-12 col-md-4 d-flex flex-column">
-                                                                <label class="text-14 main-text required" for="">Discount Type</label>
-                                                                <select id="discount-type" class="form-select custom-select mt-2" onclick="changeDiscountType(this)">
-                                                                    <?php
-                                                                    $discountTypes = Database::search("SELECT * FROM `discount_type`");
-                                                                    while ($discountType = $discountTypes->fetch_assoc()) {
-                                                                    ?>
-                                                                        <option value="<?php echo $discountType['discount_type_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
-                                                                    <?php
-                                                                    }
-                                                                    ?>
-                                                                </select>
-                                                                <span id="discount-type-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-                                                            <div class="col-12 col-md-4 d-flex flex-column d-none" id="discount-area">
-                                                                <label class="text-14 main-text required" for="" id="discount-label">Discount</label>
-                                                                <input type="number" class="form-control custom-input mt-2" id="discount" min="0">
-                                                                <span id="discount-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-                                                            <div class="col-12 d-flex flex-column d-none" id="discount-note-area">
-                                                                <label class="text-14 main-text" for="">Discount Note</label>
-                                                                <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
-                                                                <span id="discount-note-feedback" class="text-dark-red text-12"></span>
-                                                            </div>
-
+                                            <?php
+                                         
+                                            if ($paymentPlan->num_rows == 0) {
+                                            ?>
+                                                <div class="col-12 px-4 py-3 component-theme">
+                                                    <div class="row align-items-center justify-content-center">
+                                                        <img src="./assets/imgs/common/setup.png" class="no-data-icon" alt="No data" />
+                                                        <span class="sub-topic text-center d-block">
+                                                            Payment Group Not Configured
+                                                        </span>
+                                                        <span class="text-center d-block mt-1">
+                                                            This intake does not have any payment group assigned yet.
+                                                            Please create or assign a payment group to proceed with managing student payments.
+                                                        </span>
+                                                        <div class="text-center">
+                                                            <button class="custom-btn mt-3 px-5" onclick="window.location.href='add-intake-payment-plan?intake-id=<?= $id ?>'">Add Payment Group</button>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            <?php
+                                            } else {
+                                            ?>
+                                                <div class="payment-card-container mb-4">
+                                                    <div class="payment-card">
+                                                        <div class="card-background"></div>
 
-                                            <div class="col-12 p-4 component-theme d-none" id="student-list-container">
-                                                <div class="row p-0 gy-3  gx-3 align-content-center justify-content-end">
-                                                    <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
-                                                        <div class="d-flex custom-div align-items-center justify-content-center">
-                                                            <?php
-                                                            $studentCount = Database::search("
-                                                                SELECT COUNT(DISTINCT `student_id`) AS unique_student_count 
-                                                                FROM `students_has_intakes`
-                                                                WHERE `intakes_intake_id` = '" . $id . "' 
-                                                                AND `students_has_intakes_id` NOT IN (
-                                                                    SELECT `students_has_intakes_students_has_intakes_id` 
-                                                                    FROM `payment_plan_has_students_has_intakes`)
-                                                                                                                                    
-                                                            ");
+                                                        <div class="card-content">
+                                                            <div class="payment-header p-0 m-0">
+                                                                <div class="reference-section p-0 m-0">
+                                                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                                                        <div>
+                                                                            <h2 class="reference-number">Intake Payment Plan Management – Important Guidelines</h2>
+                                                                            <span class="reference-label">
+                                                                                Please review the following information carefully before proceeding.
+                                                                            </span>
+                                                                        </div>
 
-                                                            $data = $studentCount->fetch_assoc();
-                                                            ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> Students</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
-                                                        <div class="h-100 d-flex align-items-center p-1 bl-solid">
-                                                            <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 pt-2 pb-2"></iconify-icon>
-                                                            <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." id="search-text" onkeyup="handleStudentsPagination('filter')">
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12 col-md-4 col-lg-1 d-flex flex-column justify-content-end">
-                                                        <button class="custom-btn w-100" type="button">Search</button>
-                                                    </div>
-
-                                                    <div class="col-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-end">
-                                                        <label for="" class="pe-2 sub-text">Results Per Page</label>
-                                                        <select class="form-select custom-select w-25" aria-label="Default select example" id="show-result-selector" onchange="handleStudentsPagination('filter')">
-                                                            <option selected value="10">10</option>
-                                                            <option value="25">25</option>
-                                                            <option value="50">50</option>
-                                                            <option value="100">100</option>
-                                                            <option value="250">250</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-12 mt-4">
-                                                        <div class="row p-0 m-0 g-0 align-content-center">
-                                                            <div class="table-responsive-wrapper">
-                                                                <div class="table-responsive" id="students-table-container">
+                                                                        <button class="card-read-more-btn"
+                                                                            type="button"
+                                                                            onclick="toggleLeadCardDetails(this)">
+                                                                            <span class="btn-text">View Details</span>
+                                                                            <iconify-icon icon="mdi:chevron-down" width="18" height="18"></iconify-icon>
+                                                                        </button>
+                                                                    </div>
+                                                                    <hr>
                                                                 </div>
                                                             </div>
+
+                                                            <!-- Collapsible Details Area -->
+                                                            <div class="lead-extra-details" id="paymentGuidelineDetails">
+                                                                <div class="details-row d-flex flex-column">
+
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Intake Payment Plan Configuration</span>
+                                                                            <p class="detail-value">
+                                                                                The new system allows payment plans to be created directly for each intake.
+                                                                                Each payment plan can include payment amounts, installment structures, due dates,
+                                                                                discounts, and penalty configurations.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                                                                <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12.5a.5.5 0 0 1-.777.416L8 11.101l-5.223 3.815A.5.5 0 0 1 2 14.5V2z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Payment Plan Category Validation</span>
+                                                                            <p class="detail-value">
+                                                                                When a payment plan is selected, the system will identify its payment category,
+                                                                                such as Local Institute Payment, and load only students who have not already
+                                                                                been assigned a payment plan under that selected category.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                                                                <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Eligible Student Loading</span>
+                                                                            <p class="detail-value">
+                                                                                After selecting a payment plan, only eligible students will be displayed.
+                                                                                Students who already have an assigned payment plan for the same payment category
+                                                                                will not be shown, helping to prevent duplicate payment assignments.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16">
+                                                                                <path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-miterlimit="10" d="M6 10h2.5c.55 0 1-.45 1-1s-.45-1-1-1h-1c-.55 0-1-.45-1-1s.45-1 1-1H10M8 4.5v1.167M8 9.5v2M14.5 8a6.5 6.5 0 1 1-13 0a6.5 6.5 0 0 1 13 0Z" stroke-width="1" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Assign Payment Plan to Selected Students</span>
+                                                                            <p class="detail-value">
+                                                                                Once students are selected and confirmed, all details from the selected payment plan
+                                                                                will be assigned to each student. Individual payment schedules will be generated
+                                                                                automatically.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                                                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.964 0L.165 13.233c-.457.778.091 1.767.982 1.767h13.706c.89 0 1.438-.99.982-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Important Confirmation Note</span>
+                                                                            <p class="detail-value">
+                                                                                Please verify the selected payment plan and student list carefully before confirming.
+                                                                                Once assigned, this may affect billing, reports, reminders, and cashier collections.
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                </div>
+                                                            </div>
+                                                            <!-- End Collapsible Details Area -->
+
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                                <div class="col-12 p-4 component-theme mb-4">
+                                                    <div class="row p-0 m-0 align-content-center">
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
+                                                            <label class="text-14 main-text required" for="">Payment Plan</label>
+                                                            <select id="payment-plan" class="form-select custom-select mt-2" onchange="handleSelectedPaymentCategoryStudents(<?= $id ?>)">
+                                                                <option selected value="0">- Select -</option>
+                                                                <?php
+
+                                                                while ($paymentPlanData = $paymentPlan->fetch_assoc()) {
+                                                                ?>
+                                                                    <option value="<?= $paymentPlanData['intake_has_payment_plan_id'] ?>"><?= $paymentPlanData['payment_plan_name'] ?></option>
+                                                                <?php
+                                                                }
+                                                                ?>
+                                                            </select>
+                                                            <span id="payment-category-feedback" class="text-dark-red text-12"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 p-4 component-theme d-none" id="student-list-container">
+
+                                                </div>
+                                            <?php
+                                            }
+                                            ?>
+
+
+
                                         </div>
+
                                         <div class="flex-grow-1"></div>
                                         <footer>
                                             <?php include './includes/footer.php' ?>

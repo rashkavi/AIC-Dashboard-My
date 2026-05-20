@@ -102,6 +102,20 @@ class SessionUser
         return $userRole === "Lecturer";
     }
 
+    public static function ifUserIsAcdemicAdministration(?string $userRole): bool
+    {
+        return $userRole === "Head of Admission";
+    }
+
+    public static function ifUserIsAcdemicDepartment(?string $userRole): bool
+    {
+        return $userRole === "Academic Admin";
+    }
+
+    public static function ifUserIsCounsiler(?string $userRole): bool
+    {
+        return $userRole === "Counselor";
+    }
 
     public static function getCurrentUserObject(): mixed
     {

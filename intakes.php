@@ -244,7 +244,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Intake Name</label>
+                                                    <label for="" class="text-14 main-text required">Intake Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="intake-name">
                                                     <span class="text-12 text-dark-red" id="ai-name-feedback"></span>
                                                 </div>
@@ -302,7 +302,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Intake Name</label>
+                                                    <label for="" class="text-14 main-text required">Intake Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" value="Portal Payment" id="edit-intake-name">
                                                     <span class="text-12 text-dark-red" id="ei-name-feedback"></span>
                                                 </div>

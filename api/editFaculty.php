@@ -86,7 +86,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $faculty_cover;
                                 move_uploaded_file($_FILES["faculty_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($facultyData['faculty_cover']) && file_exists($cover_path . $facultyData['faculty_cover'])) {
+                                if (!empty($facultyData['faculty_cover']) && $facultyData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $facultyData['faculty_cover'])) {
                                     unlink($cover_path . $facultyData['faculty_cover']);
                                 }
                             }

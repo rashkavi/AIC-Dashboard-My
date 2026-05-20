@@ -128,7 +128,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $programme_cover;
                                 move_uploaded_file($_FILES["programme_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($programmeData['programme_cover']) && file_exists($cover_path . $programmeData['programme_cover'])) {
+                                if (!empty($programmeData['programme_cover']) && $programmeData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $programmeData['programme_cover'])) {
                                     unlink($cover_path . $programmeData['programme_cover']);
                                 }
                             }

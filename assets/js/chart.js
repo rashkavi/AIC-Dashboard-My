@@ -901,7 +901,7 @@ function loadCurrencyChart() {
                                         return context.dataset.label + ": No rate";
                                     }
 
-                                    return context.dataset.label + ": Rs. " +
+                                    return context.dataset.label + ": LKR. " +
                                         Number(context.raw).toLocaleString(undefined, {
                                             minimumFractionDigits: 2,
                                             maximumFractionDigits: 2
@@ -921,7 +921,7 @@ function loadCurrencyChart() {
                             beginAtZero: false,
                             ticks: {
                                 callback: function (value) {
-                                    return "Rs. " + value;
+                                    return "LKR. " + value;
                                 }
                             }
                         }

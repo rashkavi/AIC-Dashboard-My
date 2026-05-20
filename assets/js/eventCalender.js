@@ -185,7 +185,7 @@ function showLectureModal(date, dayLectures) {
                     <div class="subject-cover">
                         <img src="${lecture.subjectImage}" 
                              alt="${lecture.subject}"
-                             onerror="this.src='https://dashboard.timesacademylms.com/assets/imgs/common/empty-thumbnail.webp'">
+                             onerror="this.src='https://dashboard.aiccampuslms.com/assets/imgs/common/empty-thumbnail.webp'">
                     </div>
                     <div class="lecturer-meta">
                         <h4>${lecture.subject}</h4>

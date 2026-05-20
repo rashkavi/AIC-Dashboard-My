@@ -1,7 +1,6 @@
 <?php
 
 $status = new stdClass();
-
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
@@ -20,6 +19,7 @@ if (SessionUser::hasValidSession()) {
                     $targetCurrencyId = isset($decoded['targetCurrencyId']) ? $decoded['targetCurrencyId'] : '';
                     $rate = isset($decoded['rate']) ? $decoded['rate'] : '';
                     $effectiveDate = isset($decoded['effectiveDate']) ? $decoded['effectiveDate'] : '';
+                    $effectiveTime = isset($decoded['effectiveTime']) ? $decoded['effectiveTime'] : '';
                     $note = isset($decoded['note']) ? $decoded['note'] : '';
 
                     if (empty($baseCurrencyId)) {
@@ -52,15 +52,6 @@ if (SessionUser::hasValidSession()) {
 
                     if (!empty($baseCurrencyId) && !empty($targetCurrencyId) && $baseCurrencyId == $targetCurrencyId) {
                         $status->targetCurrency = 'Base currency and target currency cannot be same.';
-                    } else {
-                        $alreadyAdded = Database::search("
-                            SELECT * FROM `currency_exchange_rates` 
-                            WHERE `base_currency_id` = '" . $baseCurrencyId . "'
-                            AND `target_currency_id` = '" . $targetCurrencyId . "'");
-
-                        if ($alreadyAdded->num_rows > 0) {
-                            $status->targetCurrency = 'Exchange rate already added.';
-                        }
                     }
 
                     if (empty($rate)) {
@@ -81,6 +72,10 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
+                    if (empty($effectiveTime)) {
+                        $status->effectiveTime = 'Effective time is required.';
+                    }
+
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                     if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1))) {
@@ -92,6 +87,7 @@ if (SessionUser::hasValidSession()) {
                         'targetCurrency',
                         'rate',
                         'effectiveDate',
+                        'effectiveTime',
                         'error'
                     ];
 
@@ -106,8 +102,11 @@ if (SessionUser::hasValidSession()) {
 
                     if ($allPropertiesExist) {
 
-                        $note = addslashes($note);
+                        $timezone = new DateTimeZone("Asia/Colombo");
+                        $dateTime = new DateTime("now", $timezone);
+                        $addTime = $dateTime->format('Y-m-d H:i:s');
 
+                        $note = addslashes($note);
 
                         Database::iud("
                                 INSERT INTO `currency_exchange_rates`
@@ -115,18 +114,22 @@ if (SessionUser::hasValidSession()) {
                                     `base_currency_id`,
                                     `target_currency_id`,
                                     `effective_date`,
+                                    `effective_time`,
                                     `rate`,
                                     `note`,
-                                    `updated_by`
+                                    `updated_by`,
+                                    `date_added`
                                 )
                                 VALUES
                                 (
                                     '" . $baseCurrencyId . "',
                                     '" . $targetCurrencyId . "',
                                     '" . $effectiveDate . "',
+                                    '" . $effectiveTime . "',
                                     '" . $rate . "',
                                     '" . $note . "',
-                                    '" . $sessionUserObject['user_id'] . "'
+                                    '" . $sessionUserObject['user_id'] . "',
+                                    '" . $addTime . "'
                                 )
                             ");
 
@@ -141,7 +144,8 @@ if (SessionUser::hasValidSession()) {
                                     `new_rate`,
                                     `action_type`,
                                     `note`,
-                                    `updated_by`
+                                    `updated_by`,
+                                    `date_added`
                                 )
                                 VALUES
                                 (
@@ -151,7 +155,8 @@ if (SessionUser::hasValidSession()) {
                                     '" . $rate . "',
                                     'ADD',
                                     '" . $note . "',
-                                    '" . $sessionUserObject['user_id'] . "'
+                                    '" . $sessionUserObject['user_id'] . "',
+                                     '" . $addTime . "'
                                 )
                             ");
 

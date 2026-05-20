@@ -1,4 +1,4 @@
-const BASE_STUDENT_PORTAL_URL = "https://portal.timesacademylms.com";
+const BASE_STUDENT_PORTAL_URL = "https://portal.aiccampuslms.com";
 const SORT_NONE = 0;
 const SORT_ASC = 1;
 const SORT_DESC = 2;
@@ -5725,7 +5725,7 @@ const openEditExchangeRateModal = (id, rate, effectiveDate, note) => {
     $("#editExchangeRateModal").modal("show");
 };
 
-const handleCurrencyExchangeHistorysPagination = (id,action, pageId = null, totalPages = null) => {
+const handleCurrencyExchangeHistorysPagination = (id, action, pageId = null, totalPages = null) => {
     switch (action) {
         case 'goToPage':
             selectedPage = pageId;
@@ -5748,3 +5748,897 @@ const handleCurrencyExchangeHistorysPagination = (id,action, pageId = null, tota
     filterCurrencyExchange(id);
 }
 
+
+const REQUIRED_STUDENT_DOCUMENTS = [
+    "aic_application",
+    "university_application",
+    "signed_agreement",
+    "signed_program_brief",
+    "passport_nic",
+    "academic_documents",
+    "other_entry_documents",
+    "payment_slip",
+    "manager_checklist",
+    "passport_size_photo",
+    "discount_approved_document"
+];
+
+const studentDocumentFiles = {};
+
+
+function initializeStudentDocumentUploads() {
+    document.querySelectorAll(".student-doc-upload-box").forEach((box) => {
+        const docKey = box.dataset.docKey;
+        const dropArea = box.querySelector(".doc-drop-area");
+        const input = box.querySelector(".student-doc-input");
+        const browseBtn = box.querySelector(".doc-browse-btn");
+
+        studentDocumentFiles[docKey] = [];
+
+        browseBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            input.click();
+        });
+
+        dropArea.addEventListener("click", function (e) {
+            if (!e.target.classList.contains("doc-browse-btn")) {
+                input.click();
+            }
+        });
+
+        input.addEventListener("change", function () {
+            handleStudentDocumentFiles(box, input.files);
+        });
+
+        dropArea.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            dropArea.classList.add("drag-over-effect");
+        });
+
+        dropArea.addEventListener("dragleave", function () {
+            dropArea.classList.remove("drag-over-effect");
+        });
+
+        dropArea.addEventListener("drop", function (e) {
+            e.preventDefault();
+            dropArea.classList.remove("drag-over-effect");
+            handleStudentDocumentFiles(box, e.dataTransfer.files);
+        });
+    });
+}
+
+function handleStudentDocumentFiles(box, fileList) {
+    const docKey = box.dataset.docKey;
+    const input = box.querySelector(".student-doc-input");
+    const feedback = box.querySelector(".doc-feedback");
+    const allowMultiple = input.hasAttribute("multiple");
+
+    feedback.innerHTML = "";
+
+    const files = Array.from(fileList);
+
+    if (files.length === 0) {
+        return;
+    }
+
+    let validFiles = [];
+
+    files.forEach((file) => {
+        const validation = validateStudentDocumentFile(file, input);
+
+        if (!validation.valid) {
+            feedback.innerHTML = validation.message;
+            return;
+        }
+
+        validFiles.push(file);
+    });
+
+    if (validFiles.length === 0) {
+        return;
+    }
+
+    if (allowMultiple) {
+        studentDocumentFiles[docKey] = [
+            ...studentDocumentFiles[docKey],
+            ...validFiles
+        ];
+    } else {
+        studentDocumentFiles[docKey] = [validFiles[0]];
+    }
+
+    syncStudentDocumentInput(input, studentDocumentFiles[docKey]);
+    renderStudentDocumentPreview(box);
+}
+
+function validateStudentDocumentFile(file, input) {
+    const maxFileSize = 8 * 1024 * 1024; // 8MB
+
+    const allowedExtensions = input
+        .getAttribute("accept")
+        .split(",")
+        .map((ext) => ext.trim().replace(".", "").toLowerCase());
+
+    const fileExtension = file.name.split(".").pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExtension)) {
+        return {
+            valid: false,
+            message: `Invalid file type. Allowed: ${allowedExtensions.join(", ")}`
+        };
+    }
+
+    if (file.size > maxFileSize) {
+        return {
+            valid: false,
+            message: "File size must be less than 8MB"
+        };
+    }
+
+    return {
+        valid: true,
+        message: ""
+    };
+}
+
+function renderStudentDocumentPreview(box) {
+    const docKey = box.dataset.docKey;
+    const preview = box.querySelector(".doc-preview");
+
+    preview.innerHTML = "";
+
+    studentDocumentFiles[docKey].forEach((file, index) => {
+        const template = `
+            <div class="student-doc-file-card mb-2">
+                <div class="d-flex align-items-center">
+                    <div class="me-2">
+                        <img src="assets/imgs/icons/${getStudentDocumentIcon(file)}" width="32" alt="file">
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <div class="student-doc-file-name">${escapeHtml(file.name)}</div>
+                        <div class="student-doc-file-meta">
+                            ${getReadableFileType(file.name)} • ${formatStudentDocumentFileSize(file.size)}
+                        </div>
+                    </div>
+
+                    <div>
+                        <iconify-icon 
+                            icon="mdi:close-circle-outline"
+                            width="22"
+                            height="22"
+                            class="remove-student-doc"
+                            data-doc-key="${docKey}"
+                            data-index="${index}">
+                        </iconify-icon>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        preview.insertAdjacentHTML("beforeend", template);
+    });
+
+    preview.querySelectorAll(".remove-student-doc").forEach((btn) => {
+        btn.addEventListener("click", function () {
+            removeStudentDocumentFile(
+                this.dataset.docKey,
+                parseInt(this.dataset.index)
+            );
+        });
+    });
+}
+
+function removeStudentDocumentFile(docKey, index) {
+    const box = document.querySelector(`.student-doc-upload-box[data-doc-key="${docKey}"]`);
+    const input = box.querySelector(".student-doc-input");
+
+    studentDocumentFiles[docKey].splice(index, 1);
+
+    syncStudentDocumentInput(input, studentDocumentFiles[docKey]);
+    renderStudentDocumentPreview(box);
+}
+
+function syncStudentDocumentInput(input, files) {
+    const dataTransfer = new DataTransfer();
+
+    files.forEach((file) => {
+        dataTransfer.items.add(file);
+    });
+
+    input.files = dataTransfer.files;
+}
+
+function validateRequiredStudentDocuments() {
+    let isValid = true;
+
+    REQUIRED_STUDENT_DOCUMENTS.forEach((docKey) => {
+        const box = document.querySelector(`.student-doc-upload-box[data-doc-key="${docKey}"]`);
+        const feedback = box.querySelector(".doc-feedback");
+
+        feedback.innerHTML = "";
+
+        if (!studentDocumentFiles[docKey] || studentDocumentFiles[docKey].length === 0) {
+            feedback.innerHTML = "This document is required";
+            isValid = false;
+        }
+    });
+
+    return isValid;
+}
+
+function appendStudentDocumentsToFormData(formData) {
+    Object.keys(studentDocumentFiles).forEach((docKey) => {
+        studentDocumentFiles[docKey].forEach((file, index) => {
+            formData.append(`${docKey}[]`, file);
+        });
+    });
+
+    return formData;
+}
+
+function getStudentDocumentsData() {
+    return studentDocumentFiles;
+}
+
+function getStudentDocumentIcon(file) {
+    const extension = file.name.split(".").pop().toLowerCase();
+
+    const iconMap = {
+        pdf: "pdf.png",
+        doc: "doc.png",
+        docx: "doc.png",
+        jpg: "image.png",
+        jpeg: "image.png",
+        png: "image.png"
+    };
+
+    return iconMap[extension] || "file.png";
+}
+
+function getReadableFileType(fileName) {
+    return fileName.split(".").pop().toUpperCase();
+}
+
+function formatStudentDocumentFileSize(bytes) {
+    if (bytes < 1024) {
+        return bytes + " bytes";
+    }
+
+    if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(2) + " KB";
+    }
+
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.innerText = text;
+    return div.innerHTML;
+}
+
+
+const handleCurrencyExchangePagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+    }
+
+    filterCurrencyExchange();
+}
+
+const initializeEditIntakePlan = (planId) => {
+    loadPaymentType(planId);
+}
+
+
+const confirmDeletePlan = (id) => {
+    $("#confirmRemoveIntakePaymentPlan").off("click");
+    $("#confirmRemoveIntakePaymentPlan").on("click", function () {
+        removeIntakePaymentPlan(id);
+    });
+    $("#removeIntakePaymentPlanConfirmModal").modal("show");
+}
+
+function toggleLeadCardDetails(button) {
+    const section = document.getElementById('paymentGuidelineDetails');
+
+    if (section.classList.contains('show')) {
+        section.classList.remove('show');
+        button.classList.remove('active');
+        button.querySelector('.btn-text').textContent = 'View Details';
+    } else {
+        section.classList.add('show');
+        button.classList.add('active');
+        button.querySelector('.btn-text').textContent = 'Read Less';
+    }
+}
+
+const togglePaymentPlanType = () => {
+
+    const selectedType = $("input[name='paymentPlanType']:checked").val();
+
+    if (selectedType === "intake") {
+
+        $("#intakes-payment-plan-arae").removeClass("d-none");
+        $("#custom-plan-area").addClass("d-none");
+        $("#save-plan-btn").addClass("d-none");
+
+    } else {
+        $("#intakes-payment-plan-arae").addClass("d-none");
+        $("#custom-plan-area").removeClass("d-none");
+        $("#save-plan-btn").removeClass("d-none");
+    }
+};
+
+$("input[name='paymentPlanType']").on("change", function () {
+    togglePaymentPlanType();
+});
+
+let selectedIntakePlanId = null;
+
+function selectIntakePaymentPlan(input) {
+
+    $(".intake-plan-checkbox").not(input).prop("checked", false);
+
+    if ($(input).is(":checked")) {
+        selectedIntakePlanId = $(input).data("plan-id");
+        $("#save-plan-btn").removeClass("d-none");
+    } else {
+        selectedIntakePlanId = null;
+        $("#save-plan-btn").addClass("d-none");
+    }
+}
+
+const handleStudentPaymentPlan = (btn, leadId) => {
+    const paymentPlanType = $("input[name='paymentPlanType']:checked").val();
+    if (paymentPlanType === "intake") {
+        if (!selectedIntakePlanId) {
+            showToast("error", "Please select an intake payment plan");
+            return;
+        }
+        createStudentPaymentPlan(btn, leadId);
+    } else {
+        createCustomStudentPaymentPlan(btn, leadId);
+    }
+};
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.innerText = text;
+    return div.innerHTML;
+}
+
+
+const EXISTING_STUDENT_DOCUMENTS = window.EXISTING_STUDENT_DOCUMENTS || {};
+
+const removedExistingDocuments = {};
+
+function initializeUpdateStudentDocumentUploads() {
+    document.querySelectorAll(".student-doc-upload-box").forEach((box) => {
+        const docKey = box.dataset.docKey;
+        const dropArea = box.querySelector(".doc-drop-area");
+        const input = box.querySelector(".student-doc-input");
+        const browseBtn = box.querySelector(".doc-browse-btn");
+
+        studentDocumentFiles[docKey] = [];
+        removedExistingDocuments[docKey] = [];
+
+        browseBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            input.click();
+        });
+
+        dropArea.addEventListener("click", function (e) {
+            if (!e.target.classList.contains("doc-browse-btn")) {
+                input.click();
+            }
+        });
+
+        input.addEventListener("change", function () {
+            handleStudentDocumentFiles(box, input.files);
+        });
+
+        dropArea.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            dropArea.classList.add("drag-over-effect");
+        });
+
+        dropArea.addEventListener("dragleave", function () {
+            dropArea.classList.remove("drag-over-effect");
+        });
+
+        dropArea.addEventListener("drop", function (e) {
+            e.preventDefault();
+            dropArea.classList.remove("drag-over-effect");
+            handleStudentDocumentFiles(box, e.dataTransfer.files);
+        });
+
+        renderStudentDocumentPreview(box);
+    });
+}
+
+function getExistingDocs(docKey) {
+    return (EXISTING_STUDENT_DOCUMENTS[docKey] || []).filter((doc) => {
+        return !removedExistingDocuments[docKey].includes(String(doc.id));
+    });
+}
+
+function handleStudentDocumentFiles(box, fileList) {
+    const docKey = box.dataset.docKey;
+    const input = box.querySelector(".student-doc-input");
+    const feedback = box.querySelector(".doc-feedback");
+    const allowMultiple = input.hasAttribute("multiple");
+
+    feedback.innerHTML = "";
+
+    const files = Array.from(fileList);
+
+    if (files.length === 0) {
+        return;
+    }
+
+    let validFiles = [];
+
+    files.forEach((file) => {
+        const validation = validateStudentDocumentFile(file, input);
+
+        if (!validation.valid) {
+            feedback.innerHTML = validation.message;
+            return;
+        }
+
+        validFiles.push(file);
+    });
+
+    if (validFiles.length === 0) {
+        return;
+    }
+
+    if (allowMultiple) {
+        studentDocumentFiles[docKey] = [
+            ...studentDocumentFiles[docKey],
+            ...validFiles
+        ];
+    } else {
+        studentDocumentFiles[docKey] = [validFiles[0]];
+    }
+
+    syncStudentDocumentInput(input, studentDocumentFiles[docKey]);
+    renderStudentDocumentPreview(box);
+}
+
+function validateStudentDocumentFile(file, input) {
+    const maxFileSize = 8 * 1024 * 1024;
+
+    const allowedExtensions = input
+        .getAttribute("accept")
+        .split(",")
+        .map((ext) => ext.trim().replace(".", "").toLowerCase());
+
+    const fileExtension = file.name.split(".").pop().toLowerCase();
+
+    if (!allowedExtensions.includes(fileExtension)) {
+        return {
+            valid: false,
+            message: `Invalid file type. Allowed: ${allowedExtensions.join(", ")}`
+        };
+    }
+
+    if (file.size > maxFileSize) {
+        return {
+            valid: false,
+            message: "File size must be less than 8MB"
+        };
+    }
+
+    return {
+        valid: true,
+        message: ""
+    };
+}
+
+function renderStudentDocumentPreview(box) {
+    const docKey = box.dataset.docKey;
+    const preview = box.querySelector(".doc-preview");
+
+    preview.innerHTML = "";
+
+    const existingDocs = getExistingDocs(docKey);
+
+    existingDocs.forEach((doc) => {
+        const template = `
+          <div class="student-doc-file-card mb-2 existing-doc-card cursor-pointer"
+                    onclick="window.open('${escapeHtml(doc.url)}', '_blank')">
+
+                <div class="d-flex align-items-center">
+                    <div class="me-2">
+                        <img src="assets/imgs/icons/${getStudentDocumentIconByName(doc.name)}" width="32" alt="file">
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <div class="student-doc-file-name">${escapeHtml(doc.name)}</div>
+                        <div class="student-doc-file-meta">
+                            Existing Document • ${escapeHtml(doc.date_added || '')}
+                        </div>
+                    </div>
+
+                    ${doc.access_remove ? `
+                          <div class="d-flex align-items-center gap-2">
+                        <iconify-icon 
+                            icon="mdi:close-circle-outline"
+                            width="22"
+                            height="22"
+                            class="remove-existing-student-doc cursor-pointer"
+                            data-doc-key="${docKey}"
+                            data-doc-id="${doc.id}">
+                        </iconify-icon>
+                    </div>
+                        ` : ``}
+
+                  
+                </div>
+            </div>
+        `;
+
+        preview.insertAdjacentHTML("beforeend", template);
+    });
+
+    studentDocumentFiles[docKey].forEach((file, index) => {
+        const template = `
+            <div class="student-doc-file-card mb-2">
+                <div class="d-flex align-items-center">
+                    <div class="me-2">
+                        <img src="assets/imgs/icons/${getStudentDocumentIcon(file)}" width="32" alt="file">
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <div class="student-doc-file-name">${escapeHtml(file.name)}</div>
+                        <div class="student-doc-file-meta">
+                            New File • ${getReadableFileType(file.name)} • ${formatStudentDocumentFileSize(file.size)}
+                        </div>
+                    </div>
+
+                    <div>
+                        <iconify-icon 
+                            icon="mdi:close-circle-outline"
+                            width="22"
+                            height="22"
+                            class="remove-student-doc cursor-pointer"
+                            data-doc-key="${docKey}"
+                            data-index="${index}">
+                        </iconify-icon>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        preview.insertAdjacentHTML("beforeend", template);
+    });
+
+    preview.querySelectorAll(".remove-student-doc").forEach((btn) => {
+        btn.addEventListener("click", function () {
+            removeStudentDocumentFile(
+                this.dataset.docKey,
+                parseInt(this.dataset.index)
+            );
+        });
+    });
+
+    preview.querySelectorAll(".remove-existing-student-doc").forEach((btn) => {
+        btn.addEventListener("click", function () {
+            removeExistingStudentDocument(
+                this.dataset.docKey,
+                this.dataset.docId
+            );
+        });
+    });
+}
+
+function removeExistingStudentDocument(docKey, docId) {
+    removedExistingDocuments[docKey].push(String(docId));
+
+    const box = document.querySelector(`.student-doc-upload-box[data-doc-key="${docKey}"]`);
+    renderStudentDocumentPreview(box);
+}
+
+function removeStudentDocumentFile(docKey, index) {
+    const box = document.querySelector(`.student-doc-upload-box[data-doc-key="${docKey}"]`);
+    const input = box.querySelector(".student-doc-input");
+
+    studentDocumentFiles[docKey].splice(index, 1);
+
+    syncStudentDocumentInput(input, studentDocumentFiles[docKey]);
+    renderStudentDocumentPreview(box);
+}
+
+function syncStudentDocumentInput(input, files) {
+    const dataTransfer = new DataTransfer();
+
+    files.forEach((file) => {
+        dataTransfer.items.add(file);
+    });
+
+    input.files = dataTransfer.files;
+}
+
+function validateRequiredStudentDocuments() {
+    let isValid = true;
+
+    REQUIRED_STUDENT_DOCUMENTS.forEach((docKey) => {
+        const box = document.querySelector(`.student-doc-upload-box[data-doc-key="${docKey}"]`);
+        const feedback = box.querySelector(".doc-feedback");
+
+        feedback.innerHTML = "";
+
+        const hasExisting = getExistingDocs(docKey).length > 0;
+        const hasNew = studentDocumentFiles[docKey] && studentDocumentFiles[docKey].length > 0;
+
+        if (!hasExisting && !hasNew) {
+            feedback.innerHTML = "This document is required";
+            isValid = false;
+        }
+    });
+
+    return isValid;
+}
+
+function appendStudentDocumentsToFormData(formData) {
+    Object.keys(studentDocumentFiles).forEach((docKey) => {
+        studentDocumentFiles[docKey].forEach((file) => {
+            formData.append(`${docKey}[]`, file);
+        });
+    });
+
+    Object.keys(removedExistingDocuments).forEach((docKey) => {
+        removedExistingDocuments[docKey].forEach((docId) => {
+            formData.append(`removed_documents[]`, docId);
+        });
+    });
+
+    return formData;
+}
+
+function getStudentDocumentIcon(file) {
+    return getStudentDocumentIconByName(file.name);
+}
+
+function getStudentDocumentIconByName(fileName) {
+    const extension = fileName.split(".").pop().toLowerCase();
+
+    const iconMap = {
+        pdf: "pdf.png",
+        doc: "doc.png",
+        docx: "doc.png",
+        jpg: "image.png",
+        jpeg: "image.png",
+        png: "image.png"
+    };
+
+    return iconMap[extension] || "file.png";
+}
+
+function getReadableFileType(fileName) {
+    return fileName.split(".").pop().toUpperCase();
+}
+
+function formatStudentDocumentFileSize(bytes) {
+    if (bytes < 1024) {
+        return bytes + " bytes";
+    }
+
+    if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(2) + " KB";
+    }
+
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.innerText = text ?? "";
+    return div.innerHTML;
+}
+
+function collectMarkAsPaidPayments() {
+    const payments = [];
+
+    document.querySelectorAll(".intake-mark-paid-checkbox:checked, .custom-mark-paid-checkbox:checked").forEach((checkbox) => {
+        const box = checkbox.closest(".mark-paid-box");
+        const paymentTypeId = parseInt(checkbox.dataset.paymentTypeId || 0);
+
+        if (paymentTypeId !== 18) {
+            return;
+        }
+
+        payments.push({
+            payment_type_id: paymentTypeId,
+            installment_id: checkbox.dataset.installmentId || null,
+            paid_amount: box.querySelector(".paid-amount")?.value || 0,
+            discount: box.querySelector(".discount")?.value || 0,
+            paid_date: box.querySelector(".paid-date")?.value || "",
+            payment_method_id: box.querySelector(".paid-method")?.value || 0,
+            note: box.querySelector(".paid-note")?.value || ""
+        });
+    });
+
+    return payments;
+}
+
+function toggleMarkPaidFields(checkbox) {
+    const box = checkbox.closest(".mark-paid-box");
+    const fields = box.querySelector(".mark-paid-fields");
+
+    if (checkbox.checked) {
+        fields.classList.remove("d-none");
+    } else {
+        fields.classList.add("d-none");
+    }
+}
+
+function openAccountsConfirmModal(studentId) {
+    document.getElementById("accountsConfirmStudentId").value = studentId;
+
+    const modal = new bootstrap.Modal(document.getElementById("accountsConfirmModal"));
+    modal.show();
+}
+
+function openRegistrationVerificationModal(studentId) {
+    document.getElementById("registrationVerificationStudentId").value = studentId;
+
+    const modal = new bootstrap.Modal(
+        document.getElementById("registrationVerificationModal")
+    );
+
+    modal.show();
+}
+
+function showRegistrationVerificationError(message) {
+    const area = document.getElementById(
+        "registrationVerificationErrorArea"
+    );
+    const text = document.getElementById(
+        "registrationVerificationErrorText"
+    );
+    text.innerText = message;
+    area.classList.remove("d-none");
+}
+
+function hideRegistrationVerificationError() {
+    const area = document.getElementById(
+        "registrationVerificationErrorArea"
+    );
+    const text = document.getElementById(
+        "registrationVerificationErrorText"
+    );
+    text.innerText = "";
+    area.classList.add("d-none");
+}
+
+function openAcademicAdministrationConfirmModal(studentId) {
+
+    hideAcademicCompletionError();
+
+    document.getElementById(
+        "academicAdministrationStudentId"
+    ).value = studentId;
+
+    const modal = new bootstrap.Modal(
+        document.getElementById(
+            "academicAdministrationConfirmModal"
+        )
+    );
+
+    modal.show();
+}
+
+function showAcademicCompletionError(message) {
+    const area = document.getElementById(
+        "academicCompletionErrorArea"
+    );
+    const text = document.getElementById(
+        "academicCompletionErrorText"
+    );
+    text.innerText = message;
+    area.classList.remove("d-none");
+}
+
+function hideAcademicCompletionError() {
+    const area = document.getElementById(
+        "academicCompletionErrorArea"
+    );
+    const text = document.getElementById(
+        "academicCompletionErrorText"
+    );
+    text.innerText = "";
+    area.classList.add("d-none");
+}
+
+function openAcademicDepartmentConfirmModal(studentId) {
+    document.getElementById("academicDepartmentStudentId").value = studentId;
+
+    const modal = new bootstrap.Modal(
+        document.getElementById("academicDepartmentConfirmModal")
+    );
+
+    modal.show();
+}
+
+const handleInquiryPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByName':
+            sortCondition2 = 0;
+            sortCondition1 = sortCondition1 === 1 ? 2 : 1;
+            break;
+        case 'sortByDate':
+            sortCondition1 = 0;
+            sortCondition2 = sortCondition2 == 1 ? 2 : 1;
+            break;
+    }
+
+    filterStudentsInquiries();
+}
+
+function openAcademicAdministrationRejectModal(studentId) {
+
+    document.getElementById(
+        "academicRejectStudentId"
+    ).value = studentId;
+
+    document.getElementById(
+        "academicRejectNote"
+    ).value = "";
+
+    document.getElementById(
+        "academicRejectErrorArea"
+    ).classList.add("d-none");
+
+    const feedback = document.getElementById(
+        "academicRejectNote-feedback"
+    );
+
+    feedback.innerHTML = "";
+
+    document.getElementById(
+        "academicRejectNote"
+    ).classList.remove("is-invalid");
+
+    const modal = new bootstrap.Modal(
+        document.getElementById(
+            "academicDocumentsRejectModal"
+        )
+    );
+
+    modal.show();
+}

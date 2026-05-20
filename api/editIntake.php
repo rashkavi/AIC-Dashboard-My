@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $intakeData = $isValidIntake->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 10,  $programme_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 10,  $intakeData['programmes_programme_id']))) {
                         $status->error = "You don't have permission to update intakes to this programme";
                     } else {
                         $intake_name = isset($_POST['intake_name']) ? trim($_POST['intake_name']) : '';
@@ -83,7 +83,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $intake_cover;
                                 move_uploaded_file($_FILES["intake_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($intakeData['intake_cover']) && file_exists($cover_path . $intakeData['intake_cover'])) {
+                                if (!empty($intakeData['intake_cover']) && $intakeData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $intakeData['intake_cover'])) {
                                     unlink($cover_path . $intakeData['intake_cover']);
                                 }
                             }

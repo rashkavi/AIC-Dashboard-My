@@ -10,7 +10,7 @@ if (SessionUser::hasValidSession()) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $intake_name = isset($_POST['intake_name']) ? $_POST['intake_name'] : '';
             $programme_id = isset($_POST['programme_id']) ? $_POST['programme_id'] : '';
-            $intake_cover;
+            $intake_cover = '';
 
             if (empty($programme_id)) {
                 $status->error = "Invalid programme Id";
@@ -68,9 +68,7 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select intake cover";
-                        }
+                        } 
 
                         if (!property_exists($status, 'name') &&  !property_exists($status, 'cover')) {
                             $timezone = new DateTimeZone("Asia/Colombo");
@@ -83,6 +81,9 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($intake_cover)) {
                                 $intake_insert_columns .= ", `intake_cover`";
                                 $intake_insert_values .= ",'" . $intake_cover . "'";
+                            }else{
+                                $intake_insert_columns .= ", `intake_cover`";
+                                $intake_insert_values .= ",'empty-thumbnail.webp'";
                             }
                             Database::iud("INSERT INTO `intakes` (" . $intake_insert_columns . ") VALUES (" . $intake_insert_values . ")");
 

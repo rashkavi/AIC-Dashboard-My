@@ -275,17 +275,17 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Subject Name</label>
+                                                    <label for="" class="text-14 main-text required">Subject Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="subject-name">
                                                     <span class="text-12 text-dark-red" id="as-name-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Max Subject Hours</label>
+                                                    <label for="" class="text-14 main-text required">Max Subject Hours</label>
                                                     <input type="number" class="form-control custom-input mt-2" min="1" id="subject-hours">
                                                     <span class="text-12 text-dark-red" id="as-hours-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Subject Type</label>
+                                                    <label for="" class="text-14 main-text required">Subject Type</label>
                                                     <select class="form-select custom-select mt-2" id="subject-type" onchange="displaySubjectGroup(this.value)">
                                                         <option value="">- Select Subject Type -</option>
                                                         <?php
@@ -300,7 +300,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <span class="text-12 text-dark-red" id="as-type-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column d-none" id="subject-group-display-area">
-                                                    <label for="" class="text-14 main-text">Subject Group</label>
+                                                    <label for="" class="text-14 main-text required">Subject Group</label>
                                                     <select class="form-select custom-select mt-2" id="subject-group">
                                                         <option value="0">- Select Subject group -</option>
                                                         <?php
@@ -381,17 +381,17 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Subject Name</label>
+                                                    <label for="" class="text-14 main-text required">Subject Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="edit-subject-name">
                                                     <span class="text-12 text-dark-red" id="es-name-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Max Subject Hours</label>
+                                                    <label for="" class="text-14 main-text required">Max Subject Hours</label>
                                                     <input type="number" class="form-control custom-input mt-2" min="1" id="edit-subject-hours">
                                                     <span class="text-12 text-dark-red" id="es-hours-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text">Subject Type</label>
+                                                    <label for="" class="text-14 main-text required">Subject Type</label>
                                                     <select class="form-select custom-select mt-2" id="edit-subject-type" onchange="displaySubjectGroup(this.value)">
                                                         <?php
                                                         $types = Database::search("SELECT * FROM `subject_type`");
@@ -405,7 +405,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <span class="text-12 text-dark-red" id="as-type-feedback"></span>
                                                 </div>
                                                 <div class="col-12 col-lg-6 d-flex flex-column d-none" id="edit-subject-group-display-area">
-                                                    <label for="" class="text-14 main-text">Subject Group</label>
+                                                    <label for="" class="text-14 main-text required">Subject Group</label>
                                                     <select class="form-select custom-select mt-2" id="edit-subject-group">
                                                         <option value="0">- Select Subject group -</option>
                                                         <?php

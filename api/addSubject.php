@@ -15,7 +15,7 @@ if (SessionUser::hasValidSession()) {
             $subject_group = isset($_POST['subject_group']) ? $_POST['subject_group'] : 0;
             $new_subject_group = isset($_POST['new_subject_group']) ? $_POST['new_subject_group'] : 0;
             $level_id = isset($_POST['level_id']) ? $_POST['level_id'] : '';
-            $subject_cover;
+            $subject_cover = '';
 
             if (empty($level_id)) {
                 $status->error = "Invalid level Id";
@@ -107,8 +107,6 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select subject cover";
                         }
                         $requiredProperties = [
                             'name',
@@ -150,6 +148,9 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($subject_cover)) {
                                 $subject_insert_columns .= ", `subject_cover`";
                                 $subject_insert_values .= ",'" . $subject_cover . "'";
+                            } else {
+                                $subject_insert_columns .= ", `subject_cover`";
+                                $subject_insert_values .= ",'empty-thumbnail.webp'";
                             }
 
                             Database::iud("INSERT INTO `subjects` (" . $subject_insert_columns . ") VALUES (" . $subject_insert_values . ")");

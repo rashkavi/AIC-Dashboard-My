@@ -5,7 +5,10 @@ require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
 require_once("../includes/Limitation.php");
-
+require_once("../includes/phpmailer/mail-process.php");
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -46,7 +49,7 @@ if (SessionUser::hasValidSession()) {
                 $gemail = isset($_POST['gemail']) ? trim($_POST['gemail']) : '';
                 $gmobile = isset($_POST['gmobile']) ? trim($_POST['gmobile']) : '';
                 $gwhatsapp = isset($_POST['gwhatsapp']) ? trim($_POST['gwhatsapp']) : '';
-                $image;
+                $image = '';
 
                 if (empty($fname)) {
                     $status->fname =  "Please enter student first name";
@@ -75,11 +78,6 @@ if (SessionUser::hasValidSession()) {
                     $status->gender =  "Please select student gender";
                 }
 
-                if (!empty($nationality)) {
-                    if (strlen($nationality) > 45) {
-                        $status->nationality =  "Nationality should be less than 45 characters";
-                    }
-                }
                 if (!empty($nic)) {
                     if (strlen($nic) > 45) {
                         $status->nic =  "NIC should be less than 45 characters";
@@ -105,16 +103,6 @@ if (SessionUser::hasValidSession()) {
                         if ($isValidPassport->num_rows > 0) {
                             $status->passport = "Passport number already exists";
                         }
-                    }
-                }
-                if (!empty($cob)) {
-                    if (strlen($cob) > 45) {
-                        $status->cob =  "Country of Birth should be less than 45 characters";
-                    }
-                }
-                if (!empty($cor)) {
-                    if (strlen($cor) > 45) {
-                        $status->cor =  "Country of Residence should be less than 45 characters";
                     }
                 }
 
@@ -258,6 +246,7 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
+              
                 if (isset($_FILES["image"])) {
                     $allowed_image_extentions = array("image/jpg", "image/jpeg", "image/png", "image/svg+xml");
                     $file_ex = $_FILES["image"]["type"];
@@ -296,6 +285,12 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
+                $studentDocuments = validateStudentDocuments();
+
+                foreach ($studentDocuments["errors"] as $key => $message) {
+                    $status->$key = $message;
+                }
+
                 $requiredProperties = [
                     'id',
                     'fname',
@@ -327,14 +322,20 @@ if (SessionUser::hasValidSession()) {
                     'glname',
                     'gemail',
                     'gmobile',
-                    'gwhatsapp'
+                    'gwhatsapp',
+                    'entry_type'
                 ];
+
                 $allPropertiesExist = true;
                 foreach ($requiredProperties as $property) {
                     if (property_exists($status, $property)) {
                         $allPropertiesExist = false;
                         break; // Exit loop on the first missing property
                     }
+                }
+                foreach ($studentDocuments["errors"] as $key => $message) {
+                    $allPropertiesExist = false;
+                    break; // Exit loop on the first missing property
                 }
                 if ($allPropertiesExist) {
                     $timezone = new DateTimeZone("Asia/Colombo");
@@ -379,21 +380,21 @@ if (SessionUser::hasValidSession()) {
                         $student_table_insert_values .= ",'" . $nationality . "'";
                     } else {
                         $student_table_insert_columns .= ", `nationality`";
-                        $student_table_insert_values .= ",'Sri Lanka'";
+                        $student_table_insert_values .= ",'69'";
                     }
                     if (!empty($cob)) {
                         $student_table_insert_columns .= ", `country_of_birth`";
                         $student_table_insert_values .= ",'" . $cob . "'";
                     } else {
                         $student_table_insert_columns .= ", `country_of_birth`";
-                        $student_table_insert_values .= ",'Sri Lanka'";
+                        $student_table_insert_values .= ",'69'";
                     }
                     if (!empty($cor)) {
                         $student_table_insert_columns .= ", `country_of_residence`";
                         $student_table_insert_values .= ",'" . $cor . "'";
                     } else {
                         $student_table_insert_columns .= ", `country_of_residence`";
-                        $student_table_insert_values .= ",'Sri Lanka'";
+                        $student_table_insert_values .= ",'69'";
                     }
 
                     if (!empty($nic)) {
@@ -446,69 +447,25 @@ if (SessionUser::hasValidSession()) {
                         Database::iud("INSERT INTO `guardian_details` (" . $guardian_table_insert_columns . ") VALUES (" . $guardian_table_insert_values . ")");
                     }
 
+                    uploadStudentDocuments($studentId, $studentDocuments);
+
                     if (isset($_FILES["image"])) {
                         $qimg_path = "../assets/imgs/students/" . $image;
                         move_uploaded_file($_FILES["image"]["tmp_name"], $qimg_path);
                     }
 
-                    $url = "setup-password?token=" . $token;
-                    $formattedWhatsapp = normalizePhoneNumber($whatsapp);
+                    $mail = EmailNotificationService::build(
+                        EmailTemplateContent::PASSWORD_SETUP,
+                        [
+                            'action_url' => Project::getBasePortalUrl() . "/setup-password?token=" . $token
+                        ]
+                    );
 
-                    $curl = curl_init();
-                    curl_setopt_array($curl, array(
-                        CURLOPT_URL => 'https://graph.facebook.com/v22.0/1046956908493510/messages',
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_POST => true,
-                        CURLOPT_HTTPHEADER => array(
-                            "Authorization: Bearer EAAWijtYusPgBRMOqgf1ZChSWZBhrXDDKn2XZBl3mavZCkZC1mKfvDaZAfrOKTeaOJce5bMB6fJmK3qsvG545CkUJclqxBJc8aDIc2mFI4pGb1shsAW0z35XLCvugiuZCtyWhUerzoMg5lWI1Ky5hbNQs0iZC3NuoTaavKFJ8iLazqvMVPELLZAKG6FgA8kdDDgJG7zwZDZD",
-                            "Content-Type: application/json"
-                        ),
-                        CURLOPT_POSTFIELDS => json_encode([
-                            "messaging_product" => "whatsapp",
-                            "recipient_type" => "individual",
-                            "to" => $formattedWhatsapp,
-                            "type" => "template",
-                            "template" => [
-                                "name" => "welcome_message",
-                                "language" => [
-                                    "code" => "en_US"
-                                ],
-                                "components" => [
-                                    [
-                                        "type" => "body",
-                                        "parameters" => [
-                                            [
-                                                "type" => "text",
-                                                "text" => $fname . " " . $lname
-                                            ]
-                                        ]
-                                    ],
-                                    [
-                                        "type" => "button",
-                                        "sub_type" => "url",
-                                        "index" => "0",
-                                        "parameters" => [
-                                            [
-                                                "type" => "text",
-                                                "text" => $url,
+                    $titleName = Database::search("SELECT `title` FROM `title` WHERE `title_id`='" . $title . "'")->fetch_assoc()["title"];
+                    $userName = $titleName . "." . $fname . " " . $lname;
 
-                                            ]
-                                        ]
-                                    ]
-
-                                ]
-                            ]
-                        ])
-                    ));
-                    $response = curl_exec($curl);
-                    curl_close($curl);
-
-                    $curlData = json_decode($response, true);
-                    if (isset($curlData['error'])) {
-                        $status->error =  "Student Added Successfully. But failed to send registration link";
-                    } else {
-                        $status->done =  "Student Added Successfully";
-                    }
+                    sendMail($email, $userName, $mail['subject'], $mail['body']);
+                    $status->done =  "Student Added Successfully";
                 }
             }
         } else {
@@ -541,4 +498,192 @@ function normalizePhoneNumber($number)
     }
 
     return false;
+}
+
+function validateStudentDocuments()
+{
+    $maxSize = 2 * 1024 * 1024; // 2MB
+
+    $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+
+    $documentTypes = getStudentDocumentTypeConfig();
+
+    $validFiles = [];
+    $errors = [];
+
+    foreach ($documentTypes as $fieldName => $config) {
+
+        if (!isset($_FILES[$fieldName])) {
+            continue;
+        }
+
+        $files = normalizeFilesArray($_FILES[$fieldName]);
+
+        foreach ($files as $file) {
+
+            if ($file["error"] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            if ($file["error"] !== UPLOAD_ERR_OK) {
+                $errors[$fieldName] = "Upload error occurred";
+                continue;
+            }
+
+            if ($file["size"] > $maxSize) {
+                $errors[$fieldName] = "File size must be less than 2MB";
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
+
+            if (!in_array($extension, $allowedExtensions)) {
+                $errors[$fieldName] = "Invalid file type";
+                continue;
+            }
+
+            $validFiles[] = [
+                "field_name" => $fieldName,
+                "type_id" => $config["type_id"],
+                "folder" => $config["folder"],
+                "prefix" => $config["prefix"],
+                "file" => $file,
+                "extension" => $extension
+            ];
+        }
+    }
+
+    return [
+        "files" => $validFiles,
+        "errors" => $errors
+    ];
+}
+
+function getStudentDocumentTypeConfig()
+{
+    return [
+        "aic_application" => [
+            "type_id" => 1,
+            "folder" => "aic-applications",
+            "prefix" => "AIC_APPLICATION"
+        ],
+        "university_application" => [
+            "type_id" => 2,
+            "folder" => "university-applications",
+            "prefix" => "UNIVERSITY_APPLICATION"
+        ],
+        "signed_agreement" => [
+            "type_id" => 3,
+            "folder" => "signed-agreements",
+            "prefix" => "SIGNED_AGREEMENT"
+        ],
+        "signed_program_brief" => [
+            "type_id" => 4,
+            "folder" => "signed-program-briefs",
+            "prefix" => "SIGNED_PROGRAM_BRIEF"
+        ],
+        "passport_nic" => [
+            "type_id" => 5,
+            "folder" => "nic-documents",
+            "prefix" => "PASSPORT_NIC"
+        ],
+        "academic_documents" => [
+            "type_id" => 6,
+            "folder" => "academic-documents",
+            "prefix" => "ACADEMIC_DOCUMENT"
+        ],
+        "other_entry_documents" => [
+            "type_id" => 7,
+            "folder" => "other-entry-documents",
+            "prefix" => "OTHER_ENTRY_DOCUMENT"
+        ],
+        "payment_slip" => [
+            "type_id" => 8,
+            "folder" => "payment-slips",
+            "prefix" => "PAYMENT_SLIP"
+        ],
+        "manager_checklist" => [
+            "type_id" => 9,
+            "folder" => "manager-checklists",
+            "prefix" => "MANAGER_CHECKLIST"
+        ],
+        "passport_size_photo" => [
+            "type_id" => 10,
+            "folder" => "passport-size-photo",
+            "prefix" => "PASSPORT_SIZE_PHOTO"
+        ],
+        "discount_approved_document" => [
+            "type_id" => 11,
+            "folder" => "discount-approved-documents",
+            "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ]
+    ];
+}
+
+function normalizeFilesArray($fileInput)
+{
+    $files = [];
+
+    if (is_array($fileInput["name"])) {
+        foreach ($fileInput["name"] as $index => $name) {
+            $files[] = [
+                "name" => $fileInput["name"][$index],
+                "type" => $fileInput["type"][$index],
+                "tmp_name" => $fileInput["tmp_name"][$index],
+                "error" => $fileInput["error"][$index],
+                "size" => $fileInput["size"][$index],
+            ];
+        }
+    } else {
+        $files[] = $fileInput;
+    }
+
+    return $files;
+}
+
+function uploadStudentDocuments($studentId, $studentDocuments)
+{
+    $baseUploadDir = "../assets/uploads/student-identity-documents/";
+    $baseDbPath = "assets/uploads/student-identity-documents/";
+
+    foreach ($studentDocuments["files"] as $doc) {
+
+        $typeId = $doc["type_id"];
+        $folder = $doc["folder"];
+        $prefix = $doc["prefix"];
+        $file = $doc["file"];
+        $extension = $doc["extension"];
+
+        $uploadDir = $baseUploadDir . $folder . "/";
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
+
+        $serverPath = $uploadDir . $newFileName;
+
+        if (move_uploaded_file($file["tmp_name"], $serverPath)) {
+
+            $dbPath = $newFileName;
+
+            Database::iud("
+                INSERT INTO `students_identity_documents`
+                (
+                    `students_student_id`,
+                    `students_identity_documents_type_id`,
+                    `document`,
+                    `date_added`
+                )
+                VALUES
+                (
+                    '" . $studentId . "',
+                    '" . $typeId . "',
+                    '" . $dbPath . "',
+                    NOW()
+                )
+            ");
+        }
+    }
 }

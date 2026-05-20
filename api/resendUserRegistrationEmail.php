@@ -3,6 +3,10 @@
 $status = new stdClass();
 require_once '../includes/UserClass.php';
 require_once '../includes/Project.php';
+require_once("../includes/phpmailer/mail-process.php");
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -33,24 +37,36 @@ if (SessionUser::hasValidSession()) {
                             $bytes = random_bytes(75);
                             $token = substr(str_replace(['+', '/', '='], '', base64_encode($bytes)), 0, 100);
 
-                            Database::iud("UPDATE `users` SET `user_verification` = '" . $token . "' WHERE `user_id` = '" . $user . "'");
-
-                            require_once("../includes/phpmailer/mail-process.php");
-                            require_once("../includes/phpmailer/mail-body.php");
 
                             try {
-                                if (empty($userData['user_reset_time'])) {
-                                    $url = Project::getBaseUrl() . "/setup-password?token=" . $token;
-                                    sendMail($email, $fullname, "Verify Email", renderMailBody($url, 1));
+                                if (empty($studentData['reset_time'])) {
+                                    Database::iud("UPDATE `users` SET `user_verification` = '" . $token . "' WHERE `user_id` = '" . $user . "'");
+
+                                    $mail = EmailNotificationService::build(
+                                        EmailTemplateContent::PASSWORD_SETUP,
+                                        [
+                                            'action_url' => Project::getBaseUrl() . "/setup-password?token=" . $token
+                                        ]
+                                    );
+                                    sendMail($email, $fullname, $mail['subject'], $mail['body']);
                                 } else {
-                                    $url = Project::getBaseUrl() . "/forgot-password?token=" . $token;
-                                    sendMail($email, $fullname, "Forgoten Password", renderMailBody($url, 0));
+                                    $timezone = new DateTimeZone("Asia/Colombo");
+                                    $dateTime = new DateTime("now", $timezone);
+                                    $resetTime = $dateTime->format('Y-m-d H:i:s');
+
+                                    Database::iud("UPDATE `users` SET `user_verification` = '" . $token . "', `user_reset_time` = '" . $resetTime . "' WHERE `user_id` = '" . $user . "'");
+                                    $mail = EmailNotificationService::build(
+                                        EmailTemplateContent::PASSWORD_SETUP,
+                                        [
+                                            'action_url' => Project::getBaseUrl() . "/forgot-password?token=" . $token
+                                        ]
+                                    );
+                                    sendMail($email, $fullname, $mail['subject'], $mail['body']);
                                 }
                                 $status->done =  "Email sent successfully!";
                             } catch (Exception $e) {
                                 $status->error = 'Email sending failed';
                             }
-                            
                         }
                     }
                 } else {

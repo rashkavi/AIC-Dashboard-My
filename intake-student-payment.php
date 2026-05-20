@@ -209,49 +209,25 @@ if (!SessionUser::hasValidSession()) {
                                                                     switch ($paymentData['payment_status_id']) {
                                                                         case 1:
                                                                             $progressColor = "completed";
-                                                                            $progress = 100 / 4 * 0;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,2,5,8)";
+                                                                            $progress = 100 / 3 * 0;
+                                                                            $query .= " WHERE `payment_status_id` IN (1,2,3)";
                                                                             break;
                                                                         case 2:
                                                                             $progressColor = "completed";
-                                                                            $progress = 100 / 4 * 1;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,2,5,8)";
+                                                                            $progress = 100 / 3 * 1;
+                                                                            $query .= " WHERE `payment_status_id` IN (1,2,3)";
                                                                             break;
                                                                         case 3:
-                                                                            $progressColor = "completed";
-                                                                            $progress = 100 / 4 * 2;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,5,8)";
+                                                                            $progressColor = "accepted";
+                                                                            $progress = 100 / 3 * 3;
+                                                                            $query .= " WHERE `payment_status_id` IN (1,2,3)";
                                                                             break;
                                                                         case 4:
                                                                             $progressColor = "reject";
-                                                                            $progress = 100 / 4 * 1.45;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,4,5,8)";
+                                                                            $progress = 100 / 3 * 2;
+                                                                            $query .= " WHERE `payment_status_id` IN (1,2,4)";
                                                                             break;
-                                                                        case 5:
-                                                                            $progressColor = "completed";
-                                                                            $progress = 100 / 4 * 2;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,5,8)";
-                                                                            break;
-                                                                        case 6:
-                                                                            $progressColor = "completed";
-                                                                            $progress = 100 / 4 * 3;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,6,8)";
-                                                                            break;
-                                                                        case 7:
-                                                                            $progressColor = "reject";
-                                                                            $progress = 100 / 4 * 2.6;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,7,8)";
-                                                                            break;
-                                                                        case 8:
-                                                                            $progressColor = "accepted";
-                                                                            $progress = 100;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,6,8)";
-                                                                            break;
-                                                                        case 9:
-                                                                            $progressColor = "accepted";
-                                                                            $progress = 100;
-                                                                            $query .= " WHERE `payment_status_id` IN (1,3,6,8,9)";
-                                                                            break;
+                                                                       
                                                                     }
                                                                     ?>
                                                                     <div class="progress-bar <?= $progressColor ?>" style="width: <?= $progress ?>%"></div>
@@ -480,6 +456,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <?php
                                                                         $panelties = Database::search("SELECT * FROM `course_payments_penalties`
                                                                         INNER JOIN `panelty_payments_type` ON `course_payments_penalties`.`panelty_payment_type_panelty_payment_type_id` = `panelty_payments_type`.`panelty_payments_type_id` 
+                                                                        
                                                                         WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'");
                                                                         if ($panelties->num_rows > 0) {
                                                                             while ($panelty = $panelties->fetch_assoc()) {
@@ -553,7 +530,9 @@ if (!SessionUser::hasValidSession()) {
 
                                                         <div class="accordion mt-4 br-0" id="accordionExample">
                                                             <?php
-                                                            $paidPayments = Database::search("SELECT * FROM `course_payment_has_payments` WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'");
+                                                            $paidPayments = Database::search("SELECT * FROM `course_payment_has_payments` 
+                                                            INNER JOIN `payment_method` ON `course_payment_has_payments`.`payment_method_payment_method_id` = `payment_method`.`payment_method_id`
+                                                            WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'");
                                                             if ($paidPayments->num_rows > 0) {
                                                                 for ($i = 0; $i < $paidPayments->num_rows; $i++) {
                                                                     $payment = $paidPayments->fetch_assoc();
@@ -612,6 +591,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </div>
 
                                                                                         <?php
+
                                                                                         $paymnetSlips = Database::search("SELECT * FROM `course_payment_slips` WHERE `course_payment_has_payment_id` = '" . $payment['course_payment_has_payment_id'] . "'");
                                                                                         if ($paymnetSlips->num_rows > 0) {
                                                                                         ?>
@@ -624,14 +604,27 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             $slipVerifier = new SlipVerifier();
                                                                                                             $fileType = $slipVerifier->checkFileType($paymentSlip['slip_name']);
                                                                                                             $bankAccNo = '';
+                                                                                                            $fileUrl = "";
+                                                                                                            if ($payment['payment_method_id'] == 3) {
+                                                                                                                $bank = Database::search("SELECT `acc_no` FROM `bank`");
+                                                                                                                if ($bank->num_rows > 0) {
+                                                                                                                    $bankAccNo = $bank->fetch_assoc()['acc_no'];
+                                                                                                                }
+                                                                                                            } else {
+                                                                                                                $bank = Database::search("SELECT `acc_no` FROM `bank` WHERE `bank_id`='" . $payment['bank_bank_id'] . "'");
+                                                                                                                if ($bank->num_rows > 0) {
+                                                                                                                    $bankAccNo = $bank->fetch_assoc()['acc_no'];
+                                                                                                                }
+                                                                                                            }
 
-                                                                                                            $fileUrl = Project::getBaseUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
-                                                                                                            $fileOpenUrl = Project::getBaseUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
+                                                                                                            if (file_exists("./assets/uploads/payment-slips/" . $paymentSlip['slip_name']) == true) {
+                                                                                                                $fileUrl = Project::getBaseUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
+                                                                                                            } else {
+                                                                                                                $fileUrl = Project::getBasePortalUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
+                                                                                                            }
 
-                                                                                                            // $fileUrl = Project::getBasePortalUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
-                                                                                                            // $fileOpenUrl = Project::getBasePortalUrl() . "/file-viewer?file=" . $paymentSlip['slip_name'] . "&intake-id=" . $paymentData['intake_id'];
+                                                                                                            $fileData = $slipVerifier->verifySlip($paymentData['refference'], $bankAccNo, $payment['paid_amount'], $fileUrl);
 
-                                                                                                            $fileData = $slipVerifier->verifySlip($paymentData['refference'], $bankAccNo, $fileUrl);
                                                                                                             if ($fileType != 'unsupported') {
                                                                                                         ?>
                                                                                                                 <div class="accordion-item mt-4">
@@ -674,7 +667,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                         <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
                                                                                                                                                         <div class="ms-3 d-flex flex-column">
                                                                                                                                                             <span class="text-dark-green text-16 fw-semibold">Reference Number</span>
-                                                                                                                                                            <span class="text-14">Reference number verified and matches the transaction record.</span>
+                                                                                                                                                            <span class="text-12">Reference number verified and matches the transaction record.</span>
                                                                                                                                                         </div>
                                                                                                                                                     <?php
                                                                                                                                                     } else {
@@ -682,7 +675,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                         <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
                                                                                                                                                         <div class="ms-3 d-flex flex-column">
                                                                                                                                                             <span class="text-dark-red text-16 fw-semibold">Reference Number</span>
-                                                                                                                                                            <span class="text-14">Reference number could not be matched with any recorded transaction.</span>
+                                                                                                                                                            <span class="text-12">Reference number could not be matched with any recorded transaction.</span>
                                                                                                                                                         </div>
                                                                                                                                                     <?php
                                                                                                                                                     }
@@ -693,18 +686,21 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                 <div class="d-flex align-items-start">
                                                                                                                                                     <?php
                                                                                                                                                     if ($fileData['date'] != null) {
-                                                                                                                                                        $logs_count = Database::search("SELECT `date_updated` FROM `payment_logs` WHERE `course_payments_course_payments_id`='" . $payment['course_payments_id'] . "' ORDER BY `date_updated` ASC LIMIT 1");
-                                                                                                                                                        $logData = $logs_count->fetch_assoc();
 
-                                                                                                                                                        $paymentRequestDate = new DateTime($logData['date_updated']);
-                                                                                                                                                        $slipDate = DateTime::createFromFormat('d/m/Y', $fileData['date']);
+                                                                                                                                                        $slipDate = !empty($fileData['date'])
+                                                                                                                                                            ? date('Y-m-d', strtotime($fileData['date']))
+                                                                                                                                                            : null;
 
-                                                                                                                                                        if ($slipDate > $paymentRequestDate) {
+                                                                                                                                                        $paidDate = !empty($payment['date_paid'])
+                                                                                                                                                            ? date('Y-m-d', strtotime($payment['date_paid']))
+                                                                                                                                                            : null;
+
+                                                                                                                                                        if ($slipDate == $paidDate) {
                                                                                                                                                     ?>
                                                                                                                                                             <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
                                                                                                                                                             <div class="ms-3 d-flex flex-column">
                                                                                                                                                                 <span class="text-dark-green text-16 fw-semibold">Payment Date</span>
-                                                                                                                                                                <span class="text-14">Payment date successfully matched with bank transaction details.</span>
+                                                                                                                                                                <span class="text-12">Payment date successfully matched with bank transaction details.</span>
                                                                                                                                                             </div>
                                                                                                                                                         <?php
                                                                                                                                                         } else {
@@ -712,7 +708,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                             <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
                                                                                                                                                             <div class="ms-3 d-flex flex-column">
                                                                                                                                                                 <span class="text-dark-red text-16 fw-semibold">Payment Date</span>
-                                                                                                                                                                <span class="text-14">Payment date is missing or does not correspond with the system records.</span>
+                                                                                                                                                                <span class="text-12">Payment date is missing or does not correspond with the system records.</span>
                                                                                                                                                             </div>
                                                                                                                                                         <?php
                                                                                                                                                         }
@@ -721,7 +717,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                         <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
                                                                                                                                                         <div class="ms-3 d-flex flex-column">
                                                                                                                                                             <span class="text-dark-red text-16 fw-semibold">Payment Date</span>
-                                                                                                                                                            <span class="text-14">Payment date is missing or does not correspond with the system records.</span>
+                                                                                                                                                            <span class="text-12">Payment date is missing or does not correspond with the system records.</span>
                                                                                                                                                         </div>
                                                                                                                                                     <?php
                                                                                                                                                     }
@@ -736,7 +732,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                         <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
                                                                                                                                                         <div class="ms-3 d-flex flex-column">
                                                                                                                                                             <span class="text-dark-green text-16 fw-semibold">Payment Amount</span>
-                                                                                                                                                            <span class="text-14">LKR <?= $fileData['amount'] ?> Payment amount confirmed and accurately reflected in the slip.</span>
+                                                                                                                                                            <span class="text-12"><?= $payment['paid_amount'] ?> Payment amount confirmed and accurately reflected in the slip.</span>
                                                                                                                                                         </div>
                                                                                                                                                     <?php
                                                                                                                                                     } else {
@@ -744,7 +740,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                                         <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
                                                                                                                                                         <div class="ms-3 d-flex flex-column">
                                                                                                                                                             <span class="text-dark-red text-16 fw-semibold">Payment Amount</span>
-                                                                                                                                                            <span class="text-14">Mismatch detected in the declared and recorded payment amount.</span>
+                                                                                                                                                            <span class="text-12">Mismatch detected in the declared and recorded payment amount.</span>
                                                                                                                                                         </div>
                                                                                                                                                     <?php
                                                                                                                                                     }
@@ -793,7 +789,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                             <?php
                                                                                                                                             }
                                                                                                                                             ?>
-                                                                                                                                            <button class="custom-btn col-4" type="button" onclick="window.open('<?= $fileOpenUrl; ?>', '_blank');">View</button>
+                                                                                                                                            <button class="custom-btn col-4" type="button" onclick="window.open('<?= $fileUrl; ?>', '_blank');">View</button>
                                                                                                                                         </div>
                                                                                                                                     </div>
                                                                                                                                 </div>
@@ -804,14 +800,15 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         <?php
                                                                                                             }
                                                                                                         }
-
                                                                                                         ?>
                                                                                                     </div>
                                                                                                 </div>
                                                                                             </div>
                                                                                         <?php
                                                                                         }
+
                                                                                         ?>
+
 
                                                                                     </div>
                                                                                 </div>
@@ -861,7 +858,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </thead>
                                                                                 <tbody id="user-table-data">
                                                                                     <?php
-                                                                                    $query = "SELECT * FROM `payment_logs`
+                                                                                    $query = "SELECT *,`payment_logs`.`note` AS `payment_note` FROM `payment_logs`
                                                                     INNER JOIN `users` ON `payment_logs`.`users_user_id` = `users`.`user_id`
                                                                     INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
                                                                     LEFT JOIN `course_payment_has_payments` ON `payment_logs`.`course_payment_has_payment_id` = `course_payment_has_payments`.`course_payment_has_payment_id`
@@ -870,6 +867,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     $users = Database::search($query);
                                                                                     if ($users->num_rows > 0) {
                                                                                         while ($data = $users->fetch_assoc()) {
+
                                                                                     ?>
                                                                                             <tr>
                                                                                                 <td class="px-4 py-3 pe-0 align-middle">
@@ -894,7 +892,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["course_payment_has_payment_id"] == null ? "N/A" : "#R" . $data["course_payment_has_payment_id"]; ?></span></td>
                                                                                                 <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["date_updated"]; ?></span></td>
                                                                                                 <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["log"]; ?></span></td>
-                                                                                                <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["note"] == null ? "N/A" : $data["note"]; ?></span></td>
+                                                                                                <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["payment_note"] == null ? "N/A" : $data["payment_note"]; ?></span></td>
                                                                                             </tr>
                                                                                         <?php
                                                                                         }

@@ -57,8 +57,6 @@ if (SessionUser::hasValidSession()) {
                             $status->cover = "There is an error with the selected image";
                         }
                     }
-                } else {
-                    $status->cover = "Please select branch cover";
                 }
 
                 if (!property_exists($status, 'name') &&  !property_exists($status, 'cover')) {
@@ -72,6 +70,9 @@ if (SessionUser::hasValidSession()) {
                     if (!empty($branch_cover)) {
                         $columns .= ", `branch_cover`";
                         $values .= ",'" . $branch_cover . "'";
+                    } else {
+                        $columns .= ", `branch_cover`";
+                        $values .= ",'empty-thumbnail.webp'";
                     }
                     Database::iud("INSERT INTO `branches` (" . $columns . ") VALUES (" . $values . ")");
 

@@ -20,14 +20,14 @@ if (SessionUser::hasValidSession()) {
             } else if (!is_numeric($subject_id)) {
                 $status->error = "Invalid subject Id";
             } else {
-               
+
                 $isValidSubject = Database::search("SELECT * FROM `subjects` WHERE `subject_id`='" . $subject_id . "'");
                 if ($isValidSubject->num_rows == 0) {
                     $status->error = "Invalid subject Id";
                 } else {
                     $subjectData = $isValidSubject->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 10, $level_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 10, $subjectData['levels_level_id']))) {
                         $status->error = "You don't have permission to update subjects";
                     } else {
                         if (empty($subject_name)) {
@@ -118,7 +118,7 @@ if (SessionUser::hasValidSession()) {
                                 $subject_update_query .= ", `subject_cover`='" . $subject_cover . "'";
                             }
 
-                          
+
 
                             Database::iud("UPDATE `subjects` SET " . $subject_update_query . " WHERE `subject_id`='" . $subject_id . "'");
 
@@ -127,7 +127,7 @@ if (SessionUser::hasValidSession()) {
                                 $qimg_path = $cover_path . $subject_cover;
                                 move_uploaded_file($_FILES["subject_cover"]["tmp_name"], $qimg_path);
 
-                                if (!empty($subjectData['subject_cover']) && file_exists($cover_path . $subjectData['subject_cover'])) {
+                                if (!empty($subjectData['subject_cover']) && $subjectData['branch_cover'] != 'empty-thumbnail.webp' && file_exists($cover_path . $subjectData['subject_cover'])) {
                                     unlink($cover_path . $subjectData['subject_cover']);
                                 }
                             }
