@@ -514,6 +514,8 @@ const editStudent = (btn, id) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("removed_documents", removedExistingDocuments);
+    appendStudentDocumentsToFormData(form);
 
     const validationMap = {
         id: ["#student-intake-id", "#student-intake-id-feedback"],
@@ -547,6 +549,17 @@ const editStudent = (btn, id) => {
         gemail: ["#guardian-email", "#gemail-feedback"],
         gmobile: ["#guardian-mobile", "#gmobile-feedback"],
         gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
     fetch("api/editStudent.php", {
@@ -7932,6 +7945,8 @@ const editIntakeStudent = (btn, id) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("removed_documents", removedExistingDocuments);
+    appendStudentDocumentsToFormData(form);
 
     const validationMap = {
         id: ["#student-intake-id", "#student-intake-id-feedback"],
@@ -7965,6 +7980,17 @@ const editIntakeStudent = (btn, id) => {
         gemail: ["#guardian-email", "#gemail-feedback"],
         gmobile: ["#guardian-mobile", "#gmobile-feedback"],
         gwhatsapp: ["#guardian-whatsapp", "#gwhatsapp-feedback"],
+        aic_application: ["#doc-aic-application", "#doc-aic-application-feedback"],
+        university_application: ["#doc-university-application", "#doc-university-application-feedback"],
+        signed_agreement: ["#doc-signed-agreement", "#doc-signed-agreement-feedback"],
+        signed_program_brief: ["#doc-signed-program-brief", "#doc-signed-program-brief-feedback"],
+        passport_nic: ["#doc-passport-nic", "#doc-passport-nic-feedback"],
+        academic_documents: ["#doc-academic-documents", "#doc-academic-documents-feedback"],
+        other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
+        payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
+        manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
     fetch("api/editIntakeStudent.php", {
@@ -10599,9 +10625,8 @@ const loadIntakesForReport = () => {
         });
 }
 
-const uploadStudentPaymentReceipt = (btn, id) => {
+const uploadStudentPaymentReceipt = (btn, id, currency_data = null) => {
     toggleBtnLoader(btn, true);
-
     const form = new FormData();
     form.append("payment_id", id);
     form.append("discount_amount", $("#discount-amount").val());
@@ -10613,6 +10638,10 @@ const uploadStudentPaymentReceipt = (btn, id) => {
     var files = $("#file-selector-input")[0].files;
     for (var i = 0; i < files.length; i++) {
         form.append("slips[]", files[i]);
+    }
+
+    if (currency_data != null) {
+        form.append("currency", JSON.stringify(currency_data));
     }
 
     const validationMap = {
@@ -10663,6 +10692,7 @@ const uploadStudentPaymentReceipt = (btn, id) => {
             }
         })
         .catch((error) => {
+            console.log(error);
             toggleBtnLoader(btn, false);
             showToast("error", "An error occured. Please try again later.");
         });

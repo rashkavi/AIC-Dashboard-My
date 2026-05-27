@@ -144,10 +144,10 @@ if (SessionUser::hasValidSession()) {
                             }
                             if (empty($mobile)) {
                                 $status->mobile =  "Please enter student mobile";
-                            } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $mobile)) {
+                            } else if (!normalizePhoneNumber($mobile)) {
                                 $status->mobile =  "Please enter a valid contact number";
                             } else {
-                                $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE `mobile` = '" . $mobile . "'");
+                                $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE (`mobile` = '" . $mobile . "' OR `mobile` = '" . normalizePhoneNumber($mobile) . "')");
                                 $row = $isValidMobile->fetch_assoc();
                                 if ($row['count'] > 0) {
                                     $status->mobile =  "Contact number already exists";
@@ -155,10 +155,10 @@ if (SessionUser::hasValidSession()) {
                             }
                             if (empty($whatsapp)) {
                                 $status->whatsapp =  "Please enter student whatsapp number";
-                            } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $whatsapp)) {
+                            } else if (!normalizePhoneNumber($whatsapp)) {
                                 $status->whatsapp =  "Please enter a valid whatsapp number";
                             } else {
-                                $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE `whatsapp` = '" . $whatsapp . "'");
+                                $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE (`whatsapp` = '" . $whatsapp . "' OR `whatsapp` = '" . normalizePhoneNumber($whatsapp) . "')");
                                 $row = $isValidWhatsapp->fetch_assoc();
                                 if ($row['count'] > 0) {
                                     $status->whatsapp =  "Whatsapp number already exists";
@@ -183,13 +183,6 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($address) || !$city == 0 || !empty($pcode)) {
                                 if ($city == 0) {
                                     $status->city =  "Please select student city";
-                                }
-
-                                if (empty($pcode)) {
-                                    $status->pcode =  "Please enter student city postal code";
-                                }
-                                if (empty($address)) {
-                                    $status->address =  "Please enter student address";
                                 }
                             }
 
@@ -225,12 +218,12 @@ if (SessionUser::hasValidSession()) {
 
                                 if (empty($gmobile)) {
                                     $status->gmobile =  "Please enter student guardian mobile";
-                                } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $gmobile)) {
+                                } else if (!normalizePhoneNumber($gmobile)) {
                                     $status->gmobile =  "Please enter a valid contact number";
                                 }
 
                                 if (!empty($gwhatsapp)) {
-                                    if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $gwhatsapp)) {
+                                    if (!normalizePhoneNumber($gwhatsapp)) {
                                         $status->gwhatsapp =  "Please enter a valid contact number";
                                     }
                                 }
@@ -339,13 +332,13 @@ if (SessionUser::hasValidSession()) {
                                 $hashPassword = password_hash($password, PASSWORD_BCRYPT);
 
                                 $login_details_columns = " `first_name`, `last_name`, `email`, `whatsapp`, `password`, `date_registered`,  `status_status_id`,`verification`";
-                                $login_details_values = "'" . $fname . "','" . $lname . "','" . $email . "','" . $whatsapp . "','" . $hashPassword . "','" . $registerTime . "','1','" . $token . "'";
+                                $login_details_values = "'" . $fname . "','" . $lname . "','" . $email . "','" . normalizePhoneNumber($whatsapp) . "','" . $hashPassword . "','" . $registerTime . "','1','" . $token . "'";
 
                                 Database::iud("INSERT INTO `login_details` (" . $login_details_columns . ") VALUES (" . $login_details_values . ")");
                                 $login_details_id = Database::$connection->insert_id;
 
                                 $student_table_insert_columns = "`full_name`,`name_with_initials`,`title_title_id`,`mobile`,`date_added`,`gender_gender_id`,`users_user_id`,`login_details_login_details_id`";
-                                $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $mobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "'";
+                                $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . normalizePhoneNumber($mobile) . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "'";
 
                                 if (isset($_FILES["image"])) {
                                     $student_table_insert_columns .= ", `profile_img`";
@@ -404,22 +397,30 @@ if (SessionUser::hasValidSession()) {
                                     $student_table_insert_values .= ",'" . $payment_option . "'";
                                 }
 
-
                                 Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
                                 $studentId = Database::$connection->insert_id;
 
                                 if (!empty($address)) {
-                                    $address_table_insert_columns = "`address_line_1`,`city_city_id`,`postal_code`,`students_student_id`";
-                                    $address_table_insert_values = "'" . $address . "','" . $city . "','" . $pcode . "','" . $studentId . "'";
+                                    $address_table_insert_columns = "`address_line_1`,`students_student_id`";
+                                    $address_table_insert_values = "'" . $address . "','" . $studentId . "'";
 
                                     if (!empty($address2)) {
                                         $address_table_insert_columns .= ", `address_line_2`";
                                         $address_table_insert_values .= ",'" . $address2 . "'";
                                     }
 
+                                    if (!empty($city) && $city != 0) {
+                                        $address_table_insert_columns .= ", `city_city_id`";
+                                        $address_table_insert_values .= ",'" . $city . "'";
+                                    }
+
+                                    if (!empty($pcode) && $pcode != 0) {
+                                        $address_table_insert_columns .= ", `postal_code`";
+                                        $address_table_insert_values .= ",'" . $pcode . "'";
+                                    }
+
                                     Database::iud("INSERT INTO `student_has_address` (" . $address_table_insert_columns . ") VALUES (" . $address_table_insert_values . ")");
                                 }
-
 
                                 $shi_table_insert_columns = "`students_student_id`, `student_id`,`addmission_date`,`status_status_id`,`users_user_id`,`intakes_intake_id`";
                                 $shi_table_insert_values = "'" . $studentId . "', '" . $id . "','" . $registerTime . "','1','" . $sessionUserObject['user_id'] . "','" . $intake_id . "'";
@@ -428,7 +429,7 @@ if (SessionUser::hasValidSession()) {
 
                                 if ($gtitle != 0) {
                                     $guardian_table_insert_columns = "`guardian_relation_guardian_relation_id`,`first_name`,`last_name`,`mobile`,`title_title_id`,`students_student_id`";
-                                    $guardian_table_insert_values = "'" . $grelationship . "','" . $gfname . "','" . $glname . "','" . $gmobile . "','" . $gtitle . "','" . $studentId . "'";
+                                    $guardian_table_insert_values = "'" . $grelationship . "','" . $gfname . "','" . $glname . "','" . normalizePhoneNumber($gmobile) . "','" . $gtitle . "','" . $studentId . "'";
 
                                     if (!empty($gemail)) {
                                         $guardian_table_insert_columns .= ",`email`";
@@ -437,7 +438,7 @@ if (SessionUser::hasValidSession()) {
 
                                     if (!empty($gwhatsapp)) {
                                         $guardian_table_insert_columns .= ",`whatsapp`";
-                                        $guardian_table_insert_values .= ",'" . $gwhatsapp . "'";
+                                        $guardian_table_insert_values .= ",'" . normalizePhoneNumber($gwhatsapp) . "'";
                                     }
 
                                     Database::iud("INSERT INTO `guardian_details` (" . $guardian_table_insert_columns . ") VALUES (" . $guardian_table_insert_values . ")");

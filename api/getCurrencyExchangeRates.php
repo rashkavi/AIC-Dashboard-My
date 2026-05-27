@@ -61,7 +61,7 @@ if (SessionUser::hasValidSession()) {
                         ORDER BY cerl.effective_date ASC, cerl.date_added ASC, bc.code ASC
                     ";
 
-                    
+
 
                     $result = Database::search($query);
 
@@ -94,18 +94,24 @@ if (SessionUser::hasValidSession()) {
                     $datasets = [];
 
                     foreach ($currencyData as $code => $currency) {
-
                         $dataPoints = [];
+                        $lastKnownRate = null; // Track the previous rate
 
                         foreach ($labels as $date) {
-                            $dataPoints[] = $currency["data"][$date] ?? null;
+                            if (isset($currency["data"][$date])) {
+                                // Update the last known rate when a new log exists
+                                $lastKnownRate = $currency["data"][$date];
+                            }
+
+                            // Use the last known rate instead of falling back to null
+                            $dataPoints[] = $lastKnownRate;
                         }
 
                         $datasets[] = [
                             "label" => $currency["label"],
                             "data" => $dataPoints,
                             "borderWidth" => 2,
-                            "tension" => 0.35,
+                            "tension" => 0.1, // Lower tension looks cleaner for step-like flat periods
                             "pointRadius" => 3,
                             "pointHoverRadius" => 6,
                             "fill" => false

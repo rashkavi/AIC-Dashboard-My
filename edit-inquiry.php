@@ -745,9 +745,9 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
 
-
                                                         <div class="col-12 p-0 g-0 mt-5">
                                                             <div class="row" id="student-documents-wrapper">
+                                                                <span class="sub-topic mb-4">Student Required Documents</span>
                                                                 <!-- AIC Application -->
                                                                 <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                                     <div class="student-doc-upload-box" data-doc-key="aic_application">

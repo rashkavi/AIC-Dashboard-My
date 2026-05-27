@@ -338,6 +338,10 @@ if (SessionUser::hasValidSession()) {
                             break; // Exit loop on the first missing property
                         }
                     }
+                      foreach ($studentDocuments["errors"] as $key => $message) {
+                    $allPropertiesExist = false;
+                    break; // Exit loop on the first missing property
+                }
                     if ($allFieldsPresent) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);

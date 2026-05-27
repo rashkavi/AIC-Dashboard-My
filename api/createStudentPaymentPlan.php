@@ -147,13 +147,16 @@ if (SessionUser::hasValidSession()) {
                                                 if (count($markAsPaidPayments) > 0) {
                                                     foreach ($markAsPaidPayments as $markAsPaidPayment) {
                                                         if ($markAsPaidPayment['installment_id'] == $payment['intake_payments_plan_has_payment_id']) {
+                                                            $currencyResult = Database::search("SELECT `currencies_currency_id` AS `currency_id` FROM `payment_category` WHERE `payment_category_id` = '" . $paymentPlanData['payment_category_payment_category_id'] . "' LIMIT 1");
+                                                            $paymentCurrencyId = 1;
+                                                            if ($currencyResult->num_rows > 0) {
+                                                                $paymentCurrencyId = (int)$currencyResult->fetch_assoc()['currency_id'];
+                                                            }
+
                                                             $columns = "`course_payments_course_payments_id`,`payment_method_payment_method_id`
-                                                            ,`date_paid`,`paid_amount`,`discount_amount`,`payment_status_payment_status_id`";
+                                                            ,`date_paid`,`paid_amount`,`discount_amount`,`payment_status_payment_status_id`,`panelty_amount`,`bank_bank_id`,`currencies_currency_id`,`currency_exchange_rate_id`,`currency_exchange_rate`";
 
-                                                            $values = "'" . $paymentId . "','" . $markAsPaidPayment['payment_method_id'] . "','" . $markAsPaidPayment['paid_date'] . "','" . $markAsPaidPayment['paid_amount'] . "','" . $markAsPaidPayment['discount'] . "','3'";
-
-                                                            $columns .= ",`panelty_amount`";
-                                                            $values .= ",'0'";
+                                                            $values = "'" . $paymentId . "','" . $markAsPaidPayment['payment_method_id'] . "','" . $markAsPaidPayment['paid_date'] . "','" . $markAsPaidPayment['paid_amount'] . "','" . $markAsPaidPayment['discount'] . "','3','0',NULL,'" . $paymentCurrencyId . "',NULL,'1.0000'";
 
                                                             Database::iud("INSERT INTO `course_payment_has_payments` (" . $columns . ") VALUES (" . $values . ")");
                                                             $cphp_id = Database::$connection->insert_id;

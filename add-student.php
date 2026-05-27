@@ -267,12 +267,12 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <div class="col-12 col-md-3 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Mobile</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="mobile" maxlength="10" onkeypress="checkDigit(event)">
+                                                            <input type="text" class="form-control custom-input mt-2" id="mobile" onkeypress="checkDigit(event)">
                                                             <span id="mobile-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                         <div class="col-12 col-md-3 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Whatsapp</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="whatsapp" maxlength="10" onkeypress="checkDigit(event)">
+                                                            <input type="text" class="form-control custom-input mt-2" id="whatsapp" onkeypress="checkDigit(event)">
                                                             <span id="whatsapp-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                         <div class="col-12 col-md-6 d-flex flex-column">

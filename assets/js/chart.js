@@ -847,10 +847,6 @@ function loadCurrencyChart() {
     const fromDate = document.getElementById("fromDate").value;
     const toDate = document.getElementById("toDate").value;
 
-    const formData = new FormData();
-    formData.append("from_date", fromDate);
-    formData.append("to_date", toDate);
-
     const data = {
         fromDate: fromDate,
         toDate: toDate
@@ -875,7 +871,54 @@ function loadCurrencyChart() {
                 type: "line",
                 data: {
                     labels: data.labels,
-                    datasets: data.datasets
+                    // Dynamic configuration mapping for each unique currency dataset
+                    datasets: data.datasets.map(dataset => {
+                        
+                        // 1. Determine a fallback color if your PHP doesn't provide a borderColor
+                        let baseColor = dataset.borderColor;
+                        if (!baseColor) {
+                            // Assign unique colors based on the label text if colors aren't defined in the backend
+                            if (dataset.label.includes("USD")) baseColor = "rgba(255, 99, 132, 1)";    // Pink/Red
+                            else if (dataset.label.includes("GBP")) baseColor = "rgba(54, 162, 235, 1)"; // Blue
+                            else if (dataset.label.includes("EUR")) baseColor = "rgba(255, 159, 64, 1)";  // Orange
+                            else if (dataset.label.includes("CAD")) baseColor = "rgba(255, 205, 86, 1)";  // Yellow
+                            else baseColor = "rgba(75, 192, 192, 1)";                                   // Teal default
+                        }
+
+                        // Convert base color to a semi-transparent version for the gradient top slice
+                        // If baseColor is an 'rgba()' string already, this safely pulls the core rgb values
+                        const rgbValues = baseColor.match(/\d+/g);
+                        const r = rgbValues ? rgbValues[0] : 54;
+                        const g = rgbValues ? rgbValues[1] : 162;
+                        const b = rgbValues ? rgbValues[2] : 235;
+
+                        return {
+                            ...dataset,
+                            borderColor: baseColor,
+                            pointBackgroundColor: baseColor,
+                            fill: true,
+                            tension: 0.4,
+                            spanGaps: true,
+
+                            // 2. Compute a dynamic matching linear gradient shadow
+                            backgroundColor: function (context) {
+                                const chart = context.chart;
+                                const { ctx, chartArea } = chart;
+
+                                if (!chartArea) {
+                                    return null;
+                                }
+
+                                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                
+                                // Uses the currency's specific base color with fading alphas
+                                gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.25)`); // Matching tint at top
+                                gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.00)`); // Fades out completely at bottom
+
+                                return gradient;
+                            }
+                        };
+                    })
                 },
                 options: {
                     responsive: true,

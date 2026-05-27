@@ -3538,7 +3538,136 @@ option {
     background-color: var(--student-status-17-background);
     color: var(--student-status-17-text);
 }
+ /* ── Exchange rate badge ──────────────────────────────── */
+                            .exchange-rate-badge {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 10px;
+                                border-radius: 20px;
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border: 1px solid var(--border-color);
+                                font-size: 11.5px;
+                                color: var(--sub-text-color);
+                            }
 
+                            .rate-unavailable {
+                                border-color: #f5c6cb;
+                                background: #fff5f5;
+                                color: #a32d2d;
+                            }
+
+                            /* ── LKR Summary Panel ────────────────────────────────── */
+                            .lkr-panel {
+                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+                                overflow: hidden;
+                                margin-bottom: 20px;
+                                border-radius: 8px;
+                            }
+
+                            .lkr-panel-top {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                padding: 10px 18px;
+                                border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+                            }
+
+                            .lkr-panel-top-left {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-panel-top-left iconify-icon {
+                                color: rgba(255, 255, 255, 0.6);
+                            }
+
+                            .lkr-panel-rate-note {
+                                font-size: 13px;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-panel-grid {
+                                display: grid;
+                                grid-template-columns: repeat(6, minmax(0, 1fr));
+                            }
+
+                            .lkr-panel-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                                padding: 14px 18px;
+                                border-right: 0.5px solid rgba(255, 255, 255, 0.10);
+                            }
+
+                            .lkr-panel-item:last-child {
+                                border-right: none;
+                            }
+
+                            .lkr-item-label {
+                                font-size: 12px;
+                                font-weight: 500;
+                                letter-spacing: 0.04em;
+                                text-transform: uppercase;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-item-value {
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-item-sub {
+                                font-size: 12px;
+                                color: rgba(255, 255, 255, 0.35);
+                            }
+
+                            .lkr-panel-item.balance-item .lkr-item-value {
+                                color: #5DCAA5;
+                            }
+
+                            /* ── FX pill shown on foreign-currency receipts ───────── */
+                            .receipt-fx-pill {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 4px;
+                                padding: 2px 8px;
+                                border-radius: 10px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                background: rgba(255, 255, 255, 0.12);
+                                color: rgba(255, 255, 255, 0.7);
+                                border: 1px solid rgba(255, 255, 255, 0.2);
+                                vertical-align: middle;
+                                margin-left: 6px;
+                            }
+
+                            /* ── LKR sub-hint on detail rows ─────────────────────── */
+                            .detail-lkr-hint {
+                                font-size: 11px;
+                                color: var(--sub-text-color);
+                                opacity: 0.75;
+                                margin-top: 2px;
+                            }
+
+                            @media (max-width: 768px) {
+                                .lkr-panel-grid {
+                                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                                }
+
+                                .lkr-panel-item:nth-child(3) {
+                                    border-right: none;
+                                }
+
+                                .lkr-panel-item {
+                                    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+                                }
+                            }
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {
     .studentPolicyPageImage {

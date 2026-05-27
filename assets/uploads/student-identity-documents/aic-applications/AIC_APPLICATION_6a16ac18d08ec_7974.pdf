@@ -1,0 +1,7 @@
+<br />
+<b>Fatal error</b>:  Uncaught Error: Class &quot;Database&quot; not found in /home/u155757515/domains/aiccampuslms.com/public_html/dashboard/includes/UserClass.php:28
+Stack trace:
+#0 /home/u155757515/domains/aiccampuslms.com/public_html/dashboard/includes/UserClass.php(49): SessionUser::loadRoles()
+#1 /home/u155757515/domains/aiccampuslms.com/public_html/dashboard/api/downloadStudentIDCard.php(22): SessionUser::hasValidSession()
+#2 {main}
+  thrown in <b>/home/u155757515/domains/aiccampuslms.com/public_html/dashboard/includes/UserClass.php</b> on line <b>28</b><br />

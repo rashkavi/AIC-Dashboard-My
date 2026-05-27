@@ -49,7 +49,7 @@ if (SessionUser::hasValidSession()) {
                     $gemail = isset($_POST['gemail']) ? trim($_POST['gemail']) : '';
                     $gmobile = isset($_POST['gmobile']) ? trim($_POST['gmobile']) : '';
                     $gwhatsapp = isset($_POST['gwhatsapp']) ? trim($_POST['gwhatsapp']) : '';
-                    $image;
+                    $image = '';
 
                     if (empty($fname)) {
                         $status->fname =  "Please enter user first name";
@@ -138,7 +138,7 @@ if (SessionUser::hasValidSession()) {
                     }
                     if (empty($mobile)) {
                         $status->mobile =  "Please enter user mobile";
-                    } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $mobile)) {
+                    } else if (!normalizePhoneNumber($mobile)) {
                         $status->mobile =  "Please enter a valid contact number";
                     } else {
                         $mobileHasStudent = Database::search("SELECT `mobile` FROM `students` WHERE `mobile` = '" . $mobile . "' AND `student_id` != '" . $student["student_id"] . "'");
@@ -148,7 +148,7 @@ if (SessionUser::hasValidSession()) {
                     }
                     if (empty($whatsapp)) {
                         $status->whatsapp =  "Please enter user mobile";
-                    } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $whatsapp)) {
+                    } else if (!normalizePhoneNumber($whatsapp)) {
                         $status->whatsapp =  "Please enter a valid whatsapp number";
                     } else {
                         $whatsappHasStudent = Database::search("SELECT `whatsapp` FROM `login_details`
@@ -180,12 +180,6 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        if ($city == 0) {
-                            $status->city =  "Please select user city";
-                        }
-                        if (empty($pcode)) {
-                            $status->pcode =  "Please enter user city postal code";
-                        }
                         if (!empty($pcode) && !strlen($pcode) > 5) {
                             $status->pcode =  "Postcode should be less than 5 characters";
                         }
@@ -219,12 +213,12 @@ if (SessionUser::hasValidSession()) {
 
                         if (empty($gmobile)) {
                             $status->gmobile =  "Please enter student guardian mobile";
-                        } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $gmobile)) {
+                        } else if (!normalizePhoneNumber($gmobile)) {
                             $status->gmobile =  "Please enter a valid contact number";
                         }
 
                         if (!empty($gwhatsapp)) {
-                            if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $gwhatsapp)) {
+                            if (!normalizePhoneNumber($gwhatsapp)) {
                                 $status->gwhatsapp =  "Please enter a valid contact number";
                             }
                         }
@@ -268,6 +262,12 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
+                    $studentDocuments = validateStudentDocuments($id);
+
+                    foreach ($studentDocuments["errors"] as $key => $message) {
+                        $status->$key = $message;
+                    }
+
                     $requiredProperties = [
                         'fname',
                         'lname',
@@ -304,6 +304,10 @@ if (SessionUser::hasValidSession()) {
                             break; // Exit loop on the first missing property
                         }
                     }
+                    foreach ($studentDocuments["errors"] as $key => $message) {
+                        $allPropertiesExist = false;
+                        break; // Exit loop on the first missing property
+                    }
                     if ($allFieldsPresent) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);
@@ -312,11 +316,11 @@ if (SessionUser::hasValidSession()) {
                         $timestamp = strtotime($dob);
                         $dob = date("Y-m-d", $timestamp);
 
-                        $login_table_update = "`first_name`='" . $fname . "',`last_name`='" . $lname . "',`whatsapp`='" . $whatsapp . "',`email`='" . $email . "'";
+                        $login_table_update = "`first_name`='" . $fname . "',`last_name`='" . $lname . "',`whatsapp`='" . normalizePhoneNumber($whatsapp) . "',`email`='" . $email . "'";
 
                         $student_table_update = "`full_name`='" . $fullname . "',`name_with_initials`='" . $nwi . "'
                         ,`title_title_id`='" . $title . "'
-                        ,`mobile`='" . $mobile . "',`gender_gender_id`='" . $gender . "'
+                        ,`mobile`='" . normalizePhoneNumber($mobile) . "',`gender_gender_id`='" . $gender . "'
                         ,`country_of_birth`='" . $cob . "',`country_of_residence`='" . $cor . "'
                         ";
 
@@ -357,20 +361,36 @@ if (SessionUser::hasValidSession()) {
                             $studentHasAddress = Database::search("SELECT * FROM `student_has_address` WHERE `students_student_id`='" . $student["student_id"] . "'");
                             if ($studentHasAddress->num_rows == 0) {
 
-                                $address_table_columns = "`students_student_id`,`address_line_1`,`city_city_id`,`postal_code`";
-                                $address_table_values = "'" . $student["student_id"] . "','" . $address . "','" . $city . "','" . $pcode . "'";
+                                $address_table_columns = "`students_student_id`,`address_line_1`";
+                                $address_table_values = "'" . $student["student_id"] . "','" . $address . "'";
 
                                 if (!empty($address2)) {
                                     $address_table_columns .= ",`address_line_2`";
                                     $address_table_values .= ",'" . $address2 . "'";
                                 }
 
+                                if (!empty($city) && $city != 0) {
+                                    $address_table_columns .= ",`city_city_id`";
+                                    $address_table_values .= ",'" . $city . "'";
+                                }
+
+                                if (!empty($pcode) && $pcode != 0) {
+                                    $address_table_columns .= ",`postal_code`";
+                                    $address_table_values .= ",'" . $pcode . "'";
+                                }
+
                                 Database::iud("INSERT INTO `student_has_address` (" . $address_table_columns . ") VALUES (" . $address_table_values . ")");
                             } else {
-                                $address_table_update = "`address_line_1`='" . $address . "',`city_city_id`='" . $city . "',`postal_code`='" . $pcode . "'";
+                                $address_table_update = "`address_line_1`='" . $address . "',`postal_code`='" . $pcode . "'";
 
                                 if (!empty($address2)) {
                                     $address_table_update .= ",`address_line_2`='" . $address2 . "'";
+                                }
+
+                                if (empty($city) || $city == 0) {
+                                    $address_table_update .= ",`city_city_id`=NULL";
+                                } else {
+                                    $address_table_update .= ",`city_city_id`='" . $city . "'";
                                 }
 
                                 Database::iud("UPDATE `student_has_address` SET " . $address_table_update . " WHERE `students_student_id` = '" . $student["student_id"] . "'");
@@ -382,7 +402,7 @@ if (SessionUser::hasValidSession()) {
                             $studnetHasGuardian = Database::search("SELECT * FROM `guardian_details` WHERE `students_student_id`='" . $student["student_id"] . "'");
                             if ($studnetHasGuardian->num_rows == 0) {
                                 $guardian_table_columns = "`students_student_id`,`first_name`,`last_name`,`guardian_relation_guardian_relation_id`,`title_title_id`,`mobile`";
-                                $guardian_table_values = "'" . $student["student_id"] . "','" . $gfname . "','" . $glname . "','" . $grelationship . "','" . $gtitle . "','" . $gmobile . "'";
+                                $guardian_table_values = "'" . $student["student_id"] . "','" . $gfname . "','" . $glname . "','" . $grelationship . "','" . $gtitle . "','" . normalizePhoneNumber($gmobile) . "'";
 
                                 if (!empty($gemail)) {
                                     $guardian_table_columns .= ",`email`";
@@ -391,7 +411,7 @@ if (SessionUser::hasValidSession()) {
 
                                 if (!empty($gwhatsapp)) {
                                     $guardian_table_columns .= ",`whatsapp`";
-                                    $guardian_table_values .= ",'" . $gwhatsapp . "'";
+                                    $guardian_table_values .= ",'" . normalizePhoneNumber($gwhatsapp) . "'";
                                 }
 
 
@@ -401,7 +421,7 @@ if (SessionUser::hasValidSession()) {
                                 $guardian_table_update = "`first_name`='" . $gfname . "',
                                 `last_name`='" . $glname . "',`guardian_relation_guardian_relation_id`='" . $grelationship . "',
                                 `title_title_id`='" . $gtitle . "',`email`='" . $gemail . "',
-                                `mobile`='" . $gmobile . "',`whatsapp`='" . $gwhatsapp . "'";
+                                `mobile`='" . normalizePhoneNumber($gmobile) . "',`whatsapp`='" . normalizePhoneNumber($gwhatsapp) . "'";
                                 Database::iud("UPDATE `guardian_details` SET " . $guardian_table_update . " WHERE `students_student_id` = '" . $student["student_id"] . "'");
                             }
                         }
@@ -415,6 +435,72 @@ if (SessionUser::hasValidSession()) {
                                 }
                             }
                         }
+
+                        if (isset($_POST["removed_documents"]) && is_array($_POST["removed_documents"])) {
+
+                            $docFolderMap = [
+                                1 => "aic-applications",
+                                2 => "university-applications",
+                                3 => "signed-agreements",
+                                4 => "signed-program-briefs",
+                                5 => "passport-nic-documents",
+                                6 => "academic-documents",
+                                7 => "other-entry-documents",
+                                8 => "payment-slips",
+                                9 => "manager-checklists",
+                                10 => "passport-size-photos",
+                                11 => "discount-approved-documents"
+                            ];
+
+                            foreach ($_POST["removed_documents"] as $docId) {
+                                $docId = (int)$docId;
+
+                                if ($docId <= 0) {
+                                    continue;
+                                }
+
+                                $docRs = Database::search("
+                                    SELECT 
+                                        `students_identity_document_id`,
+                                        `students_identity_documents_type_id`,
+                                        `document`
+                                    FROM `students_identity_documents`
+                                    WHERE `students_identity_document_id` = '" . $docId . "'
+                                      AND `students_student_id` = '" . $id . "'
+                                    LIMIT 1
+                                ");
+
+                                if ($docRs->num_rows == 0) {
+                                    continue;
+                                }
+
+                                $doc = $docRs->fetch_assoc();
+
+                                $typeId = (int)$doc["students_identity_documents_type_id"];
+                                $fileName = basename($doc["document"]);
+
+                                if (isset($docFolderMap[$typeId])) {
+                                    $filePath = "../assets/uploads/student-identity-documents/" . $docFolderMap[$typeId] . "/" . $fileName;
+
+                                    if (is_file($filePath)) {
+                                        unlink($filePath);
+                                    }
+                                }
+
+                                Database::iud("
+                                    DELETE FROM `students_identity_documents`
+                                    WHERE `students_identity_document_id` = '" . $docId . "'
+                                      AND `students_student_id` = '" . $id . "'
+                                ");
+                            }
+                        }
+
+                        uploadStudentDocuments($id, $studentDocuments);
+
+                        Database::iud("INSERT INTO `students_logs` 
+                            (`students_student_id`, `date_updated`, `users_user_id`,`log`)
+                             VALUES ('" . $id . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Update Student Details')");
+
 
                         $status->done =  "Student Update Successfully";
                     }
@@ -432,3 +518,274 @@ if (SessionUser::hasValidSession()) {
 }
 
 echo (json_encode($status));
+
+function normalizePhoneNumber($number)
+{
+    $number = preg_replace('/[\s\-()]/', '', $number);
+    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+    if (preg_match('/^94([7][0-9]{8})$/', $number)) {
+        return '+94' . substr($number, 2);
+    }
+    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
+        if ($number[0] !== '+') {
+            return '+' . $number;
+        }
+        return $number;
+    }
+
+    return false;
+}
+
+function validateStudentDocuments($id)
+{
+    $maxSize = 8 * 1024 * 1024; // 8MB same as JS
+
+    $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+
+    $requiredDocuments = [
+        "passport_nic",
+        "payment_slip",
+    ];
+
+    $removeIds = [];
+
+    if (isset($_POST["removed_documents"]) && is_array($_POST["removed_documents"])) {
+        foreach ($_POST["removed_documents"] as $docId) {
+            $docId = (int)$docId;
+
+            if ($docId > 0) {
+                $removeIds[] = $docId;
+            }
+        }
+    }
+
+    $notInQuery = "";
+
+    if (!empty($removeIds)) {
+        $notInQuery = " AND `students_identity_document_id` NOT IN (" . implode(",", $removeIds) . ")";
+    }
+
+    $isUploadDocument = Database::search("
+        SELECT *
+        FROM `students_identity_documents`
+        WHERE `students_student_id` = '" . $id . "'
+        AND `students_identity_documents_type_id` IN (5,8)
+        $notInQuery
+    ");
+
+    if ($isUploadDocument->num_rows > 0) {
+
+        while ($data = $isUploadDocument->fetch_assoc()) {
+
+            if ($data['students_identity_documents_type_id'] == 5) {
+
+                $key = array_search("passport_nic", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 8) {
+
+                $key = array_search("payment_slip", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+        }
+    }
+
+    $requiredDocuments = array_values($requiredDocuments);
+    $documentTypes = getStudentDocumentTypeConfig();
+
+    $validFiles = [];
+    $errors = [];
+    $uploadedDocuments = [];
+
+    foreach ($documentTypes as $fieldName => $config) {
+
+        if (!isset($_FILES[$fieldName])) {
+            continue;
+        }
+
+        $files = normalizeFilesArray($_FILES[$fieldName]);
+
+        foreach ($files as $file) {
+
+            if ($file["error"] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            if ($file["error"] !== UPLOAD_ERR_OK) {
+                $errors[$fieldName] = "Upload error occurred";
+                continue;
+            }
+
+            if ($file["size"] > $maxSize) {
+                $errors[$fieldName] = "File size must be less than 8MB";
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($file["name"], PATHINFO_EXTENSION));
+
+            if (!in_array($extension, $allowedExtensions)) {
+                $errors[$fieldName] = "Invalid file type";
+                continue;
+            }
+
+            $uploadedDocuments[$fieldName] = true;
+
+            $validFiles[] = [
+                "field_name" => $fieldName,
+                "type_id" => $config["type_id"],
+                "folder" => $config["folder"],
+                "prefix" => $config["prefix"],
+                "file" => $file,
+                "extension" => $extension
+            ];
+        }
+    }
+
+    foreach ($requiredDocuments as $requiredDoc) {
+        if (!isset($uploadedDocuments[$requiredDoc])) {
+            $errors[$requiredDoc] = "This document is required";
+        }
+    }
+
+    return [
+        "files" => $validFiles,
+        "errors" => $errors
+    ];
+}
+function getStudentDocumentTypeConfig()
+{
+    return [
+        "aic_application" => [
+            "type_id" => 1,
+            "folder" => "aic-applications",
+            "prefix" => "AIC_APPLICATION"
+        ],
+        "university_application" => [
+            "type_id" => 2,
+            "folder" => "university-applications",
+            "prefix" => "UNIVERSITY_APPLICATION"
+        ],
+        "signed_agreement" => [
+            "type_id" => 3,
+            "folder" => "signed-agreements",
+            "prefix" => "SIGNED_AGREEMENT"
+        ],
+        "signed_program_brief" => [
+            "type_id" => 4,
+            "folder" => "signed-program-briefs",
+            "prefix" => "SIGNED_PROGRAM_BRIEF"
+        ],
+        "passport_nic" => [
+            "type_id" => 5,
+            "folder" => "nic-documents",
+            "prefix" => "PASSPORT_NIC"
+        ],
+        "academic_documents" => [
+            "type_id" => 6,
+            "folder" => "academic-documents",
+            "prefix" => "ACADEMIC_DOCUMENT"
+        ],
+        "other_entry_documents" => [
+            "type_id" => 7,
+            "folder" => "other-entry-documents",
+            "prefix" => "OTHER_ENTRY_DOCUMENT"
+        ],
+        "payment_slip" => [
+            "type_id" => 8,
+            "folder" => "payment-slips",
+            "prefix" => "PAYMENT_SLIP"
+        ],
+        "manager_checklist" => [
+            "type_id" => 9,
+            "folder" => "manager-checklists",
+            "prefix" => "MANAGER_CHECKLIST"
+        ],
+        "passport_size_photo" => [
+            "type_id" => 10,
+            "folder" => "passport-size-photo",
+            "prefix" => "PASSPORT_SIZE_PHOTO"
+        ],
+        "discount_approved_document" => [
+            "type_id" => 11,
+            "folder" => "discount-approved-documents",
+            "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ]
+    ];
+}
+
+function normalizeFilesArray($fileInput)
+{
+    $files = [];
+
+    if (is_array($fileInput["name"])) {
+        foreach ($fileInput["name"] as $index => $name) {
+            $files[] = [
+                "name" => $fileInput["name"][$index],
+                "type" => $fileInput["type"][$index],
+                "tmp_name" => $fileInput["tmp_name"][$index],
+                "error" => $fileInput["error"][$index],
+                "size" => $fileInput["size"][$index],
+            ];
+        }
+    } else {
+        $files[] = $fileInput;
+    }
+
+    return $files;
+}
+
+function uploadStudentDocuments($studentId, $studentDocuments)
+{
+    $baseUploadDir = "../assets/uploads/student-identity-documents/";
+    $baseDbPath = "assets/uploads/student-identity-documents/";
+
+    foreach ($studentDocuments["files"] as $doc) {
+
+        $typeId = $doc["type_id"];
+        $folder = $doc["folder"];
+        $prefix = $doc["prefix"];
+        $file = $doc["file"];
+        $extension = $doc["extension"];
+
+        $uploadDir = $baseUploadDir . $folder . "/";
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
+
+        $serverPath = $uploadDir . $newFileName;
+
+        if (move_uploaded_file($file["tmp_name"], $serverPath)) {
+
+            $dbPath = $newFileName;
+
+            Database::iud("
+                INSERT INTO `students_identity_documents`
+                (
+                    `students_student_id`,
+                    `students_identity_documents_type_id`,
+                    `document`,
+                    `date_added`
+                )
+                VALUES
+                (
+                    '" . $studentId . "',
+                    '" . $typeId . "',
+                    '" . $dbPath . "',
+                    NOW()
+                )
+            ");
+        }
+    }
+}

@@ -17,89 +17,59 @@ if (!SessionUser::hasValidSession()) {
         } else {
 
             $id = $_GET['payment-id'];
-            $paymentPlan = Database::search("SELECT
-                    `cp`.`course_payments_id`, 
-                    `ps`.`payment_status`,
-                    `ps`.`payment_status_id`,
-                    `cp`.`amount`,
-                    `cp`.`discount`,
-                    `cp`.`discount_note`,
-                    `cp`.`panelty_payment_option_panelty_payment_option_id`,
-                    `dt`.`discount_type`,
-                    `dt`.`discount_type_id`, 
-                   
-                    `pt`.`payment_type`,
-                
-                    `cp`.`payment_plan_has_students_has_intakes_id`,
-                    `cp`.`refference`,
-                    `cp`.`due_date`,                   
-                    `i`.`intake_id`,
-                    `p`.`programme_id`,
-                    `f`.`faculty_id`,
-                    `i`.`intake`,
-                    `p`.`programme`,
-                    `f`.`faculty`,
-                    `t`.`title`,
-                    `ld`.`first_name`,
-                    `ld`.`last_name`,
-                    `c`.`code`,
-                    `c`.`decimal_places`,
-                    `ppo`.`panelty_payment_option`,
-                     IFNULL(pp.panelty_amount, 0) AS panelty_amount,
-                    IFNULL(cpp.paid_amount, 0) AS paid_amount,
-                    IFNULL(cpp.total_discount, 0) AS total_discount,
-                    IFNULL(cpp.total_sub_panelty_amount, 0) AS total_sub_panelty_amount                   
-                FROM `course_payments` AS `cp`
-                INNER JOIN `payment_status` AS `ps` 
-                    ON `cp`.`payment_status_payment_status_id` = `ps`.`payment_status_id`
-                INNER JOIN `payment_type` AS `pt` 
-                    ON `cp`.`payment_type_payment_type_id` = `pt`.`payment_type_id`
-                INNER JOIN `discount_type` AS `dt` 
-                    ON `cp`.`discount_type_discount_type_id` = `dt`.`discount_type_id`
-                INNER JOIN `payment_plan_has_students_has_intakes` AS `pphsi` 
-                    ON `cp`.`payment_plan_has_students_has_intakes_id` = `pphsi`.`payment_plan_has_students_has_intakes_id`
-                INNER JOIN `payment_category` AS `pc` 
-                    ON `pphsi`.`payment_category_payment_category_id` = `pc`.`payment_category_id`
-                INNER JOIN `currencies` AS `c`
-                    ON `pc`.`currencies_currency_id` = `c`.`currency_id`    
-                LEFT JOIN `panelty_payment_option` AS `ppo` 
-                    ON `cp`.`panelty_payment_option_panelty_payment_option_id` = `ppo`.`panelty_payment_option_id`
-                INNER JOIN `students_has_intakes` AS `shi` 
-                    ON `pphsi`.`students_has_intakes_students_has_intakes_id` = `shi`.`students_has_intakes_id`
-                INNER JOIN `students` AS `s` 
-                    ON `shi`.`students_student_id` = `s`.`student_id`
-                INNER JOIN `login_details` AS `ld`
-                    ON `s`.`login_details_login_details_id` = `ld`.`login_details_id`    
-                INNER JOIN `title` AS `t` 
-                    ON `s`.`title_title_id` = `t`.`title_id`
-                INNER JOIN `intakes` AS `i` 
-                    ON `shi`.`intakes_intake_id` = `i`.`intake_id`
-                INNER JOIN `programmes` AS `p` 
-                    ON `i`.`programmes_programme_id` = `p`.`programme_id`
-                INNER JOIN `faculties` AS `f` 
-                    ON `p`.`faculties_faculty_id` = `f`.`faculty_id`
-                  LEFT JOIN (
-                SELECT
-                    course_payments_course_payments_id,
-                    SUM(amount) AS panelty_amount
-                FROM panelty_payments
-                GROUP BY course_payments_course_payments_id
-            ) pp
-                ON cp.course_payments_id = pp.course_payments_course_payments_id
-        
-            LEFT JOIN (
-                SELECT
-                    course_payments_course_payments_id,
-                    SUM(paid_amount) AS paid_amount,
-                    SUM(discount_amount) AS total_discount,
-                    SUM(panelty_amount) AS total_sub_panelty_amount
-                FROM course_payment_has_payments
-                 
-                GROUP BY course_payments_course_payments_id
-            ) cpp
-                ON cp.course_payments_id = cpp.course_payments_course_payments_id
-                WHERE `cp`.`course_payments_id` = '" . $id . "';
-                ");
+            $detailQuery = "
+                                                                                            SELECT
+                                                                                                `cp`.`course_payments_id`,
+                                                                                                `cp`.`refference`, `cp`.`amount`, `cp`.`discount`, `cp`.`due_date`,
+                                                                                                `cp`.`panelty_payment_option_panelty_payment_option_id`,
+                                                                                                `cp`.`discount_note`,
+                                                                                                `ps`.`payment_status`, `ps`.`payment_status_id`,
+                                                                                                `i`.`intake_id`, `i`.`intake`,
+                                                                                                `pr`.`programme_id`, `pr`.`programme`,
+                                                                                                `f`.`faculty_id`, `f`.`faculty`,
+                                                                                                `ld`.`first_name`, `ld`.`last_name`,
+                                                                                                `t`.`title`,
+
+                                                                                                `cp`.`amount`, `cp`.`discount`, `cp`.`due_date`,
+                                                                                                `pt`.`payment_type`,
+                                                                                                `dt`.`discount_type`, `dt`.`discount_type_id`,
+                                                                                                `c`.`code`, `c`.`decimal_places`,
+                                                                                                `c`.`currency_id` AS `course_currency_id`,
+                                                                                                IFNULL(pp.panelty_amount, 0) AS panelty_amount,
+                                                                                                IFNULL(cpp.total_discount, 0) AS total_discount,
+                                                                                                IFNULL(cpp.total_sub_panelty_amount, 0) AS total_sub_panelty_amount
+                                                                                            FROM `course_payments` AS `cp`
+                                                                                            INNER JOIN `payment_type` AS `pt`     ON `cp`.`payment_type_payment_type_id` = `pt`.`payment_type_id`
+                                                                                            INNER JOIN `discount_type` AS `dt`    ON `cp`.`discount_type_discount_type_id` = `dt`.`discount_type_id`
+                                                                                            INNER JOIN `payment_status` AS `ps`   ON `cp`.`payment_status_payment_status_id` = `ps`.`payment_status_id`
+                                                                                            INNER JOIN `payment_plan_has_students_has_intakes` AS `pshi`
+                                                                                                                                ON `cp`.`payment_plan_has_students_has_intakes_id` = `pshi`.`payment_plan_has_students_has_intakes_id`
+                                                                                            INNER JOIN `payment_category` AS `pc` ON `pshi`.`payment_category_payment_category_id` = `pc`.`payment_category_id`
+                                                                                            INNER JOIN `currencies` AS `c`        ON `pc`.`currencies_currency_id` = `c`.`currency_id`
+                                                                                            INNER JOIN `students_has_intakes` AS `shi`
+                                                                                                                                ON `pshi`.`students_has_intakes_students_has_intakes_id` = `shi`.`students_has_intakes_id`
+                                                                                            INNER JOIN `intakes` AS `i`              ON `shi`.`intakes_intake_id` = `i`.`intake_id`
+                                                                                            INNER JOIN `programmes` AS `pr`         ON `i`.`programmes_programme_id` = `pr`.`programme_id`
+                                                                                            INNER JOIN `faculties` AS `f`          ON `pr`.`faculties_faculty_id` = `f`.`faculty_id`
+                                                                                            INNER JOIN `students` AS `s`          ON `shi`.`students_student_id` = `s`.`student_id`
+                                                                                            INNER JOIN `login_details` AS `ld`    ON `s`.`login_details_login_details_id` = `ld`.`login_details_id`
+                                                                                            INNER JOIN `title` AS `t`            ON `s`.`title_title_id` = `t`.`title_id`
+                                                                                            LEFT JOIN (
+                                                                                                SELECT course_payments_course_payments_id, SUM(amount) AS panelty_amount
+                                                                                                FROM panelty_payments GROUP BY course_payments_course_payments_id
+                                                                                            ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
+                                                                                            LEFT JOIN (
+                                                                                                SELECT course_payments_course_payments_id,
+                                                                                                    SUM(discount_amount) AS total_discount,
+                                                                                                    SUM(panelty_amount)  AS total_sub_panelty_amount
+                                                                                                FROM course_payment_has_payments
+                                                                                                WHERE payment_status_payment_status_id IN (2,3)
+                                                                                                GROUP BY course_payments_course_payments_id
+                                                                                            ) cpp ON cp.course_payments_id = cpp.course_payments_course_payments_id
+                                                                                             WHERE `cp`.`course_payments_id` = '" . $id . "';
+                                                                                        ";
+
+            $paymentPlan = Database::search($detailQuery);
 
             if ($paymentPlan->num_rows == 0) {
                 header("Location: ./faculties");
@@ -111,13 +81,83 @@ if (!SessionUser::hasValidSession()) {
                     header("Location: ./faculties");
                 } else {
 
-                    $discountAmount = $paymentData["discount"];
-                    if ($paymentData["discount_type_id"] == 3) {
-                        $discountAmount = $paymentData["amount"] / 100 * $paymentData["discount"];
+                    function resolveExchangeRate($db, $row, $courseCurrencyId)
+                    {
+                        // If payment currency is null or same as course currency → no conversion
+                        if (empty($row['currencies_currency_id']) || $row['currencies_currency_id'] == $courseCurrencyId) {
+                            return null;
+                        }
+                        // 1) Use inline custom rate if present
+                        if (!empty($row['currency_exchange_rate']) && $row['currency_exchange_rate'] > 0) {
+                            return (float)$row['currency_exchange_rate'];
+                        }
+                        // 2) Lookup from currency_exchange_rates table via currency_exchange_rate_id
+                        if (!empty($row['currency_exchange_rate_id'])) {
+                            $rateRow = Database::search(
+                                "SELECT `rate` AS `currency_exchange_rate` FROM `currency_exchange_rates`
+                                                            WHERE `currency_exchange_rate_id` = '" . (int)$row['currency_exchange_rate_id'] . "' LIMIT 1"
+                            );
+                            if ($rateRow && $rateRow->num_rows > 0) {
+                                $r = $rateRow->fetch_assoc();
+                                if (!empty($r['currency_exchange_rate']) && $r['currency_exchange_rate'] > 0) {
+                                    return (float)$r['currency_exchange_rate'];
+                                }
+                            }
+                        }
+                        return null; // cannot convert — treat as same currency
                     }
-                    $payableAmount = $paymentData["amount"] - $discountAmount - $paymentData["total_discount"] + $paymentData["panelty_amount"] + $paymentData["total_sub_panelty_amount"];
-                    $balance = $payableAmount - $paymentData["paid_amount"];
-                    $paidAmount = $payableAmount - $balance;
+
+                    function convertToCourseAmount($paidAmount, $exchangeRate)
+                    {
+                        if ($exchangeRate === null || $exchangeRate <= 0) return (float)$paidAmount;
+                        return (float)$paidAmount / $exchangeRate;
+                    }
+
+                    // CP-level discount
+                    $discountAmount = ($paymentData['discount_type_id'] == 3)
+                        ? $paymentData['amount'] / 100 * $paymentData['discount']
+                        : $paymentData['discount'];
+
+                    $totalDiscount    = $discountAmount + $paymentData['total_discount'];
+                    $totalPenalty     = $paymentData['panelty_amount'] + $paymentData['total_sub_panelty_amount'];
+                    $payableAmount    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
+
+                    // Fetch receipts for this payment
+                    $receipts = Database::search("
+                                                                                                    SELECT
+                                                                                                        cpp.*,
+                                                                                                        pm.payment_method,
+                                                                                                        pm.payment_method_id,
+                                                                                                        ps2.payment_status,
+                                                                                                        ps2.payment_status_id,
+                                                                                                        cur.code AS paid_currency_code,
+                                                                                                        cur.decimal_places AS paid_decimal_places,
+                                                                                                        cpp.currency_exchange_rate
+                                                                                                    FROM course_payment_has_payments AS cpp
+                                                                                                    INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
+                                                                                                    INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
+                                                                                                    LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
+                                                                                                    WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
+                                                                                                    GROUP BY cpp.course_payment_has_payment_id
+                                                                                                ");
+
+                    // Compute converted paid total for this CP row
+                    $convertedPaidTotal = 0;
+                    $receiptRows = [];
+                    $totalPaidAmount = 0;
+                    if ($receipts && $receipts->num_rows > 0) {
+                        while ($rec = $receipts->fetch_assoc()) {
+                            $rate = resolveExchangeRate(null, $rec, $paymentData['course_currency_id']);
+                            $rec['converted_paid']       = convertToCourseAmount($rec['paid_amount'], $rate);
+                            $rec['is_foreign_currency']  = ($rate !== null);
+                            $rec['currency_exchange_rate']    = $rate;
+                            $convertedPaidTotal += $rec['converted_paid'];
+                            $receiptRows[] = $rec;
+                            if ($rec['payment_status_id'] == 3) $totalPaidAmount += $rec['converted_paid'];
+                        }
+                    }
+
+                    $balance = $payableAmount - $convertedPaidTotal;
 ?>
                     <!DOCTYPE html>
                     <html lang="en">
@@ -227,7 +267,6 @@ if (!SessionUser::hasValidSession()) {
                                                                             $progress = 100 / 3 * 2;
                                                                             $query .= " WHERE `payment_status_id` IN (1,2,4)";
                                                                             break;
-                                                                       
                                                                     }
                                                                     ?>
                                                                     <div class="progress-bar <?= $progressColor ?>" style="width: <?= $progress ?>%"></div>
@@ -289,7 +328,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="amount-section">
                                                                             <div class="amount-display">
                                                                                 <span class="amount-label">Total Balance Amount</span>
-                                                                                <span class="amount-value">LKR <?= number_format($balance, 2); ?></span>
+                                                                                <span class="amount-value"> <?= number_format($balance, 2); ?> <?= $paymentData['code'] ?></span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -410,7 +449,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
                                                                             <div class="detail-content">
                                                                                 <span class="detail-label">Total Paid Amount</span>
-                                                                                <span class="detail-value"><?= number_format($paidAmount, 2) ?></span>
+                                                                                <span class="detail-value"><?= number_format($totalPaidAmount, 2) ?></span>
                                                                             </div>
                                                                         </div>
                                                                         <div class="detail-item">
