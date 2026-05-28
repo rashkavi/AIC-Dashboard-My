@@ -425,7 +425,11 @@ if (!SessionUser::hasValidSession()) {
                                                             $discounts = 0;
                                                             $penalties = 0;
                                                             $completed = 0;
-                                                            $res = Database::search("SELECT paid_amount,discount_amount,panelty_amount, currencies_currency_id, currency_exchange_rate, currency_exchange_rate_id
+                                                            $taxAmounts = 0;
+                                                            $res = Database::search("SELECT paid_amount,
+                                                            discount_amount,panelty_amount,
+                                                             currencies_currency_id, currency_exchange_rate,
+                                                              currency_exchange_rate_id, tax_rate, tax_amount
                                                                             FROM course_payment_has_payments cpp
                                                                             INNER JOIN course_payments cp ON cpp.course_payments_course_payments_id = cp.course_payments_id
                                                                             WHERE cp.payment_plan_has_students_has_intakes_id = '" . (int)$pphsiId . "'
@@ -436,6 +440,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     $completed += convertToCourseAmount($r['paid_amount'], $rate);
                                                                     $discounts += convertToCourseAmount($r['discount_amount'], $rate);
                                                                     $penalties += convertToCourseAmount($r['panelty_amount'], $rate);
+                                                                    $taxAmounts += convertToCourseAmount($r['tax_amount'], $rate); // Assuming a flat 15% tax rate for demonstration; replace with actual tax logic as needed
                                                                 }
                                                             }
 
@@ -469,7 +474,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 }
                                                             }
 
-                                                            return ['completed' => $completed, 'pending' => $pending, 'rejected' => $rejected, 'discounts' => $discounts, 'penalties' => $penalties];
+                                                            return ['completed' => $completed, 'pending' => $pending, 'rejected' => $rejected, 'discounts' => $discounts, 'penalties' => $penalties, 'taxAmounts' => $taxAmounts];
                                                         }
 
                                                         if ($paymentsCategory && $paymentsCategory->num_rows > 0):
@@ -486,7 +491,8 @@ if (!SessionUser::hasValidSession()) {
                                                                 $rejected_payments           = $summary['rejected'];
                                                                 $given_discounts = $summary['discounts'];
                                                                 $given_penalties = $summary['penalties'];
-                                                                $awaiting_payments           = $data['payable_amount'] - $completed_payments;
+                                                                $taxAmounts = $summary['taxAmounts'];
+                                                                $awaiting_payments           = $data['payable_amount'] - $completed_payments - $given_discounts + $given_penalties + $taxAmounts;
                                                         ?>
                                                                 <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
                                                                     <div class="row p-0 g-0 m-0">
@@ -528,7 +534,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ['label' => 'Settled Amount',       'val' => $completed_payments],
                                                                                         ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts],
                                                                                         ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $given_penalties],
-                                                                                        ['label' => 'Accepted Payment',     'val' => $completed_payments],
+                                                                                        ['label' => 'Total Tax',            'val' => $taxAmounts],
                                                                                         ['label' => 'Awaiting Payments',    'val' => $awaiting_payments],
                                                                                         ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments],
                                                                                         ['label' => 'Rejected Payment',     'val' => $rejected_payments],
@@ -566,6 +572,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Discount</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Penalty</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Tax</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Payable</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Paid Amount</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Date Paid</th>
@@ -642,6 +649,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                                     $totalDiscount    = $discountAmount;
                                                                                                     $totalPenalty     = $row['panelty_amount'];
+
                                                                                                     // Fetch receipts for this payment
                                                                                                     $convertedPaidTotal = 0;
                                                                                                     $receiptRows = [];
@@ -656,7 +664,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         ps2.payment_status_id,
                                                                                                         cur.code AS paid_currency_code,
                                                                                                         cur.decimal_places AS paid_decimal_places,
-                                                                                                        cpp.currency_exchange_rate
+                                                                                                        cpp.currency_exchange_rate,
+                                                                                                        cpp.tax_rate,
+                                                                                                        cpp.tax_amount
                                                                                                     FROM course_payment_has_payments AS cpp
                                                                                                     INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
                                                                                                     INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
@@ -676,6 +686,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
                                                                                                                 $totalDiscount += convertToCourseAmount($rec['discount_amount'], $rate);
                                                                                                                 $totalPenalty += convertToCourseAmount($rec['panelty_amount'], $rate);
+                                                                                                                $taxAmounts += convertToCourseAmount($rec['tax_amount'], $rate);
                                                                                                             };
                                                                                                         }
                                                                                                     }
@@ -700,6 +711,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($row['amount'], $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalDiscount, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalPenalty, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($taxAmounts, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($payableAmount, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($convertedPaidTotal, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
@@ -764,6 +776,11 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     <?= (empty($rec['panelty_amount']) || $rec['panelty_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['panelty_amount'], $row['decimal_places']) ?>
                                                                                                                 </span>
                                                                                                             </td>
+                                                                                                            <td class="py-3 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?= (empty($rec['tax_amount']) || $rec['tax_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['tax_amount'], $row['decimal_places']) ?>
+                                                                                                                </span>
+                                                                                                            </td>
                                                                                                             <!-- Payable blank -->
                                                                                                             <td class="py-3 align-middle text-end"></td>
                                                                                                             <!-- Paid Amount: converted to course currency -->
@@ -775,7 +792,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                             <br><small class="text-muted" title="Original payment amount">
                                                                                                                                 (<?= htmlspecialchars($row['code'] ?? '') ?>
                                                                                                                                 <?= number_format($rec['converted_paid'], $rec['paid_decimal_places'] ?? 2) ?>
-                                                                                                                                @ <?= number_format($rec['currency_exchange_rate'] ?? 0, 4) ?>)
+                                                                                                                                @ <?= number_format($rec['currency_exchange_rate'] ?? 0, 2) ?>)
                                                                                                                             </small>
                                                                                                                         <?php endif; ?>
                                                                                                                     <?php endif; ?>

@@ -26,6 +26,7 @@ if (!SessionUser::hasValidSession()) {
 
                 $payment = Database::search("SELECT * FROM `course_payment_has_payments`
                 INNER JOIN `payment_method` pm ON `course_payment_has_payments`.`payment_method_payment_method_id` = pm.payment_method_id 
+                INNER JOIN `currencies` c ON `course_payment_has_payments`.`currencies_currency_id` = c.currency_id
                 WHERE `course_payment_has_payment_id` = '" . $id . "'");
                 if ($payment->num_rows == 0) {
                     header("Location: ./payments");
@@ -169,7 +170,7 @@ if (!SessionUser::hasValidSession()) {
                         $totalDiscount = $discountAmount;
                         $totalPenalty  = (float)$paymentData['panelty_amount'];
 
-                        // ── Receipts: fetch & convert, identical to File 1 ────────────
+                        // ── Receipts: fetch & convert ─────────────────────────────────
                         $receipts = Database::search("
                             SELECT
                                 cpp.*,
@@ -179,7 +180,9 @@ if (!SessionUser::hasValidSession()) {
                                 ps2.payment_status_id,
                                 cur.code           AS paid_currency_code,
                                 cur.decimal_places AS paid_decimal_places,
-                                cpp.currency_exchange_rate
+                                cpp.currency_exchange_rate,
+                                cpp.tax_rate,
+                                cpp.tax_amount
                             FROM course_payment_has_payments AS cpp
                             INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
                             INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
@@ -189,24 +192,28 @@ if (!SessionUser::hasValidSession()) {
                         ");
 
                         $convertedPaidTotal = 0;
+                        $totalTax           = 0;
                         $receiptRows        = [];
 
                         if ($receipts && $receipts->num_rows > 0) {
                             while ($rec = $receipts->fetch_assoc()) {
-                                $rate                         = resolveExchangeRate($rec, $paymentData['currency_id']);
-                                $rec['converted_paid']        = convertToCourseAmount($rec['paid_amount'], $rate);
-                                $rec['is_foreign_currency']   = ($rate !== null);
+                                $rate                          = resolveExchangeRate($rec, $paymentData['currency_id']);
+                                $rec['converted_paid']         = convertToCourseAmount($rec['paid_amount'], $rate);
+                                $rec['is_foreign_currency']    = ($rate !== null);
                                 $rec['currency_exchange_rate'] = $rate;
                                 $convertedPaidTotal += $rec['converted_paid'];
                                 $receiptRows[]       = $rec;
                                 if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
                                     $totalDiscount += convertToCourseAmount($rec['discount_amount'], $rate);
                                     $totalPenalty  += convertToCourseAmount($rec['panelty_amount'],  $rate);
+                                    // Accumulate tax (tax_amount is already in the receipt's currency)
+                                    $totalTax += convertToCourseAmount((float)($rec['tax_amount'] ?? 0), $rate);
                                 }
                             }
                         }
 
-                        $payableAmount = $paymentData['amount'] - $totalDiscount + $totalPenalty;
+                        // Tax is added on top of the payable amount
+                        $payableAmount = $paymentData['amount'] - $totalDiscount + $totalPenalty + $totalTax;
                         $balance       = $payableAmount - $convertedPaidTotal;
                         $paidAmount    = $convertedPaidTotal;
 
@@ -246,13 +253,19 @@ if (!SessionUser::hasValidSession()) {
                         $paidAmountLKR  = $paidAmount    * $exchangeRateValue;
                         $discountAmtLKR = $totalDiscount * $exchangeRateValue;
                         $penaltyAmtLKR  = $totalPenalty  * $exchangeRateValue;
+                        $taxAmtLKR      = $totalTax      * $exchangeRateValue;
 
                         $currencyCode = htmlspecialchars($paymentData['currency_code']);
 
                         // ── This receipt's conversion details ─────────────────────────
-                        $receiptRate          = resolveExchangeRate($coursepaymentData, $paymentData['currency_id']);
-                        $receiptConvertedAmt  = convertToCourseAmount($coursepaymentData['paid_amount'], $receiptRate);
-                        $receiptIsForeign     = ($receiptRate !== null);
+                        $receiptRate         = resolveExchangeRate($coursepaymentData, $paymentData['currency_id']);
+                        $receiptConvertedAmt = convertToCourseAmount($coursepaymentData['paid_amount'], $receiptRate);
+                        $receiptIsForeign    = ($receiptRate !== null);
+
+                        // ── This receipt's tax details ────────────────────────────────
+                        $receiptTaxRate      = (float)($coursepaymentData['tax_rate']   ?? 0);
+                        $receiptTaxAmount    = (float)($coursepaymentData['tax_amount'] ?? 0);
+                        $receiptTaxConverted = convertToCourseAmount($receiptTaxAmount, $receiptRate);
 
                         function formatDateSafe($date, $outputFormat = 'Y-m-d')
                         {
@@ -290,6 +303,139 @@ if (!SessionUser::hasValidSession()) {
                             <script src="./assets/js/translations.js?= Project::getVersion() ?>"></script>
                             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
                         </head>
+
+                        <style>
+                            /* ── Exchange rate badge ──────────────────────────────── */
+                            .exchange-rate-badge {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 10px;
+                                border-radius: 20px;
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border: 1px solid var(--border-color);
+                                font-size: 11.5px;
+                                color: var(--sub-text-color);
+                            }
+
+                            .rate-unavailable {
+                                border-color: #f5c6cb;
+                                background: #fff5f5;
+                                color: #a32d2d;
+                            }
+
+                            /* ── LKR Summary Panel ────────────────────────────────── */
+                            .lkr-panel {
+                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+                                overflow: hidden;
+                                margin-bottom: 20px;
+                                border-radius: 8px;
+                            }
+
+                            .lkr-panel-top {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                padding: 10px 18px;
+                                border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+                            }
+
+                            .lkr-panel-top-left {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-panel-top-left iconify-icon {
+                                color: rgba(255, 255, 255, 0.6);
+                            }
+
+                            .lkr-panel-rate-note {
+                                font-size: 13px;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-panel-grid {
+                                display: grid;
+                                grid-template-columns: repeat(6, minmax(0, 1fr));
+                            }
+
+                            .lkr-panel-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                                padding: 14px 18px;
+                                border-right: 0.5px solid rgba(255, 255, 255, 0.10);
+                            }
+
+                            .lkr-panel-item:last-child {
+                                border-right: none;
+                            }
+
+                            .lkr-item-label {
+                                font-size: 12px;
+                                font-weight: 500;
+                                letter-spacing: 0.04em;
+                                text-transform: uppercase;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-item-value {
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-item-sub {
+                                font-size: 12px;
+                                color: rgba(255, 255, 255, 0.35);
+                            }
+
+                            .lkr-panel-item.balance-item .lkr-item-value {
+                                color: #5DCAA5;
+                            }
+
+                            /* ── FX pill shown on foreign-currency receipts ───────── */
+                            .receipt-fx-pill {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 4px;
+                                padding: 2px 8px;
+                                border-radius: 10px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                background: rgba(255, 255, 255, 0.12);
+                                color: rgba(255, 255, 255, 0.7);
+                                border: 1px solid rgba(255, 255, 255, 0.2);
+                                vertical-align: middle;
+                                margin-left: 6px;
+                            }
+
+                            /* ── LKR sub-hint on detail rows ─────────────────────── */
+                            .detail-lkr-hint {
+                                font-size: 11px;
+                                color: var(--sub-text-color);
+                                opacity: 0.75;
+                                margin-top: 2px;
+                            }
+
+                            @media (max-width: 768px) {
+                                .lkr-panel-grid {
+                                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                                }
+
+                                .lkr-panel-item:nth-child(3) {
+                                    border-right: none;
+                                }
+
+                                .lkr-panel-item {
+                                    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+                                }
+                            }
+                        </style>
 
                         <body class="overflow-hidden">
                             <div class="notifications"></div>
@@ -423,17 +569,17 @@ if (!SessionUser::hasValidSession()) {
                                                             <!-- LKR Equivalent Summary Panel -->
                                                             <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
                                                                 <div class="col-12 mt-3">
-                                                                    <div class="lkr-panel br-0">
+                                                                    <div class="lkr-panel">
                                                                         <div class="lkr-panel-top">
                                                                             <div class="lkr-panel-top-left">
                                                                                 <iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon>
                                                                                 LKR equivalent summary
                                                                             </div>
                                                                             <span class="lkr-panel-rate-note">
-                                                                                @ <?= number_format($exchangeRateValue, 4) ?> per <?= $currencyCode ?>
+                                                                                @ <?= number_format($exchangeRateValue, 2) ?> per <?= $currencyCode ?>
                                                                             </span>
                                                                         </div>
-                                                                        <div class="lkr-panel-grid">
+                                                                        <div class="lkr-panel-grid" style="grid-template-columns: repeat(7, minmax(0, 1fr));">
                                                                             <div class="lkr-panel-item">
                                                                                 <span class="lkr-item-label">Total Amount</span>
                                                                                 <span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span>
@@ -448,6 +594,11 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <span class="lkr-item-label">Total Penalty</span>
                                                                                 <span class="lkr-item-value">LKR <?= number_format($penaltyAmtLKR, 2) ?></span>
                                                                                 <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalPenalty, 2) ?></span>
+                                                                            </div>
+                                                                            <div class="lkr-panel-item">
+                                                                                <span class="lkr-item-label">Total Tax</span>
+                                                                                <span class="lkr-item-value">LKR <?= number_format($taxAmtLKR, 2) ?></span>
+                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalTax, 2) ?></span>
                                                                             </div>
                                                                             <div class="lkr-panel-item">
                                                                                 <span class="lkr-item-label">Total Payable</span>
@@ -705,6 +856,22 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="payment-card">
                                                                     <div class="card-background-ongoing"></div>
                                                                     <div class="card-content">
+                                                                        <?php
+                                                                        // ── Determine the display currency for this receipt ───────────────
+                                                                        // Primary: the currency the payment was actually made in.
+                                                                        // If no paid currency recorded (null), fall back to course currency.
+                                                                        $paidCurrCode   = !empty($coursepaymentData['code'])
+                                                                            ? htmlspecialchars($coursepaymentData['code'])
+                                                                            : $currencyCode;
+                                                                        $paidIsDiffFromCourse = ($paidCurrCode !== $currencyCode);
+                                                                        $paidIsDiffFromLKR    = ($paidCurrCode !== 'LKR');
+
+                                                                        // Converted values in course currency (used as sub-hints when paid ≠ course)
+                                                                        $recDiscConverted = convertToCourseAmount((float)$coursepaymentData['discount_amount'], $receiptRate);
+                                                                        $recPenConverted  = convertToCourseAmount((float)($coursepaymentData['panelty_amount'] ?? 0), $receiptRate);
+                                                                        // tax is already read from $receiptTaxConverted / $receiptTaxAmount / $receiptTaxRate
+                                                                        ?>
+
                                                                         <div class="payment-header reference-section">
                                                                             <div class="reference-section">
                                                                                 <span class="reference-label">RECEIPT NO</span>
@@ -714,25 +881,24 @@ if (!SessionUser::hasValidSession()) {
                                                                             <div class="amount-section">
                                                                                 <div class="amount-display">
                                                                                     <span class="amount-label">Total Paid Amount</span>
-                                                                                    <?php if ($receiptIsForeign): ?>
-                                                                                        <!-- Receipt paid in a different currency: show converted + original -->
-                                                                                        <span class="amount-value">
-                                                                                            <?= $currencyCode ?> <?= number_format($receiptConvertedAmt, 2) ?>
-                                                                                            <span class="receipt-fx-pill">
-                                                                                                <?= htmlspecialchars($coursepaymentData['paid_currency_code'] ?? '') ?>
-                                                                                                <?= number_format($coursepaymentData["paid_amount"], 2) ?>
-                                                                                                @ <?= number_format($receiptRate, 4) ?>
-                                                                                            </span>
-                                                                                        </span>
-                                                                                    <?php else: ?>
-                                                                                        <span class="amount-value">
-                                                                                            <?= $currencyCode ?> <?= number_format($coursepaymentData["paid_amount"], 2) ?>
-                                                                                        </span>
-                                                                                        <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                                            <small class="amount-label" style="font-size:12px; opacity:.7;">
-                                                                                                ≈ LKR <?= number_format($coursepaymentData["paid_amount"] * $exchangeRateValue, 2) ?>
-                                                                                            </small>
-                                                                                        <?php endif; ?>
+                                                                                    <!-- Always show paid currency first -->
+                                                                                    <span class="amount-value">
+                                                                                        <?= $paidCurrCode ?> <?= number_format((float)$coursepaymentData["paid_amount"], 2) ?>
+                                                                                    </span>
+                                                                                    <!-- Sub-hints: course currency equivalent (if different) -->
+                                                                                    <?php if ($paidIsDiffFromCourse): ?>
+                                                                                        <small class="amount-label" style="font-size:12px; opacity:.7;">
+                                                                                            = <?= $currencyCode ?> <?= number_format($receiptConvertedAmt, 2) ?>
+                                                                                            <?php if ($receiptRate): ?>
+                                                                                                &nbsp;<span style="opacity:.6;">(@ <?= number_format($receiptRate, 2) ?>)</span>
+                                                                                            <?php endif; ?>
+                                                                                        </small>
+                                                                                    <?php endif; ?>
+                                                                                    <!-- LKR equivalent (if course currency is not LKR and we have a rate) -->
+                                                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                        <small class="amount-label" style="font-size:12px; opacity:.6;">
+                                                                                            ≈ LKR <?= number_format($receiptConvertedAmt * $exchangeRateValue, 2) ?>
+                                                                                        </small>
                                                                                     <?php endif; ?>
                                                                                 </div>
                                                                             </div>
@@ -749,42 +915,75 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="detail-value"><?= date_format(date_create($coursepaymentData["date_paid"]), "Y-m-d h:i A") ?? '--/--/----' ?></span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Discount on receipt -->
+
+                                                                            <!-- Given Discount — paid currency primary -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                                                                         <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
                                                                                     </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Given Discount</span>
-                                                                                    <?php $recDiscConverted = convertToCourseAmount($coursepaymentData['discount_amount'], $receiptRate); ?>
                                                                                     <span class="detail-value">
-                                                                                        <?= $currencyCode ?> <?= number_format($recDiscConverted, 2) ?>
-                                                                                        <?php if ($receiptIsForeign): ?>
-                                                                                            <span class="receipt-fx-pill"><?= htmlspecialchars($coursepaymentData['paid_currency_code'] ?? '') ?> <?= number_format($coursepaymentData['discount_amount'], 2) ?></span>
-                                                                                        <?php elseif (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                                            <span class="detail-lkr-hint">≈ LKR <?= number_format($recDiscConverted * $exchangeRateValue, 2) ?></span>
-                                                                                        <?php endif; ?>
+                                                                                        <?= $paidCurrCode ?> <?= number_format((float)$coursepaymentData['discount_amount'], 2) ?>
                                                                                     </span>
+                                                                                    <?php if ($paidIsDiffFromCourse): ?>
+                                                                                        <span class="detail-lkr-hint">= <?= $currencyCode ?> <?= number_format($recDiscConverted, 2) ?></span>
+                                                                                    <?php endif; ?>
+                                                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                        <span class="detail-lkr-hint">≈ LKR <?= number_format($recDiscConverted * $exchangeRateValue, 2) ?></span>
+                                                                                    <?php endif; ?>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Penalty on receipt -->
+
+                                                                            <!-- Added Penalty — paid currency primary -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                                                                         <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
                                                                                     </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Added Penalty</span>
-                                                                                    <?php $recPenConverted = convertToCourseAmount($coursepaymentData['panelty_amount'], $receiptRate); ?>
                                                                                     <span class="detail-value">
-                                                                                        <?= $currencyCode ?> <?= number_format($recPenConverted, 2) ?>
-                                                                                        <?php if ($receiptIsForeign): ?>
-                                                                                            <span class="receipt-fx-pill"><?= htmlspecialchars($coursepaymentData['paid_currency_code'] ?? '') ?> <?= number_format($coursepaymentData['panelty_amount'], 2) ?></span>
-                                                                                        <?php elseif (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                                            <span class="detail-lkr-hint">≈ LKR <?= number_format($recPenConverted * $exchangeRateValue, 2) ?></span>
-                                                                                        <?php endif; ?>
+                                                                                        <?= $paidCurrCode ?> <?= number_format((float)($coursepaymentData['panelty_amount'] ?? 0), 2) ?>
+                                                                                    </span>
+                                                                                    <?php if ($paidIsDiffFromCourse): ?>
+                                                                                        <span class="detail-lkr-hint">= <?= $currencyCode ?> <?= number_format($recPenConverted, 2) ?></span>
+                                                                                    <?php endif; ?>
+                                                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                        <span class="detail-lkr-hint">≈ LKR <?= number_format($recPenConverted * $exchangeRateValue, 2) ?></span>
+                                                                                    <?php endif; ?>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <!-- Tax Rate -->
+                                                                            <div class="detail-item">
+                                                                                <div class="detail-icon"><iconify-icon icon="mdi:percent" width="16" height="16"></iconify-icon></div>
+                                                                                <div class="detail-content">
+                                                                                    <span class="detail-label">Tax Rate</span>
+                                                                                    <span class="detail-value">
+                                                                                        <?= $receiptTaxRate > 0 ? number_format($receiptTaxRate, 2) . '%' : 'N/A' ?>
                                                                                     </span>
                                                                                 </div>
                                                                             </div>
+
+                                                                            <!-- Tax Amount — paid currency primary -->
+                                                                            <div class="detail-item">
+                                                                                <div class="detail-icon"><iconify-icon icon="mdi:receipt-text-outline" width="16" height="16"></iconify-icon></div>
+                                                                                <div class="detail-content">
+                                                                                    <span class="detail-label">Tax Amount</span>
+                                                                                    <span class="detail-value">
+                                                                                        <?= $receiptTaxAmount > 0
+                                                                                            ? $paidCurrCode . ' ' . number_format($receiptTaxAmount, 2)
+                                                                                            : 'N/A' ?>
+                                                                                    </span>
+                                                                                    <?php if ($receiptTaxAmount > 0 && $paidIsDiffFromCourse): ?>
+                                                                                        <span class="detail-lkr-hint">= <?= $currencyCode ?> <?= number_format($receiptTaxConverted, 2) ?></span>
+                                                                                    <?php endif; ?>
+                                                                                    <?php if ($receiptTaxAmount > 0 && !$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                        <span class="detail-lkr-hint">≈ LKR <?= number_format($receiptTaxConverted * $exchangeRateValue, 2) ?></span>
+                                                                                    <?php endif; ?>
+                                                                                </div>
+                                                                            </div>
+
                                                                             <!-- Payment Method -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -795,15 +994,17 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="detail-value"><?= $coursepaymentData['payment_method'] ?></span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Exchange rate used (only if receipt was in a foreign currency) -->
-                                                                            <?php if ($receiptIsForeign): ?>
+
+                                                                            <!-- Exchange Rate Used — shown whenever paid currency differs from course currency -->
+                                                                            <?php if ($paidIsDiffFromCourse && $receiptRate): ?>
                                                                                 <div class="detail-item">
                                                                                     <div class="detail-icon"><iconify-icon icon="mdi:swap-horizontal" width="16" height="16"></iconify-icon></div>
                                                                                     <div class="detail-content">
                                                                                         <span class="detail-label">Exchange Rate Used</span>
                                                                                         <span class="detail-value">
-                                                                                            1 <?= htmlspecialchars($coursepaymentData['paid_currency_code'] ?? '') ?>
-                                                                                            = <?= $currencyCode ?> <?= number_format($receiptRate, 4) ?>
+                                                                                            1 <?= $currencyCode ?>
+                                                                                            = <?= $paidCurrCode ?> <?= number_format($receiptRate, 2) ?>
+                                                                                          
                                                                                         </span>
                                                                                     </div>
                                                                                 </div>
@@ -1022,12 +1223,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <tbody id="user-table-data">
                                                                                         <?php
                                                                                         $users = Database::search("
-                                                                    SELECT * FROM `payment_logs`
-                                                                    INNER JOIN `users` ON `payment_logs`.`users_user_id` = `users`.`user_id`
-                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
-                                                                    WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
-                                                                    ORDER BY `date_updated` DESC
-                                                                ");
+                                                                                            SELECT * FROM `payment_logs`
+                                                                                            INNER JOIN `users` ON `payment_logs`.`users_user_id` = `users`.`user_id`
+                                                                                            INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                                                                                            WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
+                                                                                            ORDER BY `date_updated` DESC
+                                                                                        ");
                                                                                         if ($users->num_rows > 0) {
                                                                                             while ($data = $users->fetch_assoc()):
                                                                                         ?>

@@ -10626,6 +10626,7 @@ const loadIntakesForReport = () => {
 }
 
 const uploadStudentPaymentReceipt = (btn, id, currency_data = null) => {
+    console.log($("#tax-rate").val());
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("payment_id", id);
@@ -10634,6 +10635,7 @@ const uploadStudentPaymentReceipt = (btn, id, currency_data = null) => {
     form.append("method", $("#payment-method").val());
     form.append("paid_amount", $("#paid-amount").val());
     form.append("paid_date", $("#paid-date").val())
+    form.append("tax_rate", $("#tax-rate").val());
     form.append("note", $("#note").val());
     var files = $("#file-selector-input")[0].files;
     for (var i = 0; i < files.length; i++) {

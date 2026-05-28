@@ -25,6 +25,9 @@ if (SessionUser::hasValidSession()) {
             $raw_amount          = isset($_POST['paid_amount'])     ? (float)$_POST['paid_amount']     : 0;
             $raw_discount_amount = isset($_POST['discount_amount']) ? (float)$_POST['discount_amount'] : 0;
             $raw_penalty_amount  = isset($_POST['penalty_amount'])  ? (float)$_POST['penalty_amount']  : 0;
+            // After your existing currency parsing block, add:
+            $taxRate = isset($_POST['tax_rate']) ? (float)$_POST['tax_rate'] : 0.0;
+            if ($taxRate < 0 || $taxRate > 100) $taxRate = 0.0;
 
             // ── Parse currency data ──────────────────────────────────────────
             $currency           = isset($_POST['currency']) ? json_decode($_POST['currency'], true) : null;
@@ -57,6 +60,11 @@ if (SessionUser::hasValidSession()) {
 
             // Is user paying in LKR (converted currency)?
             $isLKRPayment = ($currencyMode === 'lkr' && $exchangeRate > 0);
+
+            // Force LKR currency ID (1) when paying in LKR
+            if ($isLKRPayment) {
+                $selectedCurrencyId = 1; // LKR currency ID
+            }
 
             // ── Convert raw input to BASE currency for DB storage ─────────────
             // If user typed LKR → divide by rate to get base (GBP/USD etc.)
@@ -200,8 +208,11 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     $payableAmount    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
-                    $balance = $payableAmount - $convertedPaidTotal;
                     $paidAmount = $convertedPaidTotal;
+
+                    $balanceBeforeTax = $payableAmount - $convertedPaidTotal;
+                    $taxAmount        = round($balanceBeforeTax * ($taxRate / 100), 4);
+                    $balance          = $balanceBeforeTax + $taxAmount;
 
                     // Apply this receipt's discount to balance (base)
                     // — validate discount first
@@ -225,6 +236,8 @@ if (SessionUser::hasValidSession()) {
                         : $balance;                             // already base
 
                     $userCurrencyLabel = $isLKRPayment ? 'LKR' : $currCode;
+
+
 
                     // ── STEP 3: Validate all fields ──────────────────────────
                     if ($method == 0) {
@@ -322,21 +335,29 @@ if (SessionUser::hasValidSession()) {
                                 `payment_status_payment_status_id`,
                                 `panelty_amount`,
                                 `currencies_currency_id`,
-                                `currency_exchange_rate_id`,
-                                `currency_exchange_rate`,
-                                `note`";
+                                `note`,
+                                `tax_rate`";
 
                         $insert_val = "  '{$payment_id}',
                                 '{$method}',
                                 '{$paid_date}',
-                                '{$raw_amount}',
+                                '{$_POST['paid_amount']}',
                                 '{$raw_discount_amount}',
                                 '{$status_status_id}',
                                 '{$raw_penalty_amount}',
                                 '{$insertCurrencyId}',
-                                " . $qn($insertExchangeRateId) . ",
-                                " . $qn($exchangeRate) . ",
-                                " . ($note !== null ? "'" . Database::escape($note) . "'" : "NULL");
+                                " . $qn($note !== '' ? Database::escape($note) : null) . ",
+                                '{$taxRate}'";
+
+                        if ($insertCurrencyId != $baseCurrencyId) {
+                            $insert_col .= ",`currency_exchange_rate_id`,`currency_exchange_rate`";
+                            $insert_val .= "," . $qn($insertExchangeRateId) . "," . $qn($exchangeRate);
+                        }
+
+                        if ($taxRate > 0) {
+                            $insert_col .= ",`tax_amount`";
+                            $insert_val .= "," . $qn($isLKRPayment ? round($taxAmount * $exchangeRate, 2) : round($taxAmount, 2));
+                        }
 
                         Database::iud("
                             INSERT INTO `course_payment_has_payments`
@@ -371,6 +392,10 @@ if (SessionUser::hasValidSession()) {
                             $log .= ' [Paid LKR ' . number_format($raw_amount, 2)
                                 . ' = ' . $currCode . ' ' . number_format($amount, 2)
                                 . ' @ rate ' . $exchangeRate . ']';
+                        }
+
+                        if ($taxRate > 0) {
+                            $log .= ' [Tax ' . $taxRate . '% = ' . $currCode . ' ' . number_format($taxAmount, 2) . ']';
                         }
 
                         $log_cols = "`course_payments_course_payments_id`,`course_payment_has_payment_id`,`users_user_id`,`date_updated`,`log`";

@@ -789,7 +789,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 LKR equivalent summary
                                                                                             </div>
                                                                                             <span class="lkr-panel-rate-note">
-                                                                                                @ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 4) ?></span>
+                                                                                                @ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span>
                                                                                                 per <?= htmlspecialchars($paymentData['currency_code']) ?>
                                                                                             </span>
                                                                                         </div>
@@ -861,7 +861,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
                                                                                 <label class="text-14 main-text">
-                                                                                    Balance Payable
+                                                                                    Balance
                                                                                     <span class="currency-label-badge" id="balance-currency-label">
                                                                                         <?= htmlspecialchars($paymentData['currency_code']) ?>
                                                                                     </span>
@@ -871,7 +871,15 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="text-12 text-danger" id="balance-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="balance-lkr-hint">≈ LKR <?= number_format($balanceLKR, 2) ?></span>
                                                                                 <span class="convert-hint d-none" id="balance-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($balance, 2) ?></span>
+                                                                                <!-- Tax breakdown -->
+                                                                                <span class="convert-hint mt-1" id="balance-tax-breakdown" style="color:#d97706;">
+                                                                                    Incl. tax: <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00
+                                                                                </span>
                                                                             </div>
+
+
+                                                                            <!-- Tax Rate field — after paid-date col, before custom rate col -->
+
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
                                                                                 <label class="text-14 main-text">Payment Method</label>
@@ -899,6 +907,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="text-12 text-danger" id="paid-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="paid-lkr-hint">≈ LKR 0.00</span>
                                                                                 <span class="convert-hint d-none" id="paid-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                                                <span class="convert-hint mt-1" id="paid-with-tax-hint" style="color:#d97706;">
+                                                                                    Max payable (with tax): 0.00
+                                                                                </span>
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
@@ -913,6 +924,23 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <?php endif; ?>
                                                                             </div>
 
+                                                                            <div class="col-12 col-lg-3 d-flex flex-column">
+                                                                                <label class="text-14 main-text">
+                                                                                    Tax Rate (%)
+                                                                                    <span class="currency-label-badge" style="background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.3);">
+                                                                                        Applied to Balance
+                                                                                    </span>
+                                                                                </label>
+                                                                                <div class="d-flex align-items-center gap-2 mt-2">
+                                                                                    <input type="number" class="form-control custom-input"
+                                                                                        id="tax-rate" value="2.5" step="0.01" min="0" max="100"
+                                                                                        oninput="recalculate()">
+                                                                                    <span class="text-14 main-text fw-medium">%</span>
+                                                                                </div>
+                                                                                <div class="text-12 text-danger" id="tax-rate-feedback"></div>
+                                                                                <span class="convert-hint" id="tax-amount-display">Tax: 0.00</span>
+                                                                            </div>
+
                                                                             <?php if (!$isBaseCurrencyLKR): ?>
                                                                                 <!-- Custom Exchange Rate override -->
                                                                                 <div class="col-12 col-lg-3 d-flex flex-column">
@@ -924,7 +952,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </label>
                                                                                     <input type="number" class="form-control custom-input mt-2"
                                                                                         id="custom-exchange-rate"
-                                                                                        value="<?= number_format($exchangeRateValue, 4, '.', '') ?>"
+                                                                                        value="<?= number_format($exchangeRateValue, 2, '.', '') ?>"
                                                                                         step="0.0001" min="0.0001"
                                                                                         placeholder="e.g. 455.0000">
                                                                                     <span class="text-12 sub-text mt-1">
@@ -935,7 +963,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php else: ?>
                                                                                 <div class="col-lg-6"></div>
                                                                             <?php endif; ?>
-
+                                                                            <div class="col-12"></div>
                                                                             <!-- ── Row 3: Payment Slip | Note ── -->
                                                                             <div class="col-12 col-lg-6 d-flex flex-column">
                                                                                 <label class="text-14 main-text">Payment Slip</label>
@@ -1014,29 +1042,126 @@ if (!SessionUser::hasValidSession()) {
                                     <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
                                     <script src="./assets/js/fileChooser.js?v=<?= Project::getVersion() ?>"></script>
                                     <script>
-                                        // ✅ CORRECT — PHP injects real values
                                         const baseBalance = parseFloat("<?= $balance ?>") || 0;
                                         const basePayable = parseFloat("<?= $payableAmount ?>") || 0;
-                                        const basePaidAmt = parseFloat("<?= $paidAmount ?>") || 0;
                                         const isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
                                         const baseCurrencyCode = "<?= htmlspecialchars($paymentData['currency_code']) ?>";
                                         const baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
                                         const lkrCurrencyId = <?= (int)$lkrCurrencyId ?>;
                                         let exchangeRate = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
                                         let exchangeRateId = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
+                                        let currentMode = 'base'; // 'base' | 'lkr'
 
-                                        // ── DOM refs ─────────────────────────────────────────────────────────
+                                        // DOM refs
                                         const discountInput = document.getElementById('discount-amount');
                                         const penaltyInput = document.getElementById('penalty-amount');
                                         const balanceInput = document.getElementById('balance-amount');
                                         const paidInput = document.getElementById('paid-amount');
+                                        const taxRateInput = document.getElementById('tax-rate');
                                         const paidDateInput = document.getElementById('paid-date');
                                         const customRateInput = document.getElementById('custom-exchange-rate');
                                         const rateStatusEl = document.getElementById('rate-status');
-                                        let currentMode = 'base'; // 'base' or 'lkr', default to base
 
                                         // ─────────────────────────────────────────────────────────────────────
-                                        // 1. CURRENCY SWITCH
+                                        // CORE RECALCULATION — always runs in BASE currency internally
+                                        // ─────────────────────────────────────────────────────────────────────
+                                        function recalculate() {
+                                            const rawDiscount = parseFloat(discountInput.value) || 0;
+                                            const rawPenalty = parseFloat(penaltyInput.value) || 0;
+                                            const rawPaid = parseFloat(paidInput?.value) || 0;
+                                            const taxRate = Math.max(0, parseFloat(taxRateInput?.value) || 0);
+
+                                            // ── Simple LKR-only path ─────────────────────────────────────────
+                                            if (isBaseCurrencyLKR || !exchangeRate) {
+                                                let b = baseBalance - rawDiscount + rawPenalty;
+                                                if (b < 0) b = 0;
+                                                const taxAmt = b * (taxRate / 100);
+                                                const bWithTax = b + taxAmt;
+
+                                                balanceInput.value = bWithTax.toFixed(2);
+
+                                                // Tax display
+                                                setEl('tax-amount-display', `Tax (${taxRate}%): ${baseCurrencyCode} ${fmt(taxAmt)}`);
+                                                setEl('balance-tax-breakdown', `Before tax: ${baseCurrencyCode} ${fmt(b)}`);
+                                                setEl('paid-with-tax-hint', `Max payable (with tax): ${fmt(bWithTax)}`);
+                                                return;
+                                            }
+
+                                            // ── Multi-currency path ──────────────────────────────────────────
+                                            // Convert all inputs to BASE currency
+                                            const toBase = v => currentMode === 'lkr' ? v / exchangeRate : v;
+                                            const toLKR = v => v * exchangeRate;
+
+                                            const discountBase = toBase(rawDiscount);
+                                            const penaltyBase = toBase(rawPenalty);
+                                            const paidBase = toBase(rawPaid);
+
+                                            // Balance in base (before tax)
+                                            let balanceBase = baseBalance - discountBase + penaltyBase;
+                                            if (balanceBase < 0) balanceBase = 0;
+
+                                            // Tax on balance (always calculated in base)
+                                            const taxAmtBase = balanceBase * (taxRate / 100);
+                                            const balWithTax = balanceBase + taxAmtBase;
+
+                                            // ── Update balance input (in selected currency) ──────────────────
+                                            balanceInput.value = currentMode === 'lkr' ?
+                                                (balWithTax * exchangeRate).toFixed(2) :
+                                                balWithTax.toFixed(2);
+
+
+                                            // ── Tax display hints ────────────────────────────────────────────
+                                            if (currentMode === 'lkr') {
+                                                setEl('tax-amount-display',
+                                                    `Tax (${taxRate}%): LKR ${fmt(taxAmtBase * exchangeRate)} ` +
+                                                    `(= ${baseCurrencyCode} ${fmt(taxAmtBase)})`);
+                                                setEl('balance-tax-breakdown',
+                                                    `Before tax: LKR ${fmt(balanceBase * exchangeRate)}`);
+                                                setEl('paid-with-tax-hint',
+                                                    `Max payable: LKR ${fmt(balWithTax * exchangeRate)}`);
+                                            } else {
+                                                setEl('tax-amount-display',
+                                                    `Tax (${taxRate}%): ${baseCurrencyCode} ${fmt(taxAmtBase)} ` +
+                                                    `(≈ LKR ${fmt(taxAmtBase * exchangeRate)})`);
+                                                setEl('balance-tax-breakdown',
+                                                    `Before tax: ${baseCurrencyCode} ${fmt(balanceBase)}`);
+                                                setEl('paid-with-tax-hint',
+                                                    `Max payable: ${baseCurrencyCode} ${fmt(balWithTax)}`);
+                                            }
+
+                                            // ── Conversion hints below each input ───────────────────────────
+                                            if (currentMode === 'lkr') {
+                                                // Typed in LKR → show base equivalent below
+                                                setHint('discount-base-hint', baseCurrencyCode, discountBase, false);
+                                                setHint('penalty-base-hint', baseCurrencyCode, penaltyBase, false);
+                                                setHint('balance-base-hint', baseCurrencyCode, balWithTax, false);
+                                                setHint('paid-base-hint', baseCurrencyCode, paidBase, false);
+                                                // Confirm LKR value
+                                                setHint('discount-lkr-hint', 'LKR', rawDiscount, false);
+                                                setHint('penalty-lkr-hint', 'LKR', rawPenalty, false);
+                                                setHint('balance-lkr-hint', 'LKR', balWithTax * exchangeRate, false);
+                                                setHint('paid-lkr-hint', 'LKR', rawPaid, false);
+                                            } else {
+                                                // Typed in base → show LKR below
+                                                setHint('discount-lkr-hint', 'LKR', rawDiscount * exchangeRate);
+                                                setHint('penalty-lkr-hint', 'LKR', rawPenalty * exchangeRate);
+                                                setHint('balance-lkr-hint', 'LKR', balWithTax * exchangeRate);
+                                                setHint('paid-lkr-hint', 'LKR', rawPaid * exchangeRate);
+                                                setHint('discount-base-hint', baseCurrencyCode, rawDiscount, false);
+                                                setHint('penalty-base-hint', baseCurrencyCode, rawPenalty, false);
+                                                setHint('balance-base-hint', baseCurrencyCode, balWithTax, false);
+                                                setHint('paid-base-hint', baseCurrencyCode, paidBase, false);
+                                            }
+
+                                            // ── LKR summary panel ────────────────────────────────────────────
+                                            const lkrBalDisp = document.getElementById('lkr-balance-display');
+                                            const lkrBalSub = document.getElementById('lkr-balance-sub');
+                                            if (lkrBalDisp) lkrBalDisp.textContent = 'LKR ' + fmt(balWithTax * exchangeRate);
+                                            if (lkrBalSub) lkrBalSub.textContent = baseCurrencyCode + ' ' + fmt(balWithTax);
+                                        }
+
+                                        // ─────────────────────────────────────────────────────────────────────
+                                        // CURRENCY SWITCH
                                         // ─────────────────────────────────────────────────────────────────────
                                         function switchCurrency(mode) {
                                             if (isBaseCurrencyLKR) return;
@@ -1048,14 +1173,14 @@ if (!SessionUser::hasValidSession()) {
                                             const lkrPanel = document.getElementById('lkr-summary-panel');
                                             if (lkrPanel) lkrPanel.style.display = mode === 'lkr' ? 'block' : 'none';
 
-                                            // Swap currency badge labels
+                                            // Update currency badge labels
                                             const label = mode === 'lkr' ? 'LKR' : baseCurrencyCode;
                                             ['discount', 'penalty', 'balance', 'paid'].forEach(id => {
                                                 const el = document.getElementById(id + '-currency-label');
                                                 if (el) el.textContent = label;
                                             });
 
-                                            // Show/hide correct hint rows
+                                            // Show/hide hint rows
                                             document.querySelectorAll('[id$="-lkr-hint"]').forEach(el => {
                                                 el.classList.toggle('d-none', mode === 'lkr');
                                             });
@@ -1063,15 +1188,34 @@ if (!SessionUser::hasValidSession()) {
                                                 el.classList.toggle('d-none', mode === 'base');
                                             });
 
+                                            // Recalculate with new currency mode
+                                            // When switching → also convert existing input values to new currency
+                                            const rawDiscount = parseFloat(discountInput.value) || 0;
+                                            const rawPenalty = parseFloat(penaltyInput.value) || 0;
+                                            const rawPaid = parseFloat(paidInput?.value) || 0;
+
+                                            if (exchangeRate && !isBaseCurrencyLKR) {
+                                                if (mode === 'lkr') {
+                                                    // Convert base → LKR
+                                                    discountInput.value = (rawDiscount * exchangeRate).toFixed(2);
+                                                    penaltyInput.value = (rawPenalty * exchangeRate).toFixed(2);
+                                                    if (rawPaid) paidInput.value = (rawPaid * exchangeRate).toFixed(2);
+                                                } else {
+                                                    // Convert LKR → base
+                                                    discountInput.value = rawDiscount > 0 ? (rawDiscount / exchangeRate).toFixed(2) : '0';
+                                                    penaltyInput.value = rawPenalty > 0 ? (rawPenalty / exchangeRate).toFixed(2) : '0';
+                                                    if (rawPaid) paidInput.value = (rawPaid / exchangeRate).toFixed(2);
+                                                }
+                                            }
+
                                             recalculate();
                                         }
 
                                         // ─────────────────────────────────────────────────────────────────────
-                                        // 2. PAID DATE CHANGE → fetch matching rate
+                                        // PAID DATE CHANGE → fetch exchange rate for that date
                                         // ─────────────────────────────────────────────────────────────────────
                                         function onPaidDateChange() {
                                             if (isBaseCurrencyLKR || !paidDateInput.value) return;
-
                                             setRateStatus('loading', 'Fetching exchange rate for selected date...');
 
                                             fetch(`api/getExchangeRate.php?base=${baseCurrencyId}&target=${lkrCurrencyId}&date=${paidDateInput.value}`)
@@ -1080,124 +1224,82 @@ if (!SessionUser::hasValidSession()) {
                                                     if (data.rate) {
                                                         exchangeRate = parseFloat(data.rate);
                                                         exchangeRateId = data.currency_exchange_rate_id;
+                                                        if (customRateInput) customRateInput.value = exchangeRate.toFixed(2);
 
-                                                        if (customRateInput) customRateInput.value = exchangeRate.toFixed(4);
+                                                        const rb = document.getElementById('live-rate-text');
+                                                        if (rb) rb.textContent = `1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(2)} (${data.effective_date})`;
 
-                                                        const rateBadge = document.getElementById('live-rate-text');
-                                                        if (rateBadge) {
-                                                            rateBadge.textContent =
-                                                                `1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(2)} (${data.effective_date})`;
-                                                        }
+                                                        const pr = document.getElementById('panel-rate-display');
+                                                        if (pr) pr.textContent = exchangeRate.toFixed(2);
 
-                                                        const panelRate = document.getElementById('panel-rate-display');
-                                                        if (panelRate) panelRate.textContent = exchangeRate.toFixed(4);
-
-                                                        setRateStatus('success', `Rate updated: 1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(4)}`);
+                                                        setRateStatus('success', `Rate updated: 1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(2)}`);
                                                     } else {
-                                                        setRateStatus('warning', `No rate found for selected date. Using last known rate (${exchangeRate.toFixed(4)}).`);
+                                                        setRateStatus('warning', `No rate found. Using last known (${exchangeRate?.toFixed(2)}).`);
                                                     }
                                                     recalculate();
                                                 })
                                                 .catch(() => {
-                                                    setRateStatus('error', 'Could not fetch rate. Using last known rate.');
+                                                    setRateStatus('error', 'Could not fetch rate.');
                                                     recalculate();
                                                 });
                                         }
 
                                         // ─────────────────────────────────────────────────────────────────────
-                                        // 3. CUSTOM RATE OVERRIDE
+                                        // CUSTOM RATE OVERRIDE
                                         // ─────────────────────────────────────────────────────────────────────
                                         function onCustomRateChange() {
                                             const val = parseFloat(customRateInput.value);
                                             if (!isNaN(val) && val > 0) {
                                                 exchangeRate = val;
-                                                exchangeRateId = null; // custom — no DB reference
+                                                exchangeRateId = null;
 
-                                                const panelRate = document.getElementById('panel-rate-display');
-                                                if (panelRate) panelRate.textContent = val.toFixed(4);
+                                                const pr = document.getElementById('panel-rate-display');
+                                                if (pr) pr.textContent = val.toFixed(2);
+                                                const rb = document.getElementById('live-rate-text');
+                                                if (rb) rb.textContent = `1 ${baseCurrencyCode} = LKR ${val.toFixed(2)} (custom)`;
 
-                                                const rateBadge = document.getElementById('live-rate-text');
-                                                if (rateBadge) {
-                                                    rateBadge.textContent = `1 ${baseCurrencyCode} = LKR ${val.toFixed(2)} (custom)`;
-                                                }
-
-                                                setRateStatus('info', `Custom rate applied: 1 ${baseCurrencyCode} = LKR ${val.toFixed(4)}`);
+                                                setRateStatus('info', `Custom rate: 1 ${baseCurrencyCode} = LKR ${val.toFixed(2)}`);
                                                 recalculate();
                                             }
                                         }
 
                                         // ─────────────────────────────────────────────────────────────────────
-                                        // 4. CORE RECALCULATION
+                                        // getCurrentCurrencyData — called on Save button
                                         // ─────────────────────────────────────────────────────────────────────
-                                        function recalculate() {
-                                            const rawDiscount = parseFloat(discountInput.value) || 0;
-                                            const rawPenalty = parseFloat(penaltyInput.value) || 0;
-                                            const rawPaid = parseFloat(paidInput?.value) || 0;
+                                        function getCurrentCurrencyData() {
+                                            const customRateEl = document.getElementById('custom-exchange-rate');
+                                            const customRateVal = customRateEl ? parseFloat(customRateEl.value) : NaN;
+                                            const isCustomRate = !isNaN(customRateVal) && customRateVal > 0 && customRateVal !== exchangeRate;
+                                            const finalRate = (isCustomRate || (customRateEl && !isNaN(customRateVal) && customRateVal > 0)) ?
+                                                customRateVal : exchangeRate;
+                                            const finalRateId = isCustomRate ? null : exchangeRateId;
+                                            const taxRate = Math.max(0, parseFloat(taxRateInput?.value) || 0);
 
-                                            if (isBaseCurrencyLKR || !exchangeRate) {
-                                                // No conversion — straight calculation
-                                                let b = baseBalance - rawDiscount + rawPenalty;
-                                                if (b < 0) b = 0;
-                                                balanceInput.value = b.toFixed(2);
-                                                return;
-                                            }
-
-                                            // ── Convert inputs to BASE currency ─────────────────────────────
-                                            const toBase = v => currentMode === 'lkr' ? v / exchangeRate : v;
-                                            const toLKR = v => currentMode === 'lkr' ? v : v * exchangeRate;
-
-                                            const discountBase = toBase(rawDiscount);
-                                            const penaltyBase = toBase(rawPenalty);
-                                            const paidBase = toBase(rawPaid);
-
-                                            // ── New balance in base ──────────────────────────────────────────
-                                            let newBalanceBase = baseBalance - discountBase + penaltyBase;
-                                            if (newBalanceBase < 0) newBalanceBase = 0;
-
-                                            // ── Show balance in selected currency ───────────────────────────
-                                            balanceInput.value = currentMode === 'lkr' ?
-                                                (newBalanceBase * exchangeRate).toFixed(2) :
-                                                newBalanceBase.toFixed(2);
-
-                                            // ── Hints: always show the OPPOSITE currency below each input ───
-                                            if (currentMode === 'lkr') {
-                                                // User types LKR → show base currency (GBP) below
-                                                setHint('discount-base-hint', baseCurrencyCode, discountBase);
-                                                setHint('penalty-base-hint', baseCurrencyCode, penaltyBase);
-                                                setHint('balance-base-hint', baseCurrencyCode, newBalanceBase);
-                                                setHint('paid-base-hint', baseCurrencyCode, paidBase);
-                                                // LKR hints: show typed value as-is (same currency, so just confirm)
-                                                setHint('discount-lkr-hint', 'LKR', rawDiscount, false);
-                                                setHint('penalty-lkr-hint', 'LKR', rawPenalty, false);
-                                                setHint('balance-lkr-hint', 'LKR', newBalanceBase * exchangeRate, false);
-                                                setHint('paid-lkr-hint', 'LKR', rawPaid, false);
-                                            } else {
-                                                // User types GBP → show LKR below
-                                                setHint('discount-lkr-hint', 'LKR', rawDiscount * exchangeRate);
-                                                setHint('penalty-lkr-hint', 'LKR', rawPenalty * exchangeRate);
-                                                setHint('balance-lkr-hint', 'LKR', newBalanceBase * exchangeRate);
-                                                setHint('paid-lkr-hint', 'LKR', rawPaid * exchangeRate);
-                                                // Base hints show same value (already base)
-                                                setHint('discount-base-hint', baseCurrencyCode, rawDiscount, false);
-                                                setHint('penalty-base-hint', baseCurrencyCode, rawPenalty, false);
-                                                setHint('balance-base-hint', baseCurrencyCode, newBalanceBase, false);
-                                                setHint('paid-base-hint', baseCurrencyCode, rawPaid, false);
-                                            }
-
-                                            // ── Update LKR summary panel balance ────────────────────────────
-                                            const lkrBalDisp = document.getElementById('lkr-balance-display');
-                                            const lkrBalSub = document.getElementById('lkr-balance-sub');
-                                            if (lkrBalDisp) lkrBalDisp.textContent = 'LKR ' + fmt(newBalanceBase * exchangeRate);
-                                            if (lkrBalSub) lkrBalSub.textContent = baseCurrencyCode + ' ' + fmt(newBalanceBase);
+                                            return {
+                                                mode: currentMode,
+                                                baseCurrencyId: baseCurrencyId,
+                                                exchangeRate: finalRate,
+                                                isLKR: isBaseCurrencyLKR || currentMode === 'lkr',
+                                                selectedCurrencyId: (isBaseCurrencyLKR || currentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
+                                                exchangeRateId: (isBaseCurrencyLKR || currentMode === 'base') ? null : finalRateId,
+                                                isCustomRate: isCustomRate,
+                                                customRateValue: isCustomRate ? customRateVal : null,
+                                                taxRate: taxRate, // ← sent to backend
+                                            };
                                         }
 
                                         // ─────────────────────────────────────────────────────────────────────
-                                        // 5. HELPERS
+                                        // HELPERS
                                         // ─────────────────────────────────────────────────────────────────────
                                         function setHint(id, currencyLabel, value, isApprox = true) {
                                             const el = document.getElementById(id);
                                             if (!el) return;
                                             el.textContent = (isApprox ? '≈ ' : '= ') + currencyLabel + ' ' + fmt(value);
+                                        }
+
+                                        function setEl(id, text) {
+                                            const el = document.getElementById(id);
+                                            if (el) el.textContent = text;
                                         }
 
                                         function fmt(n) {
@@ -1220,43 +1322,16 @@ if (!SessionUser::hasValidSession()) {
                                             rateStatusEl.textContent = msg;
                                         }
 
-                                        // ─────────────────────────────────────────────────────────────────────
-                                        // 6. getCurrentCurrencyData — called on Save
-                                        // ─────────────────────────────────────────────────────────────────────
-                                        function getCurrentCurrencyData() {
-                                            // Check if user has manually typed a custom rate
-                                            const customRateEl = document.getElementById('custom-exchange-rate');
-                                            const customRateVal = customRateEl ? parseFloat(customRateEl.value) : NaN;
-
-                                            // Use custom rate if it's a valid positive number AND differs from the fetched rate
-                                            const isCustomRate = !isNaN(customRateVal) && customRateVal > 0 && customRateVal !== exchangeRate;
-                                            const finalRate = (isCustomRate || (customRateEl && !isNaN(customRateVal) && customRateVal > 0)) ?
-                                                customRateVal :
-                                                exchangeRate;
-
-                                            // If custom rate was typed, exchangeRateId must be null (no DB row reference)
-                                            const finalRateId = isCustomRate ? null : exchangeRateId;
-
-                                            return {
-                                                mode: currentMode === 'lkr' ? 'lkr' : 'base',
-                                                baseCurrencyId: baseCurrencyId,
-                                                exchangeRate: finalRate,
-                                                isLKR: isBaseCurrencyLKR || currentMode === 'lkr',
-                                                selectedCurrencyId: (isBaseCurrencyLKR || currentMode === 'base') ?
-                                                    baseCurrencyId : lkrCurrencyId,
-                                                exchangeRateId: (isBaseCurrencyLKR || currentMode === 'base') ?
-                                                    null : finalRateId,
-                                                isCustomRate: isCustomRate, // backend can log this
-                                                customRateValue: isCustomRate ? customRateVal : null,
-                                            };
-                                        }
-
-                                        // ── Event listeners ─────────────────────────────────────────────────
+                                        // ── Event listeners ──────────────────────────────────────────────────
                                         discountInput.addEventListener('input', recalculate);
                                         penaltyInput.addEventListener('input', recalculate);
                                         if (paidInput) paidInput.addEventListener('input', recalculate);
+                                        if (taxRateInput) taxRateInput.addEventListener('input', recalculate);
                                         if (paidDateInput) paidDateInput.addEventListener('change', onPaidDateChange);
                                         if (customRateInput) customRateInput.addEventListener('input', onCustomRateChange);
+
+                                        // Initial calculation on load
+                                        recalculate();
                                     </script>
 
 
