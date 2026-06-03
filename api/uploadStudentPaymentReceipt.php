@@ -82,6 +82,7 @@ if (SessionUser::hasValidSession()) {
             // ── Fetch payment plan ───────────────────────────────────────────
             $detailQuery = "
                                                                                             SELECT
+                                                                                            `s`.`student_id`,
                                                                                                 `cp`.`course_payments_id`,
                                                                                                 `cp`.`refference`, `cp`.`amount`, `cp`.`discount`, `cp`.`due_date`,
                                                                                                 `cp`.`panelty_payment_option_panelty_payment_option_id`,
@@ -90,6 +91,7 @@ if (SessionUser::hasValidSession()) {
                                                                                                 `i`.`intake_id`, `i`.`intake`,
                                                                                                 `pr`.`programme_id`, `pr`.`programme`,
                                                                                                 `f`.`faculty_id`, `f`.`faculty`,
+                                                                                                `b`.`branch_id`, `b`.`branch`,
                                                                                                 `ld`.`first_name`, `ld`.`last_name`,
                                                                                                 `t`.`title`,
                                                                                                 `s`.`lead_student_status_lead_student_status_id`,
@@ -119,6 +121,7 @@ if (SessionUser::hasValidSession()) {
                                                                                             INNER JOIN `intakes` AS `i`              ON `shi`.`intakes_intake_id` = `i`.`intake_id`
                                                                                             INNER JOIN `programmes` AS `pr`         ON `i`.`programmes_programme_id` = `pr`.`programme_id`
                                                                                             INNER JOIN `faculties` AS `f`          ON `pr`.`faculties_faculty_id` = `f`.`faculty_id`
+                                                                                            INNER JOIN `branches` AS `b`            ON `shi`.`branches_branch_id` = `b`.`branch_id`
                                                                                             INNER JOIN `students` AS `s`          ON `shi`.`students_student_id` = `s`.`student_id`
                                                                                             INNER JOIN `login_details` AS `ld`    ON `s`.`login_details_login_details_id` = `ld`.`login_details_id`
                                                                                             INNER JOIN `title` AS `t`            ON `s`.`title_title_id` = `t`.`title_id`
@@ -252,15 +255,6 @@ if (SessionUser::hasValidSession()) {
 
                     if (empty($raw_amount) || $raw_amount <= 0) {
                         $status->amount = 'Please enter paid amount';
-                    } else {
-                        // Compare converted base amount against base balance
-                        $epsilon = 0.001; // float safety margin
-                        if (($amount - $balance) > $epsilon) {
-                            $status->amount = 'Paid amount ('
-                                . $userCurrencyLabel . ' ' . number_format($raw_amount, 2)
-                                . ') cannot exceed balance ('
-                                . $userCurrencyLabel . ' ' . number_format($balanceInUserCurrency, 2) . ')';
-                        }
                     }
 
                     // ── STEP 4: File validation ──────────────────────────────
@@ -307,12 +301,39 @@ if (SessionUser::hasValidSession()) {
                         $now      = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
 
                         $status_status_id = 3;
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id']))) {
-                            $status_status_id = 2;
+
+
+                        /* Branch prefix — first 2 letters uppercase */
+                        $branchName   = $paymentData['branch'] ?? 'XX';
+                        $branchPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $branchName), 0, 2));
+                        if (strlen($branchPrefix) < 2) $branchPrefix = str_pad($branchPrefix, 2, 'X');
+
+                        /* Year */
+                        $year = date('Y');
+
+                        /* Sequential number: count existing receipts for this branch+year */
+                        $countRow = Database::search("
+                            SELECT COUNT(*) AS cnt
+                            FROM course_payment_receipts
+                            WHERE receipt_number LIKE '" . addslashes($branchPrefix) . $year . "-%'
+                        ");
+                        $seq = 1;
+                        if ($countRow && $countRow->num_rows > 0) {
+                            $seq = (int)$countRow->fetch_assoc()['cnt'] + 1;
                         }
-                        if (in_array($paymentData['lead_student_status_lead_student_status_id'], [5, 9])) {
-                            $status_status_id = 2;
-                        }
+
+                        $receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+                        /* e.g.  CO2024-00001 */
+
+                        /* Insert receipt */
+                        Database::iud("
+        INSERT INTO `course_payment_receipts`
+            (`receipt_number`, `users_user_id`, `date_added`, `students_has_intakes_students_has_intakes_id`)
+        VALUES
+            ('" . addslashes($receiptNumber) . "', '" . $sessionUserObject['user_id'] . "', '$now', '" . $paymentData['students_has_intakes_id'] . "')
+    ");
+
+                        $receiptId = Database::$connection->insert_id;
 
                         // Currency columns
                         $baseCurrencyId       = (int)$paymentData['currency_id'];
@@ -336,7 +357,8 @@ if (SessionUser::hasValidSession()) {
                                 `panelty_amount`,
                                 `currencies_currency_id`,
                                 `note`,
-                                `tax_rate`";
+                                `tax_rate`,
+                                `course_payment_receipts_course_payment_receipt_id`";
 
                         $insert_val = "  '{$payment_id}',
                                 '{$method}',
@@ -347,7 +369,8 @@ if (SessionUser::hasValidSession()) {
                                 '{$raw_penalty_amount}',
                                 '{$insertCurrencyId}',
                                 " . $qn($note !== '' ? Database::escape($note) : null) . ",
-                                '{$taxRate}'";
+                                '{$taxRate}',
+                                '{$receiptId}'";
 
                         if ($insertCurrencyId != $baseCurrencyId) {
                             $insert_col .= ",`currency_exchange_rate_id`,`currency_exchange_rate`";
@@ -451,7 +474,8 @@ if (SessionUser::hasValidSession()) {
                             if ($nextRs->num_rows > 0) {
                                 $next = $nextRs->fetch_assoc();
                                 if ((int)$next['course_payments_id'] === $payment_id) {
-                                    Database::iud("INSERT INTO `students_logs` (`students_student_id`,`date_updated`,`users_user_id`,`log`,`lead_student_status_lead_student_status_id`) VALUES ('{$paymentData['student_id']}','{$now}','" . $sessionUserObject['user_id'] . "','First installment payment receipt uploaded','8')");
+                                    Database::iud("INSERT INTO `students_logs` (`students_student_id`,`date_updated`,`users_user_id`,`log`,`lead_student_status_lead_student_status_id`) 
+                                    VALUES ('{$paymentData['student_id']}','{$now}','" . $sessionUserObject['user_id'] . "','First installment payment receipt uploaded','8')");
                                 }
                             }
                         }

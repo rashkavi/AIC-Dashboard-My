@@ -178,6 +178,14 @@ if (!SessionUser::hasValidSession()) {
                                                                 </button>
                                                             </div>
                                                         <?php
+                                                        } else if (!($lead['latest_log_status_id'] == 2)) {
+                                                        ?>
+                                                            <div class="col-6 mt-3 mt-lg-0 m-md-0">
+                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='inquiry-payment-plan?inquiry-id=<?= $leadId ?>'">
+                                                                    View Payment Plan
+                                                                </button>
+                                                            </div>
+                                                        <?php
                                                         }
                                                         ?>
 
@@ -201,11 +209,11 @@ if (!SessionUser::hasValidSession()) {
                                                                     $progress = 100 / 2 * 0;
                                                                     $query .= " WHERE `lead_student_status_id` IN (3,4)";
                                                                     break;
-                                                                    case 1:
-                                                                        $progressColor = "pulse";
-                                                                        $progress = 100 / 2 * 0;
-                                                                        $query .= " WHERE `lead_student_status_id` IN (1,4)";
-                                                                        break;
+                                                                case 1:
+                                                                    $progressColor = "pulse";
+                                                                    $progress = 100 / 2 * 0;
+                                                                    $query .= " WHERE `lead_student_status_id` IN (1,4)";
+                                                                    break;
                                                                 case 2:
                                                                     $progressColor = "reject";
                                                                     $progress = 100 / 2 * 1;

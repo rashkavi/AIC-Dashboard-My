@@ -6642,3 +6642,135 @@ function openAcademicAdministrationRejectModal(studentId) {
 
     modal.show();
 }
+
+
+function customPlanCollectInstallmentData() {
+    const data = [];
+    document.querySelectorAll("#fees-type .accordion-item").forEach(item => {
+        const installmentId =
+            item.querySelector("#enable-panelty")?.dataset.installmentId;
+
+        const installment = {
+            installmentId,
+            paymentType: item.querySelector("#payment-type")?.value,
+            amount: item.querySelector("#amount")?.value,
+            discountType: item.querySelector("#discount-type")?.value,
+            discount: item.querySelector("#discount")?.value,
+            discountNote: item.querySelector("#discount-note")?.value,
+            dueDate: item.querySelector("#due-date")?.value,
+            penaltyEnabled: item.querySelector("#enable-panelty")?.checked,
+            penalty: null
+        };
+
+        if (installment.penaltyEnabled) {
+            const option = item.querySelector("#panelty-option")?.value;
+
+            if (option === "2" || option === "3") {
+                installment.penalty = {
+                    mode: option,
+                    type: item.querySelector("#flat-type")?.value,
+                    amount: item.querySelector("#flat-amount")?.value,
+                };
+            }
+
+            if (option === "4") {
+                installment.penalty = {
+                    mode: option,
+                    slots: []
+                };
+
+                item.querySelectorAll(".custom-slot").forEach(slot => {
+                    installment.penalty.slots.push({
+                        type: slot.querySelector(".panelty-type")?.value,
+                        amount: slot.querySelector(".panelty-amount")?.value,
+                        days: slot.querySelector(".panelty-days")?.value
+                    });
+                });
+            }
+        }
+
+        data.push(installment);
+    });
+
+    return data;
+}
+
+
+const handleStudentsPaymentsPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByAmount':
+            sortCondition2 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition1 = toggleSort(sortCondition1);
+            break;
+        case 'sortByDate':
+            sortCondition1 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition2 = toggleSort(sortCondition2);
+            break;
+        case 'sortById':
+            sortCondition1 = sortCondition2 = sortCondition4 = SORT_NONE;
+            sortCondition3 = toggleSort(sortCondition3);
+            break;
+        case 'sortByName':
+            sortCondition1 = sortCondition2 = sortCondition3 = SORT_NONE;
+            sortCondition4 = toggleSort(sortCondition4);
+            break;
+    }
+
+    filterStudentsPayments();
+}
+
+
+/* ── Open Update Modal ── */
+function openUpdateTaxModal(id, name, rate) {
+    document.getElementById('update-tax-id').value = id;
+    document.getElementById('update-tax-name').value = name;
+    document.getElementById('update-tax-rate').value = rate;
+    document.getElementById('update-tax-note').value = '';
+    document.getElementById('update-tax-name-feedback').textContent = '';
+    document.getElementById('update-tax-rate-feedback').textContent = '';
+    var modal = new bootstrap.Modal(document.getElementById('updateTaxModal'));
+    modal.show();
+}
+
+/* ── Submit Update ── */
+/* ── Toggle History ── */
+function toggleTaxHistory(taxId, btn) {
+    var area = document.getElementById('tax-history-' + taxId);
+    var isHidden = area.classList.contains('d-none');
+
+    if (isHidden) {
+        area.classList.remove('d-none');
+        btn.innerHTML = '<iconify-icon icon="mdi:chevron-up" width="13" style="vertical-align:-2px;margin-right:4px;"></iconify-icon> Hide History';
+    } else {
+        area.classList.add('d-none');
+        btn.innerHTML = '<iconify-icon icon="mdi:history" width="13" style="vertical-align:-2px;margin-right:4px;"></iconify-icon> View History';
+    }
+}
+
+const initializeEditSystemPlan = (planId) => {
+    loadPaymentType(planId);
+}
+
+const confirmDeleteSystemPlan = (id) => {
+    $("#confirmRemoveSystemPaymentPlan").off("click");
+    $("#confirmRemoveSystemPaymentPlan").on("click", function () {
+        removeSystemPaymentPlan(id);
+    });
+    $("#removeSystemPaymentPlanConfirmModal").modal("show");
+}

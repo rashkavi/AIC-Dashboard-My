@@ -73,7 +73,13 @@ if (SessionUser::hasValidSession()) {
 
                             $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
 
-                            sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
+                            try {
+                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
+                            } catch (Exception $e) {
+                                $status->error = 'Academic confirmed, but failed to send email notification';
+                                echo (json_encode($status));
+                                return;
+                            }
 
                             $status->done = 'Academic confirmed successfully';
                         }

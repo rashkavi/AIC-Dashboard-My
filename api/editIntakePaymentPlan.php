@@ -34,7 +34,9 @@ if (SessionUser::hasValidSession()) {
                         $status->error = 'Intake Payment Plan is required';
                     } else {
                         $intake = Database::search("SELECT * FROM `intake_has_payment_plans` 
-                        WHERE `intake_has_payment_plan_id`='" . $planId . "' AND `intake_has_payment_plan_id` NOT IN (SELECT `intake_has_payment_plan_id` FROM `payment_plan_has_students_has_intakes`)");
+                        WHERE `intake_has_payment_plan_id`='" . $planId . "' 
+                        AND `intake_has_payment_plan_id` NOT IN 
+                        (SELECT `intake_has_payment_plan_id` FROM `payment_plan_has_students_has_intakes` WHERE `intake_has_payment_plan_id`='" . $planId . "')");
                         if ($intake->num_rows == 0) {
                             $status->error = 'Intake Payment Plan not found';
                         } else {

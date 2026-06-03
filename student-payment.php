@@ -437,6 +437,200 @@ if (!SessionUser::hasValidSession()) {
                             }
                         </style>
 
+                        <style>
+                            /* ── Currency toggle buttons ──────────────────────── */
+                            .currency-toggle-btn {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 5px 14px;
+                                border: 1px solid var(--border-color);
+                                border-radius: 6px;
+                                background: transparent;
+                                color: var(--sub-text-color);
+                                font-size: 12px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                transition: all 0.15s;
+                            }
+
+                            .currency-toggle-btn.active {
+                                background: var(--primary-color, #0d6efd);
+                                color: #fff;
+                                border-color: var(--primary-color, #0d6efd);
+                            }
+
+                            .currency-symbol {
+                                font-size: 13px;
+                                font-weight: 600;
+                            }
+
+                            /* ── Exchange rate badge ──────────────────────────── */
+                            .exchange-rate-badge {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 10px;
+                                border-radius: 20px;
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border: 1px solid var(--border-color);
+                                font-size: 11.5px;
+                                color: var(--sub-text-color);
+                            }
+
+                            .exchange-rate-badge .rate-date {
+                                opacity: 0.7;
+                            }
+
+                            .rate-unavailable {
+                                border-color: #f5c6cb;
+                                background: #fff5f5;
+                                color: #a32d2d;
+                            }
+
+                            /* ── Currency label badge on input labels ─────────── */
+                            .currency-label-badge {
+                                display: inline-block;
+                                margin-left: 6px;
+                                padding: 1px 7px;
+                                border-radius: 10px;
+                                font-size: 10px;
+                                font-weight: 600;
+                                background: var(--light-theme, #eef2f7);
+                                color: var(--sub-text-color);
+                                vertical-align: middle;
+                                border: 1px solid var(--border-color);
+                            }
+
+                            /* ── Inline LKR hint below inputs ────────────────── */
+                            .lkr-inline-hint {
+                                font-size: 12px;
+                                color: var(--sub-text-color);
+                                margin-top: 4px;
+                                opacity: 0.8;
+                            }
+
+                            /* ── LKR Conversion Panel ────────────────────────── */
+                            /* ── LKR Equivalent Summary Panel ─────────────────── */
+                            .lkr-panel {
+                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+                                overflow: hidden;
+                                margin-bottom: 20px;
+                            }
+
+                            .lkr-panel-top {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                padding: 10px 18px;
+                                border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+                            }
+
+                            .lkr-panel-top-left {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-panel-top-left iconify-icon {
+                                color: rgba(255, 255, 255, 0.6);
+                            }
+
+                            .lkr-panel-rate-note {
+                                font-size: 13px;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-panel-grid {
+                                display: grid;
+                                grid-template-columns: repeat(6, minmax(0, 1fr));
+                            }
+
+                            .lkr-panel-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                                padding: 14px 18px;
+                                border-right: 0.5px solid rgba(255, 255, 255, 0.10);
+                            }
+
+                            .lkr-panel-item:last-child {
+                                border-right: none;
+                            }
+
+                            .lkr-item-label {
+                                font-size: 12px;
+                                font-weight: 500;
+                                letter-spacing: 0.04em;
+                                text-transform: uppercase;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-item-value {
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-item-sub {
+                                font-size: 12px;
+                                color: rgba(255, 255, 255, 0.35);
+                            }
+
+                            .lkr-panel-item.balance-item .lkr-item-value {
+                                color: #5DCAA5;
+                            }
+
+                            /* ── Currency toggle ───────────────────────────────── */
+                            .currency-toggle {
+                                display: flex;
+                                border: 0.5px solid var(--border-color);
+                                border-radius: 8px;
+                                overflow: hidden;
+                            }
+
+                            .currency-toggle-btn {
+                                padding: 5px 14px;
+                                font-size: 12px;
+                                font-weight: 500;
+                                border: none;
+                                background: transparent;
+                                color: var(--sub-text-color);
+                                cursor: pointer;
+                                transition: background 0.15s, color 0.15s;
+                            }
+
+                            .currency-toggle-btn.active {
+                                background: var(--dark-theme);
+                                color: #fff;
+                            }
+
+                            .convert-hint {
+                                font-size: 11.5px;
+                                color: var(--sub-text-color);
+                                margin-top: 3px;
+                                opacity: 0.8;
+                            }
+
+                            /* responsive — collapse to 3 cols on small screens */
+                            @media (max-width: 768px) {
+                                .lkr-panel-grid {
+                                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                                }
+
+                                .lkr-panel-item:nth-child(3) {
+                                    border-right: none;
+                                }
+
+                                .lkr-panel-item {
+                                    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+                                }
+                            }
+                        </style>
+
                         <body class="overflow-hidden">
                             <div class="notifications"></div>
                             <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
@@ -475,6 +669,26 @@ if (!SessionUser::hasValidSession()) {
                                                                     </nav>
                                                                 </div>
                                                             </div>
+                                                            <?php
+                                                            /* Check if this payment has an approved receipt */
+                                                            $receiptCheck = Database::search("
+                                                                    SELECT cpr.receipt_number, cpr.course_payment_receipt_id
+                                                                    FROM course_payment_has_payments cpp
+                                                                    INNER JOIN course_payment_receipts cpr
+                                                                        ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
+                                                                    WHERE cpp.course_payment_has_payment_id = '" . $coursepaymentData['course_payment_has_payment_id'] . "'
+                                                                    LIMIT 1
+                                                                ");
+                                                            if ($receiptCheck && $receiptCheck->num_rows > 0):
+                                                                $receiptInfo = $receiptCheck->fetch_assoc();
+                                                            ?>
+                                                                <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn w-100" type="button"
+                                                                        onclick="openReceiptModal(<?= $receiptInfo['course_payment_receipt_id'] ?>)">
+                                                                        View Receipt & Send
+                                                                    </button>
+                                                                </div>
+                                                            <?php endif; ?>
                                                             <?php if ((SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) && $coursepaymentData['payment_status_payment_status_id'] == 2): ?>
                                                                 <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-btn w-100" type="button" data-bs-target="#updatePaymentStatus" data-bs-toggle="modal">
@@ -633,13 +847,26 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
                                                                             <div class="amount-section">
                                                                                 <div class="amount-display">
-                                                                                    <span class="amount-label">Total Balance Amount</span>
-                                                                                    <span class="amount-value"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
-                                                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                                        <small class="amount-label" style="font-size:12px; opacity:.7;">
-                                                                                            ≈ LKR <?= number_format($balanceLKR, 2) ?>
-                                                                                        </small>
-                                                                                    <?php endif; ?>
+                                                                                    <?php
+                                                                                    if ($balance > 0) {
+                                                                                    ?>
+                                                                                        <span class="amount-label">Total Balance Amount</span>
+                                                                                        <span class="amount-value"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
+                                                                                        <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                            <small class="amount-label" style="font-size:12px; opacity:.7;">
+                                                                                                ≈ LKR <?= number_format($balanceLKR, 2) ?>
+                                                                                            </small>
+                                                                                        <?php endif; ?>
+                                                                                    <?php
+                                                                                    } else {
+                                                                                    ?>
+                                                                                        <span class="amount-label">Total Balance Amount</span>
+                                                                                        <span class="amount-value"><?= $currencyCode ?> 0.00</span>
+
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -793,10 +1020,22 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Balance</span>
-                                                                                    <span class="detail-value"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
-                                                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                                        <span class="detail-lkr-hint">≈ LKR <?= number_format($balanceLKR, 2) ?></span>
-                                                                                    <?php endif; ?>
+                                                                                    <?php
+                                                                                    if ($balance > 0) {
+                                                                                    ?>
+                                                                                        <span class="detail-value"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
+                                                                                        <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                            <span class="detail-lkr-hint">≈ LKR <?= number_format($balanceLKR, 2) ?></span>
+                                                                                        <?php endif; ?>
+                                                                                    <?php
+
+                                                                                    } else {
+                                                                                    ?>
+                                                                                        <span class="detail-value"><?= $currencyCode ?> 0.00</span>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -1004,7 +1243,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <span class="detail-value">
                                                                                             1 <?= $currencyCode ?>
                                                                                             = <?= $paidCurrCode ?> <?= number_format($receiptRate, 2) ?>
-                                                                                          
+
                                                                                         </span>
                                                                                     </div>
                                                                                 </div>
@@ -1285,88 +1524,310 @@ if (!SessionUser::hasValidSession()) {
                             </div>
 
                             <!-- ── Update Payment Status Modal ──────────────────────────── -->
-                            <div class="modal fade" id="updatePaymentStatus" tabindex="-1" role="dialog" aria-labelledby="updatePaymentStatusTitle" aria-hidden="true">
-                                <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Update Payment Status</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <div class="col-12 p-0 g-0">
-                                                <div class="row gx-4 gy-3">
-                                                    <div class="col-12 d-flex flex-column">
-                                                        <label class="text-14 main-text required">Payment Status</label>
-                                                        <select class="form-select custom-select mt-2" id="status-selector">
-                                                            <?php
-                                                            $status = Database::search("SELECT * FROM `payment_status` WHERE `payment_status_id` IN (3,4)");
-                                                            while ($data = $status->fetch_assoc()):
-                                                            ?>
-                                                                <option value="<?= $data["payment_status_id"] ?>"
-                                                                    <?= $data["payment_status_id"] == $coursepaymentData["payment_status_payment_status_id"] ? "selected" : "" ?>>
-                                                                    <?= $data["payment_status"] ?>
-                                                                </option>
-                                                            <?php endwhile; ?>
-                                                        </select>
-                                                        <span id="status-selector-feedback" class="text-dark-red text-12"></span>
+                            <!-- ══════════════════════════════════════════════
+     UPDATE PAYMENT STATUS MODAL
+══════════════════════════════════════════════ -->
+                            <div class="modal fade" id="updatePaymentStatus" tabindex="-1" role="dialog" aria-hidden="true">
+                                <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+                                    <div class="modal-content component-theme">
+                                        <div class="modal-header" style="border-bottom:1px solid var(--line-color);">
+
+                                            <div class="d-flex align-items-center gap-3 flex-wrap w-100">
+                                                <span class="text-16 main-text fw-semibold flex-grow-1">Update Payment Status</span>
+
+                                                <?php if (!$isBaseCurrencyLKR): ?>
+                                                    <!-- ── Currency Toggle ── -->
+                                                    <span class="text-14 main-text fw-medium">Payment Currency:</span>
+                                                    <div class="currency-toggle">
+                                                        <button type="button" class="currency-toggle-btn active"
+                                                            id="modal-btn-base-currency" onclick="modalSwitchCurrency('base')">
+                                                            <?= $currencyCode ?>
+                                                        </button>
+                                                        <button type="button" class="currency-toggle-btn"
+                                                            id="modal-btn-lkr-currency" onclick="modalSwitchCurrency('lkr')">
+                                                            LKR
+                                                        </button>
                                                     </div>
-                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                        <label class="text-14 main-text">
-                                                            Paid Amount
-                                                            <!-- Currency badge in modal label -->
-                                                            <span style="font-size:10px; font-weight:600; padding:1px 7px; border-radius:10px; background:var(--light-theme,#eef2f7); border:1px solid var(--border-color); color:var(--sub-text-color);"><?= $currencyCode ?></span>
-                                                        </label>
-                                                        <input type="number" class="form-control custom-input mt-2" id="modal-paid-amount"
-                                                            value="<?= $coursepaymentData["paid_amount"] ?>"
-                                                            <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? "" : "disabled" ?>>
-                                                        <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                            <span class="text-12 sub-text mt-1" id="modal-paid-lkr-hint">
-                                                                ≈ LKR <?= number_format($coursepaymentData["paid_amount"] * $exchangeRateValue, 2) ?>
+
+                                                    <!-- ── Live Rate Badge ── -->
+                                                    <?php if ($exchangeRate): ?>
+                                                        <div class="exchange-rate-badge" id="modal-rate-badge">
+                                                            <iconify-icon icon="mdi:swap-horizontal" width="14" height="14"></iconify-icon>
+                                                            <span id="modal-live-rate-text">
+                                                                1 <?= $currencyCode ?> = LKR <?= number_format($exchangeRateValue, 2) ?>
+                                                                (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)
                                                             </span>
-                                                        <?php endif; ?>
-                                                        <div class="text-12 text-danger" id="paid-amount-feedback"></div>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <div class="exchange-rate-badge rate-unavailable" id="modal-rate-badge">
+                                                            <iconify-icon icon="mdi:alert-outline" width="14" height="14"></iconify-icon>
+                                                            <span id="modal-live-rate-text">No exchange rate available</span>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+
+                                        <div class="modal-body">
+                                            <div class="row gx-4 gy-3">
+
+                                                <!-- ══ LKR Summary Panel (shown only in LKR mode) ══ -->
+                                                <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                    <div class="col-12" id="modal-lkr-summary-panel" style="display:none;">
+                                                        <div class="lkr-panel">
+                                                            <div class="lkr-panel-top">
+                                                                <div class="lkr-panel-top-left">
+                                                                    <iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon>
+                                                                    LKR equivalent summary
+                                                                </div>
+                                                                <span class="lkr-panel-rate-note">
+                                                                    @ <span id="modal-panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span>
+                                                                    per <?= $currencyCode ?>
+                                                                </span>
+                                                            </div>
+                                                            <div class="lkr-panel-grid">
+                                                                <div class="lkr-panel-item">
+                                                                    <span class="lkr-item-label">Total Amount</span>
+                                                                    <span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paymentData['amount'], 2) ?></span>
+                                                                </div>
+                                                                <div class="lkr-panel-item">
+                                                                    <span class="lkr-item-label">Total Discount</span>
+                                                                    <span class="lkr-item-value" id="modal-lkr-discount-val">LKR <?= number_format($totalDiscount * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalDiscount, 2) ?></span>
+                                                                </div>
+                                                                <div class="lkr-panel-item">
+                                                                    <span class="lkr-item-label">Total Penalty</span>
+                                                                    <span class="lkr-item-value" id="modal-lkr-penalty-val">LKR <?= number_format($totalPenalty * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalPenalty, 2) ?></span>
+                                                                </div>
+                                                                <div class="lkr-panel-item">
+                                                                    <span class="lkr-item-label">Total Payable</span>
+                                                                    <span class="lkr-item-value">LKR <?= number_format($payableAmount * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($payableAmount, 2) ?></span>
+                                                                </div>
+                                                                <div class="lkr-panel-item">
+                                                                    <span class="lkr-item-label">Total Paid</span>
+                                                                    <span class="lkr-item-value">LKR <?= number_format($paidAmount * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paidAmount, 2) ?></span>
+                                                                </div>
+                                                                <div class="lkr-panel-item balance-item">
+                                                                    <span class="lkr-item-label">Balance Due</span>
+                                                                    <span class="lkr-item-value" id="modal-lkr-balance-val">LKR <?= number_format($balance * $exchangeRateValue, 2) ?></span>
+                                                                    <span class="lkr-item-sub" id="modal-lkr-balance-sub"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                        <label class="text-14 main-text">Payment Method</label>
-                                                        <select name="payment_method" class="form-select custom-select mt-2" id="payment-method"
-                                                            <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? "" : "disabled" ?>>
-                                                            <option value="0">- Select -</option>
-                                                            <?php
-                                                            $methods = Database::search("SELECT * FROM `payment_method` WHERE `payment_method_id` != 5");
-                                                            while ($method = $methods->fetch_assoc()):
-                                                            ?>
-                                                                <option value="<?= $method["payment_method_id"] ?>"
-                                                                    <?= $method["payment_method_id"] == $coursepaymentData["payment_method_payment_method_id"] ? "selected" : "" ?>>
-                                                                    <?= $method["payment_method"] ?>
-                                                                </option>
-                                                            <?php endwhile; ?>
-                                                        </select>
-                                                        <div class="text-12 text-danger" id="payment-method-feedback"></div>
-                                                    </div>
-                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                        <label class="text-14 main-text">Paid Date</label>
-                                                        <input type="date" class="form-control custom-input mt-2" id="paid-date"
-                                                            value="<?= $coursepaymentData["date_paid"] ?>"
-                                                            <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? "" : "disabled" ?>>
-                                                        <div class="text-12 text-danger" id="paid-date-feedback"></div>
-                                                    </div>
-                                                    <div class="col-12 d-flex flex-column">
-                                                        <label class="text-14 main-text">Note</label>
-                                                        <textarea class="form-control custom-input mt-2" id="note" rows="5"></textarea>
-                                                        <span id="note-feedback" class="text-dark-red text-12"></span>
-                                                    </div>
+                                                <?php endif; ?>
+
+                                                <!-- ── Row 1: Status | Method | Paid Date ── -->
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text required">Payment Status</label>
+                                                    <select class="form-select custom-select mt-2" id="status-selector">
+                                                        <?php
+                                                        $statusQ = Database::search("SELECT * FROM `payment_status` WHERE `payment_status_id` IN (3,4)");
+                                                        while ($sd = $statusQ->fetch_assoc()): ?>
+                                                            <option value="<?= $sd['payment_status_id'] ?>"
+                                                                <?= $sd['payment_status_id'] == $coursepaymentData['payment_status_payment_status_id'] ? 'selected' : '' ?>>
+                                                                <?= $sd['payment_status'] ?>
+                                                            </option>
+                                                        <?php endwhile; ?>
+                                                    </select>
+                                                    <span id="status-selector-feedback" class="text-dark-red text-12"></span>
                                                 </div>
+
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">Payment Method</label>
+                                                    <select class="form-select custom-select mt-2" id="payment-method"
+                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                        <option value="0">- Select -</option>
+                                                        <?php
+                                                        $methodsQ = Database::search("SELECT * FROM `payment_method` WHERE `payment_method_id` != 5");
+                                                        while ($method = $methodsQ->fetch_assoc()): ?>
+                                                            <option value="<?= $method['payment_method_id'] ?>"
+                                                                <?= $method['payment_method_id'] == $coursepaymentData['payment_method_payment_method_id'] ? 'selected' : '' ?>>
+                                                                <?= $method['payment_method'] ?>
+                                                            </option>
+                                                        <?php endwhile; ?>
+                                                    </select>
+                                                    <div class="text-12 text-danger" id="payment-method-feedback"></div>
+                                                </div>
+
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">Paid Date</label>
+                                                    <input type="date" class="form-control custom-input mt-2" id="modal-paid-date"
+                                                        value="<?= $coursepaymentData['date_paid'] ?>"
+                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                    <div class="text-12 text-danger" id="paid-date-feedback"></div>
+                                                    <?php if (!$isBaseCurrencyLKR): ?>
+                                                        <span class="text-12 sub-text mt-1" id="modal-rate-status">Rate loaded</span>
+                                                    <?php endif; ?>
+                                                </div>
+
+                                                <!-- ── Row 2: Discount | Penalty | Balance ── -->
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">
+                                                        Discount Given
+                                                        <span class="currency-label-badge" id="modal-discount-currency-label"><?= $currencyCode ?></span>
+                                                    </label>
+                                                    <input type="number" class="form-control custom-input mt-2" id="modal-discount-amount"
+                                                        value="<?= $coursepaymentData['discount_amount'] ?? 0 ?>"
+                                                        step="0.01" min="0"
+                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                    <div class="text-12 text-danger" id="modal-discount-feedback"></div>
+                                                    <span class="convert-hint" id="modal-discount-lkr-hint">≈ LKR <?= number_format(($coursepaymentData['discount_amount'] ?? 0) * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint d-none" id="modal-discount-base-hint">= <?= $currencyCode ?> 0.00</span>
+                                                </div>
+
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">
+                                                        Penalty Added
+                                                        <span class="currency-label-badge" id="modal-penalty-currency-label"><?= $currencyCode ?></span>
+                                                    </label>
+                                                    <input type="number" class="form-control custom-input mt-2" id="modal-penalty-amount"
+                                                        value="<?= $coursepaymentData['panelty_amount'] ?? 0 ?>"
+                                                        step="0.01" min="0"
+                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                    <div class="text-12 text-danger" id="modal-penalty-feedback"></div>
+                                                    <span class="convert-hint" id="modal-penalty-lkr-hint">≈ LKR <?= number_format(($coursepaymentData['panelty_amount'] ?? 0) * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint d-none" id="modal-penalty-base-hint">= <?= $currencyCode ?> 0.00</span>
+                                                </div>
+
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">
+                                                        Calculated Balance
+                                                        <span class="currency-label-badge" id="modal-balance-currency-label"><?= $currencyCode ?></span>
+                                                    </label>
+                                                    <input type="text" class="form-control custom-input mt-2"
+                                                        id="modal-balance-display" value="<?= number_format($balance, 2) ?>" disabled>
+                                                    <span class="convert-hint" id="modal-balance-lkr-hint">≈ LKR <?= number_format($balance * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint d-none" id="modal-balance-base-hint">= <?= $currencyCode ?> 0.00</span>
+                                                    <span class="convert-hint mt-1" id="modal-balance-tax-hint" style="color:#d97706;">
+                                                        Before tax: <?= $currencyCode ?> <?= number_format($balance, 2) ?>
+                                                    </span>
+                                                </div>
+
+                                                <!-- ── Row 3: Tax Rate | Paid Amount | Custom Rate ── -->
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">
+                                                        Tax Rate (%)
+                                                        <span class="currency-label-badge" style="background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.3);">
+                                                            Applied to Balance
+                                                        </span>
+                                                    </label>
+                                                    <div class="d-flex align-items-center gap-2 mt-2">
+                                                        <input type="number" class="form-control custom-input" id="modal-tax-rate"
+                                                            value="<?= $coursepaymentData['tax_rate'] ?? 0 ?>"
+                                                            step="0.01" min="0" max="100"
+                                                            <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                        <span class="text-14 main-text fw-medium">%</span>
+                                                    </div>
+                                                    <span class="convert-hint mt-1" id="modal-tax-amount-display">
+                                                        Tax: <?= $currencyCode ?> <?= number_format($coursepaymentData['tax_amount'] ?? 0, 2) ?>
+                                                    </span>
+                                                </div>
+
+                                                <div class="col-12 col-lg-4 d-flex flex-column">
+                                                    <label class="text-14 main-text">
+                                                        Paid Amount
+                                                        <span class="currency-label-badge" id="modal-paid-currency-label"><?= $currencyCode ?></span>
+                                                    </label>
+                                                    <input type="number" class="form-control custom-input mt-2" id="modal-paid-amount"
+                                                        value="<?= $coursepaymentData['paid_amount'] ?>"
+                                                        step="0.01" min="0"
+                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
+                                                    <div class="text-12 text-danger" id="paid-amount-feedback"></div>
+                                                    <span class="convert-hint" id="modal-paid-lkr-hint">≈ LKR <?= number_format($coursepaymentData['paid_amount'] * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint d-none" id="modal-paid-base-hint">= <?= $currencyCode ?> 0.00</span>
+                                                    <span class="convert-hint mt-1" id="modal-max-payable-hint" style="color:#d97706;">
+                                                        Max payable (with tax): <?= $currencyCode ?> 0.00
+                                                    </span>
+                                                </div>
+
+                                                <?php if (!$isBaseCurrencyLKR): ?>
+                                                    <div class="col-12 col-lg-4 d-flex flex-column">
+                                                        <label class="text-14 main-text d-flex align-items-center gap-2">
+                                                            Custom Exchange Rate
+                                                            <span class="currency-label-badge">1 <?= $currencyCode ?> = ? LKR</span>
+                                                        </label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="modal-custom-rate"
+                                                            value="<?= number_format($exchangeRateValue, 2, '.', '') ?>"
+                                                            step="0.0001" min="0.0001">
+                                                        <span class="text-12 sub-text mt-1">Override auto-fetched rate if needed</span>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="col-12 col-lg-4"></div>
+                                                <?php endif; ?>
+
+                                                <!-- ── Note ── -->
+                                                <div class="col-12 d-flex flex-column">
+                                                    <label class="text-14 main-text">Note</label>
+                                                    <textarea class="form-control custom-input mt-2" id="note" rows="4"></textarea>
+                                                    <span id="note-feedback" class="text-dark-red text-12"></span>
+                                                </div>
+
                                             </div>
                                         </div>
-                                        <div class="modal-footer">
+
+                                        <div class="modal-footer" style="border-top:1px solid var(--line-color);">
                                             <button type="button" class="col-12 col-md-4 custom-btn"
-                                                onclick="updatePaymentStatus(this,<?= $coursepaymentData['course_payment_has_payment_id'] ?>);">
-                                                Update
+                                                onclick="submitUpdatePaymentStatus(this, <?= $coursepaymentData['course_payment_has_payment_id'] ?>)">
+                                                Update Payment Status
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <?php
+
+                            if ($coursepaymentData['payment_status_payment_status_id'] == 3):
+                            ?>
+                                <div class="modal fade" id="receiptPreviewModal" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                                        <!-- ↑ removed modal-dialog-scrollable — scroll is inside the receipt -->
+                                        <div class="modal-content component-theme">
+
+                                            <div class="modal-header" style="border-bottom:1px solid var(--line-color);flex-shrink:0;">
+                                                <span class="text-16 main-text fw-semibold flex-grow-1">
+                                                    <iconify-icon icon="mdi:receipt-text-outline" width="18"
+                                                        style="vertical-align:-3px;margin-right:6px;"></iconify-icon>
+                                                    Payment Receipt
+                                                </span>
+                                                <div class="d-flex gap-2 me-3">
+                                                    <button class="table-btn table-btn-primary py-2 px-3" onclick="downloadReceipt()">
+                                                        <iconify-icon icon="mdi:download" width="14"
+                                                            style="vertical-align:-2px;margin-right:4px;"></iconify-icon>
+                                                        Download PDF
+                                                    </button>
+                                                    <!-- <button class="table-btn table-btn-success py-2 px-3" onclick="sendReceiptEmail()">
+                                                        <iconify-icon icon="mdi:email-send-outline" width="14"
+                                                            style="vertical-align:-2px;margin-right:4px;"></iconify-icon>
+                                                        Send Email
+                                                    </button> -->
+                                                </div>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+
+                                            <div class="modal-body p-0"
+                                                id="receipt-modal-body"
+                                                style="overflow:hidden;max-height:85vh;">
+                                                <!-- receipt rendered here by receipt_render.js -->
+                                                <div style="text-align:center;padding:60px 20px;">
+                                                    <div style="width:32px;height:32px;border:3px solid #e2e8f0;
+                         border-top-color:#1e3a5f;border-radius:50%;
+                         animation:rcptSpin .7s linear infinite;margin:0 auto 14px;"></div>
+                                                    <span style="font-size:12px;color:#94a3b8;">Loading receipt…</span>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
                             <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
@@ -1374,42 +1835,838 @@ if (!SessionUser::hasValidSession()) {
                             <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
 
                             <script>
-                                const exchangeRateValue = <?= (float)$exchangeRateValue ?>;
-                                const isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
+                                /* ── PHP-injected — use var to avoid TDZ / re-declaration errors ── */
+                                var modalExchangeRateValue = <?= (float)$exchangeRateValue ?>;
+                                var isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
+                                var currencyCode = "<?= $currencyCode ?>";
+                                var modalBaseBalance = <?= (float)$balance ?>;
+                                var baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
+                                var lkrCurrencyId = 1;
 
-                                // Live LKR conversion hint in the Update modal's paid amount field
-                                const modalPaidInput = document.getElementById('modal-paid-amount');
-                                const modalLkrHint = document.getElementById('modal-paid-lkr-hint');
-                                if (modalPaidInput && modalLkrHint && !isBaseCurrencyLKR) {
-                                    modalPaidInput.addEventListener('input', function() {
-                                        const v = parseFloat(this.value) || 0;
-                                        modalLkrHint.textContent = '≈ LKR ' + (v * exchangeRateValue).toLocaleString('en-US', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
+                                var modalExchangeRate = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
+                                var modalExchangeRateId = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
+                                var modalCurrentMode = 'base';
+
+                                var mGet = function(id) {
+                                    return document.getElementById(id);
+                                };
+
+                                /* ════════════════════════════════════════════════
+                                   CORE RECALCULATE
+                                ════════════════════════════════════════════════ */
+                                function modalRecalculate() {
+                                    var rate = modalExchangeRate || modalExchangeRateValue;
+                                    var toBase = function(v) {
+                                        return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
+                                    };
+
+                                    var rawDisc = parseFloat(mGet('modal-discount-amount') ? mGet('modal-discount-amount').value : 0) || 0;
+                                    var rawPen = parseFloat(mGet('modal-penalty-amount') ? mGet('modal-penalty-amount').value : 0) || 0;
+                                    var rawPaid = parseFloat(mGet('modal-paid-amount') ? mGet('modal-paid-amount').value : 0) || 0;
+                                    var taxRate = Math.max(0, parseFloat(mGet('modal-tax-rate') ? mGet('modal-tax-rate').value : 0) || 0);
+
+                                    var discBase = toBase(rawDisc);
+                                    var penBase = toBase(rawPen);
+                                    var paidBase = toBase(rawPaid);
+
+                                    var balBase = modalBaseBalance - discBase + penBase;
+                                    if (balBase < 0) balBase = 0;
+
+                                    var taxAmtBase = balBase * (taxRate / 100);
+                                    var balWithTax = balBase + taxAmtBase;
+
+                                    /* Balance display */
+                                    var balDisplay = mGet('modal-balance-display');
+                                    if (balDisplay) {
+                                        balDisplay.value = (isBaseCurrencyLKR || modalCurrentMode === 'base') ?
+                                            balWithTax.toFixed(2) :
+                                            (balWithTax * rate).toFixed(2);
+                                    }
+
+                                    /* Tax hints */
+                                    if (isBaseCurrencyLKR || !rate) {
+                                        setText('modal-tax-amount-display',
+                                            'Tax (' + taxRate + '%): ' + currencyCode + ' ' + fmt(taxAmtBase));
+                                        setText('modal-balance-tax-hint',
+                                            'Before tax: ' + currencyCode + ' ' + fmt(balBase));
+                                        setText('modal-max-payable-hint',
+                                            'Max payable (with tax): ' + fmt(balWithTax));
+                                    } else if (modalCurrentMode === 'lkr') {
+                                        setText('modal-tax-amount-display',
+                                            'Tax (' + taxRate + '%): LKR ' + fmt(taxAmtBase * rate) + ' (= ' + currencyCode + ' ' + fmt(taxAmtBase) + ')');
+                                        setText('modal-balance-tax-hint',
+                                            'Before tax: LKR ' + fmt(balBase * rate));
+                                        setText('modal-max-payable-hint',
+                                            'Max payable: LKR ' + fmt(balWithTax * rate));
+                                    } else {
+                                        setText('modal-tax-amount-display',
+                                            'Tax (' + taxRate + '%): ' + currencyCode + ' ' + fmt(taxAmtBase) + ' (≈ LKR ' + fmt(taxAmtBase * rate) + ')');
+                                        setText('modal-balance-tax-hint',
+                                            'Before tax: ' + currencyCode + ' ' + fmt(balBase));
+                                        setText('modal-max-payable-hint',
+                                            'Max payable: ' + currencyCode + ' ' + fmt(balWithTax));
+                                    }
+
+                                    /* Conversion hints */
+                                    if (!isBaseCurrencyLKR && rate) {
+                                        if (modalCurrentMode === 'lkr') {
+                                            setHint('modal-discount-base-hint', currencyCode, discBase, false);
+                                            setHint('modal-penalty-base-hint', currencyCode, penBase, false);
+                                            setHint('modal-balance-base-hint', currencyCode, balWithTax, false);
+                                            setHint('modal-paid-base-hint', currencyCode, paidBase, false);
+                                            setHint('modal-discount-lkr-hint', 'LKR', rawDisc);
+                                            setHint('modal-penalty-lkr-hint', 'LKR', rawPen);
+                                            setHint('modal-balance-lkr-hint', 'LKR', balWithTax * rate);
+                                            setHint('modal-paid-lkr-hint', 'LKR', rawPaid);
+                                        } else {
+                                            setHint('modal-discount-lkr-hint', 'LKR', rawDisc * rate);
+                                            setHint('modal-penalty-lkr-hint', 'LKR', rawPen * rate);
+                                            setHint('modal-balance-lkr-hint', 'LKR', balWithTax * rate);
+                                            setHint('modal-paid-lkr-hint', 'LKR', rawPaid * rate);
+                                        }
+
+                                        setText('modal-lkr-balance-val', 'LKR ' + fmt(balWithTax * rate));
+                                        setText('modal-lkr-balance-sub', currencyCode + ' ' + fmt(balWithTax));
+                                        setText('modal-lkr-discount-val', 'LKR ' + fmt(discBase * rate));
+                                        setText('modal-lkr-penalty-val', 'LKR ' + fmt(penBase * rate));
+                                    }
+                                }
+
+                                /* ════════════════════════════════════════════════
+                                   CURRENCY SWITCH
+                                ════════════════════════════════════════════════ */
+                                function modalSwitchCurrency(mode) {
+                                    if (isBaseCurrencyLKR) return;
+                                    modalCurrentMode = mode;
+
+                                    var btnBase = mGet('modal-btn-base-currency');
+                                    var btnLkr = mGet('modal-btn-lkr-currency');
+                                    if (btnBase) btnBase.classList.toggle('active', mode === 'base');
+                                    if (btnLkr) btnLkr.classList.toggle('active', mode === 'lkr');
+
+                                    var panel = mGet('modal-lkr-summary-panel');
+                                    if (panel) panel.style.display = mode === 'lkr' ? 'block' : 'none';
+
+                                    var label = mode === 'lkr' ? 'LKR' : currencyCode;
+                                    ['modal-discount-currency-label', 'modal-penalty-currency-label',
+                                        'modal-balance-currency-label', 'modal-paid-currency-label'
+                                    ].forEach(function(id) {
+                                        var el = mGet(id);
+                                        if (el) el.textContent = label;
+                                    });
+
+                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(function(el) {
+                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'lkr');
+                                    });
+                                    document.querySelectorAll('[id$="-base-hint"]').forEach(function(el) {
+                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'base');
+                                    });
+
+                                    var rate = modalExchangeRate || modalExchangeRateValue;
+                                    if (rate) {
+                                        ['modal-discount-amount', 'modal-penalty-amount', 'modal-paid-amount'].forEach(function(id) {
+                                            var el = mGet(id);
+                                            if (!el || el.disabled) return;
+                                            var v = parseFloat(el.value) || 0;
+                                            if (!v) return;
+                                            el.value = mode === 'lkr' ?
+                                                (v * rate).toFixed(2) :
+                                                (v / rate).toFixed(2);
                                         });
+                                    }
+
+                                    modalRecalculate();
+                                }
+
+                                /* ════════════════════════════════════════════════
+                                   PAID DATE CHANGE
+                                ════════════════════════════════════════════════ */
+                                function modalOnPaidDateChange() {
+                                    if (isBaseCurrencyLKR) return;
+                                    var dateEl = mGet('modal-paid-date');
+                                    if (!dateEl || !dateEl.value) return;
+
+                                    setModalRateStatus('loading', 'Fetching exchange rate for selected date…');
+
+                                    fetch('api/getExchangeRate.php?base=' + baseCurrencyId + '&target=' + lkrCurrencyId + '&date=' + dateEl.value)
+                                        .then(function(r) {
+                                            return r.json();
+                                        })
+                                        .then(function(data) {
+                                            if (data.rate) {
+                                                modalExchangeRate = parseFloat(data.rate);
+                                                modalExchangeRateId = data.currency_exchange_rate_id;
+
+                                                var cr = mGet('modal-custom-rate');
+                                                if (cr) cr.value = modalExchangeRate.toFixed(2);
+
+                                                setText('modal-live-rate-text',
+                                                    '1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2) + ' (' + data.effective_date + ')');
+                                                var panelRate = mGet('modal-panel-rate-display');
+                                                if (panelRate) panelRate.textContent = modalExchangeRate.toFixed(2);
+
+                                                setModalRateStatus('success',
+                                                    'Rate updated: 1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2));
+                                            } else {
+                                                setModalRateStatus('warning',
+                                                    'No rate found. Using last known (' + (modalExchangeRate || modalExchangeRateValue).toFixed(2) + ').');
+                                            }
+                                            modalRecalculate();
+                                        })
+                                        .catch(function() {
+                                            setModalRateStatus('error', 'Could not fetch rate.');
+                                            modalRecalculate();
+                                        });
+                                }
+
+                                /* ════════════════════════════════════════════════
+                                   CUSTOM RATE OVERRIDE
+                                ════════════════════════════════════════════════ */
+                                function modalOnCustomRateChange() {
+                                    var el = mGet('modal-custom-rate');
+                                    var val = el ? parseFloat(el.value) : NaN;
+                                    if (!isNaN(val) && val > 0) {
+                                        modalExchangeRate = val;
+                                        modalExchangeRateId = null;
+
+                                        var panelRate = mGet('modal-panel-rate-display');
+                                        if (panelRate) panelRate.textContent = val.toFixed(2);
+
+                                        setText('modal-live-rate-text',
+                                            '1 ' + currencyCode + ' = LKR ' + val.toFixed(2) + ' (custom)');
+                                        setModalRateStatus('info',
+                                            'Custom rate applied: 1 ' + currencyCode + ' = LKR ' + val.toFixed(2));
+
+                                        modalRecalculate();
+                                    }
+                                }
+
+                                /* ════════════════════════════════════════════════
+                                   SUBMIT — renamed to avoid conflict with functions.js
+                                ════════════════════════════════════════════════ */
+
+                                /* ════════════════════════════════════════════════
+                                   HELPERS
+                                ════════════════════════════════════════════════ */
+                                function setHint(id, label, value, isApprox) {
+                                    if (isApprox === undefined) isApprox = true;
+                                    var el = mGet(id);
+                                    if (el) el.textContent = (isApprox ? '≈ ' : '= ') + label + ' ' + fmt(value);
+                                }
+
+                                function setText(id, text) {
+                                    var el = mGet(id);
+                                    if (el) el.textContent = text;
+                                }
+
+                                function fmt(n) {
+                                    return parseFloat(n).toLocaleString('en-US', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
                                     });
                                 }
 
-                                // Progress bar animation
+                                function setModalRateStatus(type, msg) {
+                                    var el = mGet('modal-rate-status');
+                                    if (!el) return;
+                                    var cls = {
+                                        loading: 'sub-text',
+                                        success: 'text-dark-green',
+                                        warning: 'text-warning',
+                                        error: 'text-dark-red',
+                                        info: 'sub-text'
+                                    };
+                                    el.className = 'text-12 mt-1 ' + (cls[type] || 'sub-text');
+                                    el.textContent = msg;
+                                }
+
+                                /* ── Wire inputs on DOM ready ── */
                                 document.addEventListener('DOMContentLoaded', function() {
-                                    const progressBar = document.querySelector('.progress-bar');
-                                    if (progressBar) {
-                                        setTimeout(() => {
-                                            progressBar.style.width = '<?= $progress ?>%';
-                                        }, 300);
-                                    }
-                                    document.querySelectorAll('.timeline-bubble').forEach(bubble => {
+
+                                    /* Progress bar */
+                                    var progressBar = document.querySelector('.progress-bar');
+                                    if (progressBar) setTimeout(function() {
+                                        progressBar.style.width = '<?= $progress ?>%';
+                                    }, 300);
+
+                                    document.querySelectorAll('.timeline-bubble').forEach(function(bubble) {
                                         bubble.addEventListener('mouseenter', function() {
                                             this.style.transform = 'scale(1.15)';
                                         });
                                         bubble.addEventListener('mouseleave', function() {
-                                            if (!this.closest('.timeline-item').classList.contains('active')) {
+                                            if (!this.closest('.timeline-item').classList.contains('active'))
                                                 this.style.transform = 'scale(1)';
-                                            }
                                         });
+                                    });
+
+                                    ['modal-discount-amount', 'modal-penalty-amount', 'modal-paid-amount', 'modal-tax-rate'].forEach(function(id) {
+                                        var el = mGet(id);
+                                        if (el) el.addEventListener('input', modalRecalculate);
+                                    });
+
+                                    var paidDateEl = mGet('modal-paid-date');
+                                    var customRateEl = mGet('modal-custom-rate');
+                                    if (paidDateEl) paidDateEl.addEventListener('change', modalOnPaidDateChange);
+                                    if (customRateEl) customRateEl.addEventListener('input', modalOnCustomRateChange);
+
+                                    var modal = document.getElementById('updatePaymentStatus');
+                                    if (modal) modal.addEventListener('shown.bs.modal', function() {
+                                        modalRecalculate();
                                     });
                                 });
                             </script>
+                            <script>
+                                /* ═══════════════════════════════════════════════════════════════════════════
+   RECEIPT RENDERER  v2  —  receipt_render.js
+   Fixes:
+   • LKR payments always show LKR as primary (not GBP / course currency mismatch)
+   • Smaller, denser text matching a professional A4 receipt
+   • Modal body scroll fixed — no persistent scrollbar
+   • Footer: ENLIXO LMS 2026 © copyright
+   • Full payment summary always rendered
+   • Black-and-white print safe
+═══════════════════════════════════════════════════════════════════════════ */
+
+                                /* ── shared helpers ── */
+                                var mGet = function(id) {
+                                    return document.getElementById(id);
+                                };
+
+                                function fmt(n, dp) {
+                                    dp = (dp === undefined) ? 2 : dp;
+                                    return parseFloat(n || 0).toLocaleString('en-US', {
+                                        minimumFractionDigits: dp,
+                                        maximumFractionDigits: dp
+                                    });
+                                }
+
+                                function esc(s) {
+                                    return String(s || '')
+                                        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   OPEN MODAL
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                var currentReceiptId = null;
+
+                                function openReceiptModal(receiptId) {
+                                    currentReceiptId = receiptId;
+                                    var body = mGet('receipt-modal-body');
+
+                                    if (body) {
+                                        /* Remove scrollbar while loading */
+                                        body.style.overflow = 'hidden';
+                                        body.innerHTML =
+                                            '<div style="text-align:center;padding:80px 20px;">' +
+                                            '<div style="width:32px;height:32px;border:3px solid #e2e8f0;' +
+                                            'border-top-color:##F7F9FF;border-radius:50%;' +
+                                            'animation:rcptSpin .7s linear infinite;margin:0 auto 14px;"></div>' +
+                                            '<span style="font-size:12px;color:#94a3b8;">Loading receipt…</span>' +
+                                            '</div>' +
+                                            '<style>@keyframes rcptSpin{to{transform:rotate(360deg);}}</style>';
+                                    }
+
+                                    var modal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
+                                    modal.show();
+
+                                    fetch('api/getReceiptData.php?receipt_id=' + receiptId)
+                                        .then(function(r) {
+                                            return r.json();
+                                        })
+                                        .then(function(data) {
+                                            if (data.error) {
+                                                if (body) body.innerHTML =
+                                                    '<div style="text-align:center;padding:60px;color:#ef4444;font-size:12px;">' +
+                                                    esc(data.error) + '</div>';
+                                                return;
+                                            }
+                                            renderReceiptHTML(data);
+                                        })
+                                        .catch(function() {
+                                            if (body) body.innerHTML =
+                                                '<div style="text-align:center;padding:60px;color:#ef4444;font-size:12px;">' +
+                                                'Failed to load receipt. Please try again.</div>';
+                                        });
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   CURRENCY RESOLUTION
+                                   ─────────────────────────────────────────────────────────────────────────
+                                   The API returns:
+                                     data.course_currency        — the invoice / instalment currency (e.g. GBP)
+                                     p.paid_currency             — the currency the student actually paid in
+                                     p.paid_amount               — amount in paid_currency
+                                     p.paid_in_course            — paid_amount converted to course_currency
+                                     p.exchange_rate             — 1 course_currency = X paid_currency
+
+                                   Display rule:
+                                     • If paid_currency === course_currency  → show only that currency
+                                     • If paid_currency !== course_currency  → show paid_currency primary,
+                                                                               course_currency as sub-note
+                                     • Summary totals always use course_currency
+                                ════════════════════════════════════════════════════════════════════════════ */
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   MAIN RENDERER
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                function renderReceiptHTML(data) {
+                                    var body = mGet('receipt-modal-body');
+
+                                    /* ── Currency setup ──────────────────────────────────────────────────── */
+                                    var cc = (data.course_currency || 'LKR').trim(); // invoice currency
+                                    var isLKR = (cc === 'LKR');
+
+                                    /* ── Payment table rows ──────────────────────────────────────────────── */
+                                    var payRows = '';
+                                    (data.payments || []).forEach(function(p, idx) {
+
+                                        /* Determine the currency the student paid in */
+                                        var paidCurr = (p.paid_currency || cc).trim();
+                                        var isForeign = (paidCurr !== cc); // paid in a different currency than invoice
+                                        var exRate = parseFloat(p.exchange_rate || 0);
+
+                                        /*
+                                         * PAID column
+                                         * Primary  : always show what the student actually handed over (paid_currency + paid_amount)
+                                         * Sub-note : if foreign, also show the course-currency equivalent
+                                         */
+                                        var paidMain, paidSub = '';
+                                        if (isForeign && exRate > 0) {
+                                            paidMain = paidCurr + ' ' + fmt(p.paid_amount);
+                                            paidSub = subLine('= ' + cc + ' ' + fmt(p.paid_in_course) +
+                                                ' &nbsp;(@ 1 ' + cc + ' = ' + paidCurr + ' ' + fmt(exRate) + ')');
+                                        } else {
+                                            /* Same currency — just show paid_in_course (already in cc) */
+                                            paidMain = cc + ' ' + fmt(p.paid_in_course);
+                                        }
+
+                                        /*
+                                         * TAX column  — tax_amount is stored in paid_currency;
+                                         *               tax_course is the course-currency equivalent (from PHP)
+                                         */
+                                        var taxRateDisp = parseFloat(p.tax_rate || 0) > 0 ? fmt(p.tax_rate) + '%' : dash();
+                                        var taxMain = dash();
+                                        var taxSub = '';
+                                        if (parseFloat(p.tax_course || p.tax_amount || 0) > 0) {
+                                            taxMain = cc + ' ' + fmt(p.tax_course || p.tax_amount);
+                                            if (isForeign && parseFloat(p.tax_amount || 0) > 0) {
+                                                taxSub = subLine(paidCurr + ' ' + fmt(p.tax_amount));
+                                            }
+                                        }
+
+                                        /* DISCOUNT & PENALTY — stored / returned in course currency */
+                                        var discMain = parseFloat(p.discount_amount || 0) > 0 ?
+                                            cc + ' ' + fmt(p.discount_amount) : dash();
+                                        var penMain = parseFloat(p.penalty_course || 0) > 0 ?
+                                            cc + ' ' + fmt(p.penalty_course) : dash();
+
+                                        var bg = (idx % 2 === 0) ? '#ffffff' : '#f8fafc';
+
+                                        payRows +=
+                                            '<tr style="background:' + bg + ';">' +
+                                            tdN(idx + 1) +
+                                            tdB(esc(p.reference || '—')) +
+                                            td(esc(p.payment_type || '—')) +
+                                            td(p.date_paid ? p.date_paid.substring(0, 10) : '—', 'white-space:nowrap;') +
+                                            td(esc(p.payment_method || '—')) +
+                                            tdR(cc + ' ' + fmt(p.cp_amount)) +
+                                            tdR(discMain) +
+                                            tdR(penMain) +
+                                            tdC(taxRateDisp) +
+                                            tdR(taxMain + taxSub) +
+                                            tdRB(paidMain + paidSub) +
+                                            '</tr>';
+                                    });
+
+                                    /* ── Summary totals (always in course currency cc) ───────────────────── */
+                                    var balanceDue = Math.max(0,
+                                        (data.grand_total_amount || 0) -
+                                        (data.grand_total_discount || 0) +
+                                        (data.grand_total_penalty || 0) +
+                                        (data.grand_total_tax || 0) -
+                                        (data.grand_total_paid || 0)
+                                    );
+
+                                    var summaryRows = [
+                                        ['Course Amount', cc + ' ' + fmt(data.grand_total_amount)],
+                                        ['Total Discount', cc + ' ' + fmt(data.grand_total_discount)],
+                                        ['Total Penalty', cc + ' ' + fmt(data.grand_total_penalty)],
+                                        ['Total Tax', cc + ' ' + fmt(data.grand_total_tax)],
+                                    ];
+
+                                    var summaryHTML = summaryRows.map(function(row) {
+                                        return '<tr>' +
+                                            '<td style="' + STYL.sumLabel + '">' + row[0] + '</td>' +
+                                            '<td style="' + STYL.sumVal + '">' + row[1] + '</td>' +
+                                            '</tr>';
+                                    }).join('');
+
+                                    var balanceRow = balanceDue > 0.005 ?
+                                        '<tr style="background:#fef2f2;">' +
+                                        '<td style="' + STYL.sumLabel + 'color:#dc2626;">Balance Due</td>' +
+                                        '<td style="' + STYL.sumVal + 'color:#dc2626;font-weight:700;">' +
+                                        cc + ' ' + fmt(balanceDue) + '</td></tr>' :
+                                        '<tr style="background:#f0fdf4;">' +
+                                        '<td style="' + STYL.sumLabel + 'color:#16a34a;">Status</td>' +
+                                        '<td style="' + STYL.sumVal + 'color:#16a34a;font-weight:700;">FULLY PAID</td></tr>';
+
+                                    /* ── Exchange rate note (only when foreign-currency receipts exist) ──── */
+                                    var exRateNote = buildExchangeNote(data, cc);
+
+                                    /* ── Dates ───────────────────────────────────────────────────────────── */
+                                    var recDate = data.date_added ? data.date_added.substring(0, 10) : '';
+
+                                    /* ════════════════════════════════════════════════════════════════════════
+                                       BUILD HTML
+                                    ════════════════════════════════════════════════════════════════════════ */
+                                    var html =
+                                        /* ── Scoped print styles ── */
+                                        '<style>' +
+                                        '@keyframes rcptSpin{to{transform:rotate(360deg);}}' +
+                                        '@media print{' +
+                                        ' body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+                                        ' @page{size:A4 portrait;margin:8mm 10mm;}' +
+                                        ' .rcpt-no-print{display:none!important;}' +
+                                        '}' +
+                                        '#receipt-print-area table{page-break-inside:auto;}' +
+                                        '#receipt-print-area tr{page-break-inside:avoid;}' +
+                                        /* Fix modal scrollbar — only scroll the inner receipt wrapper */
+                                        '#receipt-modal-body{overflow:hidden!important;}' +
+                                        '#receipt-scroll-wrap{overflow-y:auto;overflow-x:hidden;' +
+                                        ' max-height:calc(90vh - 120px);scrollbar-width:thin;' +
+                                        ' scrollbar-color:#d1d5db #f9fafb;}' +
+                                        '#receipt-scroll-wrap::-webkit-scrollbar{width:5px;}' +
+                                        '#receipt-scroll-wrap::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px;}' +
+                                        '#receipt-scroll-wrap::-webkit-scrollbar-track{background:#f9fafb;}' +
+                                        '</style>' +
+
+                                        /* ── Outer scroll wrapper ── */
+                                        '<div id="receipt-scroll-wrap">' +
+
+                                        /* ── Print area (A4-proportioned, small dense text) ── */
+                                        '<div id="receipt-print-area" style="' +
+                                        'font-family:\'Segoe UI\',system-ui,-apple-system,sans-serif;' +
+                                        'font-size:11px;line-height:1.5;color:#111827;background:#fff;' +
+                                        'max-width:880px;margin:0 auto;padding:28px 32px;">' +
+
+                                        /* ════ HEADER ════ */
+                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
+                                        '<tr>' +
+                                        '<td style="vertical-align:top;width:58%;">' +
+                                        '<div style="display:flex-column;align-items:center;gap:12px;">' +
+                                        '<img src="./assets/imgs/common/logo.png" alt="" style="height:44px;width:auto;" onerror="this.style.display=\'none\'">' +
+                                        '<div>' +
+                                        (data.branch_address ? '<div style="font-size:10px;color:#6b7280;margin-top:1px;">' + esc(data.branch_address) + '</div>' : '') +
+                                        (data.branch_phone ? '<div style="font-size:10px;color:#6b7280;">Tel: ' + esc(data.branch_phone) + '</div>' : '') +
+                                        (data.branch_email ? '<div style="font-size:10px;color:#6b7280;">' + esc(data.branch_email) + '</div>' : '') +
+                                        '</div></div>' +
+                                        '</td>' +
+                                        '<td style="vertical-align:top;text-align:right;">' +
+                                        '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px;">OFFICIAL PAYMENT RECEIPT</div>' +
+                                        '<div style="font-size:20px;font-weight:800;color:#111827;letter-spacing:-.4px;">' + esc(data.receipt_number || '') + '</div>' +
+                                        '<div style="font-size:10px;color:#6b7280;margin-top:2px;">Date: ' + recDate + '</div>' +
+                                        '<div style="margin-top:6px;">' +
+                                        '<span style="display:inline-block;background:#d1fae5;color:#065f46;' +
+                                        'padding:2px 12px;border-radius:20px;font-size:9px;font-weight:700;' +
+                                        'letter-spacing:.06em;border:1px solid #6ee7b7;">&#10003; APPROVED</span>' +
+                                        '</div>' +
+                                        '</td>' +
+                                        '</tr>' +
+                                        '</table>' +
+
+                                        /* Divider */
+                                        '<div style="height:2px;background:##F7F9FF;margin-bottom:18px;border-radius:1px;"></div>' +
+
+                                        /* ════ BILL TO + PROGRAMME ════ */
+                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
+                                        '<tr>' +
+                                        '<td style="width:50%;vertical-align:top;padding-right:10px;">' +
+                                        boxOpen() +
+                                        label('Bill To') +
+                                        '<div style="font-size:13px;font-weight:700;color:#111827;">' +
+                                        esc((data.student_title || '') + '. ' + (data.first_name || '') + ' ' + (data.last_name || '')) +
+                                        '</div>' +
+                                        '<div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.8;">' +
+                                        'ID: ' + esc(data.student_reg_id || '') + '<br>' +
+                                        esc(data.email || '') + '<br>' + esc(data.mobile || '') +
+                                        '</div>' +
+                                        boxClose() +
+                                        '</td>' +
+                                        '<td style="width:50%;vertical-align:top;padding-left:10px;">' +
+                                        boxOpen() +
+                                        label('Programme Details') +
+                                        '<div style="font-size:11px;font-weight:600;color:#111827;">' + esc(data.faculty || '') + '</div>' +
+                                        '<div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.8;">' +
+                                        esc(data.programme || '') + '<br>' + esc(data.intake || '') +
+                                        '</div>' +
+                                        '<div style="font-size:9px;color:#9ca3af;margin-top:6px;padding-top:6px;border-top:1px solid #f3f4f6;">' +
+                                        'Processed by: ' + esc((data.user_title || '') + '. ' + (data.user_fname || '') + ' ' + (data.user_lname || '')) +
+                                        '</div>' +
+                                        boxClose() +
+                                        '</td>' +
+                                        '</tr>' +
+                                        '</table>' +
+
+                                        /* ════ PAYMENT TABLE ════ */
+                                        label('Payment Records') +
+                                        '<div style="border:1px solid #e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:18px;">' +
+                                        '<div style="overflow-x:auto;">' +
+                                        '<table style="width:100%;border-collapse:collapse;min-width:640px;">' +
+                                        '<thead>' +
+                                        '<tr style="background:#1e3a5f;">' +
+                                        thH('#') + thH('Reference') + thH('Type') + thH('Date') + thH('Method') +
+                                        thHR('Invoice Amt') + thHR('Discount') + thHR('Penalty') +
+                                        thHC('Tax %') + thHR('Tax Amt') + thHRB('Paid') +
+                                        '</tr>' +
+                                        '</thead>' +
+                                        '<tbody>' + (payRows || noDataRow()) + '</tbody>' +
+                                        '</table>' +
+                                        '</div>' +
+                                        '</div>' +
+
+                                        /* ════ SUMMARY + EXCHANGE NOTES ════ */
+                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
+                                        '<tr>' +
+
+                                        /* Left — exchange rate notes (or empty if none) */
+                                        '<td style="width:50%;vertical-align:top;padding-right:16px;">' +
+                                        (exRateNote || '<div style="font-size:9px;color:#9ca3af;line-height:1.7;margin-top:4px;">' +
+                                            'Payments made will not be refundable or transferable under any circumstances.<br>' +
+                                            'This receipt is valid subject to realisation of cheque.<br>' +
+                                            'Taxes or bank charges may be applied where required.' +
+                                            '</div>') +
+                                        '</td>' +
+
+                                        /* Right — totals panel */
+                                        '<td style="vertical-align:top;">' +
+                                        '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:3px;overflow:hidden;">' +
+                                        summaryHTML +
+                                        '<tr style="background:#1e3a5f;">' +
+                                        '<td style="padding:8px 14px;font-size:11px;font-weight:700;color:#fff;">TOTAL PAID</td>' +
+                                        '<td style="padding:8px 14px;font-size:12px;font-weight:800;color:#fff;text-align:right;">' +
+                                        cc + ' ' + fmt(data.grand_total_paid) +
+                                        '</td>' +
+                                        '</tr>' +
+                                        balanceRow +
+                                        '</table>' +
+                                        '</td>' +
+
+                                        '</tr>' +
+                                        '</table>' +
+
+                                        /* ════ FOOTER ════ */
+                                        '<div style="border-top:1px dashed #d1d5db;padding-top:10px;' +
+                                        'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                                        '<div style="font-size:9px;color:#9ca3af;">' +
+                                        'This is a computer-generated receipt and does not require a physical signature.' +
+                                        '</div>' +
+                                        '<div style="font-size:9px;color:#6b7280;text-align:right;">' +
+                                        'Receipt No: <strong style="color:#374151;">' + esc(data.receipt_number || '') + '</strong>' +
+                                        '&nbsp; | &nbsp;Generated: ' + recDate +
+                                        '</div>' +
+                                        '</div>' +
+
+                                        /* ════ SYSTEM FOOTER ════ */
+                                        '<div style="text-align:center;margin-top:14px;padding-top:10px;' +
+                                        'border-top:1px solid #f3f4f6;">' +
+                                        '<span style="font-size:9px;color:#c4c9d4;letter-spacing:.04em;">' +
+                                        'ENLIXO LMS 2026 &copy; — All rights reserved' +
+                                        '</span>' +
+                                        '</div>' +
+
+                                        '</div>' + /* /receipt-print-area */
+                                        '</div>'; /* /receipt-scroll-wrap */
+
+                                    if (body) {
+                                        body.style.overflow = 'hidden'; /* parent stays hidden — scroll handled inside */
+                                        body.innerHTML = html;
+                                    }
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   EXCHANGE RATE NOTE BLOCK
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                function buildExchangeNote(data, cc) {
+                                    if (!data.payments || !data.payments.length) return '';
+                                    var lines = [];
+                                    var seen = {};
+                                    data.payments.forEach(function(p) {
+                                        var pc = (p.paid_currency || cc).trim();
+                                        if (pc !== cc && p.exchange_rate && !seen[pc]) {
+                                            seen[pc] = true;
+                                            lines.push('1 ' + cc + ' = ' + pc + ' ' + fmt(p.exchange_rate) +
+                                                (p.date_paid ? ' (' + p.date_paid.substring(0, 10) + ')' : ''));
+                                        }
+                                    });
+                                    if (!lines.length) return '';
+                                    return '<div style="border:1px solid #e5e7eb;border-radius:3px;padding:10px 12px;font-size:10px;color:#6b7280;line-height:2;">' +
+                                        '<div style="font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Exchange Rates Used</div>' +
+                                        lines.map(function(l) {
+                                            return '&#8226; ' + l;
+                                        }).join('<br>') +
+                                        '</div>' +
+                                        '<div style="font-size:9px;color:#9ca3af;line-height:1.7;margin-top:8px;">' +
+                                        'Payments made will not be refundable or transferable under any circumstances.<br>' +
+                                        'This receipt is valid subject to realisation of cheque.' +
+                                        '</div>';
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   MINI STYLE CONSTANTS
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                var STYL = {
+                                    sumLabel: 'padding:6px 12px;font-size:10px;color:#374151;border-bottom:1px solid #e5e7eb;',
+                                    sumVal: 'padding:6px 12px;font-size:10px;color:#111827;font-weight:500;text-align:right;border-bottom:1px solid #e5e7eb;'
+                                };
+
+                                /* ── reusable fragment helpers ── */
+                                function boxOpen() {
+                                    return '<div style="border:1px solid #e5e7eb;border-radius:3px;padding:12px 14px;">';
+                                }
+
+                                function boxClose() {
+                                    return '</div>';
+                                }
+
+                                function label(t) {
+                                    return '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;' +
+                                        'letter-spacing:.1em;margin-bottom:7px;">' + t + '</div>';
+                                }
+
+                                function subLine(t) {
+                                    return '<div style="font-size:9px;color:#6b7280;margin-top:2px;">' + t + '</div>';
+                                }
+
+                                function dash() {
+                                    return '<span style="color:#d1d5db;">—</span>';
+                                }
+
+                                /* ── table cell helpers ── */
+                                var C = 'padding:7px 8px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
+
+                                function td(c, ex) {
+                                    return '<td style="' + C + (ex || '') + '">' + c + '</td>';
+                                }
+
+                                function tdN(c) {
+                                    return '<td style="' + C + 'color:#9ca3af;width:24px;">' + c + '</td>';
+                                }
+
+                                function tdB(c) {
+                                    return '<td style="' + C + 'font-weight:600;color:#111827;">' + c + '</td>';
+                                }
+
+                                function tdR(c) {
+                                    return '<td style="' + C + 'text-align:right;">' + c + '</td>';
+                                }
+
+                                function tdRB(c) {
+                                    return '<td style="' + C + 'text-align:right;font-weight:700;color:#111827;">' + c + '</td>';
+                                }
+
+                                function tdC(c) {
+                                    return '<td style="' + C + 'text-align:center;">' + c + '</td>';
+                                }
+
+                                var TH = 'padding:7px 8px;font-size:9px;font-weight:600;color:rgba(255,255,255,.9);letter-spacing:.04em;';
+
+                                function thH(l) {
+                                    return '<th style="' + TH + 'text-align:left;">' + l + '</th>';
+                                }
+
+                                function thHR(l) {
+                                    return '<th style="' + TH + 'text-align:right;">' + l + '</th>';
+                                }
+
+                                function thHRB(l) {
+                                    return '<th style="' + TH + 'text-align:right;color:#fff;">' + l + '</th>';
+                                }
+
+                                function thHC(l) {
+                                    return '<th style="' + TH + 'text-align:center;">' + l + '</th>';
+                                }
+
+                                function noDataRow() {
+                                    return '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   DOWNLOAD PDF  (print-to-PDF via new window)
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                function downloadReceipt() {
+                                    var printArea = mGet('receipt-print-area');
+                                    if (!printArea) return;
+
+                                    var win = window.open('', '_blank');
+                                    win.document.write(
+                                        '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payment Receipt</title>' +
+                                        '<style>' +
+                                        '*{box-sizing:border-box;margin:0;padding:0;}' +
+                                        'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11px;background:#fff;color:#111827;}' +
+                                        '@media print{' +
+                                        ' body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+                                        ' @page{size:A4 portrait;margin:8mm 10mm;}' +
+                                        '}' +
+                                        '</style></head><body>' +
+                                        printArea.outerHTML +
+                                        '<script>window.onload=function(){setTimeout(function(){window.print();},400);' +
+                                        'window.onafterprint=function(){window.close();};};<\/script>' +
+                                        '</body></html>'
+                                    );
+                                    win.document.close();
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════════
+                                   SEND EMAIL  → ajax/sendReceiptEmail.php
+                                ════════════════════════════════════════════════════════════════════════════ */
+                                function sendReceiptEmail() {
+                                    if (!currentReceiptId) return;
+
+                                    var btn = document.querySelector('#receiptPreviewModal .table-btn-success');
+                                    var origHtml = btn ? btn.innerHTML : '';
+
+                                    if (btn) {
+                                        btn.disabled = true;
+                                        btn.innerHTML =
+                                            '<iconify-icon icon="mdi:loading" width="13" ' +
+                                            'style="vertical-align:-2px;margin-right:4px;' +
+                                            'animation:rcptSpin .7s linear infinite;display:inline-block;"></iconify-icon>' +
+                                            'Sending…';
+                                    }
+
+                                    fetch('api/sendReceiptEmail.php', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                receipt_id: currentReceiptId
+                                            })
+                                        })
+                                        .then(function(r) {
+                                            return r.json();
+                                        })
+                                        .then(function(res) {
+                                            if (btn) {
+                                                btn.disabled = false;
+                                                btn.innerHTML = origHtml;
+                                            }
+                                            if (res.done) showToast('success', res.done);
+                                            else showToast('error', res.error || 'Failed to send email.');
+                                        })
+                                        .catch(function() {
+                                            if (btn) {
+                                                btn.disabled = false;
+                                                btn.innerHTML = origHtml;
+                                            }
+                                            showToast('error', 'Network error — could not send email.');
+                                        });
+                                }
+                            </script>
+
+
                         </body>
 
                         </html>

@@ -42,7 +42,7 @@ class SlipVerifier
             $normalizedAmount = $this->normalizeAmount($amount);
 
             $referenceFound = str_contains($normalizedText, $referenceNumber);
-            $accountFound = str_contains($normalizedText, $accountNumber);
+            $accountFound = $accountNumber == null ? false : str_contains($normalizedText, $accountNumber);
 
             $details = $this->extractTransactionDetails($normalizedText);
             $amountFound = str_contains($normalizedAmount, $amount);
@@ -72,12 +72,12 @@ class SlipVerifier
     public function extractSlipDetails(string $fileUrl): array
     {
         try {
-    
+
             if (
                 empty($this->googleKeyPath) ||
                 !file_exists($this->googleKeyPath)
             ) {
-    
+
                 return [
                     'success' => false,
                     'paid_date' => null,
@@ -88,21 +88,21 @@ class SlipVerifier
                     'error' => 'Google Vision credentials not configured'
                 ];
             }
-    
+
             $fileType = $this->checkFileType($fileUrl);
-    
+
             if ($fileType === 'unsupported') {
                 throw new Exception("Unsupported file type");
             }
-    
+
             $text = $fileType === 'pdf'
                 ? $this->getPdfText($fileUrl)
                 : $this->getImageText($fileUrl);
-    
+
             $normalizedText = $this->normalizeText($text);
-    
+
             $details = $this->extractTransactionDetails($normalizedText);
-    
+
             return [
                 'verified' => true,
                 'paid_date' => $details['date'] ?? null,
@@ -111,9 +111,8 @@ class SlipVerifier
                 'bank_account' => $details['account'] ?? null,
                 'ocr_text' => $normalizedText
             ];
-    
         } catch (\Throwable $e) {
-    
+
             return [
                 'verified' => false,
                 'paid_date' => null,

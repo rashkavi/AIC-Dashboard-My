@@ -387,20 +387,20 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <?php
                                                                                         }
                                                                                         if ($displayStatusId == 12) {
-                                                                                            ?>
-                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                                <li>
-                                                                                                    <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                        onclick="openRegistrationVerificationModal(<?= $data['sId']; ?>)">
-                                                                                                        <iconify-icon icon="solar:verified-check-bold"
-                                                                                                            width="20"
-                                                                                                            height="20"
-                                                                                                            class="sub-text me-3"></iconify-icon>
-                                                                                                        Confirm Academic Completion
-                                                                                                    </a>
-                                                                                                </li>
-                                                                                            <?php
-                                                                                            }
+                                                                                        ?>
+                                                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                            <li>
+                                                                                                <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
+                                                                                                    onclick="openRegistrationVerificationModal(<?= $data['sId']; ?>)">
+                                                                                                    <iconify-icon icon="solar:verified-check-bold"
+                                                                                                        width="20"
+                                                                                                        height="20"
+                                                                                                        class="sub-text me-3"></iconify-icon>
+                                                                                                    Confirm Academic Completion
+                                                                                                </a>
+                                                                                            </li>
+                                                                                        <?php
+                                                                                        }
 
                                                                                         if ($displayStatusId == 11 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole))) {
                                                                                         ?>

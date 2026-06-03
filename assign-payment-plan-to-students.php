@@ -102,7 +102,7 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
 
                                             <?php
-                                         
+
                                             if ($paymentPlan->num_rows == 0) {
                                             ?>
                                                 <div class="col-12 px-4 py-3 component-theme">
@@ -235,7 +235,6 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             </div>
                                                             <!-- End Collapsible Details Area -->
-
                                                         </div>
                                                     </div>
                                                 </div>

@@ -695,12 +695,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                 }
 
                                                                                 if (file_exists("./assets/uploads/payment-slips/" . $paymentSlip['slip_name']) == true) {
-                                                                                    $fileUrl = Project::getBasePortalUrl() . "/file-viewer?file=" . $paymentSlip['slip_name'] . "&intake-id=" . $paymentData['intake_id'];
+                                                                                    $fileUrl = Project::getBaseUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
                                                                                 } else {
-                                                                                    $fileUrl = Project::getBasePortalUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['slip_name'];
+                                                                                    $fileUrl = Project::getBasePortalUrl() . "/file-viewer?file=" . $paymentSlip['slip_name'] . "&intake-id=" . $paymentData['intake_id'];
                                                                                 }
 
-                                                                                $fileData = $slipVerifier->verifySlip($paymentData['refference'], $bankAccNo, $fileUrl);
+                                                                                $fileData = $slipVerifier->verifySlip($paymentData['refference'], $bankAccNo, $coursepaymentData['paid_amount'], $fileUrl);
                                                                                 if ($fileType != 'unsupported') {
                                                                             ?>
                                                                                     <div class="accordion-item mt-4">

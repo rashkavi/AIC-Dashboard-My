@@ -117,6 +117,15 @@ class SessionUser
         return $userRole === "Counselor";
     }
 
+    public static function hasPermissionManageInquiry(?string $userRole): bool
+    {
+        return in_array(
+            $userRole,
+            ["Head of Admission", "Academic Admin", "Counselor"],
+            true
+        );
+    }
+
     public static function getCurrentUserObject(): mixed
     {
         self::ensureSessionStarted();

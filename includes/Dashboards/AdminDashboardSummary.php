@@ -36,35 +36,34 @@ class AdminDashboardSummary
 
     private static function buildChangeMeta($current, $previous, $period = 'vs last month')
     {
-        $current = (float)$current;
+        $current  = (float)$current;
         $previous = (float)$previous;
 
-        if ($previous == 0 && $current == 0) {
+        if ($current == 0 && $previous == 0) {
             return [
-                'change' => '0%',
+                'change'      => '0%',
                 'change_type' => 'neutral',
-                'period' => $period
+                'period'      => $period
             ];
         }
 
-        if ($previous == 0 && $current > 0) {
+        if ($previous == 0) {
             return [
-                'change' => 'New',
+                'change'      => 'New',
                 'change_type' => 'positive',
-                'period' => $period
+                'period'      => $period
             ];
         }
 
-        $percent = (($current - $previous) / $previous) * 100;
+        $percent = (($current - $previous) / $previous) * 100;  // safe — $previous != 0 here
         $rounded = round($percent, 1);
 
         return [
-            'change' => ($rounded > 0 ? '+' : '') . $rounded . '%',
+            'change'      => ($rounded > 0 ? '+' : '') . $rounded . '%',
             'change_type' => $rounded > 0 ? 'positive' : ($rounded < 0 ? 'negative' : 'neutral'),
-            'period' => $period
+            'period'      => $period
         ];
     }
-
     public static function getDashboardSummary()
     {
         $cardData = self::fetchRow("
@@ -264,7 +263,7 @@ class AdminDashboardSummary
                 ) pp
                     ON pp.course_payments_course_payments_id = cp.course_payments_id
 
-                WHERE ppsi.payment_category_payment_category_id = 1
+                WHERE ppsi.payment_category_payment_category_id = 5
 
                 GROUP BY
                     cp.course_payments_id,
@@ -337,7 +336,7 @@ class AdminDashboardSummary
             INNER JOIN payment_plan_has_students_has_intakes ppsi
                 ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
             WHERE cpp.payment_status_payment_status_id IN (2,3,5,6,8)
-              AND payment_category_payment_category_id = 1
+              AND payment_category_payment_category_id = 5
               AND cpp.date_paid IS NOT NULL
               AND cpp.date_paid >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 4 MONTH), '%Y-%m-01')
             GROUP BY DATE_FORMAT(cpp.date_paid, '%Y-%m')
@@ -353,7 +352,7 @@ class AdminDashboardSummary
             INNER JOIN payment_plan_has_students_has_intakes ppsi
                 ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
             WHERE cpp.payment_status_payment_status_id IN (2,5)
-              AND payment_category_payment_category_id = 1
+              AND payment_category_payment_category_id = 5
               AND cpp.date_paid IS NOT NULL
               AND cpp.date_paid >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 4 MONTH), '%Y-%m-01')
             GROUP BY DATE_FORMAT(cpp.date_paid, '%Y-%m')
@@ -369,7 +368,7 @@ class AdminDashboardSummary
             INNER JOIN payment_plan_has_students_has_intakes ppsi
                 ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
             WHERE cpp.payment_status_payment_status_id IN (4,7)
-              AND payment_category_payment_category_id = 1
+              AND payment_category_payment_category_id = 5
               AND cpp.date_paid IS NOT NULL
               AND cpp.date_paid >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 4 MONTH), '%Y-%m-01')
             GROUP BY DATE_FORMAT(cpp.date_paid, '%Y-%m')
@@ -563,7 +562,7 @@ class AdminDashboardSummary
                 'period' => 'Total',
                 'chart' => []
             ],
-            
+
             [
                 'title' => 'Subjects',
                 'value' => number_format((int)$cardData['subject_count']),

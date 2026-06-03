@@ -21,6 +21,20 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $programmeData = $programme->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+                $query = "
+                                            SELECT 
+                                                i.*, 
+                                                COUNT(s.intakes_intake_id) AS active_students
+                                            FROM intakes i
+                                            LEFT JOIN students_has_intakes s 
+                                                ON s.intakes_intake_id = i.intake_id
+                                                AND s.status_status_id = '1'
+                                            WHERE i.programmes_programme_id = '" . $id . "'
+                                            GROUP BY i.intake_id
+                                        ";
+
+                $intakes = Database::search($query);
 ?>
                 <!DOCTYPE html>
                 <html lang="en">
@@ -90,14 +104,33 @@ if (!SessionUser::hasValidSession()) {
                                                                         <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme"></iconify-icon>
                                                                     </button>
                                                                 </div>
-                                                            <?php
+                                                                <?php
                                                             }
                                                             if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
-                                                            ?>
-                                                                <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                    <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
-                                                                </div>
+                                                                if ($intakes->num_rows > 0) {
+                                                                ?>
+                                                                    <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                        <!-- <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal" data-i18n="add-new">Add New</button> -->
+                                                                        <div class="dropdown w-100">
+                                                                            <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
+                                                                                Action
+                                                                            </button>
+                                                                            <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
+                                                                                <li><a class="dropdown-item" data-bs-target="#addIntake" data-bs-toggle="modal">Add New Intake</a></li>
+                                                                                <li><a class="dropdown-item" data-bs-target="#duplicateIntake" data-bs-toggle="modal">Duplicate Intake</a></li>
+                                                                            </ul>
+                                                                        </div>
+                                                                    </div>
+                                                                <?php
+                                                                } else {
+                                                                ?>
+                                                                    <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                        <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal">
+                                                                            Add New Intake
+                                                                        </button>
+                                                                    </div>
                                                             <?php
+                                                                }
                                                             }
                                                             ?>
                                                         </div>
@@ -106,19 +139,7 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
 
                                             <?php
-                                            $query = "
-                                            SELECT 
-                                                i.*, 
-                                                COUNT(s.intakes_intake_id) AS active_students
-                                            FROM intakes i
-                                            LEFT JOIN students_has_intakes s 
-                                                ON s.intakes_intake_id = i.intake_id
-                                                AND s.status_status_id = '1'
-                                            WHERE i.programmes_programme_id = '" . $id . "'
-                                            GROUP BY i.intake_id
-                                        ";
 
-                                            $intakes = Database::search($query);
                                             if ($intakes->num_rows > 0) {
                                                 while ($intake = $intakes->fetch_assoc()) {
                                             ?>
@@ -176,46 +197,6 @@ if (!SessionUser::hasValidSession()) {
                                             <?php
                                             }
                                             ?>
-                                            <style>
-                                                .context-menu {
-                                                    position: absolute;
-                                                    background: var(--body-color);
-                                                    border: 1px solid #ddd;
-                                                    z-index: 10000;
-                                                    width: 150px;
-                                                    box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
-                                                }
-
-                                                .context-menu ul {
-                                                    list-style: none;
-                                                    margin: 0;
-                                                    padding: 5px 0;
-                                                }
-
-                                                .context-menu li {
-                                                    padding: 8px 12px;
-                                                    cursor: pointer;
-                                                }
-
-                                                .context-menu li:hover {
-                                                    background: #f1f1f1;
-                                                }
-
-                                                .context-menu li.divider {
-                                                    height: 1px;
-                                                    margin: 6px 0;
-                                                    padding: 0;
-                                                    pointer-events: none;
-                                                }
-                                            </style>
-                                            <div id="custom-context-menu" class="context-menu d-none">
-                                                <ul>
-                                                    <li id="move-up">Move Up</li>
-                                                    <li id="move-down">Move Down</li>
-                                                    <li class="divider"></li>
-                                                    <li id="duplicate-intake">Duplicate Intake</li>
-                                                </ul>
-                                            </div>
 
 
                                         </div>
@@ -285,6 +266,77 @@ if (!SessionUser::hasValidSession()) {
                             </div>
                         </div>
                         <!-- intake Add Model => End -->
+
+                        <div class="modal fade br-0" id="duplicateIntake" aria-hidden="true" aria-labelledby="duplicateIntakeLabel" tabindex="-1">
+                            <div class="modal-dialog modal-xl modal-dialog-centered br-0">
+                                <div class="modal-content p-4">
+                                    <div class="modal-header p-0 border-0">
+                                        <h1 class="modal-title text-16 text-dark-color" id="duplicateIntakeLabel">Duplicate Intake</h1>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body p-0 mt-3">
+                                        <div class="col-12 p-0">
+                                            <div class="row p-0 gy-3 gx-3 align-content-center">
+                                                <div class="col-12 d-flex flex-column">
+                                                    <label for="" class="text-14 main-text required">Select Intake</label>
+                                                    <select class="form-select custom-select mt-2" id="duplicate-intake">
+                                                        <option value="0">- Select -</option>
+                                                        <?php
+                                                        $batches = Database::search($query);
+                                                        for ($x = 0; $x < $batches->num_rows; $x++) {
+                                                            $batch = $batches->fetch_assoc();
+
+                                                        ?>
+                                                            <option value="<?= $batch["intake_id"]; ?>"><?php echo $batch["intake"]; ?></option>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </select>
+                                                    <span class="text-12 text-dark-red" id="duplicate-intake-feedback"></span>
+                                                </div>
+
+                                                <div class="col-12 d-flex flex-column">
+                                                    <label for="" class="text-14 main-text required">Intake Name</label>
+                                                    <input type="text" class="form-control custom-input mt-2" id="duplicate-name">
+                                                    <span class="text-12 text-dark-red" id="duplicate-name-feedback"></span>
+                                                </div>
+
+                                                <div class="col-12 d-flex flex-column">
+                                                    <label for="" class="text-14 main-text required">Intake Cover</label>
+                                                    <div class="row gx-4 mt-2 d-flex align-items-stretch">
+                                                        <div class="col-12 col-lg-3 d-flex flex-column justify-content-end">
+                                                            <img src="./assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="intake cover" id="duplicate-cover">
+                                                        </div>
+                                                        <div class="col-12 col-lg-3 d-flex mt-3 mt-lg-0">
+                                                            <div class="d-flex flex-column justify-content-end g-0 p-0 m-0 flex-grow-1">
+                                                                <div class="col-12">
+                                                                    <p class="text-14 sub-text g-0 p-0 m-0">Select intake cover here.</p>
+                                                                    <p class="text-14 sub-topic g-0 p-0 m-0">Important guidelines:</p>
+                                                                    <p class="text-14 sub-text g-0 p-0 m-0">Image size must be 2MB or less, with a 16:9 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
+
+                                                                </div>
+                                                                <div class="col-12 d-flex justify-content-end mt-1 mt-md-3">
+                                                                    <button class="custom-btn d-flex align-items-center justify-content-center w-100" onclick="uploadCover('duplicate-cover-input','duplicate-cover');">
+                                                                        Select Image
+                                                                        <iconify-icon icon="ic:sharp-upload" width="20" height="20" class="mx-3"></iconify-icon>
+                                                                    </button>
+                                                                    <!-- Hidden file input -->
+                                                                    <input type="file" id="duplicate-cover-input" class="d-none" accept="image/*" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-lg-6 mt-3 mt-lg-0 d-flex align-items-md-end justify-content-end">
+                                                            <button class="col-12 col-lg-8 custom-btn m-0" onclick="duplicateIntake(this)">Duplicate batch</button>
+                                                        </div>
+                                                    </div>
+                                                    <span class="text-12 text-dark-red" id="duplicate-cover-feedback"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     <?php
                     }
 

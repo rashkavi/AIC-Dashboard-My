@@ -91,8 +91,8 @@ if (SessionUser::hasValidSession()) {
                                         $studentPlanPayments = $paymentPlanPayments;
 
                                         $payment_plan_insert_columns = "`students_has_intakes_students_has_intakes_id`,
-                                    `discount_type_discount_type_id`,
-                                    `amount`, `discount`,
+                                        `discount_type_discount_type_id`,
+                                        `amount`, `discount`,
                                         `date_added`,`intake_has_payment_plan_id`,
                                         `payment_plan_payment_plan_id`,
                                         `payment_category_payment_category_id`";

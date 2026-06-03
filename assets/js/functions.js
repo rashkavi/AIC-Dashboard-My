@@ -4315,7 +4315,7 @@ const updatePaymentStatus = (btn, paymentId) => {
         },
         body: JSON.stringify(data),
     })
-        .then((response) => response.json())
+        .then((response) => response.text())
         .then((data) => {
             toggleBtnLoader(btn, false);
             const response = JSON.parse(data);
@@ -4692,9 +4692,8 @@ const addStudentsToPaymentPlan = (btn, intakeId) => {
         },
         body: JSON.stringify(data),
     })
-        .then((res) => res.text())
+        .then((res) => res.json())
         .then((response) => {
-            console.log(response);
             toggleBtnLoader(btn, false);
             applyValidation('', validationMap, false);
             if (response.done) {
@@ -9558,33 +9557,6 @@ const addPaymentGroup = (btn, intake_id) => {
         });
 }
 
-const duplicateIntake = (intake_id) => {
-    toggleLoader(true);
-    const data = {
-        intake_id: intake_id,
-    }
-
-    fetch('api/duplicateIntake.php', {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-    })
-        .then((res) => res.json())
-        .then((response) => {
-            toggleLoader(false);
-            if (response.done) {
-                showToast("success", response.done);
-                setTimeout(() => { window.location.reload(); }, 3000);
-            } else if (response.error) {
-                showToast("error", response.error);
-            }
-        })
-        .catch((error) => {
-            showToast("error", "An error occured. Please try again later.");
-        });
-}
 
 const addPaymentIntakePaymentGroup = (btn, group) => {
     toggleBtnLoader(btn, true);
@@ -11369,6 +11341,7 @@ const addLead = (btn) => {
         address2: ["#address2", "#address2-feedback"],
         city: ["#city", "#city-feedback"],
         pcode: ["#postal-code", "#postal-code-feedback"],
+        branch: ["#branch-selector", "#branch-feedback"],
         faculty: ["#faculty-selector", "#faculty-feedback"],
         programme: ["#programme-selector", "#programme-feedback"],
         intake: ["#intake-selector", "#intake-feedback"],
@@ -12193,3 +12166,454 @@ const confirmAcademicDepartmentCompletion = (btn) => {
         });
 }
 
+const createCustomStudentPaymentPlan = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        id: id,
+        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
+        paymentAmount: $("#payment-amount").val(),
+        discountType: $("#plan-discount-type").val(),
+        discountAmount: $("#plan-discount").val(),
+        discountNote: $("#plan-discount-note").val(),
+        payments: customPlanCollectInstallmentData(),
+
+    }
+
+    const validationMap = {
+        name: ["#plan-name", "#plan-name-feedback"],
+        discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+        paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+        discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+        discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+        category: ["#payment-category", "#payment-category-feedback"],
+        plan: ["#payment-plan", "#payment-plan-feedback"],
+    }
+
+    fetch('api/createCustomStudentPaymentPlan.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 4000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.installments) {
+                    generatePaymentErrorPDF(response);
+                }
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+const filterStudentsPayments = () => {
+    const data = {
+        text: $("#search-text").val(),
+        status: $("#status-selector").val(),
+        sort: $("#sort-selector").val(),
+        year: $("#year").val(),
+        month: $("#month").val(),
+        sortByAmount: sortCondition1,
+        sortByDate: sortCondition2,
+        sortByName: sortCondition4,
+        sortById: sortCondition3,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterStudentsPayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#payments-table-container").html(data);
+                getTableWidth("#payments-table", "#pagination-container")
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const addSystemPaymentPlan = (btn) => {
+    const data = {
+        planName: $("#plan-name").val(),
+        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
+        isDefault: $("#is-default").is(":checked"),
+        paymentAmount: $("#payment-amount").val(),
+        discountType: $("#plan-discount-type").val(),
+        discountAmount: $("#plan-discount").val(),
+        discountNote: $("#plan-discount-note").val(),
+        payments: collectInstallmentData(),
+
+    }
+
+    const validationMap = {
+        name: ["#plan-name", "#plan-name-feedback"],
+        discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+        paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+        discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+        discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+        category: ["#payment-category", "#payment-category-feedback"],
+        plan: ["#payment-plan", "#payment-plan-feedback"],
+    }
+
+    fetch('api/addSystemPaymentPlan.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 4000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.installments) {
+                    generatePaymentErrorPDF(response);
+                }
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+
+const submitUpdateTaxRate = (btn) => {
+    const data = {
+        taxRateId: $("#update-tax-id").val(),
+        taxRateName: $("#update-tax-name").val(),
+        taxRate: $("#update-tax-rate").val(),
+        note: $("#update-tax-note").val(),
+    };
+
+    const validationMap = {
+        taxRateName: ["#update-tax-name", "#update-tax-name-feedback"],
+        taxRate: ["#update-tax-rate", "#update-tax-rate-feedback"],
+        note: ["#update-tax-note", "#update-tax-note-feedback"],
+    };
+
+    toggleBtnLoader(btn, true);
+
+    fetch('api/updateTaxRate.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.text())
+        .then((response) => {
+            console.log(response);
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { location.reload(); }, 2000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            toggleBtnLoader(btn, false);
+            showToast("error", "Something went wrong");
+        });
+};
+
+const editSystemPaymentPlan = (btn, id) => {
+    const data = {
+        id: id,
+        planName: $("#plan-name").val(),
+        category: $("#payment-category").val(),
+        plan: $("#payment-plan").val(),
+        isDefault: $("#is-default").is(":checked"),
+        paymentAmount: $("#payment-amount").val(),
+        discountType: $("#plan-discount-type").val(),
+        discountAmount: $("#plan-discount").val(),
+        discountNote: $("#plan-discount-note").val(),
+        payments: collectInstallmentData(),
+    }
+
+    const validationMap = {
+        name: ["#plan-name", "#plan-name-feedback"],
+        discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+        paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+        discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+        discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+        category: ["#payment-category", "#payment-category-feedback"],
+        plan: ["#payment-plan", "#payment-plan-feedback"],
+    }
+
+    fetch('api/editSystemPaymentPlan.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            $("#scheduleConfirmModal").modal('hide');
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 4000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.installments) {
+                    generatePaymentErrorPDF(response);
+                }
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+const removeSystemPaymentPlan = (id) => {
+    toggleLoader(true);
+    const data = {
+        plan: id
+    }
+    fetch('api/removeSystemPaymentPlan.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeSystemPaymentPlanConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+
+const duplicateIntake = (btn) => {
+    toggleBtnLoader(btn, true);
+    console.log($("#duplicate-intake").val());
+    const form = new FormData();
+    form.append("intake_id", $("#duplicate-intake").val());
+    form.append("intake_name", $("#duplicate-name").val());
+    form.append("intake_cover", $("#duplicate-cover-input").prop("files")[0]);
+
+    const validationMap = {
+        intake: ["#duplicate-intake", "#duplicate-intake-feedback"],
+        name: ["#intake_name", "#intake_name-feedback"],
+        start: ["#duplicate-start-date", "#duplicate-start-date-feedback"],
+        end: ["#duplicate-end-date", "#duplicate-end-date-feedback"],
+        cover: ["#duplicate-cover-input", "#duplicate-cover-input-feedback"]
+    }
+
+    fetch('api/duplicateIntake.php', {
+        method: "POST",
+        body: form
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                $("#duplicateIntake").modal('hide');
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000);
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const uploadInquiryStudentPaymentReceipt = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("payment_id", id);
+    form.append("note", $("#note").val());
+    var files = $("#file-selector-input")[0].files;
+    for (var i = 0; i < files.length; i++) {
+        form.append("slips[]", files[i]);
+    }
+
+    const validationMap = {
+        amount: ["#paid-amount", "#paid-amount-feedback"],
+        method: ["#payment-method", "#payment-method-feedback"],
+        discount: ["#discount-amount", "#discount-amount-feedback"],
+        penalty: ["#penalty-amount", "#penalty-amount-feedback"],
+        note: ["#note", "#note-feedback"],
+    }
+
+    fetch("api/uploadInquiryStudentPaymentReceipt.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.history.back(); }, 3000);
+                setTimeout(() => window.location.reload(), 4000);
+                return;
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else if (response.warning) {
+                toggleBtnLoader(btn, false);
+                showToast("warning", response.warning);
+            } else {
+                applyValidation(response, validationMap);
+
+                if (response.slip) {
+                    const slipErrorContainer = $("#file-feedback");
+                    if (Array.isArray(response.slip)) {
+                        const slipArray = response.slip; // Get the actual array
+                        $("#file-feedback").html("");
+                        slipErrorContainer.append('<p class="text-14 text-danger fw-bold">Upload Payment Slip Error Messages : </p>');
+                        slipArray.forEach(function (item) {
+                            slipErrorContainer.append('<p class="text-12 text-danger">*' + item + '</p>');
+                        });
+                    } else {
+                        slipErrorContainer.append('<p class="text-12 text-danger">*' + response.slip + '</p>');
+                    }
+
+                } else {
+                    $("#file-feedback").html("");
+                }
+            }
+        })
+        .catch((error) => {
+            console.log(error);
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+function submitUpdatePaymentStatus(btn, paymentId) {
+    var rate = (modalExchangeRate || modalExchangeRateValue) || 1;
+    var toBase = function (v) {
+        return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
+    };
+
+    var taxRate = Math.max(0, parseFloat(mGet('modal-tax-rate') ? mGet('modal-tax-rate').value : 0) || 0);
+
+    var data = {
+        paymentId: paymentId,
+        status: mGet('status-selector') ? mGet('status-selector').value : '',
+        paidAmount: toBase(parseFloat(mGet('modal-paid-amount') ? mGet('modal-paid-amount').value : 0) || 0).toFixed(2),
+        discountAmount: toBase(parseFloat(mGet('modal-discount-amount') ? mGet('modal-discount-amount').value : 0) || 0).toFixed(2),
+        penaltyAmount: toBase(parseFloat(mGet('modal-penalty-amount') ? mGet('modal-penalty-amount').value : 0) || 0).toFixed(2),
+        taxRate: taxRate,
+        paymentMethod: mGet('payment-method') ? mGet('payment-method').value : '',
+        paidDate: mGet('modal-paid-date') ? mGet('modal-paid-date').value : '',
+        exchangeRate: modalExchangeRate,
+        exchangeRateId: modalExchangeRateId,
+        currencyId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
+        note: mGet('note') ? mGet('note').value : '',
+    };
+
+    console.log(data);
+
+    var validationMap = {
+        status: ['#status-selector', '#status-selector-feedback'],
+        paidAmount: ['#modal-paid-amount', '#paid-amount-feedback'],
+        paymentMethod: ['#payment-method', '#payment-method-feedback'],
+        paidDate: ['#modal-paid-date', '#paid-date-feedback'],
+        note: ['#note', '#note-feedback'],
+    };
+
+    toggleBtnLoader(btn, true);
+
+    fetch('api/updatePaymentStatus.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            applyValidation('', validationMap, false);
+
+            if (response.done) {
+                showToast('success', response.done);
+                setTimeout(function () {
+                    location.reload();
+                }, 2000);
+            } else if (response.error) {
+                showToast('error', response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch(function () {
+            toggleBtnLoader(btn, false);
+            showToast('error', 'Something went wrong');
+        });
+}

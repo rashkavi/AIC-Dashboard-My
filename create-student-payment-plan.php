@@ -82,6 +82,8 @@ if (!SessionUser::hasValidSession()) {
 
                 <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
                 <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
             </head>
 
@@ -445,20 +447,20 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                                     <label class="text-14 main-text required">Paid Amount</label>
                                                                                                                                     <input type="number" class="form-control custom-input mt-2 paid-amount"
                                                                                                                                         value="<?= $data['amount'] ?>">
-                                                                                                                                        <span id="paid-amount-feedback" class="text-dark-red text-12"></span>
+                                                                                                                                    <span id="paid-amount-feedback" class="text-dark-red text-12"></span>
                                                                                                                                 </div>
                                                                                                                                 <div class="col-12 col-md-4">
                                                                                                                                     <label class="text-14 main-text required">Discount Amount</label>
                                                                                                                                     <input type="number" class="form-control custom-input mt-2 discount"
                                                                                                                                         value="0">
-                                                                                                                                        <span id="discount-feedback" class="text-dark-red text-12"></span>
+                                                                                                                                    <span id="discount-feedback" class="text-dark-red text-12"></span>
                                                                                                                                 </div>
 
                                                                                                                                 <div class="col-12 col-md-4">
                                                                                                                                     <label class="text-14 main-text required">Paid Date</label>
                                                                                                                                     <input type="date" class="form-control custom-input mt-2 paid-date"
                                                                                                                                         value="<?= date('Y-m-d') ?>">
-                                                                                                                                        <span id="paid-date-feedback" class="text-dark-red text-12"></span>
+                                                                                                                                    <span id="paid-date-feedback" class="text-dark-red text-12"></span>
                                                                                                                                 </div>
 
                                                                                                                                 <div class="col-12 col-md-4">
@@ -525,11 +527,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row p-0 m-0 align-content-center">
                                                         <div class="col-12 p-0 g-0">
                                                             <div class="row gx-4 gy-3">
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
-                                                                    <label class="text-14 main-text required" for="">Plan Name</label>
-                                                                    <input type="text" class="form-control custom-input mt-2" id="plan-name" maxlength="50">
-                                                                    <span id="plan-name-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
+
                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                     <label class="text-14 main-text required" for="">Payment Category</label>
                                                                     <select id="payment-category" class="form-select custom-select mt-2">
@@ -591,20 +589,6 @@ if (!SessionUser::hasValidSession()) {
                                                                     <span id="plan-discount-note-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
 
-                                                                <div class="col-12 d-flex align-items-center mt-2">
-                                                                    <div class="form-check d-flex align-items-center m-0 p-0">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            id="is-default"
-                                                                            class="form-check-input hw-20 m-0 me-2">
-
-                                                                        <label
-                                                                            class="form-check-label text-14 main-text fw-medium cursor-pointer"
-                                                                            for="is-default">
-                                                                            Set as Default Payment Plan
-                                                                        </label>
-                                                                    </div>
-                                                                </div>
 
                                                                 <div class="accordion d-none" id="fees-type">
                                                                     <div class="accordion-item br-0" data-installment-id="1">

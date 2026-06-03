@@ -66,17 +66,17 @@ if (!SessionUser::hasValidSession()) {
                                     <div class="row p-4 m-0 g-0">
                                         <div class="col-12 px-4 py-3 component-theme mb-4">
                                             <div class="row align-items-center p-0 m-0 g-0">
-                                                <div class="col-12 col-md-12 col-lg-6">
+                                                <div class="col-12 col-md-12 col-lg-8">
                                                     <div class="row">
                                                         <span class="main-topic lh-lg" data-i18n="payments">Payments</span>
                                                         <span class="text-14 sub-text lh-base mt-1" data-i18n="payment-desc">Manage student payment records, fees, and transaction history efficiently.</span>
                                                     </div>
                                                 </div>
-                                                <div class="col-12 col-md-12 col-lg-6 mt-3 mt-lg-0">
+                                                <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
                                                     <div class="row gx-3 justify-content-end">
                                                         <?php
                                                         if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
-                                                        ?><div class="col-12 col-md-4 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                        ?><div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <button class="bg-transparent border-0 px-3" onclick="location.href='payments-permissions.php'">
                                                                     <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme"></iconify-icon>
                                                                 </button>
@@ -85,8 +85,16 @@ if (!SessionUser::hasValidSession()) {
                                                         }
                                                         if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23)) {
                                                         ?>
-                                                            <div class="col-12 col-md-4 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <button class="custom-btn col-12" onclick="location.href='banks.php'" data-i18n="manage-banks">Banks</button>
+                                                            <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                <div class="dropdown w-100">
+                                                                    <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
+                                                                        Action
+                                                                    </button>
+                                                                    <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
+                                                                        <li><a class="dropdown-item" href="banks.php" data-i18n="manage-banks">Banks</a></li>
+                                                                        <li><a class="dropdown-item" href="payments-settings" data-i18n="payments-settings">Settings</a></li>
+                                                                    </ul>
+                                                                </div>
                                                             </div>
                                                         <?php
                                                         }

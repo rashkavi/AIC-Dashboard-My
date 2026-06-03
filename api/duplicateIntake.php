@@ -1,4 +1,6 @@
 <?php
+error_reporting(1);
+ini_set('display_errors', 1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
@@ -8,69 +10,123 @@ if (SessionUser::hasValidSession()) {
     if ($sessionUserRole != null) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            if ($_SERVER['CONTENT_TYPE'] == 'application/json') {
-                $content = trim(file_get_contents('php://input'));
-                $decoded = json_decode($content, true);
-                if (json_last_error() == JSON_ERROR_NONE) {
-                    $intake_id = isset($decoded['intake_id']) ? $decoded['intake_id'] : '';
 
-                    if (empty($intake_id)) {
-                        $status->error = "Invalid intake Id";
-                    } else if (!is_numeric($intake_id)) {
-                        $status->error = "Invalid intake Id";
+            $intake_id = isset($_POST['intake_id']) ? $_POST['intake_id'] : '';
+
+            if (empty($intake_id)) {
+                $status->error = "Please select an intake to duplicate";
+            } else {
+                $isValidIntake = Database::search("SELECT * FROM `intakes` WHERE `intake_id`='" . $intake_id . "'");
+                if ($isValidIntake->num_rows == 0) {
+                    $status->error = "Selected intake is not valid";
+                } else {
+                    $intakeData = $isValidIntake->fetch_assoc();
+                    UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $intakeData['programmes_programme_id']))) {
+                        $status->error = "You don't have permission to duplicate intakes to this programme";
                     } else {
-                        $isValidIntake = Database::search("SELECT * FROM `intakes` WHERE `intake_id`='" . $intake_id . "'");
-                        if ($isValidIntake->num_rows == 0) {
-                            $status->error = "Invalid programme Id";
+
+                        $intake_name = isset($_POST['intake_name']) ? trim($_POST['intake_name']) : '';
+
+                        $intake_cover;
+                        if (empty($intake_name)) {
+                            $status->name =  "Please enter batch Name";
+                        } else if (strlen($intake_name) > 100) {
+                            $status->name =  "Batch name should be less than 100 characters";
                         } else {
-                            $intakeData = $isValidIntake->fetch_assoc();
-                            UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $intakeData['programmes_programme_id']))) {
-                                $status->error = "You don't have permission to duplicate intakes to this programme";
+
+                            $isValidIntake = Database::search("SELECT COUNT(*) as 'count' FROM `intakes` WHERE `intake`='" . $intake_name . "' AND `intake_id` != '" . $intake_id . "' AND `programmes_programme_id` = '" . $intakeData['programmes_programme_id'] . "'");
+                            $row = $isValidIntake->fetch_assoc();
+                            if ($row['count'] > 0) {
+                                $status->name =  "Batch name already exists in this intake";
+                            }
+                        }
+
+
+
+                        if (isset($_FILES["intake_cover"])) {
+                            $allowed_image_extentions = array("image/jpg", "image/jpeg", "image/png", "image/svg+xml");
+                            $file_ex = $_FILES["intake_cover"]["type"];
+                            if (!in_array($file_ex, $allowed_image_extentions)) {
+                                $status->cover = "Only jpg,jpeg,png and svg allowed";
                             } else {
+                                $new_file_extention;
+                                if ($file_ex == "image/jpg") {
+                                    $new_file_extention = ".jpg";
+                                } else if ($file_ex == "image/jpeg") {
+                                    $new_file_extention = ".jpeg";
+                                } else if ($file_ex == "image/png") {
+                                    $new_file_extention = ".png";
+                                } else if ($file_ex == "image/svg+xml") {
+                                    $new_file_extention = ".svg";
+                                }
+                                if ($_FILES["intake_cover"]["error"] === 0) {
+                                    if ($_FILES["intake_cover"]["size"] < 2 * 1024 * 1024) {
+                                        if (getimagesize($_FILES["intake_cover"]["tmp_name"])) {
+                                            $intake_cover = uniqid() . $new_file_extention;
+                                        } else {
+                                            $status->cover = "Invalid image file!";
+                                        }
+                                    } else {
+                                        $status->cover = "Maximum allowed file size is 2MB";
+                                    }
+                                } else {
+                                    $status->cover = "There is an error with the selected image";
+                                }
+                            }
+                        } else {
+                            $status->cover = "Please select an image";
+                        }
 
-                                $timezone = new DateTimeZone("Asia/Colombo");
-                                $dateTime = new DateTime("now", $timezone);
-                                $date = $dateTime->format('Y-m-d H:i:s');
+                        $requiredProperties = [
+                            'name',
+                            'start',
+                            'end',
+                            'cover'
+                        ];
+                        $allGood = true;
+                        foreach ($requiredProperties as $property) {
+                            if (property_exists($status, $property)) {
+                                $allGood = false;
+                                break;
+                            }
+                        }
 
-                                $baseName = $intakeData['intake'];
-                                $copyCount = 1;
+                        if ($allGood) {
 
-                                do {
-                                    $duplicateIntakeName = $baseName . " (copy " . $copyCount . ")";
-                                    $check = Database::search("
-                                    SELECT COUNT(*) AS count 
-                                    FROM `intakes` 
-                                    WHERE `intake` = '" . Database::escape($duplicateIntakeName) . "'
-                                ");
-                                    $exists = $check->fetch_assoc()['count'];
-                                    $copyCount++;
-                                } while ($exists > 0);
+                            $timezone = new DateTimeZone("Asia/Colombo");
+                            $dateTime = new DateTime("now", $timezone);
+                            $date = $dateTime->format('Y-m-d H:i:s');
 
-                                Database::iud("
-                            INSERT INTO `intakes` (
-                                `intake`,
-                                `programmes_programme_id`,
-                                `intakes_order`,
-                                `intake_cover`,
-                                `users_user_id`,
-                                `date_added`
-                            ) VALUES (
-                                '" . Database::escape($duplicateIntakeName) . "',
-                                '" . $intakeData['programmes_programme_id'] . "',
-                                '" . ($intakeData['intakes_order'] + 1) . "',
-                                '" . $intakeData['intake_cover'] . "',
-                                '" . $sessionUserObject['user_id'] . "',
-                                '" . $date . "'
-                            )
-                        ");
+                            Database::iud("
+                                                INSERT INTO `intakes` (
+                                                    `intake`,
+                                                    `programmes_programme_id`,
+                                                    `intakes_order`,
+                                                    `intake_cover`,
+                                                    `users_user_id`,
+                                                    `date_added`
+                                                ) VALUES (
+                                                    '" . Database::escape($intake_name) . "',
+                                                    '" . $intakeData['programmes_programme_id'] . "',
+                                                    '0',
+                                                    '" . $intakeData['intake_cover'] . "',
+                                                    '" . $sessionUserObject['user_id'] . "',
+                                                    '" . $date . "'
+                                                )
+                                            ");
+                            if (isset($_FILES["intake_cover"])) {
+                                $cover_path = "../assets/imgs/intakes-covers/";
+                                $qimg_path = $cover_path . $intake_cover;
+                                move_uploaded_file($_FILES["intake_cover"]["tmp_name"], $qimg_path);
+                            }
 
-                                $newIntakeId = Database::$connection->insert_id;
+                            $newIntakeId = Database::$connection->insert_id;
 
-                                $intakePermissions = Database::search("SELECT * FROM `users_has_permission_to_intakes` WHERE `intakes_intake_id`='" . $intake_id . "'");
-                                if ($intakePermissions->num_rows > 0) {
-                                    while ($intakePermission = $intakePermissions->fetch_assoc()) {
-                                        Database::iud("
+                            $intakePermissions = Database::search("SELECT * FROM `users_has_permission_to_intakes` WHERE `intakes_intake_id`='" . $intake_id . "'");
+                            if ($intakePermissions->num_rows > 0) {
+                                while ($intakePermission = $intakePermissions->fetch_assoc()) {
+                                    Database::iud("
                                 INSERT INTO `users_has_permission_to_intakes` 
                                 (`users_user_id`, `intakes_intake_id`, `permission_to_permission_to_id`, `added_by`,`status_status_id`,`added_at`) 
                                 VALUES (
@@ -81,13 +137,13 @@ if (SessionUser::hasValidSession()) {
                                     '" . $intakePermission['status_status_id'] . "',
                                     '" . $date . "'
                                     )");
-                                    }
                                 }
+                            }
 
-                                $intakeLevels = Database::search("SELECT * FROM `levels` WHERE `intakes_intake_id`='" . $intake_id . "'");
-                                if ($intakeLevels->num_rows > 0) {
-                                    while ($intakeLevel = $intakeLevels->fetch_assoc()) {
-                                        Database::iud("
+                            $intakeLevels = Database::search("SELECT * FROM `levels` WHERE `intakes_intake_id`='" . $intake_id . "'");
+                            if ($intakeLevels->num_rows > 0) {
+                                while ($intakeLevel = $intakeLevels->fetch_assoc()) {
+                                    Database::iud("
                             INSERT INTO `levels` 
                             (`level`, `level_cover`,`intakes_intake_id`,`levels_order`,`date_added`,`users_user_id`) 
                             VALUES (
@@ -98,12 +154,12 @@ if (SessionUser::hasValidSession()) {
                                 '" . $date . "',
                                 '" . $sessionUserObject['user_id'] . "')");
 
-                                        $newLevelId = Database::$connection->insert_id;
+                                    $newLevelId = Database::$connection->insert_id;
 
-                                        $levelPermissions = Database::search("SELECT * FROM `users_has_permission_to_levels` WHERE `levels_level_id`='" . $intakeLevel['level_id'] . "'");
-                                        if ($levelPermissions->num_rows > 0) {
-                                            while ($intakePermission = $levelPermissions->fetch_assoc()) {
-                                                Database::iud("
+                                    $levelPermissions = Database::search("SELECT * FROM `users_has_permission_to_levels` WHERE `levels_level_id`='" . $intakeLevel['level_id'] . "'");
+                                    if ($levelPermissions->num_rows > 0) {
+                                        while ($intakePermission = $levelPermissions->fetch_assoc()) {
+                                            Database::iud("
                                         INSERT INTO `users_has_permission_to_levels` 
                                         (`users_user_id`, `levels_level_id`, `permission_to_permission_to_id`, `added_by`,`status_status_id`,`added_at`) 
                                         VALUES (
@@ -114,14 +170,14 @@ if (SessionUser::hasValidSession()) {
                                             '" . $intakePermission['status_status_id'] . "',
                                             '" . $date . "'
                                             )");
-                                            }
                                         }
+                                    }
 
-                                        $levelSubjects = Database::search("SELECT * FROM `subjects` WHERE `levels_level_id`='" . $intakeLevel['level_id'] . "'");
-                                        if ($levelSubjects->num_rows > 0) {
-                                            while ($levelSubject = $levelSubjects->fetch_assoc()) {
+                                    $levelSubjects = Database::search("SELECT * FROM `subjects` WHERE `levels_level_id`='" . $intakeLevel['level_id'] . "'");
+                                    if ($levelSubjects->num_rows > 0) {
+                                        while ($levelSubject = $levelSubjects->fetch_assoc()) {
 
-                                                $columns = "`subject`,
+                                            $columns = "`subject`,
                                                 `subject_cover`,
                                                 `max_course_hours`,
                                                 `levels_level_id`,
@@ -130,7 +186,7 @@ if (SessionUser::hasValidSession()) {
                                                 `users_user_id`,
                                                 `subject_type_subject_type_id`";
 
-                                                $values = "'" . Database::escape($levelSubject['subject']) . "',
+                                            $values = "'" . Database::escape($levelSubject['subject']) . "',
                                                 '" . $levelSubject['subject_cover'] . "',
                                                 '" . $levelSubject['max_course_hours'] . "',
                                                 '" . $newLevelId . "',
@@ -140,19 +196,19 @@ if (SessionUser::hasValidSession()) {
                                                 '" . $levelSubject['subject_type_subject_type_id'] . "'
                                                ";
 
-                                                if ($levelSubject['subject_type_subject_type_id'] == 2) {
-                                                    $columns .= ", `subject_group_subject_group_id`";
-                                                    $values .= ", '" . $levelSubject['subject_group_subject_group_id'] . "'";
-                                                }
+                                            if ($levelSubject['subject_type_subject_type_id'] == 2) {
+                                                $columns .= ", `subject_group_subject_group_id`";
+                                                $values .= ", '" . $levelSubject['subject_group_subject_group_id'] . "'";
+                                            }
 
-                                                Database::iud("   INSERT INTO `subjects`  (" . $columns . ") VALUES ( " . $values . " )");
+                                            Database::iud("   INSERT INTO `subjects`  (" . $columns . ") VALUES ( " . $values . " )");
 
-                                                $newSubjectId = Database::$connection->insert_id;
+                                            $newSubjectId = Database::$connection->insert_id;
 
-                                                $subjectPermissions = Database::search("SELECT * FROM `users_has_permission_to_subject` WHERE `subjects_subject_id`='" . $intakeLevel['level_id'] . "'");
-                                                if ($subjectPermissions->num_rows > 0) {
-                                                    while ($intakePermission = $subjectPermissions->fetch_assoc()) {
-                                                        Database::iud("
+                                            $subjectPermissions = Database::search("SELECT * FROM `users_has_permission_to_subject` WHERE `subjects_subject_id`='" . $intakeLevel['level_id'] . "'");
+                                            if ($subjectPermissions->num_rows > 0) {
+                                                while ($intakePermission = $subjectPermissions->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `users_has_permission_to_subject` 
                                                 (`users_user_id`, `subjects_subject_id`, `permission_to_permission_to_id`, `added_by`,`status_status_id`,`added_at`) 
                                                 VALUES (
@@ -163,13 +219,35 @@ if (SessionUser::hasValidSession()) {
                                                     '" . $intakePermission['status_status_id'] . "',
                                                     '" . $date . "'
                                                     )");
-                                                    }
                                                 }
+                                            }
 
-                                                $subjectLecturers = Database::search("SELECT * FROM `lecturers` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
-                                                if ($subjectLecturers->num_rows > 0) {
-                                                    while ($subjectLecturer = $subjectLecturers->fetch_assoc()) {
-                                                        Database::iud("
+                                            $subjectAttachment = Database::search("SELECT * FROM `subject_has_attachments` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
+                                            if ($subjectAttachment->num_rows > 0) {
+                                                while ($attachment = $subjectAttachment->fetch_assoc()) {
+                                                    Database::iud("
+                                                INSERT INTO `subject_has_attachments` 
+                                                (`attachment`,
+                                                `attachment_name`,
+                                                 `subjects_subject_id`,
+                                                 `date_added`,
+                                                 `users_user_id`,
+                                                 `attachments_order`) 
+                                                VALUES (
+                                                    '" . $attachment['attachment'] . "',
+                                                    '" . $attachment['attachment_name'] . "',
+                                                    '" . $newSubjectId . "',
+                                                    '" . $date . "',
+                                                    '" . $sessionUserObject['user_id'] . "',
+                                                    '0'
+                                                    )");
+                                                }
+                                            }
+
+                                            $subjectLecturers = Database::search("SELECT * FROM `lecturers` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
+                                            if ($subjectLecturers->num_rows > 0) {
+                                                while ($subjectLecturer = $subjectLecturers->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `lecturers` 
                                                 (`users_user_id`,
                                                  `subjects_subject_id`,
@@ -189,18 +267,17 @@ if (SessionUser::hasValidSession()) {
                                                     '" . $subjectLecturer['per_examination_fee'] . "',
                                                     '" . $subjectLecturer['hourly_rate'] . "'
                                                     )");
-                                                    }
                                                 }
+                                            }
 
-                                                $subjectAssignments = Database::search("SELECT * FROM `assignments` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
-                                                if ($subjectAssignments->num_rows > 0) {
-                                                    while ($subjectAssignment = $subjectAssignments->fetch_assoc()) {
+                                            $subjectAssignments = Database::search("SELECT * FROM `assignments` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
+                                            if ($subjectAssignments->num_rows > 0) {
+                                                while ($subjectAssignment = $subjectAssignments->fetch_assoc()) {
 
-                                                        $columns = "`assignment_code`,
+                                                    $columns = "`assignment_code`,
                                                         `assignment`,
                                                          `attachment`,
-                                                          `start_date`,
-                                                          `end_date`,
+                                                         
                                                            `added_date`,
                                                             `users_user_id`,
                                                              `subjects_subject_id`, 
@@ -209,11 +286,10 @@ if (SessionUser::hasValidSession()) {
                                                                
                                                                   `plagiarism_status_plagiarism_status_id`";
 
-                                                        $values = "'" . Database::escape($subjectAssignment['assignment_code']) . "',
+                                                    $values = "'" . Database::escape($subjectAssignment['assignment_code']) . "',
                                                                 '" . Database::escape($subjectAssignment['assignment']) . "',
                                                                 '" . $subjectAssignment['attachment'] . "',
-                                                                '" . $subjectAssignment['start_date'] . "',
-                                                                '" . $subjectAssignment['end_date'] . "',
+                                                             
                                                                 '" . $date . "',
                                                                 '" . $sessionUserObject['user_id'] . "',
                                                                 '" . $newSubjectId . "',
@@ -222,24 +298,34 @@ if (SessionUser::hasValidSession()) {
                                                               
                                                                 '" . $subjectAssignment['plagiarism_status_plagiarism_status_id'] . "'";
 
-                                                        if ($subjectAssignment['late_submission_end_date'] != null) {
-                                                            $columns .= ", `late_submission_end_date`";
-                                                            $values .= ", '" . $subjectAssignment['late_submission_end_date'] . "'";
-                                                        }
-
-                                                        if ($subjectAssignment['recorrection_apply_end_date'] != null) {
-                                                            $columns .= ", `recorrection_apply_end_date`";
-                                                            $values .= ", '" . $subjectAssignment['recorrection_apply_end_date'] . "'";
-                                                        }
-
-                                                        Database::iud("INSERT INTO `assignments`  (" . $columns . ") VALUES ( " . $values . " )");
+                                                    if ($subjectAssignment['start_date'] != null) {
+                                                        $columns .= ", `start_date`";
+                                                        $values .= ", '" . $subjectAssignment['start_date'] . "'";
                                                     }
-                                                }
 
-                                                $subjectExams = Database::search("SELECT * FROM `exams` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
-                                                if ($subjectExams->num_rows > 0) {
-                                                    while ($subjectExam = $subjectExams->fetch_assoc()) {
-                                                        Database::iud("
+                                                    if ($subjectAssignment['end_date'] != null) {
+                                                        $columns .= ", `end_date`";
+                                                        $values .= ", '" . $subjectAssignment['end_date'] . "'";
+                                                    }
+
+                                                    if ($subjectAssignment['late_submission_end_date'] != null) {
+                                                        $columns .= ", `late_submission_end_date`";
+                                                        $values .= ", '" . $subjectAssignment['late_submission_end_date'] . "'";
+                                                    }
+
+                                                    if ($subjectAssignment['recorrection_apply_end_date'] != null) {
+                                                        $columns .= ", `recorrection_apply_end_date`";
+                                                        $values .= ", '" . $subjectAssignment['recorrection_apply_end_date'] . "'";
+                                                    }
+
+                                                    Database::iud("INSERT INTO `assignments`  (" . $columns . ") VALUES ( " . $values . " )");
+                                                }
+                                            }
+
+                                            $subjectExams = Database::search("SELECT * FROM `exams` WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
+                                            if ($subjectExams->num_rows > 0) {
+                                                while ($subjectExam = $subjectExams->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `exams` 
                                                (`exam_name`, `exam_types_exam_type_id`, `exam_date`, `subjects_subject_id`, `exams_order`, `date_added`, `users_user_id`)
                                                 VALUES (
@@ -251,15 +337,15 @@ if (SessionUser::hasValidSession()) {
                                                 '" . $date . "',
                                                 '" . $sessionUserObject['user_id'] . "'
                                                     )");
-                                                    }
                                                 }
+                                            }
 
-                                                $subjectPhysicalExams = Database::search("SELECT * FROM `physical_exam`
+                                            $subjectPhysicalExams = Database::search("SELECT * FROM `physical_exam`
                                                 INNER JOIN `exams` ON `physical_exam`.`exams_exam_id` = `exams`.`exam_id` 
                                                 WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
-                                                if ($subjectPhysicalExams->num_rows > 0) {
-                                                    while ($subjectPhysicalExam = $subjectPhysicalExams->fetch_assoc()) {
-                                                        Database::iud("
+                                            if ($subjectPhysicalExams->num_rows > 0) {
+                                                while ($subjectPhysicalExam = $subjectPhysicalExams->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `physical_exam` 
                                               (`start_time`,
                                                `end_time`,
@@ -277,16 +363,16 @@ if (SessionUser::hasValidSession()) {
                                                     '" . $date . "',
                                                     '" . $sessionUserObject['user_id'] . "'
                                                     )");
-                                                    }
                                                 }
+                                            }
 
-                                                $subjectOnlineExams = Database::search("SELECT * FROM `online_exam` 
+                                            $subjectOnlineExams = Database::search("SELECT * FROM `online_exam` 
                                                 INNER JOIN `exams` ON `online_exam`.`exams_exam_id` = `exams`.`exam_id`
                                                 WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
 
-                                                if ($subjectOnlineExams->num_rows > 0) {
-                                                    while ($subjectOnlineExam = $subjectOnlineExams->fetch_assoc()) {
-                                                        Database::iud("
+                                            if ($subjectOnlineExams->num_rows > 0) {
+                                                while ($subjectOnlineExam = $subjectOnlineExams->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `online_exam` 
                                               (`start_time`,
                                                `end_time`,
@@ -303,14 +389,14 @@ if (SessionUser::hasValidSession()) {
                                                     '" . $sessionUserObject['user_id'] . "'
                                                     )");
 
-                                                        $newOnlineExamId = Database::$connection->insert_id;
+                                                    $newOnlineExamId = Database::$connection->insert_id;
 
-                                                        $onlineExamQuestions = Database::search("SELECT * FROM `essay_questions` 
+                                                    $onlineExamQuestions = Database::search("SELECT * FROM `essay_questions` 
                                                     WHERE `online_exam_online_exam_id`='" . $subjectOnlineExam['online_exam_id'] . "'");
 
-                                                        if ($onlineExamQuestions->num_rows > 0) {
-                                                            while ($onlineExamQuestion = $onlineExamQuestions->fetch_assoc()) {
-                                                                Database::iud("
+                                                    if ($onlineExamQuestions->num_rows > 0) {
+                                                        while ($onlineExamQuestion = $onlineExamQuestions->fetch_assoc()) {
+                                                            Database::iud("
                                                             INSERT INTO `essay_questions` 
                                                           (`question`,
                                                            `online_exam_online_exam_id`
@@ -319,18 +405,18 @@ if (SessionUser::hasValidSession()) {
                                                                 '" . $onlineExamQuestion['question'] . "',
                                                                 '" . $newOnlineExamId . "'
                                                             )");
-                                                            }
                                                         }
                                                     }
                                                 }
+                                            }
 
-                                                $subjectQuiz = Database::search("SELECT * FROM `quiz`
+                                            $subjectQuiz = Database::search("SELECT * FROM `quiz`
                                         INNER JOIN `exams` ON `quiz`.`exams_exam_id` = `exams`.`exam_id` 
                                         WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
 
-                                                if ($subjectQuiz->num_rows > 0) {
-                                                    while ($subjectQuizzes = $subjectQuiz->fetch_assoc()) {
-                                                        Database::iud("
+                                            if ($subjectQuiz->num_rows > 0) {
+                                                while ($subjectQuizzes = $subjectQuiz->fetch_assoc()) {
+                                                    Database::iud("
                                                 INSERT INTO `quiz` 
                                              (
                                               `start_time`,
@@ -356,13 +442,13 @@ if (SessionUser::hasValidSession()) {
                                                  '" . $subjectQuizzes['quiz_order_quiz_order_id'] . "'
                                                     )");
 
-                                                        $newQuizId = Database::$connection->insert_id;
+                                                    $newQuizId = Database::$connection->insert_id;
 
-                                                        $quizQuestions = Database::search("SELECT * FROM `questions` WHERE `quiz_quiz_id`='" . $subjectQuizzes['quiz_id'] . "'");
+                                                    $quizQuestions = Database::search("SELECT * FROM `questions` WHERE `quiz_quiz_id`='" . $subjectQuizzes['quiz_id'] . "'");
 
-                                                        if ($quizQuestions->num_rows > 0) {
-                                                            while ($quizQuestion = $quizQuestions->fetch_assoc()) {
-                                                                Database::iud("
+                                                    if ($quizQuestions->num_rows > 0) {
+                                                        while ($quizQuestion = $quizQuestions->fetch_assoc()) {
+                                                            Database::iud("
                                                             INSERT INTO `questions` 
                                                           (`question`,
                                                            `quiz_quiz_id`,
@@ -375,13 +461,13 @@ if (SessionUser::hasValidSession()) {
                                                                 '" . $quizQuestion['questions_order'] . "'
                                                                 )");
 
-                                                                $newQuestionId = Database::$connection->insert_id;
+                                                            $newQuestionId = Database::$connection->insert_id;
 
-                                                                $questionAnswers = Database::search("SELECT * FROM `answers` WHERE `questions_question_id`='" . $quizQuestion['question_id'] . "'");
+                                                            $questionAnswers = Database::search("SELECT * FROM `answers` WHERE `questions_question_id`='" . $quizQuestion['question_id'] . "'");
 
-                                                                if ($questionAnswers->num_rows > 0) {
-                                                                    while ($questionAnswer = $questionAnswers->fetch_assoc()) {
-                                                                        Database::iud("
+                                                            if ($questionAnswers->num_rows > 0) {
+                                                                while ($questionAnswer = $questionAnswers->fetch_assoc()) {
+                                                                    Database::iud("
                                                                     INSERT INTO `answers` 
                                                                   (`answer`,
                                                                    `questions_question_id`,
@@ -391,7 +477,6 @@ if (SessionUser::hasValidSession()) {
                                                                         '" . $newQuestionId . "',
                                                                         '" . $questionAnswer['answer_order'] . "'
                                                                         )");
-                                                                    }
                                                                 }
                                                             }
                                                         }
@@ -401,8 +486,102 @@ if (SessionUser::hasValidSession()) {
                                         }
                                     }
                                 }
-                                $status->done = 'Intake Duplicated Successfully';
                             }
+
+
+                            $systemPaymentPlans = Database::search("SELECT * FROM `intake_has_payment_plans` WHERE `intakes_intake_id`='" . $intake_id . "'");
+                            if ($systemPaymentPlans->num_rows > 0) {
+                                while ($systemPaymentPlanData = $systemPaymentPlans->fetch_assoc()) {
+                                    Database::iud("INSERT INTO `intake_has_payment_plans` 
+                                    (`intakes_intake_id`,
+                                    `payment_plan_name`,
+                                    `date_added`,
+                                    `users_user_id`,
+                                    `is_default_plan`,
+                                    `payment_category_payment_category_id`,
+                                    `payment_plan_payment_plan_id`,
+                                    `amount`,
+                                    `discount`,
+                                    `discount_type_discount_type_id`,
+                                    `discount_note`) 
+                                    VALUES 
+                                    (
+                                        '" . $newIntakeId . "',
+                                        '" . $systemPaymentPlanData['payment_plan_name'] . "',
+                                        '" . $date . "',
+                                        '" . $sessionUserObject['user_id'] . "',
+                                        '" . $systemPaymentPlanData['is_default_plan'] . "',
+                                        '" . $systemPaymentPlanData['payment_category_payment_category_id'] . "',
+                                        '" . $systemPaymentPlanData['payment_plan_payment_plan_id'] . "',
+                                        '" . $systemPaymentPlanData['amount'] . "',
+                                        '" . $systemPaymentPlanData['discount'] . "',
+                                        '" . $systemPaymentPlanData['discount_type_discount_type_id'] . "',
+                                        '" . $systemPaymentPlanData['discount_note'] . "'
+                                    )
+                                   ");
+
+                                    $planId = Database::$connection->insert_id;
+
+                                    $planHasPayments = Database::search("SELECT * FROM `intake_payments_plan_has_payments` WHERE `intake_payments_plan_has_payment_id`='" . $systemPaymentPlanData['intake_payments_plan_has_payment_id'] . "'");
+                                    if ($planHasPayments->num_rows > 0) {
+                                        while ($planHasPaymentData = $planHasPayments->fetch_assoc()) {
+                                            $dueDate = empty($planHasPaymentData['due_date'])
+                                                ? "NULL"
+                                                : "'" . $planHasPaymentData['due_date'] . "'";
+
+                                            Database::iud("
+                                                        INSERT INTO `intake_payments_plan_has_payments` 
+                                                        (
+                                                            `intake_has_payment_plan_id`,
+                                                            `payment_type_payment_type_id`,
+                                                            `amount`,
+                                                            `discount`,
+                                                            `discount_type_discount_type_id`,
+                                                            `discount_note`,
+                                                            `panelty_payment_option_panelty_payment_option_id`,
+                                                            `due_date`
+                                                        )
+                                                        VALUES
+                                                        (
+                                                            '" . $planId . "',
+                                                            '" . $planHasPaymentData['payment_type_payment_type_id'] . "',
+                                                            '" . $planHasPaymentData['amount'] . "',
+                                                            '" . $planHasPaymentData['discount'] . "',
+                                                            '" . $planHasPaymentData['discount_type_discount_type_id'] . "',
+                                                            '" . $planHasPaymentData['discount_note'] . "',
+                                                            '" . $planHasPaymentData['panelty_payment_option_panelty_payment_option_id'] . "',
+                                                            " . $dueDate . "
+                                                        )
+                                                        ");
+
+                                            $planHasPaymentId = Database::$connection->insert_id;
+
+                                            $paymentHasPenalties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` 
+                                           WHERE `intake_payments_plan_has_payment_id`='" . $planHasPaymentData['intake_payments_plan_has_payment_id'] . "'");
+                                            if ($paymentHasPenalties->num_rows > 0) {
+                                                while ($paymentHasPenaltyData = $paymentHasPenalties->fetch_assoc()) {
+                                                    Database::iud("INSERT INTO `intake_has_payments_has_penalties` 
+                                                     (`intake_payments_plan_has_payment_id`,
+                                                     `amount`,
+                                                     `days`,
+                                                     `panelty_payment_type_panelty_payment_type_id`)
+                                                     VALUES
+                                                     (
+                                                        '" . $planHasPaymentId . "',
+                                                        '" . $paymentHasPenaltyData['amount'] . "',
+                                                        '" . $paymentHasPenaltyData['days'] . "',
+                                                        '" . $paymentHasPenaltyData['panelty_payment_type_panelty_payment_type_id'] . "'
+                                                     ) 
+                                                     
+                                                    ");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            $status->done = 'Intake Duplicated Successfully';
                         }
                     }
                 }

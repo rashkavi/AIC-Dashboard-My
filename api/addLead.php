@@ -454,7 +454,7 @@ if (SessionUser::hasValidSession()) {
                         $qimg_path = "../assets/imgs/students/" . $image;
                         move_uploaded_file($_FILES["image"]["tmp_name"], $qimg_path);
                     }
-                  
+
                     $status->done =  "Lead Added Successfully";
                 }
             }
@@ -647,7 +647,6 @@ function normalizeFilesArray($fileInput)
 function uploadStudentDocuments($studentId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
 
     foreach ($studentDocuments["files"] as $doc) {
 

@@ -16,12 +16,14 @@ if (!SessionUser::hasValidSession()) {
         } else {
             $id = $_GET['plan-id'];
             $intake = Database::search("SELECT * FROM `intake_has_payment_plans` 
-            INNER JOIN `intakes` INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id` 
+            INNER JOIN `intakes`  ON `intake_has_payment_plans`.`intakes_intake_id` = `intakes`.`intake_id`
+            INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id` 
             INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id` 
-            WHERE `intake_has_payment_plan_id` = '" . $id . "' AND `intake_has_payment_plan_id` NOT IN (SELECT `intake_has_payment_plan_id` FROM `payment_plan_has_students_has_intakes`)");
+            WHERE `intake_has_payment_plan_id` = '" . $id . "' 
+            AND `intake_has_payment_plan_id` NOT IN (SELECT `intake_has_payment_plan_id` FROM `payment_plan_has_students_has_intakes` WHERE `intake_has_payment_plan_id` = 3)");
 
             if ($intake->num_rows == 0) {
-                header("Location: ./intakes");
+                // header("Location: ./intakes");
             } else {
                 $intakeData = $intake->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
@@ -159,7 +161,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                     <label class="text-14 main-text required" for="">Payment Plan</label>
-                                                                    <select id="payment-plan" class="form-select custom-select mt-2" onchange="loadPaymentType()">
+                                                                    <select id="payment-plan" class="form-select custom-select mt-2" disabled onchange="loadPaymentType()">
                                                                         <option selected value="0">- Select -</option>
                                                                         <?php
                                                                         $paymentsPlan = Database::search("SELECT * FROM `payment_plan`");

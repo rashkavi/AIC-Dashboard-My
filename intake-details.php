@@ -179,125 +179,63 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                             </div>
 
-                                            <div class="container p-0 m-0 g-0 mb-4">
-                                                <div class="row g-4 d-flex">
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:student" width="32" height="32" class="dark-theme"></iconify-icon></div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Students</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['student_count'] ?>"
-                                                                        data-formatted="<?= $cardData['student_count'] ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Lecturers</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['lecturers_count'] ?>"
-                                                                        data-formatted="<?= $cardData['lecturers_count'] ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="hugeicons:chart-up" width="32" height="32" class="dark-theme"></iconify-icon></div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Levels</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['levels_count'] ?>"
-                                                                        data-formatted="<?= $cardData['levels_count'] ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="material-symbols:subject" width="32" height="32" class="dark-theme"></iconify-icon></div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Subjects</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['subjects_count'] ?>"
-                                                                        data-formatted="<?= $cardData['subjects_count'] ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 table-btn-green-blue d-flex align-items-center justify-content-center">
-                                                                    <iconify-icon icon="icon-park-twotone:flash-payment" width="32" height="32" style="color: var(--dark-green-blue);"></iconify-icon>
-                                                                </div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Total Income</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['total_payments'] ?? 0 ?>"
-                                                                        data-formatted="<?= $cardData['total_payments_formatted'] ?? '0' ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                            <?php
+                                            require_once "./includes/Dashboards/BatchDashboardSummary.php";
+                                            $dashboardCards = BatchDashboardSummary::getBatchDashboardSummary($id);
+                                            ?>
 
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 table-btn-yellow d-flex align-items-center justify-content-center">
-                                                                    <iconify-icon icon="carbon:condition-wait-point" width="32" height="32" style="color: var(--dark-yellow);"></iconify-icon>
-                                                                </div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Awaiting Payments</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['awaiting_payments'] ?? 0 ?>"
-                                                                        data-formatted="<?= $cardData['awaiting_payments_formatted'] ?? '0' ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                            <div class="container-fluid p-0 mb-4">
+                                                <div class="row g-3">
+                                                    <?php foreach ($dashboardCards as $card) { ?>
+                                                        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+                                                            <div class="stats-mini-card">
+                                                                <div class="stats-mini-top">
+                                                                    <div class="stats-mini-left">
+                                                                        <div class="stats-mini-icon">
+                                                                            <iconify-icon icon="<?= htmlspecialchars($card['icon']) ?>" width="16" height="16"></iconify-icon>
+                                                                        </div>
+                                                                        <span class="stats-mini-title"><?= htmlspecialchars($card['title']) ?></span>
+                                                                    </div>
 
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 table-btn-orange d-flex align-items-center justify-content-center">
-                                                                    <iconify-icon icon="material-symbols:pending" width="32" height="32" style="color: var(--dark-orange);"></iconify-icon>
+                                                                    <button type="button" class="stats-mini-menu">
+                                                                        <iconify-icon icon="mdi:dots-horizontal" width="16" height="16"></iconify-icon>
+                                                                    </button>
                                                                 </div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Pending Approval</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['pending_approval'] ?? 0 ?>"
-                                                                        data-formatted="<?= $cardData['pending_approval_formatted'] ?? '0' ?>">0</h2>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
 
-                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                        <div class="component-theme p-3 w-100">
-                                                            <div class="d-flex flex-row align-items-center">
-                                                                <div class="hwr-70 table-btn-danger d-flex align-items-center justify-content-center">
-                                                                    <iconify-icon icon="fluent:text-change-reject-20-filled" width="32" height="32" style="color: var(--dark-red);"></iconify-icon>
-                                                                </div>
-                                                                <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                    <label class="flex-grow-1 text-18 sub-text fw-semibold">Rejected Payments</label>
-                                                                    <h2 class="text-dark-color fw-semibold lh-base count-up"
-                                                                        data-target="<?= $cardData['reject_payments'] ?? 0 ?>"
-                                                                        data-formatted="<?= $cardData['reject_payments_formatted'] ?? '0' ?>">0</h2>
+                                                                <div class="stats-mini-body">
+                                                                    <div class="stats-mini-content">
+                                                                        <?php
+                                                                        if ($card['title'] != "Monthly New Admissions") {
+                                                                        ?>
+                                                                            <div class="stats-mini-value"><?= htmlspecialchars($card['value']) ?></div>
+                                                                        <?php
+                                                                        } else {
+                                                                        ?>
+                                                                            <div class="stats-mini-value"><?= htmlspecialchars($card['value']) ?> <span class="text-dark-orange text-18">+<?= htmlspecialchars($card['multi_class']) ?></span><span class="text-dark-orange text-14 fw-light mx-3">(Multi Class)</span></div>
+                                                                        <?php
+                                                                        }
+                                                                        ?>
+
+                                                                        <div class="stats-mini-meta">
+                                                                            <?php if ($card['change'] !== '') { ?>
+                                                                                <span class="stats-mini-change <?= htmlspecialchars($card['change_type']) ?>">
+                                                                                    <?= htmlspecialchars($card['change']) ?>
+                                                                                </span>
+                                                                            <?php } ?>
+                                                                            <span class="stats-mini-period"><?= htmlspecialchars($card['period']) ?></span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <?php if (!empty($card['chart'])) { ?>
+                                                                        <div class="stats-mini-chart" data-chart='<?= json_encode($card['chart']) ?>'></div>
+                                                                    <?php } ?>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    <?php } ?>
                                                 </div>
                                             </div>
+
                                             <div class="accordion accordion-flush p-0 m-0" id="accordionFlush">
                                                 <div class="accordion-item mb-3 border-0">
                                                     <h2 class="accordion-header d-flex justify-content-between align-items-center border-0 p-4 table-btn-success">
