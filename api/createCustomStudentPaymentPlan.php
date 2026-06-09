@@ -85,13 +85,7 @@ if (SessionUser::hasValidSession()) {
                                         $status->discountAmount = 'Percentage discount must be between 1 and 100.';
                                     }
                                 }
-
-                                if ($paymentdiscountType == 2 || $paymentdiscountType == 3) {
-                                    if (empty($planDiscountNote)) {
-                                        $status->discountNote = 'Discount note is required';
-                                    }
-                                }
-
+                              
                                 if (!empty($plan)) {
                                     $errors = [];
                                     $validatedPayments = [];

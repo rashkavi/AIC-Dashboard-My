@@ -164,7 +164,6 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-
                         if ($sortByDate == 0  && $sortByName == 0 && $sortById == 0) {
                             $query .= " ORDER BY `cpp`.`course_payment_has_payment_id` DESC";
                         }
@@ -419,7 +418,7 @@ if (SessionUser::hasValidSession()) {
                                             $shudderPages1 = false;
                                             $shudderPages2 = false;
 
-                                            function renderPageButton($catId, $i, $isActive = false)
+                                            function renderPageButton( $i, $isActive = false)
                                             {
                                                 $activeClass = $isActive ? 'active' : '';
                                                 $action = $isActive ? '' : "onclick=\"handleStudentsPaymentsPagination('goToPage', '{$i}')\"";
@@ -441,7 +440,7 @@ if (SessionUser::hasValidSession()) {
                                         </ul>
                                     </div>
                                     <!-- Next Button (col-1) -->
-                                    <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleStudentsPaymentsPagination('nextPage',null,'<?= $number_of_pages ?>')">
+                                    <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleStudentsPaymentsPagination('nextPage',<?= $pageno ?>,'<?= $number_of_pages ?>')">
                                         <span class="text-14 main-text fw-semibold">Next</span>
                                         <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                     </button>

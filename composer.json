@@ -6,6 +6,7 @@
         "setasign/fpdf": "^1.8",
         "endroid/qr-code": "^6.0",
         "phpoffice/phpspreadsheet": "^5.5",
-        "google/cloud-vision": "^2.2"
+        "google/cloud-vision": "^2.2",
+        "dompdf/dompdf": "^3.1"
     }
 }

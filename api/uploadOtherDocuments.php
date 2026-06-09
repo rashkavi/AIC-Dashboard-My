@@ -18,7 +18,7 @@ if (SessionUser::hasValidSession()) {
                 INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
                 INNER JOIN `title` ON `students`.`title_title_id`=`title`.`title_id`
                 INNER JOIN `students_has_intakes` ON `students`.`student_id`=`students_has_intakes`.`students_student_id`
-                         WHERE `students`.`student_id`='" . $id . "'");
+                WHERE `students`.`student_id`='" . $id . "'");
 
                 if ($isHasId->num_rows == 0) {
                     $status->error = "Invalid student Id";

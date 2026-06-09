@@ -5,6 +5,7 @@ require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
+    $sessionUserObject = SessionUser::getCurrentUserObject();
     if ($sessionUserRole != null) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($_SERVER['CONTENT_TYPE'] == 'application/json') {
@@ -51,9 +52,9 @@ if (SessionUser::hasValidSession()) {
 
                     if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 25))) {
                         if (strpos($query, 'WHERE') == false) {
-                            $countQuery .= " WHERE `users_user_id` = '" . $sessionUserObject['user_id'] . "'";
+                            $query .= " WHERE `users_user_id` = '" . $sessionUserObject['user_id'] . "'";
                         } else {
-                            $countQuery .= " AND `users_user_id` = '" . $sessionUserObject['user_id'] . "'";
+                            $query .= " AND `users_user_id` = '" . $sessionUserObject['user_id'] . "'";
                         }
                     }
 

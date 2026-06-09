@@ -78,7 +78,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div> -->
                                                     <?php
                                                     }
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <button class="custom-btn w-100" onclick="window.location = 'add-inquiry'">
@@ -179,13 +179,9 @@ if (!SessionUser::hasValidSession()) {
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Added By</th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
-                                                                <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
-                                                                ?>
+                                                               
                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
-                                                                <?php
-                                                                }
-                                                                ?>
+                                                               
                                                             </tr>
                                                         </thead>
                                                         <tbody id="user-table-data">
@@ -331,9 +327,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             </button>
                                                                         </td>
 
-                                                                        <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
-                                                                        ?>
+                                                                       
                                                                             <td class="py-3 align-middle">
                                                                                 <div class="dropdown">
                                                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
@@ -448,9 +442,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </ul>
                                                                                 </div>
                                                                             </td>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
+                                                                       
 
                                                                     </tr>
                                                                 <?php
@@ -669,7 +661,7 @@ if (!SessionUser::hasValidSession()) {
                             <div class="row g-2">
                                 <div class="col-6">
                                     <button type="button"
-                                        class="btn btn-light h-48 w-100"
+                                        class="btn btn-light h-48 w-100 br-0"
                                         data-bs-dismiss="modal">
                                         Cancel
                                     </button>
@@ -783,7 +775,7 @@ if (!SessionUser::hasValidSession()) {
                             <div class="row g-2">
                                 <div class="col-6">
                                     <button type="button"
-                                        class="btn btn-light h-48 w-100"
+                                        class="btn btn-light h-48 w-100 br-0"
                                         data-bs-dismiss="modal">
                                         Cancel
                                     </button>
@@ -830,7 +822,7 @@ if (!SessionUser::hasValidSession()) {
                             <div class="row g-2">
                                 <div class="col-6">
                                     <button type="button"
-                                        class="btn btn-light h-48 w-100"
+                                        class="btn btn-light h-48 w-100 br-0"
                                         data-bs-dismiss="modal">
                                         Cancel
                                     </button>
@@ -906,7 +898,7 @@ if (!SessionUser::hasValidSession()) {
 
                                 <div class="col-6">
                                     <button type="button"
-                                        class="btn btn-light h-48 w-100"
+                                        class="btn btn-light h-48 w-100 br-0"
                                         data-bs-dismiss="modal">
                                         Cancel
                                     </button>

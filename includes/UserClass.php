@@ -114,14 +114,18 @@ class SessionUser
 
     public static function ifUserIsCounsiler(?string $userRole): bool
     {
-        return $userRole === "Counselor";
+        return in_array(
+            $userRole,
+            ["Head of Admission", "Counselor"],
+            true
+        );
     }
 
     public static function hasPermissionManageInquiry(?string $userRole): bool
     {
         return in_array(
             $userRole,
-            ["Head of Admission", "Academic Admin", "Counselor"],
+            ["Head of Admission", "Counselor"],
             true
         );
     }

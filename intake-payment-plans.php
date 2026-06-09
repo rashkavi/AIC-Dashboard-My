@@ -495,7 +495,6 @@ if (!SessionUser::hasValidSession()) {
                         </div>
                     </div>
 
-
                     <div class="modal fade" id="warningModal" tabindex="-1"
                         aria-labelledby="warningModalTitle" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">

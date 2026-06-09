@@ -52,7 +52,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments'))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) || UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments'))) {
                     header("Location: ./faculties");
                 } else {
 ?>
@@ -116,17 +116,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </nav>
                                                             </div>
                                                         </div>
-                                                        <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])) {
-                                                        ?>
-                                                            <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <button class="custom-btn w-100" type="button" onclick="location.href='add-payment-plan?student-id=<?= $id ?>'">
-                                                                    Add Payment Plan
-                                                                </button>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                       
                                                     </div>
                                                 </div>
 
@@ -429,18 +419,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="text-14 sub-text p-0 mt-1 g-0">Payment Plan : </span>
                                                                                     <span class="text-14 sub-text mt-1 fw-medium"><?= $data['payment_plan'] ?></span>
                                                                                 </div>
-                                                                                <?php if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])): ?>
-                                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                                            <button class="custom-danger-btn w-100" onclick="window.location.href='update-student-payment-plan?payment-paln-id=<?= $data['pphsiId'] ?>'">Update Payment Plan</button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                                            <button class="custom-btn w-100" onclick="window.location.href='add-payment-intake-student?student-id=<?= $id ?>&payment-plan-id=<?= $data['pphsiId'] ?>'">Add Payment</button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                <?php endif; ?>
+
                                                                             </div>
                                                                         </div>
 
@@ -658,19 +637,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     <?php
                                                                                                                     if (
                                                                                                                         SessionUser::ifUserIsPro($sessionUserRole)
-                                                                                                                        || UserPermissions::validPermisisonType('payments', 0)
-                                                                                                                        || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
+                                                                                                                        || SessionUser::ifUserIsCounsiler($sessionUserRole)
+                                                                                                                      
                                                                                                                     ):
                                                                                                                         if ($balance > 0): ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-inquiry-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
                                                                                                                                     <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
                                                                                                                         <?php endif; ?>
-                                                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon> Edit</a></li>
-                                                                                                                        <?php if (count($receiptRows) === 0): ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
-                                                                                                                                    <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon> Remove</a></li>
-                                                                                                                        <?php endif; ?>
+                                                                                                                        
                                                                                                                     <?php endif; ?>
                                                                                                                 </ul>
                                                                                                             </div>

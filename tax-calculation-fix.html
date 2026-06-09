@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tax Calculation Fix Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #667eea; color: white; font-weight: bold; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .example { background: #e8f4f8; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .formula { background: #fff5cc; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0; font-family: monospace; }
+        .correct { color: #28a745; font-weight: bold; }
+        .wrong { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✓ Tax Calculation Fix - Verification</h1>
+
+        <h2>The Problem</h2>
+        <p>The original formula was <span class="wrong">INCORRECT</span>:</p>
+        <div class="formula">
+            WRONG: tax = paid × (rate / 100)<br>
+            WRONG: base = paid - tax<br>
+            <br>
+            Example: paid = 10,250, rate = 2.5%<br>
+            tax = 10,250 × 0.025 = 256.25 ❌<br>
+            base = 10,250 - 256.25 = 9,993.75 ❌
+        </div>
+
+        <h2>The Solution</h2>
+        <p>The correct formula is now implemented:</p>
+        <div class="formula">
+            <span class="correct">CORRECT: base = paid ÷ (1 + rate%)</span><br>
+            <span class="correct">CORRECT: tax = paid - base</span><br>
+            <br>
+            Example: paid = 10,250, rate = 2.5%<br>
+            base = 10,250 ÷ 1.025 = 10,000 ✓<br>
+            tax = 10,250 - 10,000 = 250 ✓
+        </div>
+
+        <h2>Real-World Examples</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Paid Amount</th>
+                    <th>Tax Rate</th>
+                    <th>Base Amount</th>
+                    <th>Tax Extracted</th>
+                    <th>Verify</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Example 1</td>
+                    <td>LKR 10,250</td>
+                    <td>2.5%</td>
+                    <td>LKR 10,000</td>
+                    <td>LKR 250</td>
+                    <td>10,000 + 250 = 10,250 ✓</td>
+                </tr>
+                <tr>
+                    <td>Example 2</td>
+                    <td>LKR 50,000</td>
+                    <td>2.5%</td>
+                    <td>LKR 48,780.49</td>
+                    <td>LKR 1,219.51</td>
+                    <td>48,780.49 + 1,219.51 = 50,000 ✓</td>
+                </tr>
+                <tr>
+                    <td>Example 3</td>
+                    <td>LKR 100,000</td>
+                    <td>2.5%</td>
+                    <td>LKR 97,560.98</td>
+                    <td>LKR 2,439.02</td>
+                    <td>97,560.98 + 2,439.02 = 100,000 ✓</td>
+                </tr>
+                <tr>
+                    <td>Example 4</td>
+                    <td>LKR 5,150</td>
+                    <td>2.5%</td>
+                    <td>LKR 5,024.39</td>
+                    <td>LKR 125.61</td>
+                    <td>5,024.39 + 125.61 = 5,150 ✓</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Files Fixed</h2>
+        <ul>
+            <li>✓ <code>student-payment.php</code> - Updated <code>calcTaxFromPaid()</code> function</li>
+            <li>✓ <code>add-receipt-to-student-payment.php</code> - Already had correct formula</li>
+        </ul>
+
+        <h2>JavaScript Function (Fixed)</h2>
+        <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+<code>function calcTaxFromPaid(paid, rate) {
+    if (rate <= 0 || paid <= 0) return {
+        base: paid,
+        tax: 0
+    };
+    var factor = 1 + (rate / 100);
+    var base = paid / factor;
+    var tax = paid - base;
+    return {
+        base: base,
+        tax: tax
+    };
+}</code>
+        </pre>
+
+        <h2>Impact</h2>
+        <ul>
+            <li>✓ Balance calculations are now <span class="correct">CORRECT</span></li>
+            <li>✓ Tax amounts are properly extracted from paid amounts</li>
+            <li>✓ Overpayment detection works correctly</li>
+            <li>✓ Receipt calculations match payment records</li>
+        </ul>
+
+        <h2>Testing</h2>
+        <p>Test the fix by:</p>
+        <ol>
+            <li>Go to <strong>Payments → Student Payment</strong></li>
+            <li>Click <strong>"Update Payment Status"</strong> button</li>
+            <li>Enter a paid amount like <strong>10,250</strong> with tax rate <strong>2.5%</strong></li>
+            <li>Verify that:
+                <ul>
+                    <li>Base = 10,000</li>
+                    <li>Tax = 250</li>
+                    <li>Balance = 0 (if this is the exact amount due)</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <script>
+        // Verification test - Run calculations to verify fix
+        function calcTaxFromPaid(paid, rate) {
+            if (rate <= 0 || paid <= 0) return { base: paid, tax: 0 };
+            var factor = 1 + (rate / 100);
+            var base = paid / factor;
+            var tax = paid - base;
+            return { base: base, tax: tax };
+        }
+
+        // Test examples
+        const tests = [
+            { paid: 10250, rate: 2.5, expectedBase: 10000, expectedTax: 250 },
+            { paid: 50000, rate: 2.5, expectedBase: 48780.49, expectedTax: 1219.51 },
+            { paid: 100000, rate: 2.5, expectedBase: 97560.98, expectedTax: 2439.02 },
+            { paid: 5150, rate: 2.5, expectedBase: 5024.39, expectedTax: 125.61 },
+        ];
+
+        console.log('=== Tax Calculation Verification ===');
+        tests.forEach((test, i) => {
+            const result = calcTaxFromPaid(test.paid, test.rate);
+            const baseMatch = Math.abs(result.base - test.expectedBase) < 0.01;
+            const taxMatch = Math.abs(result.tax - test.expectedTax) < 0.01;
+            console.log(`Test ${i+1}: ${baseMatch && taxMatch ? '✓ PASS' : '✗ FAIL'}`);
+            console.log(`  Paid: ${test.paid}, Rate: ${test.rate}%`);
+            console.log(`  Base: ${result.base.toFixed(2)} (expected ${test.expectedBase})`);
+            console.log(`  Tax: ${result.tax.toFixed(2)} (expected ${test.expectedTax})`);
+            console.log(`  Verify: ${(result.base + result.tax).toFixed(2)} = ${test.paid}`);
+        });
+    </script>
+</body>
+</html>

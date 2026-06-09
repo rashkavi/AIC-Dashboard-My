@@ -21,13 +21,13 @@ class load_side_menu
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('inquirys')) {
+        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('inquirys')) {
             $menuItems = array_merge($menuItems, [
                 ["Inquiries", "ix:inquiry", "inquiries", "inquiries"],
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
+        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
             $menuItems = array_merge($menuItems, [
                 ["Students", "ph:student", "students", "students"],
             ]);

@@ -61,20 +61,24 @@ if (SessionUser::hasValidSession()) {
                             )
                                 ");
 
-                            $mail = EmailNotificationService::build(
-                                EmailTemplateContent::STUDENT_WELCOME_EMAIL,
-                                [
-                                    'student_name' => $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'],
-                                    'email' => $studentData['email'],
-                                    'login_url' => Project::getBasePortalUrl(),
-                                ]
-                            );
+                            try {
+                                $mail = EmailNotificationService::build(
+                                    EmailTemplateContent::STUDENT_WELCOME_EMAIL,
+                                    [
+                                        'student_name' => $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'],
+                                        'email' => $studentData['email'],
+                                        'login_url' => Project::getBasePortalUrl(),
+                                    ]
+                                );
 
-                            $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
+                                $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
 
-                            sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
+                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
 
-                            $status->done = 'Academic documents rejected successfully';
+                                $status->done = 'Academic department completion confirmed';
+                            } catch (Exception $e) {
+                                $status->error = "Academic department completion confirmed but mail not sent";
+                            }
                         }
                     }
                 } else {

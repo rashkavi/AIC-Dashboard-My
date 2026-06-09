@@ -158,7 +158,6 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                     <label class="text-14 main-text required" for="">Discount Type</label>
                                                                     <select id="discount-type" class="form-select custom-select mt-2" onchange="changeDiscountType(this)">
-                                                                        <option selected value="0">- Select -</option>
                                                                         <?php
                                                                         $discountTypes = Database::search("SELECT * FROM `discount_type`");
                                                                         while ($discountType = $discountTypes->fetch_assoc()) {
@@ -170,12 +169,12 @@ if (!SessionUser::hasValidSession()) {
                                                                     </select>
                                                                     <span id="discount-type-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                                <div class="col-12 col-md-4 d-flex flex-column d-none" id="discount-area">
                                                                     <label class="text-14 main-text not-required" for="discount" id="discount-label">Discount</label>
                                                                     <input type="number" class="form-control custom-input mt-2" id="discount" min="0">
                                                                     <span id="discount-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
-                                                                <div class="col-12 d-flex flex-column">
+                                                                <div class="col-12 d-flex flex-column d-none" id="discount-note-area">
                                                                     <label class="text-14 main-text" for="discount-note" id="discount-note-label">Discount Note</label>
                                                                     <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
                                                                     <span id="discount-note-feedback" class="text-dark-red text-12"></span>

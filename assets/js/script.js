@@ -6774,3 +6774,35 @@ const confirmDeleteSystemPlan = (id) => {
     });
     $("#removeSystemPaymentPlanConfirmModal").modal("show");
 }
+
+var selectedIntakePlans = [];
+var intakePlansLoaded = false;
+
+function switchPaymentGroup(type) {
+    var intakeBtn = document.getElementById('btn-intake-group');
+    var customBtn = document.getElementById('btn-custom-group');
+    var intakeSec = document.getElementById('section-intake-group');
+    var customSec = document.getElementById('section-custom-group');
+    var radioIntake = document.getElementById('radio-intake');
+    var radioCustom = document.getElementById('radio-custom');
+    var iconCustom = document.getElementById('icon-custom');
+
+    if (type === 'intake') {
+        intakeBtn.classList.add('active');
+        customBtn.classList.remove('active');
+        intakeSec.classList.remove('d-none');
+        customSec.classList.add('d-none');
+        if (iconCustom) iconCustom.style.color = 'var(--sub-text)';
+        radioIntake.innerHTML = '<iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;"></iconify-icon>';
+        radioCustom.innerHTML = '';
+        if (!intakePlansLoaded) loadIntakePaymentPlans();
+    } else {
+        customBtn.classList.add('active');
+        intakeBtn.classList.remove('active');
+        customSec.classList.remove('d-none');
+        intakeSec.classList.add('d-none');
+        if (iconCustom) iconCustom.style.color = '#fff';
+        radioCustom.innerHTML = '<iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;"></iconify-icon>';
+        radioIntake.innerHTML = '';
+    }
+}

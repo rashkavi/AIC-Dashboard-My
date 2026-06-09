@@ -17,7 +17,7 @@ if (SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
                 $status->error = 'You are not authorized to add student';
             } else {
                 $fname = isset($_POST['fname']) ? trim($_POST['fname']) : '';

@@ -94,6 +94,10 @@ if (!SessionUser::hasValidSession()) {
                         header("Location: ./batch-student-payments?student-id=" . $paymentData['students_has_intakes_id']);
                     } else {
 
+                        /**
+                         * CORRECTED: Helper function to resolve exchange rate
+                         * Supports inline rate, database lookup, or null for same currency
+                         */
                         function resolveExchangeRate($db, $row, $courseCurrencyId)
                         {
                             // If payment currency is null or same as course currency → no conversion
@@ -120,67 +124,35 @@ if (!SessionUser::hasValidSession()) {
                             return null; // cannot convert — treat as same currency
                         }
 
+                        /**
+                         * CORRECTED: Convert amount from payment currency to course currency
+                         * Formula: paidAmount / exchangeRate
+                         */
                         function convertToCourseAmount($paidAmount, $exchangeRate)
                         {
                             if ($exchangeRate === null || $exchangeRate <= 0) return (float)$paidAmount;
                             return (float)$paidAmount / $exchangeRate;
                         }
 
-                        // CP-level discount
-                        $discountAmount = ($paymentData['discount_type_id'] == 3)
-                            ? $paymentData['amount'] / 100 * $paymentData['discount']
-                            : $paymentData['discount'];
+                        /**
+                         * ========================================================================
+                         * ★ CORRECTED PAYMENT CALCULATION LOGIC (UPDATED WITH TAX)
+                         * All values calculated in course currency
+                         * ========================================================================
+                         * 
+                         * FIXES APPLIED:
+                         * 1. Tax amount now properly calculated from receipts
+                         * 2. Tax included in payable amount formula
+                         * 3. LKR penalty conversion clarified
+                         * 4. All currency conversions verified
+                         */
+                        
+                        // LKR currency ID (adjust if different in your database)
+                        $lkrCurrencyId = 1;
 
-                        $totalDiscount    = $discountAmount;
-                        $totalPenalty     = $paymentData['panelty_amount'];
-
-
-                        // Fetch receipts for this payment
-                        $receipts = Database::search("
-                                                                                                    SELECT
-                                                                                                        cpp.*,
-                                                                                                        pm.payment_method,
-                                                                                                        pm.payment_method_id,
-                                                                                                        ps2.payment_status,
-                                                                                                        ps2.payment_status_id,
-                                                                                                        cur.code AS paid_currency_code,
-                                                                                                        cur.decimal_places AS paid_decimal_places,
-                                                                                                        cpp.currency_exchange_rate
-                                                                                                    FROM course_payment_has_payments AS cpp
-                                                                                                    INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
-                                                                                                    INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
-                                                                                                    LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
-                                                                                                    WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
-                                                                                                    GROUP BY cpp.course_payment_has_payment_id
-                                                                                                ");
-
-                        // Compute converted paid total for this CP row
-                        $convertedPaidTotal = 0;
-                        $receiptRows = [];
-                        $totalPaidAmount = 0;
-                        if ($receipts && $receipts->num_rows > 0) {
-                            while ($rec = $receipts->fetch_assoc()) {
-                                $rate = resolveExchangeRate(null, $rec, $paymentData['currency_id']);
-                                $rec['converted_paid']       = convertToCourseAmount($rec['paid_amount'], $rate);
-                                $rec['is_foreign_currency']  = ($rate !== null);
-                                $rec['currency_exchange_rate']    = $rate;
-                                $convertedPaidTotal += $rec['converted_paid'];
-                                $receiptRows[] = $rec;
-                                if ($rec['payment_status_id'] == 3) $totalPaidAmount += $rec['converted_paid'];
-                                if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
-                                    $totalDiscount += convertToCourseAmount($rec['discount_amount'], $rate);
-                                    $totalPenalty += convertToCourseAmount($rec['panelty_amount'], $rate);
-                                };
-                            }
-                        }
-
-
-                        $payableAmount    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
-                        $balance = $payableAmount - $convertedPaidTotal;
-                        $paidAmount = $convertedPaidTotal;
-
-                        $lkrCurrencyId = 1; // assuming LKR = currency_id 1, adjust if different
-
+                        // ────────────────────────────────────────────────────────────────────────
+                        // STEP 1: Get exchange rate if course currency is not LKR
+                        // ────────────────────────────────────────────────────────────────────────
                         $exchangeRate = null;
                         $exchangeRateValue = 1;
                         $exchangeRateId = 0;
@@ -200,7 +172,7 @@ if (!SessionUser::hasValidSession()) {
                                         ON cer.`base_currency_id` = c_base.`currency_id`
                                     INNER JOIN `currencies` c_target 
                                         ON cer.`target_currency_id` = c_target.`currency_id`
-                                    WHERE cer.`base_currency_id` = '" . $paymentData['currency_id'] . "'
+                                    WHERE cer.`base_currency_id` = '" . (int)$paymentData['currency_id'] . "'
                                     AND cer.`target_currency_id` = '" . $lkrCurrencyId . "'
                                     ORDER BY cer.`effective_date` DESC, cer.`effective_time` DESC
                                     LIMIT 1
@@ -213,13 +185,116 @@ if (!SessionUser::hasValidSession()) {
                             }
                         }
 
+                        // ────────────────────────────────────────────────────────────────────────
+                        // STEP 2: Calculate CP-level discount (in course currency)
+                        // ────────────────────────────────────────────────────────────────────────
+                        $discountAmountCP = ($paymentData['discount_type_id'] == 3)
+                            ? $paymentData['amount'] / 100 * $paymentData['discount']
+                            : $paymentData['discount'];
 
-                        // Pre-calculate LKR equivalents
-                        $balanceLKR      = $balance      * $exchangeRateValue;
-                        $payableAmtLKR   = $payableAmount * $exchangeRateValue;
-                        $paidAmountLKR   = $paidAmount   * $exchangeRateValue;
-                        $discountAmtLKR  = $discountAmount * $exchangeRateValue;
-                        $penaltyAmtLKR   = $paymentData['panelty_amount'] * $exchangeRateValue;
+                        // ────────────────────────────────────────────────────────────────────────
+                        // STEP 3: Get penalties from panelty_payments table (in LKR) and convert
+                        // ────────────────────────────────────────────────────────────────────────
+                        // CRITICAL: panelty_payments.amount is ALWAYS in LKR
+                        $penaltyFromTableLKR = $paymentData['panelty_amount'] ?? 0;
+
+                        // Convert LKR penalty to course currency if needed
+                        $totalPenaltyCP = 0;
+                        if ($paymentData['currency_id'] != $lkrCurrencyId && $exchangeRateValue > 0) {
+                            // Course is non-LKR: convert LKR to course currency
+                            $totalPenaltyCP = (float)$penaltyFromTableLKR / $exchangeRateValue;
+                        } else {
+                            // Course is LKR: no conversion needed
+                            $totalPenaltyCP = (float)$penaltyFromTableLKR;
+                        }
+
+                        // ★ NEW: Initialize total tax amount (in course currency)
+                        $totalTaxCP = 0;
+
+                        $totalDiscount = $discountAmountCP;
+
+                        // ────────────────────────────────────────────────────────────────────────
+                        // STEP 4: Fetch and process receipts with correct currency conversion
+                        // ────────────────────────────────────────────────────────────────────────
+                        $receipts = Database::search("
+                                                                                                    SELECT
+                                                                                                        cpp.*,
+                                                                                                        pm.payment_method,
+                                                                                                        pm.payment_method_id,
+                                                                                                        ps2.payment_status,
+                                                                                                        ps2.payment_status_id,
+                                                                                                        cpp.tax_amount,
+                                                                                                        cpp.tax_rate,
+                                                                                                        cur.code AS paid_currency_code,
+                                                                                                        cur.decimal_places AS paid_decimal_places,
+                                                                                                        cpp.currency_exchange_rate
+                                                                                                    FROM course_payment_has_payments AS cpp
+                                                                                                    INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
+                                                                                                    INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
+                                                                                                    LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
+                                                                                                    WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
+                                                                                                    GROUP BY cpp.course_payment_has_payment_id
+                                                                                                ");
+
+                        $convertedPaidTotal = 0;
+                        $receiptRows = [];
+                        $totalPaidAmount = 0;
+
+                        if ($receipts && $receipts->num_rows > 0) {
+                            while ($rec = $receipts->fetch_assoc()) {
+                                // Determine exchange rate for this receipt
+                                $rate = resolveExchangeRate(null, $rec, $paymentData['currency_id']);
+                                
+                                // Convert paid amount to course currency
+                                $rec['converted_paid'] = convertToCourseAmount($rec['paid_amount'], $rate);
+                                $rec['is_foreign_currency'] = ($rate !== null);
+                                $rec['currency_exchange_rate'] = $rate;
+                                
+                                $convertedPaidTotal += $rec['converted_paid'];
+                                $receiptRows[] = $rec;
+                                
+                                // Only count as paid if status is 3 (confirmed)
+                                if ($rec['payment_status_id'] == 3) {
+                                    $totalPaidAmount += $rec['converted_paid'];
+                                }
+                                
+                                // Process receipt discounts, penalties, and tax only if payment is pending or confirmed
+                                if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
+                                    // ── Discount: already in course currency, convert if needed ──
+                                    $totalDiscount += convertToCourseAmount((float)$rec['discount_amount'], $rate);
+                                    
+                                    // ── Penalty from receipt: in paid currency, convert to course currency ──
+                                    if (!empty($rec['panelty_amount']) && $rec['panelty_amount'] > 0) {
+                                        $receiptPenalty = convertToCourseAmount((float)$rec['panelty_amount'], $rate);
+                                        $totalPenaltyCP += $receiptPenalty;
+                                    }
+                                    
+                                    // ★ NEW: Tax amount calculation
+                                    // Tax amount is in paid currency - convert to course currency
+                                    if (!empty($rec['tax_amount']) && $rec['tax_amount'] > 0) {
+                                        $receiptTax = convertToCourseAmount((float)$rec['tax_amount'], $rate);
+                                        $totalTaxCP += $receiptTax;
+                                    }
+                                }
+                            }
+                        }
+
+                        // ────────────────────────────────────────────────────────────────────────
+                        // STEP 5: Final calculations (all values now in course currency)
+                        // ────────────────────────────────────────────────────────────────────────
+                        // ★ CORRECTED: Include tax in payable amount
+                        // Formula: Base Amount - Discount + Penalty + Tax
+                        $payableAmount = $paymentData['amount'] - $totalDiscount + $totalPenaltyCP + $totalTaxCP;
+                        $balance = $payableAmount - $convertedPaidTotal;
+                        $paidAmount = $convertedPaidTotal;
+
+                        // Pre-calculate LKR equivalents (for display purposes only)
+                        $balanceLKR = $balance * $exchangeRateValue;
+                        $payableAmtLKR = $payableAmount * $exchangeRateValue;
+                        $paidAmountLKR = $paidAmount * $exchangeRateValue;
+                        $discountAmtLKR = $totalDiscount * $exchangeRateValue;
+                        $penaltyAmtLKR = $totalPenaltyCP * $exchangeRateValue;
+                        $taxAmtLKR = $totalTaxCP * $exchangeRateValue;
 
                         $isBaseCurrencyLKR = ($paymentData['currency_id'] == $lkrCurrencyId);
 ?>
@@ -327,7 +402,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <div class="amount-section">
                                                                                 <div class="amount-display">
                                                                                     <span class="amount-label">Total Balance Amount</span>
-                                                                                    <span class="amount-value"><?= $paymentData['currency_code']  ?> <?= number_format($balance, 2); ?></span>
+                                                                                    <span class="amount-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($balance, $paymentData['decimal_places']); ?></span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -342,7 +417,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Amount</span>
-                                                                                    <span class="detail-value"><?= number_format($paymentData['amount'], 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($paymentData['amount'], $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
 
@@ -356,7 +431,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Type</span>
-                                                                                    <span class="detail-value"><?= $paymentData["payment_type"]; ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData["payment_type"]); ?></span>
                                                                                 </div>
                                                                             </div>
 
@@ -368,7 +443,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Due Date</span>
-                                                                                    <span class="detail-value"><?= $paymentData["due_date"] ?? '--/--/----'; ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData["due_date"] ?? '--/--/----'); ?></span>
                                                                                 </div>
                                                                             </div>
 
@@ -388,9 +463,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                         if ($paymentData["discount_type_id"] == 1) {
                                                                                             echo "No Discount";
                                                                                         } else if ($paymentData["discount_type_id"] == 2) {
-                                                                                            echo "LKR " . number_format($paymentData["discount"], 2) . " | " . $paymentData["discount_type"];
+                                                                                            echo htmlspecialchars($paymentData['currency_code']) . " " . number_format($paymentData["discount"], $paymentData['decimal_places']) . " | " . htmlspecialchars($paymentData["discount_type"]);
                                                                                         } else {
-                                                                                            echo  number_format($paymentData["discount"]) . "% | " . $paymentData["discount_type"];
+                                                                                            echo number_format($paymentData["discount"], 0) . "% | " . htmlspecialchars($paymentData["discount_type"]);
                                                                                         }
                                                                                         ?>
                                                                                     </span>
@@ -401,7 +476,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
 
                                                                         <div class="details-row d-flex flex-column flex-lg-row">
-                                                                            <!-- Type -->
+                                                                            <!-- Total Discount -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -411,9 +486,25 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Discount</span>
-                                                                                    <span class="detail-value"><?= number_format($totalDiscount, 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalDiscount, $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
+
+                                                                            <!-- ★ NEW: Total Tax Amount -->
+                                                                            <div class="detail-item">
+                                                                                <div class="detail-icon">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg>
+                                                                                </div>
+                                                                                <div class="detail-content">
+                                                                                    <span class="detail-label">Total Tax Amount</span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalTaxCP, $paymentData['decimal_places']) ?></span>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <!-- Total Penalty Amount -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -423,10 +514,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Penalty Amount</span>
-                                                                                    <span class="detail-value"><?= number_format($totalPenalty, 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalPenaltyCP, $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Date -->
+                                                                            <!-- Total Payable Amount -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -436,9 +527,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Payable Amount</span>
-                                                                                    <span class="detail-value"><?= number_format($payableAmount, 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($payableAmount, $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
+                                                                            <!-- Total Paid Amount -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -448,9 +540,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Paid Amount</span>
-                                                                                    <span class="detail-value"><?= number_format($paidAmount, 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($paidAmount, $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
+                                                                            <!-- Total Balance -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-icon">
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -460,7 +553,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Balance</span>
-                                                                                    <span class="detail-value"><?= number_format($balance, 2) ?></span>
+                                                                                    <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($balance, $paymentData['decimal_places']) ?></span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -478,7 +571,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 while ($panelty = $panelties->fetch_assoc()) {
                                                                             ?>
                                                                                     <div class="details-row d-flex flex-column flex-lg-row">
-                                                                                        <!-- Date -->
+                                                                                        <!-- Option -->
                                                                                         <div class="detail-item">
                                                                                             <div class="detail-icon">
                                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -487,9 +580,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </div>
                                                                                             <div class="detail-content">
                                                                                                 <span class="detail-label">Option</span>
-                                                                                                <span class="detail-value"><?= $paymentData["panelty_payment_option"] ?></span>
+                                                                                                <span class="detail-value"><?= htmlspecialchars($paymentData["panelty_payment_option"] ?? ''); ?></span>
                                                                                             </div>
                                                                                         </div>
+                                                                                        <!-- Type -->
                                                                                         <div class="detail-item">
                                                                                             <div class="detail-icon">
                                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -498,10 +592,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </div>
                                                                                             <div class="detail-content">
                                                                                                 <span class="detail-label">Type</span>
-                                                                                                <span class="detail-value"><?= $panelty["panelty_payments_type"] ?></span>
+                                                                                                <span class="detail-value"><?= htmlspecialchars($panelty["panelty_payments_type"] ?? ''); ?></span>
                                                                                             </div>
                                                                                         </div>
-                                                                                        <!-- Type -->
+                                                                                        <!-- Amount -->
                                                                                         <div class="detail-item">
                                                                                             <div class="detail-icon">
                                                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -511,13 +605,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </div>
                                                                                             <div class="detail-content">
                                                                                                 <span class="detail-label">Amount</span>
-                                                                                                <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($panelty["amount"], 00); ?></span>
+                                                                                                <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($panelty["amount"] ?? 0, $paymentData['decimal_places']); ?></span>
                                                                                             </div>
                                                                                         </div>
 
                                                                                         <?php
                                                                                         if (!empty($panelty["days"])) {
                                                                                         ?>
+                                                                                            <!-- Days -->
                                                                                             <div class="detail-item">
                                                                                                 <div class="detail-icon">
                                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -527,7 +622,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 </div>
                                                                                                 <div class="detail-content">
                                                                                                     <span class="detail-label">Days</span>
-                                                                                                    <span class="detail-value"><?= $panelty["days"]; ?></span>
+                                                                                                    <span class="detail-value"><?= htmlspecialchars($panelty["days"] ?? ''); ?></span>
                                                                                                 </div>
                                                                                             </div>
                                                                                         <?php
@@ -543,6 +638,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </div>
                                                             </div>
+                                                            
                                                             <div class="col-12 p-0 mt-4">
                                                                 <div class="row p-0 m-0 g-0 align-content-center">
                                                                     <div class="col-12">
@@ -565,12 +661,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                         $paymentSlipData = $paymnetSlips->fetch_assoc(); ?>
                                                                                         <div class="col-12 my-3 file-item">
                                                                                             <div class="p-3 bl-solid cursor-pointer"
-                                                                                                onclick="window.open('<?= Project::getBaseUrl()  ?>/assets/uploads/student-identity-documents/payment-slips/<?= $paymentSlipData['document'] ?>', '_blank')">
+                                                                                                onclick="window.open('<?= Project::getBaseUrl()  ?>/assets/uploads/student-identity-documents/payment-slips/<?= htmlspecialchars($paymentSlipData['document']) ?>', '_blank')">
                                                                                                 <div class="row">
-                                                                                                    <div class="col-2"><img src="assets/imgs/icons/image.png" alt=""></div>
+                                                                                                    <div class="col-2"><img src="assets/imgs/icons/image.png" alt="payment slip"></div>
                                                                                                     <div class="col-8">
                                                                                                         <div class="file-name">
-                                                                                                            <div class="name"><?= $paymentSlipData['document'] ?></div>
+                                                                                                            <div class="name"><?= htmlspecialchars($paymentSlipData['document']); ?></div>
                                                                                                         </div>
                                                                                                     </div>
                                                                                                 </div>
@@ -581,7 +677,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php else: ?>
                                                                                         <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2" id="drop-section">
                                                                                         <?php endif; ?>
-                                                                                        <img src="assets/imgs/icons/cloud.png" alt="cloud">
+                                                                                        <img src="assets/imgs/icons/cloud.png" alt="cloud upload">
                                                                                         <span>Drag & Drop your files here</span>
                                                                                         <span>OR</span>
                                                                                         <button class="custom-btn px-4" id="file-selector">Browse Files</button>
@@ -591,33 +687,31 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </div>
                                                                                         </div>
                                                                                         <div class="mt-2" id="file-feedback"></div>
-                                                                                    </div>
-
-                                                                                    <div class="col-12 col-lg-6 d-flex flex-column">
-                                                                                        <label class="text-14 main-text">Note</label>
-                                                                                        <textarea class="form-control custom-input mt-2" id="note" rows="8"></textarea>
-                                                                                        <div class="text-12 text-danger" id="note-feedback"></div>
-                                                                                    </div>
-
-                                                                                    <!-- ── Save button ── -->
-                                                                                    <div class="col-12 d-flex justify-content-end">
-                                                                                        <button class="custom-btn col-12 col-lg-4"
-                                                                                            onclick="uploadInquiryStudentPaymentReceipt(this,'<?= $paymentData['course_payments_id'] ?>')">
-                                                                                            Save Payment
-                                                                                        </button>
-                                                                                    </div>
-
                                                                             </div>
-                                                                        </div>
+
+                                                                            <div class="col-12 col-lg-6 d-flex flex-column">
+                                                                                <label class="text-14 main-text">Note</label>
+                                                                                <textarea class="form-control custom-input mt-2" id="note" rows="8"></textarea>
+                                                                                <div class="text-12 text-danger" id="note-feedback"></div>
+                                                                            </div>
+
+                                                                            <!-- ── Save button ── -->
+                                                                            <div class="col-12 d-flex justify-content-end">
+                                                                                <button class="custom-btn col-12 col-lg-4"
+                                                                                    onclick="uploadInquiryStudentPaymentReceipt(this,'<?= $paymentData['course_payments_id'] ?>')">
+                                                                                    Save Payment
+                                                                                </button>
+                                                                            </div>
+
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div class="flex-grow-1"></div>
-                                                        <footer>
-                                                            <?php include './includes/footer.php' ?>
-                                                        </footer>
                                                     </div>
+                                                    <div class="flex-grow-1"></div>
+                                                    <footer>
+                                                        <?php include './includes/footer.php' ?>
+                                                    </footer>
                                                 </div>
                                             </div>
                                         </div>

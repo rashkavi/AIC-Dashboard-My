@@ -1,0 +1,3 @@
+[2026-06-09 09:53:16] Panelty payment added for course_payments_id: 107 amount: 100 date_added: 2026-06-09
+[2026-06-09 09:54:16] Panelty payment added for course_payments_id: 107 amount: 100 date_added: 2026-06-09
+[2026-06-09 09:54:16] Panelty payment added for course_payments_id: 107 amount: 250 date_added: 2026-06-09

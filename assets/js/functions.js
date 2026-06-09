@@ -10597,79 +10597,278 @@ const loadIntakesForReport = () => {
         });
 }
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════════
+ * TAX-INCLUSIVE PAYMENT RECEIPT UPLOAD - UPDATED v3
+ * ════════════════════════════════════════════════════════════════════════════════
+ * 
+ * This function handles:
+ * 1. Tax-inclusive payment calculation (Paid = Base + Tax)
+ * 2. Automatic overpayment detection
+ * 3. Application to next installments
+ * 4. Multi-currency support with exchange rates
+ * 5. Real-time feedback to user
+ */
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════
+ * TAX-INCLUSIVE PAYMENT RECEIPT UPLOAD - UPDATED v3
+ * ════════════════════════════════════════════════════════════════════════════════
+ * 
+ * This function handles:
+ * 1. Tax-inclusive payment calculation (Paid = Base + Tax)
+ * 2. Automatic overpayment detection
+ * 3. Application to next installments
+ * 4. Multi-currency support with exchange rates
+ * 5. Real-time feedback to user
+ */
+
 const uploadStudentPaymentReceipt = (btn, id, currency_data = null) => {
-    console.log($("#tax-rate").val());
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("payment_id", id);
     form.append("discount_amount", $("#discount-amount").val());
     form.append("penalty_amount", $("#penalty-amount").val());
     form.append("method", $("#payment-method").val());
-    form.append("paid_amount", $("#paid-amount").val());
-    form.append("paid_date", $("#paid-date").val())
-    form.append("tax_rate", $("#tax-rate").val());
+    form.append("paid_amount", $("#paid-amount").val()); // ← Tax-inclusive amount
+    form.append("paid_date", $("#paid-date").val());
+    form.append("balance", $("#balance-amount").val()); // ← For validation
     form.append("note", $("#note").val());
+
+    // Append payment slips
     var files = $("#file-selector-input")[0].files;
     for (var i = 0; i < files.length; i++) {
         form.append("slips[]", files[i]);
     }
-
+    console.log(currency_data);
+    // Append currency data
     if (currency_data != null) {
         form.append("currency", JSON.stringify(currency_data));
     }
 
+    // Validation mapping
     const validationMap = {
         amount: ["#paid-amount", "#paid-amount-feedback"],
         method: ["#payment-method", "#payment-method-feedback"],
         discount: ["#discount-amount", "#discount-amount-feedback"],
         penalty: ["#penalty-amount", "#penalty-amount-feedback"],
+        paid_date: ["#paid-date", "#paid-date-feedback"],
         note: ["#note", "#note-feedback"],
-    }
+    };
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // SUBMIT FORM
+    // ════════════════════════════════════════════════════════════════════════════
 
     fetch("api/uploadStudentPaymentReceipt.php", {
         method: "POST",
         body: form,
     })
-        .then((res) => res.json())
-        .then((response) => {
+        .then((res) => res.text())
+        .then((responseText) => {
             toggleBtnLoader(btn, false);
-            applyValidation('', validationMap, false);
-            if (response.done) {
-                showToast("success", response.done);
-                setTimeout(() => { window.location = "./intake-student-payments?student-id=" + response.id }, 3000);
-                setTimeout(() => window.location.reload(), 4000);
-                return;
-            } else if (response.error) {
-                showToast("error", response.error);
-            } else if (response.warning) {
-                toggleBtnLoader(btn, false);
-                showToast("warning", response.warning);
-            } else {
-                applyValidation(response, validationMap);
 
-                if (response.slip) {
-                    const slipErrorContainer = $("#file-feedback");
-                    if (Array.isArray(response.slip)) {
-                        const slipArray = response.slip; // Get the actual array
-                        $("#file-feedback").html("");
-                        slipErrorContainer.append('<p class="text-14 text-danger fw-bold">Upload Payment Slip Error Messages : </p>');
-                        slipArray.forEach(function (item) {
-                            slipErrorContainer.append('<p class="text-12 text-danger">*' + item + '</p>');
-                        });
-                    } else {
-                        slipErrorContainer.append('<p class="text-12 text-danger">*' + response.slip + '</p>');
+            try {
+                // Parse JSON response
+                var response = JSON.parse(responseText);
+                console.log('✅ Payment Receipt Response:', response);
+
+                // Clear previous validation errors
+                applyValidation('', validationMap, false);
+
+                // ════════════════════════════════════════════════════════════
+                // SUCCESS CASE
+                // ════════════════════════════════════════════════════════════
+                if (response.done) {
+                    // Show success toast with details
+                    let successMsg = '✅ ' + response.done;
+
+                    if (response.receiptNumber) {
+                        successMsg += '<br>Receipt: ' + response.receiptNumber;
                     }
 
+                    if (response.overpayment && response.overpayment.detected) {
+                        successMsg += '<br>⚠️ Overpayment detected: Applied to ' + response.overpayment.nextInstallments + ' next installment(s)';
+                    }
+
+                    showToast("success", successMsg);
+
+                    // Redirect after brief delay
+                    setTimeout(() => {
+                        window.location = "./intake-student-payments?student-id=" + response.id;
+                    }, 2500);
+
+                    return;
+                }
+
+                // ════════════════════════════════════════════════════════════
+                // ERROR CASE
+                // ════════════════════════════════════════════════════════════
+                if (response.error) {
+                    // Check if this is an overpayment error that needs modal
+                    if (response.errorType === 'OVERPAYMENT_NO_NEXT_INSTALLMENT' && response.errorDetails) {
+                        showOverpaymentErrorModal(response);
+                    } else {
+                        showToast("error", "❌ " + response.error);
+                    }
+                    return;
+                }
+
+                if (response.warning) {
+                    showToast("warning", "⚠️ " + response.warning);
+                    return;
+                }
+
+                // ════════════════════════════════════════════════════════════
+                // VALIDATION ERRORS
+                // ════════════════════════════════════════════════════════════
+
+                // Apply field-level validation errors
+                applyValidation(response, validationMap);
+
+                // Handle file slip errors separately
+                if (response.slip) {
+                    const slipErrorContainer = $("#file-feedback");
+                    slipErrorContainer.html("");
+
+                    if (Array.isArray(response.slip)) {
+                        slipErrorContainer.append(
+                            '<p class="text-14 text-danger fw-bold">⚠️ Upload Errors:</p>'
+                        );
+                        response.slip.forEach(item => {
+                            slipErrorContainer.append(
+                                '<p class="text-12 text-danger" style="margin:4px 0;">• ' + item + '</p>'
+                            );
+                        });
+                    } else {
+                        slipErrorContainer.append(
+                            '<p class="text-12 text-danger">• ' + response.slip + '</p>'
+                        );
+                    }
+
+                    // Highlight the file input area
+                    $("#drop-section").addClass("border-danger");
                 } else {
                     $("#file-feedback").html("");
+                    $("#drop-section").removeClass("border-danger");
                 }
+
+            } catch (parseErr) {
+                console.error('❌ JSON Parse Error:', parseErr);
+                console.log('Raw response:', responseText);
+                showToast("error", "Invalid response from server. Please try again.");
             }
         })
         .catch((error) => {
-            console.log(error);
+            console.error('❌ Network Error:', error);
             toggleBtnLoader(btn, false);
-            showToast("error", "An error occured. Please try again later.");
+            showToast("error", "Network error occurred. Please check your connection and try again.");
         });
+};
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════
+ * OVERPAYMENT ERROR MODAL
+ * Shows error message when overpayment is attempted but no next installment exists
+ * ════════════════════════════════════════════════════════════════════════════════
+ */
+function showOverpaymentErrorModal(response) {
+    const errorDetails = response.errorDetails || {};
+
+    const modalHtml = `
+        <div class="modal fade" id="overpaymentErrorModal" tabindex="-1" role="dialog" aria-labelledby="overpaymentErrorTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content border-danger">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="overpaymentErrorTitle">
+                            <i class="fas fa-exclamation-triangle"></i> Overpayment Not Allowed
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger" role="alert">
+                            <h6 class="alert-heading fw-bold">⚠️ ${response.error}</h6>
+                        </div>
+
+                        <div class="row my-3">
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <small class="text-muted d-block">Amount Entered</small>
+                                        <h5 class="text-primary mb-0">
+                                            ${errorDetails.paidAmount
+            ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(errorDetails.paidAmount)
+            : '0.00'}
+                                        </h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <small class="text-muted d-block">Current Balance</small>
+                                        <h5 class="text-warning mb-0">
+                                            ${errorDetails.currentBalance
+            ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(errorDetails.currentBalance)
+            : '0.00'}
+                                        </h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-light mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="card-title fw-bold mb-2">Problem</h6>
+                                <p class="mb-0">
+                                    <i class="fas fa-circle-xmark text-danger"></i>
+                                    <strong>Overpayment Detected:</strong> 
+                                    ${errorDetails.overpayAmount
+            ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(errorDetails.overpayAmount)
+            : '0.00'}
+                                </p>
+                                <p class="text-muted small mt-2 mb-0">
+                                    There is no next installment available in the payment plan to apply this overpayment.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="card bg-info bg-opacity-10 border-info mb-3">
+                            <div class="card-body p-3">
+                                <h6 class="card-title fw-bold mb-2">💡 Solution</h6>
+                                <p class="mb-0">
+                                    ${errorDetails.suggestion || 'Please enter an amount less than or equal to the current balance.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small">
+                            <strong>What to do:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Adjust the paid amount to match or be less than the current balance</li>
+                                <li>Or contact the administration if this payment is for a future installment</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove old modal if exists
+    $('#overpaymentErrorModal').remove();
+
+    // Add modal to body and show
+    $('body').append(modalHtml);
+    $('#overpaymentErrorModal').modal('show');
+
+    // Clean up modal when hidden
+    $('#overpaymentErrorModal').on('hidden.bs.modal', function () {
+        $(this).remove();
+    });
 }
 
 
@@ -11841,7 +12040,7 @@ const confirmAccountsCompletion = (btn) => {
                     window.location.reload();
                 }, 3000);
             } else {
-                showToast("error", data.message || "Something went wrong");
+                showToast("error", data.error || "Something went wrong");
             }
         })
         .catch(error => {
@@ -11944,7 +12143,7 @@ const confirmAcademicCompletion = (btn) => {
                 }, 800);
 
             } else if (data.error) {
-                showToast("error", data.message || "Something went wrong");
+                showToast("error", data.error || "Something went wrong");
             } else {
                 showRegistrationVerificationError(
                     data.message || "Unable to finalize registration verification."
@@ -12560,7 +12759,17 @@ function submitUpdatePaymentStatus(btn, paymentId) {
         return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
     };
 
-    var taxRate = Math.max(0, parseFloat(mGet('modal-tax-rate') ? mGet('modal-tax-rate').value : 0) || 0);
+    /* ── Get tax AMOUNT from display field (NOT rate) ── */
+    var taxAmountDisplay = parseFloat(mGet('modal-tax-amount-display') ? mGet('modal-tax-amount-display').value : 0) || 0;
+    var taxAmountBase = toBase(taxAmountDisplay);
+
+    /* ── Get balance ── */
+    var balanceDisplay = parseFloat(mGet('modal-balance-display') ? mGet('modal-balance-display').value : 0) || 0;
+    var balanceBase = toBase(balanceDisplay);
+
+    /* ── Get tax rate from badge ── */
+    var taxRateEl = mGet('modal-tax-rate-badge');
+    var taxRate = taxRateEl ? parseFloat(taxRateEl.textContent) : 0;
 
     var data = {
         paymentId: paymentId,
@@ -12568,16 +12777,18 @@ function submitUpdatePaymentStatus(btn, paymentId) {
         paidAmount: toBase(parseFloat(mGet('modal-paid-amount') ? mGet('modal-paid-amount').value : 0) || 0).toFixed(2),
         discountAmount: toBase(parseFloat(mGet('modal-discount-amount') ? mGet('modal-discount-amount').value : 0) || 0).toFixed(2),
         penaltyAmount: toBase(parseFloat(mGet('modal-penalty-amount') ? mGet('modal-penalty-amount').value : 0) || 0).toFixed(2),
-        taxRate: taxRate,
+        taxAmount: taxAmountBase.toFixed(2),  // ✅ NOW SENDING TAX AMOUNT (NOT RATE)
+        taxRate: taxRate,                      // Sending rate for reference
+        balance: balanceBase.toFixed(2),       // ✅ FOR CHECKING IF COMPLETED
         paymentMethod: mGet('payment-method') ? mGet('payment-method').value : '',
         paidDate: mGet('modal-paid-date') ? mGet('modal-paid-date').value : '',
         exchangeRate: modalExchangeRate,
         exchangeRateId: modalExchangeRateId,
-        currencyId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
+        currencyId: baseCurrencyId,
         note: mGet('note') ? mGet('note').value : '',
     };
 
-    console.log(data);
+    console.log('Data being sent:', data);
 
     var validationMap = {
         status: ['#status-selector', '#status-selector-feedback'],

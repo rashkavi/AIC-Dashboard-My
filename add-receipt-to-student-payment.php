@@ -4,6 +4,7 @@ require_once './includes/SlipVerifier.php';
 require_once "./includes/connection.php";
 require_once "./includes/UserPermissionsClass.php";
 require_once "./includes/Project.php";
+
 if (!SessionUser::hasValidSession()) {
     header("Location: ./index");
 } else {
@@ -40,6 +41,7 @@ if (!SessionUser::hasValidSession()) {
                     `dt`.`discount_type`, `dt`.`discount_type_id`,
                     `c`.`code` AS `currency_code`, `c`.`decimal_places`,
                     `c`.`currency_id`,
+                    `ppo`.`panelty_payment_option`,
                     IFNULL(pp.panelty_amount, 0) AS panelty_amount_lkr
                 FROM `course_payments` AS `cp`
                 INNER JOIN `payment_type` AS `pt`     ON `cp`.`payment_type_payment_type_id` = `pt`.`payment_type_id`
@@ -57,6 +59,8 @@ if (!SessionUser::hasValidSession()) {
                 INNER JOIN `students` AS `s`          ON `shi`.`students_student_id` = `s`.`student_id`
                 INNER JOIN `login_details` AS `ld`    ON `s`.`login_details_login_details_id` = `ld`.`login_details_id`
                 INNER JOIN `title` AS `t`             ON `s`.`title_title_id` = `t`.`title_id`
+                INNER JOIN `panelty_payment_option` AS `ppo`
+                                                    ON `cp`.`panelty_payment_option_panelty_payment_option_id` = `ppo`.`panelty_payment_option_id`
                 LEFT JOIN (
                     SELECT course_payments_course_payments_id, SUM(amount) AS panelty_amount
                     FROM panelty_payments GROUP BY course_payments_course_payments_id
@@ -91,8 +95,21 @@ if (!SessionUser::hasValidSession()) {
                     } else {
 
                         // ============================================================
+                        // FETCH LATEST TAX RATE FROM DATABASE
+                        // ============================================================
+                        $latestTaxRateQuery = Database::search("
+                            SELECT `tax_rate` AS `rate` FROM `tax_rates`
+                            ORDER BY `date_added` DESC LIMIT 1
+                        ");
+                        $latestTaxRate = 0;
+                        if ($latestTaxRateQuery && $latestTaxRateQuery->num_rows > 0) {
+                            $taxRateRow    = $latestTaxRateQuery->fetch_assoc();
+                            $latestTaxRate = (float)$taxRateRow['rate'];
+                        }
+                        $taxFactor = 1 + ($latestTaxRate / 100);
+
+                        // ============================================================
                         // HELPER: resolve exchange rate for course_payment_has_payments
-                        // Returns rate to divide by to convert paid_currency → course_currency
                         // ============================================================
                         function resolveExchangeRate($db, $row, $courseCurrencyId)
                         {
@@ -117,36 +134,22 @@ if (!SessionUser::hasValidSession()) {
                             return null;
                         }
 
-                        // ============================================================
-                        // HELPER: convert paid_amount → course currency
-                        // ============================================================
                         function convertToCourseAmount($paidAmount, $exchangeRate)
                         {
                             if ($exchangeRate === null || $exchangeRate <= 0) return (float)$paidAmount;
                             return (float)$paidAmount / $exchangeRate;
                         }
 
-                        // ============================================================
-                        // HELPER: convert panelty_payments.amount (always LKR) → course currency
-                        // The stored exchange rate means: 1 course_unit = N LKR
-                        // So: course_amount = lkr_amount / rate
-                        // If course currency IS LKR, no conversion needed.
-                        // ============================================================
                         function convertLkrPenaltyToCourseCurrency($lkrAmount, $courseCurrencyId)
                         {
-                            // Look up LKR currency_id
                             static $lkrCurrencyId = null;
                             if ($lkrCurrencyId === null) {
                                 $res = Database::search("SELECT `currency_id` FROM `currencies` WHERE `code` = 'LKR' LIMIT 1");
                                 $lkrCurrencyId = ($res && $res->num_rows > 0) ? (int)$res->fetch_assoc()['currency_id'] : 0;
                             }
-
-                            // If course currency is LKR, no conversion
                             if ($lkrCurrencyId === 0 || $courseCurrencyId == $lkrCurrencyId) {
                                 return (float)$lkrAmount;
-            	            }
-
-                            // Find rate: 1 course_currency_unit = N LKR
+                            }
                             $rateRow = Database::search(
                                 "SELECT `rate` FROM `currency_exchange_rates`
                                  WHERE `base_currency_id` = '" . (int)$courseCurrencyId . "'
@@ -154,32 +157,29 @@ if (!SessionUser::hasValidSession()) {
                             );
                             if ($rateRow && $rateRow->num_rows > 0) {
                                 $rate = (float)$rateRow->fetch_assoc()['rate'];
-                                if ($rate > 0) {
-                                    return (float)$lkrAmount / $rate;
-                                }
+                                if ($rate > 0) return (float)$lkrAmount / $rate;
                             }
-                            return (float)$lkrAmount; // fallback: cannot convert
+                            return (float)$lkrAmount;
                         }
 
                         // ============================================================
-                        // CP-level discount (in course currency)
+                        // CP-level discount
                         // ============================================================
                         $discountAmount = ($paymentData['discount_type_id'] == 3)
                             ? $paymentData['amount'] / 100 * $paymentData['discount']
                             : (float)$paymentData['discount'];
 
-                        // panelty_payments.amount is always LKR — convert to course currency
                         $paneltyPaymentsConverted = convertLkrPenaltyToCourseCurrency(
                             $paymentData['panelty_amount_lkr'],
                             $paymentData['currency_id']
                         );
 
                         $totalDiscount = $discountAmount;
-                        $totalPenalty  = $paneltyPaymentsConverted; // starts with LKR-converted penalty
+                        $totalPenalty  = $paneltyPaymentsConverted;
                         $totalTax      = 0;
 
                         // ============================================================
-                        // Fetch receipts — include tax_amount
+                        // Fetch receipts
                         // ============================================================
                         $receipts = Database::search("
                             SELECT
@@ -212,32 +212,37 @@ if (!SessionUser::hasValidSession()) {
                                 $rec['is_foreign_currency']    = ($rate !== null);
                                 $rec['currency_exchange_rate'] = $rate;
                                 $convertedPaidTotal += $rec['converted_paid'];
-                                $receiptRows[] = $rec;
+                                $receiptRows[]       = $rec;
 
                                 if ($rec['payment_status_id'] == 3) {
                                     $totalPaidAmount += $rec['converted_paid'];
                                 }
-                                // Include discount, receipt-level penalty, and tax from approved/pending receipts
                                 if (in_array($rec['payment_status_id'], [2, 3])) {
                                     $totalDiscount += convertToCourseAmount($rec['discount_amount'] ?? 0, $rate);
-                                    // receipt-level panelty_amount is in the paid currency (not LKR)
-                                    $totalPenalty  += convertToCourseAmount($rec['panelty_amount'] ?? 0, $rate);
-                                    $totalTax      += convertToCourseAmount($rec['tax_amount'] ?? 0, $rate);
+                                    $totalPenalty  += convertToCourseAmount($rec['panelty_amount']  ?? 0, $rate);
+                                    $totalTax      += convertToCourseAmount($rec['tax_amount']       ?? 0, $rate);
                                 }
                             }
                         }
 
-                        // payable = amount - discount + penalty + tax
-                        $payableAmount = $paymentData['amount'] - $totalDiscount + $totalPenalty + $totalTax;
-                        // balance = payable - all paid (pending + completed receipts)
-                        $balance       = $payableAmount - $convertedPaidTotal;
-                        $paidAmount    = $convertedPaidTotal;
+                        // ============================================================
+                        // BALANCE CALCULATION
+                        // ============================================================
+                        $basePayable    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
+                        $taxOnBase      = $basePayable * ($latestTaxRate / 100);
+                        $payableAmount  = $basePayable + $taxOnBase;
+
+                        $paidBaseTotal  = ($taxFactor > 0) ? $convertedPaidTotal / $taxFactor : $convertedPaidTotal;
+                        $remainingBase  = max(0, $basePayable - $paidBaseTotal);
+                        $remainingTax   = $remainingBase * ($latestTaxRate / 100);
+                        $balance        = $remainingBase + $remainingTax;
+
+                        $paidAmount     = $convertedPaidTotal;
 
                         // ============================================================
-                        // Exchange rate: course_currency → LKR (for display panel)
+                        // Exchange rate: course_currency → LKR
                         // ============================================================
-                        $lkrCurrencyId = 1; // LKR currency_id; adjust if different in your DB
-
+                        $lkrCurrencyId     = 1;
                         $exchangeRate      = null;
                         $exchangeRateValue = 1;
                         $exchangeRateId    = 0;
@@ -260,7 +265,6 @@ if (!SessionUser::hasValidSession()) {
                                 ORDER BY cer.`effective_date` DESC, cer.`effective_time` DESC
                                 LIMIT 1
                             ");
-
                             if ($rateResult->num_rows > 0) {
                                 $exchangeRate      = $rateResult->fetch_assoc();
                                 $exchangeRateValue = (float)$exchangeRate['rate'];
@@ -268,32 +272,16 @@ if (!SessionUser::hasValidSession()) {
                             }
                         }
 
-                        // ============================================================
-                        // Pre-calculate LKR equivalents for the summary panel
-                        //
-                        // panelty_payments amounts are ALREADY LKR — do NOT multiply by rate.
-                        // All other amounts are in course currency → multiply by exchangeRateValue.
-                        // ============================================================
-                        $balanceLKR     = $balance      * $exchangeRateValue;
-                        $payableAmtLKR  = $payableAmount * $exchangeRateValue;
-                        $paidAmountLKR  = $paidAmount   * $exchangeRateValue;
-                        $discountAmtLKR = $totalDiscount * $exchangeRateValue;
-                        $taxAmtLKR      = $totalTax      * $exchangeRateValue;
-                        // panelty_payments portion is already in LKR; receipt-level penalty needs conversion
-                        $penaltyAmtLKR  = $paymentData['panelty_amount_lkr']           // already LKR
-                                        + ($totalPenalty - $paneltyPaymentsConverted) * $exchangeRateValue; // receipt-level → LKR
+                        // LKR equivalents for the summary panel
+                        $balanceLKR     = $balance        * $exchangeRateValue;
+                        $payableAmtLKR  = $payableAmount  * $exchangeRateValue;
+                        $paidAmountLKR  = $paidAmount     * $exchangeRateValue;
+                        $discountAmtLKR = $totalDiscount  * $exchangeRateValue;
+                        $taxAmtLKR      = $totalTax       * $exchangeRateValue;
+                        $penaltyAmtLKR  = $paymentData['panelty_amount_lkr']
+                            + ($totalPenalty - $paneltyPaymentsConverted) * $exchangeRateValue;
 
                         $isBaseCurrencyLKR = ($paymentData['currency_id'] == $lkrCurrencyId);
-
-                        // Pre-tax balance (for JS baseBalance — JS adds tax on top dynamically)
-                        // JS starts from: amount - cpDiscount - receiptDiscounts + paneltyPayments(converted) + receiptPenalties
-                        // Then adds tax dynamically via tax-rate input.
-                        // So we pass the pre-tax balance to JS.
-                        $preTaxBalance  = $paymentData['amount'] - $totalDiscount + $totalPenalty - $convertedPaidTotal;
-                        // The "base" the JS recalculate() function uses is the remaining payable BEFORE the new receipt's tax.
-                        // We pass $balance (already includes existing receipt taxes) so JS correctly shows current standing.
-                        $jsBaseBalance  = $balance;
-                        $jsBasePayable  = $payableAmount;
 ?>
                         <!DOCTYPE html>
                         <html lang="en">
@@ -303,12 +291,10 @@ if (!SessionUser::hasValidSession()) {
                             <meta name="viewport" content="width=device-width, initial-scale=1.0">
                             <meta name="robots" content="noindex, nofollow">
                             <title>Add Receipt to Student Payment - Admin Dashboard | <?= Project::getBaseName() ?></title>
-
                             <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
                             <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
                             <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
                             <link href="./assets/plugins/cropperjs/cropper.min.css" rel="stylesheet">
-
                             <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
                             <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
                             <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
@@ -316,138 +302,7 @@ if (!SessionUser::hasValidSession()) {
                         </head>
 
                         <style>
-                            .currency-toggle-btn {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 5px 14px;
-                                border: 1px solid var(--border-color);
-                                border-radius: 6px;
-                                background: transparent;
-                                color: var(--sub-text-color);
-                                font-size: 12px;
-                                font-weight: 500;
-                                cursor: pointer;
-                                transition: all 0.15s;
-                            }
-
-                            .currency-toggle-btn.active {
-                                background: var(--primary-color, #0d6efd);
-                                color: #fff;
-                                border-color: var(--primary-color, #0d6efd);
-                            }
-
-                            .currency-symbol {
-                                font-size: 13px;
-                                font-weight: 600;
-                            }
-
-                            .exchange-rate-badge {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 4px 10px;
-                                border-radius: 20px;
-                                background: var(--color-background-secondary, #f0f4f8);
-                                border: 1px solid var(--border-color);
-                                font-size: 11.5px;
-                                color: var(--sub-text-color);
-                            }
-
-                            .exchange-rate-badge .rate-date { opacity: 0.7; }
-
-                            .rate-unavailable {
-                                border-color: #f5c6cb;
-                                background: #fff5f5;
-                                color: #a32d2d;
-                            }
-
-                            .currency-label-badge {
-                                display: inline-block;
-                                margin-left: 6px;
-                                padding: 1px 7px;
-                                border-radius: 10px;
-                                font-size: 10px;
-                                font-weight: 600;
-                                background: var(--light-theme, #eef2f7);
-                                color: var(--sub-text-color);
-                                vertical-align: middle;
-                                border: 1px solid var(--border-color);
-                            }
-
-                            .lkr-inline-hint {
-                                font-size: 12px;
-                                color: var(--sub-text-color);
-                                margin-top: 4px;
-                                opacity: 0.8;
-                            }
-
-                            .lkr-panel {
-                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-                                overflow: hidden;
-                                margin-bottom: 20px;
-                            }
-
-                            .lkr-panel-top {
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                                padding: 10px 18px;
-                                border-bottom: 0.5px solid rgba(255,255,255,0.12);
-                            }
-
-                            .lkr-panel-top-left {
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                                font-size: 16px;
-                                font-weight: 500;
-                                color: rgba(255,255,255,0.9);
-                            }
-
-                            .lkr-panel-top-left iconify-icon { color: rgba(255,255,255,0.6); }
-
-                            .lkr-panel-rate-note {
-                                font-size: 13px;
-                                color: rgba(255,255,255,0.5);
-                            }
-
-                            .lkr-panel-grid {
-                                display: grid;
-                                grid-template-columns: repeat(7, minmax(0, 1fr));
-                            }
-
-                            .lkr-panel-item {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 4px;
-                                padding: 14px 18px;
-                                border-right: 0.5px solid rgba(255,255,255,0.10);
-                            }
-
-                            .lkr-panel-item:last-child { border-right: none; }
-
-                            .lkr-item-label {
-                                font-size: 12px;
-                                font-weight: 500;
-                                letter-spacing: 0.04em;
-                                text-transform: uppercase;
-                                color: rgba(255,255,255,0.5);
-                            }
-
-                            .lkr-item-value {
-                                font-size: 16px;
-                                font-weight: 500;
-                                color: rgba(255,255,255,0.9);
-                            }
-
-                            .lkr-item-sub {
-                                font-size: 12px;
-                                color: rgba(255,255,255,0.35);
-                            }
-
-                            .lkr-panel-item.balance-item .lkr-item-value { color: #5DCAA5; }
-
+                            /* ── Currency toggle ── */
                             .currency-toggle {
                                 display: flex;
                                 border: 0.5px solid var(--border-color);
@@ -471,6 +326,40 @@ if (!SessionUser::hasValidSession()) {
                                 color: #fff;
                             }
 
+                            /* ── Exchange rate badge ── */
+                            .exchange-rate-badge {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 10px;
+                                border-radius: 20px;
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border: 1px solid var(--border-color);
+                                font-size: 11.5px;
+                                color: var(--sub-text-color);
+                            }
+
+                            .rate-unavailable {
+                                border-color: #f5c6cb;
+                                background: #fff5f5;
+                                color: #a32d2d;
+                            }
+
+                            /* ── Currency label badge (next to field labels) ── */
+                            .currency-label-badge {
+                                display: inline-block;
+                                margin-left: 6px;
+                                padding: 1px 7px;
+                                border-radius: 10px;
+                                font-size: 10px;
+                                font-weight: 600;
+                                background: var(--light-theme, #eef2f7);
+                                color: var(--sub-text-color);
+                                vertical-align: middle;
+                                border: 1px solid var(--border-color);
+                            }
+
+                            /* ── Convert hint below inputs ── */
                             .convert-hint {
                                 font-size: 11.5px;
                                 color: var(--sub-text-color);
@@ -478,10 +367,176 @@ if (!SessionUser::hasValidSession()) {
                                 opacity: 0.8;
                             }
 
+                            /* ── LKR Summary Panel ── */
+                            .lkr-panel {
+                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+                                overflow: hidden;
+                                margin-bottom: 20px;
+                                border-radius: 10px;
+                            }
+
+                            .lkr-panel-top {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                padding: 10px 18px;
+                                border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+                            }
+
+                            .lkr-panel-top-left {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-panel-top-left iconify-icon {
+                                color: rgba(255, 255, 255, 0.6);
+                            }
+
+                            .lkr-panel-rate-note {
+                                font-size: 13px;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-panel-grid {
+                                display: grid;
+                                grid-template-columns: repeat(7, minmax(0, 1fr));
+                            }
+
+                            .lkr-panel-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                                padding: 14px 18px;
+                                border-right: 0.5px solid rgba(255, 255, 255, 0.10);
+                            }
+
+                            .lkr-panel-item:last-child {
+                                border-right: none;
+                            }
+
+                            .lkr-item-label {
+                                font-size: 12px;
+                                font-weight: 500;
+                                letter-spacing: 0.04em;
+                                text-transform: uppercase;
+                                color: rgba(255, 255, 255, 0.5);
+                            }
+
+                            .lkr-item-value {
+                                font-size: 16px;
+                                font-weight: 500;
+                                color: rgba(255, 255, 255, 0.9);
+                            }
+
+                            .lkr-item-sub {
+                                font-size: 12px;
+                                color: rgba(255, 255, 255, 0.35);
+                            }
+
+                            .lkr-panel-item.balance-item .lkr-item-value {
+                                color: #5DCAA5;
+                            }
+
+                            /* ── Overpayment Panel ── */
+                            .overpay-panel {
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border: 1px solid var(--border-color);
+                                border-radius: 10px;
+                                overflow: hidden;
+                            }
+
+                            .overpay-panel-title {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                                padding: 11px 16px;
+                                font-size: 11.5px;
+                                font-weight: 600;
+                                letter-spacing: 0.05em;
+                                text-transform: uppercase;
+                                color: var(--sub-text-color);
+                                border-bottom: 1px solid var(--border-color);
+                                background: var(--color-background-secondary, #f0f4f8);
+                            }
+
+                            .overpay-grid {
+                                display: grid;
+                                grid-template-columns: repeat(3, 1fr);
+                            }
+
+                            .overpay-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 3px;
+                                padding: 14px 18px;
+                                border-right: 1px solid var(--border-color);
+                            }
+
+                            .overpay-item:last-child {
+                                border-right: none;
+                            }
+
+                            .overpay-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                                letter-spacing: 0.04em;
+                                color: var(--sub-text-color);
+                            }
+
+                            .overpay-value {
+                                font-size: 18px;
+                                font-weight: 700;
+                                color: var(--main-text-color, #1f2937);
+                                margin-top: 2px;
+                            }
+
+                            .overpay-sub {
+                                font-size: 12px;
+                                color: var(--sub-text-color);
+                                opacity: 0.75;
+                                margin-top: 2px;
+                            }
+
+                            .overpay-total {
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: var(--main-text-color, #1f2937);
+                                margin-top: 6px;
+                                padding-top: 6px;
+                                border-top: 1px dashed var(--border-color);
+                            }
+
+                            /* ── Responsive ── */
                             @media (max-width: 768px) {
-                                .lkr-panel-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-                                .lkr-panel-item:nth-child(3) { border-right: none; }
-                                .lkr-panel-item { border-bottom: 0.5px solid rgba(255,255,255,0.1); }
+                                .lkr-panel-grid {
+                                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                                }
+
+                                .lkr-panel-item:nth-child(3) {
+                                    border-right: none;
+                                }
+
+                                .lkr-panel-item {
+                                    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+                                }
+
+                                .overpay-grid {
+                                    grid-template-columns: 1fr;
+                                }
+
+                                .overpay-item {
+                                    border-right: none;
+                                    border-bottom: 1px solid var(--border-color);
+                                }
+
+                                .overpay-item:last-child {
+                                    border-bottom: none;
+                                }
                             }
                         </style>
 
@@ -503,13 +558,19 @@ if (!SessionUser::hasValidSession()) {
                                                 $inquiry_id == 0 ? selectItem::setSelected("Course Overview") : selectItem::setSelected("Payments");
                                                 ?>
                                             </div>
+
+                                            <!-- Skeleton -->
                                             <div class="container p-4 m-0" id="skeleton-list">
                                                 <?php
                                                 include "./includes/components/skeleton-header.php";
-                                                include "./includes/components/skeleton-add-edit.php"; ?>
+                                                include "./includes/components/skeleton-add-edit.php";
+                                                ?>
                                             </div>
+
                                             <div class="col-12 p-0 m-0 g-0 contentBodyArea vh-100 d-flex flex-column d-none" id="real-list">
                                                 <div class="row p-4 m-0 g-0">
+
+                                                    <!-- Breadcrumb -->
                                                     <div class="col-12 px-4 py-3 component-theme mb-4">
                                                         <div class="row p-0 m-0 g-0">
                                                             <div class="col-12 col-md-10">
@@ -525,14 +586,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?php echo ucwords(strtolower($paymentData['title'] . " " . $paymentData['first_name'] . " " . $paymentData['last_name'])); ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
                                                                             <?php else: ?>
-                                                                                <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
-                                                                                    <ol class="breadcrumb m-0">
-                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
-                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiries-registration-payments">Inquiry Registration Payments</a></li>
-                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiry-payment-plan?inquiry-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
-                                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
-                                                                                    </ol>
-                                                                                </nav>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiries-registration-payments">Inquiry Registration Payments</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiry-payment-plan?inquiry-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
                                                                             <?php endif; ?>
                                                                         </ol>
                                                                     </nav>
@@ -540,8 +597,11 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                     </div>
+
                                                     <div class="col-12">
                                                         <div class="row p-4 m-0 g-0 component-theme w-100">
+
+                                                            <!-- ── Payment Summary Card ── -->
                                                             <div class="payment-card-container mt-4">
                                                                 <div class="payment-card">
                                                                     <div class="card-background"></div>
@@ -554,45 +614,47 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
                                                                             <div class="amount-section">
                                                                                 <div class="amount-display">
-                                                                                    <span class="amount-label">Total Balance Amount</span>
+                                                                                    <span class="amount-label">Total Balance Amount (Next Installment)</span>
                                                                                     <span class="amount-value"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2); ?></span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
 
-                                                                        <!-- Row 1: core amounts -->
+                                                                        <!-- Row 1 -->
                                                                         <div class="details-row d-flex flex-column flex-lg-row">
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon">
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
-                                                                                </div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Amount</span>
                                                                                     <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon">
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
-                                                                                </div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Type</span>
                                                                                     <span class="detail-value"><?= $paymentData["payment_type"]; ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon">
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
-                                                                                </div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Due Date</span>
                                                                                     <span class="detail-value"><?= $paymentData["due_date"] ?? '--/--/----'; ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon">
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2 2a1 1 0 0 1 1-1h4.586a1 1 0 0 1 .707.293l7 7a1 1 0 0 1 0 1.414l-4.586 4.586a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 2 6.586V2zm3.5 4a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/><path d="M1.293 7.793A1 1 0 0 1 1 7.086V2a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l.043-.043-7.457-7.457z"/></svg>
-                                                                                </div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M2 2a1 1 0 0 1 1-1h4.586a1 1 0 0 1 .707.293l7 7a1 1 0 0 1 0 1.414l-4.586 4.586a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 2 6.586V2zm3.5 4a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+                                                                                        <path d="M1.293 7.793A1 1 0 0 1 1 7.086V2a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l.043-.043-7.457-7.457z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Discount</span>
                                                                                     <span class="detail-value">
@@ -610,54 +672,74 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
                                                                         </div>
 
-                                                                        <!-- Row 2: totals -->
+                                                                        <!-- Row 2 -->
                                                                         <div class="details-row d-flex flex-column flex-lg-row">
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Discount</span>
                                                                                     <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Penalty Amount</span>
                                                                                     <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?>
                                                                                         <?php if (!$isBaseCurrencyLKR && $paymentData['panelty_amount_lkr'] > 0): ?>
-                                                                                            <small class="text-muted d-block" style="font-size:11px;">
-                                                                                                (LKR <?= number_format($paymentData['panelty_amount_lkr'], 2) ?> converted)
-                                                                                            </small>
+                                                                                            <small class="d-block" style="font-size:11px;opacity:.6;">(LKR <?= number_format($paymentData['panelty_amount_lkr'], 2) ?> converted)</small>
                                                                                         <?php endif; ?>
                                                                                     </span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
-                                                                                    <span class="detail-label">Total Tax</span>
+                                                                                    <span class="detail-label">Total Tax (paid receipts)</span>
                                                                                     <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Payable Amount</span>
-                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?></span>
+                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?>
+                                                                                        <small class="d-block" style="font-size:11px;opacity:.6;">Base <?= number_format($basePayable, 2) ?> + Tax <?= number_format($taxOnBase, 2) ?></small>
+                                                                                    </span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Paid Amount</span>
                                                                                     <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
-                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
+                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                        <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                        <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                    </svg></div>
                                                                                 <div class="detail-content">
-                                                                                    <span class="detail-label">Total Balance</span>
-                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span>
+                                                                                    <span class="detail-label">Balance / Next Installment</span>
+                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?>
+                                                                                        <small class="d-block" style="font-size:11px;opacity:.6;">Base <?= number_format($remainingBase, 2) ?> + Tax <?= number_format($remainingTax, 2) ?></small>
+                                                                                    </span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -665,45 +747,45 @@ if (!SessionUser::hasValidSession()) {
                                                                         <?php if ($paymentData['panelty_payment_option_panelty_payment_option_id'] != 1): ?>
                                                                             <span class="reference-label my-3">PENALTY PAYMENT ENABLED</span>
                                                                             <?php
-                                                                            $panelties = Database::search("SELECT * FROM `course_payments_penalties`
-                                                                                INNER JOIN `panelty_payments_type`
-                                                                                    ON `course_payments_penalties`.`panelty_payment_type_panelty_payment_type_id` = `panelty_payments_type`.`panelty_payments_type_id`
-                                                                                WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'");
+                                                                            $panelties = Database::search("
+                                                        SELECT * FROM `course_payments_penalties`
+                                                        INNER JOIN `panelty_payments_type`
+                                                            ON `course_payments_penalties`.`panelty_payment_type_panelty_payment_type_id` = `panelty_payments_type`.`panelty_payments_type_id`
+                                                        WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
+                                                    ");
                                                                             if ($panelties->num_rows > 0):
                                                                                 while ($panelty = $panelties->fetch_assoc()): ?>
                                                                                     <div class="details-row d-flex flex-column flex-lg-row">
                                                                                         <div class="detail-item">
-                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg></div>
-                                                                                            <div class="detail-content">
-                                                                                                <span class="detail-label">Option</span>
-                                                                                                <span class="detail-value"><?= $paymentData["panelty_payment_option"] ?></span>
-                                                                                            </div>
+                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+                                                                                                </svg></div>
+                                                                                            <div class="detail-content"><span class="detail-label">Option</span><span class="detail-value"><?= $paymentData["panelty_payment_option"] ?></span></div>
                                                                                         </div>
                                                                                         <div class="detail-item">
-                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg></div>
-                                                                                            <div class="detail-content">
-                                                                                                <span class="detail-label">Type</span>
-                                                                                                <span class="detail-value"><?= $panelty["panelty_payments_type"] ?></span>
-                                                                                            </div>
+                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+                                                                                                </svg></div>
+                                                                                            <div class="detail-content"><span class="detail-label">Type</span><span class="detail-value"><?= $panelty["panelty_payments_type"] ?></span></div>
                                                                                         </div>
                                                                                         <div class="detail-item">
-                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></div>
-                                                                                            <div class="detail-content">
-                                                                                                <span class="detail-label">Amount</span>
-                                                                                                <span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($panelty["amount"], 2); ?></span>
-                                                                                            </div>
+                                                                                            <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                                    <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
+                                                                                                    <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+                                                                                                </svg></div>
+                                                                                            <div class="detail-content"><span class="detail-label">Amount</span><span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($panelty["amount"], 2); ?></span></div>
                                                                                         </div>
                                                                                         <?php if (!empty($panelty["days"])): ?>
                                                                                             <div class="detail-item">
-                                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/><path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/></svg></div>
-                                                                                                <div class="detail-content">
-                                                                                                    <span class="detail-label">Days</span>
-                                                                                                    <span class="detail-value"><?= $panelty["days"]; ?></span>
-                                                                                                </div>
+                                                                                                <div class="detail-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                                                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z" />
+                                                                                                        <path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z" />
+                                                                                                    </svg></div>
+                                                                                                <div class="detail-content"><span class="detail-label">Days</span><span class="detail-value"><?= $panelty["days"]; ?></span></div>
                                                                                             </div>
                                                                                         <?php endif; ?>
                                                                                     </div>
-                                                                                <?php endwhile;
+                                                                            <?php endwhile;
                                                                             endif; ?>
                                                                         <?php endif; ?>
                                                                     </div>
@@ -716,31 +798,20 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="col-12">
                                                                         <div class="row g-4">
 
-                                                                            <!-- Header: title + currency toggle -->
+                                                                            <!-- Header + currency toggle -->
                                                                             <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-3">
                                                                                 <h4 class="sub-topic m-0">Add Receipt</h4>
-
                                                                                 <?php if (!$isBaseCurrencyLKR): ?>
                                                                                     <div class="d-flex align-items-center gap-3 flex-wrap">
                                                                                         <span class="text-14 main-text fw-medium">Payment Currency:</span>
                                                                                         <div class="currency-toggle">
-                                                                                            <button type="button" class="currency-toggle-btn active"
-                                                                                                id="btn-base-currency" onclick="switchCurrency('base')">
-                                                                                                <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                            </button>
-                                                                                            <button type="button" class="currency-toggle-btn"
-                                                                                                id="btn-lkr-currency" onclick="switchCurrency('lkr')">
-                                                                                                LKR
-                                                                                            </button>
+                                                                                            <button type="button" class="currency-toggle-btn active" id="btn-base-currency" onclick="switchCurrency('base')"><?= htmlspecialchars($paymentData['currency_code']) ?></button>
+                                                                                            <button type="button" class="currency-toggle-btn" id="btn-lkr-currency" onclick="switchCurrency('lkr')">LKR</button>
                                                                                         </div>
                                                                                         <?php if ($exchangeRate): ?>
                                                                                             <div class="exchange-rate-badge">
                                                                                                 <iconify-icon icon="mdi:swap-horizontal" width="14" height="14"></iconify-icon>
-                                                                                                <span id="live-rate-text">
-                                                                                                    1 <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                                    = LKR <?= number_format($exchangeRateValue, 2) ?>
-                                                                                                    (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)
-                                                                                                </span>
+                                                                                                <span id="live-rate-text">1 <?= htmlspecialchars($paymentData['currency_code']) ?> = LKR <?= number_format($exchangeRateValue, 2) ?> (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)</span>
                                                                                             </div>
                                                                                         <?php else: ?>
                                                                                             <div class="exchange-rate-badge rate-unavailable">
@@ -752,108 +823,51 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <?php endif; ?>
                                                                             </div>
 
-                                                                            <!-- LKR Summary Panel -->
+                                                                            <!-- LKR Summary Panel (shown when mode = lkr) -->
                                                                             <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
                                                                                 <div class="col-12" id="lkr-summary-panel" style="display:none;">
                                                                                     <div class="lkr-panel">
                                                                                         <div class="lkr-panel-top">
-                                                                                            <div class="lkr-panel-top-left">
-                                                                                                <iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon>
-                                                                                                LKR equivalent summary
-                                                                                            </div>
-                                                                                            <span class="lkr-panel-rate-note">
-                                                                                                @ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span>
-                                                                                                per <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                            </span>
+                                                                                            <div class="lkr-panel-top-left"><iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon> LKR equivalent summary</div>
+                                                                                            <span class="lkr-panel-rate-note">@ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span> per <?= htmlspecialchars($paymentData['currency_code']) ?></span>
                                                                                         </div>
                                                                                         <div class="lkr-panel-grid">
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Amount</span>
-                                                                                                <span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Discount</span>
-                                                                                                <span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Penalty</span>
-                                                                                                <?php
-                                                                                                // panelty_payments.amount is already LKR; receipt-level penalty converted to LKR
-                                                                                                ?>
-                                                                                                <span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Tax</span>
-                                                                                                <span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Payable</span>
-                                                                                                <span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item">
-                                                                                                <span class="lkr-item-label">Total Paid</span>
-                                                                                                <span class="lkr-item-value">LKR <?= number_format($paidAmountLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span>
-                                                                                            </div>
-                                                                                            <div class="lkr-panel-item balance-item">
-                                                                                                <span class="lkr-item-label">Balance Due</span>
-                                                                                                <span class="lkr-item-value" id="lkr-balance-display">LKR <?= number_format($balanceLKR, 2) ?></span>
-                                                                                                <span class="lkr-item-sub" id="lkr-balance-sub"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span>
-                                                                                            </div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Amount</span><span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Penalty</span><span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Tax</span><span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value">LKR <?= number_format($paidAmountLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item balance-item"><span class="lkr-item-label">Balance Due</span><span class="lkr-item-value" id="lkr-balance-display">LKR <?= number_format($balanceLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-balance-sub"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span></div>
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
                                                                             <?php endif; ?>
 
-                                                                            <!-- Row 1: Discount | Penalty | Balance | Payment Method -->
+                                                                            <!-- Row 1: Discount | Penalty | Balance | Method -->
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                <label class="text-14 main-text">
-                                                                                    Discount Given Amount
-                                                                                    <span class="currency-label-badge" id="discount-currency-label">
-                                                                                        <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                    </span>
-                                                                                </label>
-                                                                                <input type="number" class="form-control custom-input mt-2"
-                                                                                    id="discount-amount" value="0" step="0.01" min="0">
+                                                                                <label class="text-14 main-text">Discount Given Amount <span class="currency-label-badge" id="discount-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                                                <input type="number" class="form-control custom-input mt-2" id="discount-amount" value="0" step="0.01" min="0">
                                                                                 <div class="text-12 text-danger" id="discount-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="discount-lkr-hint">≈ LKR 0.00</span>
                                                                                 <span class="convert-hint d-none" id="discount-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                <label class="text-14 main-text">
-                                                                                    Penalty Added Amount
-                                                                                    <span class="currency-label-badge" id="penalty-currency-label">
-                                                                                        <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                    </span>
-                                                                                </label>
-                                                                                <input type="number" class="form-control custom-input mt-2"
-                                                                                    id="penalty-amount" value="0" step="0.01" min="0">
+                                                                                <label class="text-14 main-text">Penalty Added Amount <span class="currency-label-badge" id="penalty-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                                                <input type="number" class="form-control custom-input mt-2" id="penalty-amount" value="0" step="0.01" min="0">
                                                                                 <div class="text-12 text-danger" id="penalty-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="penalty-lkr-hint">≈ LKR 0.00</span>
                                                                                 <span class="convert-hint d-none" id="penalty-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                <label class="text-14 main-text">
-                                                                                    Balance
-                                                                                    <span class="currency-label-badge" id="balance-currency-label">
-                                                                                        <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                    </span>
-                                                                                </label>
-                                                                                <input type="text" class="form-control custom-input mt-2"
-                                                                                    id="balance-amount" disabled value="<?= number_format($balance, 2) ?>">
+                                                                                <label class="text-14 main-text">Balance (Next Installment) <span class="currency-label-badge" id="balance-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                                                <input type="text" class="form-control custom-input mt-2" id="balance-amount" disabled value="<?= number_format($balance, 2) ?>">
                                                                                 <div class="text-12 text-danger" id="balance-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="balance-lkr-hint">≈ LKR <?= number_format($balanceLKR, 2) ?></span>
                                                                                 <span class="convert-hint d-none" id="balance-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($balance, 2) ?></span>
-                                                                                <span class="convert-hint mt-1" id="balance-tax-breakdown" style="color:#d97706;">
-                                                                                    Incl. existing tax: <?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?>
-                                                                                </span>
+                                                                                <span class="text-12 sub-text mt-1" id="balance-breakdown-hint">Base <?= number_format($remainingBase, 2) ?> + Tax <?= number_format($remainingTax, 2) ?></span>
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
@@ -869,28 +883,19 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="text-12 text-danger" id="payment-method-feedback"></div>
                                                                             </div>
 
-                                                                            <!-- Row 2: Paid Amount | Paid Date | Tax Rate | Custom Rate -->
+                                                                            <!-- Row 2: Paid Amount | Date | Tax | Rate -->
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                <label class="text-14 main-text">
-                                                                                    Paid Amount
-                                                                                    <span class="currency-label-badge" id="paid-currency-label">
-                                                                                        <?= htmlspecialchars($paymentData['currency_code']) ?>
-                                                                                    </span>
-                                                                                </label>
-                                                                                <input type="number" class="form-control custom-input mt-2"
-                                                                                    id="paid-amount" step="0.01" min="0">
+                                                                                <label class="text-14 main-text">Paid Amount (Tax-Inclusive) <span class="currency-label-badge" id="paid-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                                                <input type="number" class="form-control custom-input mt-2" id="paid-amount" step="0.01" min="0" placeholder="Amount including tax">
                                                                                 <div class="text-12 text-danger" id="paid-amount-feedback"></div>
                                                                                 <span class="convert-hint" id="paid-lkr-hint">≈ LKR 0.00</span>
                                                                                 <span class="convert-hint d-none" id="paid-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
-                                                                                <span class="convert-hint mt-1" id="paid-with-tax-hint" style="color:#d97706;">
-                                                                                    Max payable (with new tax): <?= number_format($balance, 2) ?>
-                                                                                </span>
+                                                                                <span class="text-12 sub-text mt-1" style="color:#d97706;">Includes tax automatically</span>
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
                                                                                 <label class="text-14 main-text">Paid Date</label>
-                                                                                <input type="date" class="form-control custom-input mt-2"
-                                                                                    id="paid-date" value="<?= date("Y-m-d") ?>">
+                                                                                <input type="date" class="form-control custom-input mt-2" id="paid-date" value="<?= date("Y-m-d") ?>">
                                                                                 <div class="text-12 text-danger" id="paid-date-feedback"></div>
                                                                                 <?php if (!$isBaseCurrencyLKR): ?>
                                                                                     <span class="text-12 sub-text mt-1" id="rate-status">Rate loaded for today</span>
@@ -898,58 +903,68 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
 
                                                                             <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                <label class="text-14 main-text">
-                                                                                    Tax Rate (%)
-                                                                                    <span class="currency-label-badge" style="background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.3);">
-                                                                                        On This Receipt
-                                                                                    </span>
-                                                                                </label>
-                                                                                <div class="d-flex align-items-center gap-2 mt-2">
-                                                                                    <input type="number" class="form-control custom-input"
-                                                                                        id="tax-rate" value="0" step="0.01" min="0" max="100"
-                                                                                        oninput="recalculate()">
-                                                                                    <span class="text-14 main-text fw-medium">%</span>
-                                                                                </div>
-                                                                                <div class="text-12 text-danger" id="tax-rate-feedback"></div>
-                                                                                <span class="convert-hint" id="tax-amount-display">Tax on this receipt: 0.00</span>
+                                                                                <label class="text-14 main-text">Tax Amount <span class="currency-label-badge" style="background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.3);">Auto-Calculated</span></label>
+                                                                                <input type="text" class="form-control custom-input mt-2" id="tax-amount-display-input" value="0.00" disabled tabindex="-1" style="background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.3);color:#d97706;">
+                                                                                <div class="text-12 text-danger" id="tax-amount-feedback"></div>
+                                                                                <span class="convert-hint" id="tax-amount-lkr-hint">≈ LKR 0.00</span>
+                                                                                <span class="convert-hint d-none" id="tax-amount-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                                                <span class="text-12 sub-text mt-1" style="color:#d97706;">Latest: <?= number_format($latestTaxRate, 2) ?>%</span>
                                                                             </div>
 
                                                                             <?php if (!$isBaseCurrencyLKR): ?>
                                                                                 <div class="col-12 col-lg-3 d-flex flex-column">
-                                                                                    <label class="text-14 main-text d-flex align-items-center gap-2">
-                                                                                        Custom Exchange Rate
-                                                                                        <span class="currency-label-badge">
-                                                                                            1 <?= htmlspecialchars($paymentData['currency_code']) ?> = ? LKR
-                                                                                        </span>
-                                                                                    </label>
-                                                                                    <input type="number" class="form-control custom-input mt-2"
-                                                                                        id="custom-exchange-rate"
-                                                                                        value="<?= number_format($exchangeRateValue, 2, '.', '') ?>"
-                                                                                        step="0.0001" min="0.0001"
-                                                                                        placeholder="e.g. 455.0000">
+                                                                                    <label class="text-14 main-text d-flex align-items-center gap-2">Custom Exchange Rate <span class="currency-label-badge">1 <?= htmlspecialchars($paymentData['currency_code']) ?> = ? LKR</span></label>
+                                                                                    <input type="number" class="form-control custom-input mt-2" id="custom-exchange-rate" value="<?= number_format($exchangeRateValue, 2, '.', '') ?>" step="0.0001" min="0.0001" placeholder="e.g. 300.0000">
                                                                                     <span class="text-12 sub-text mt-1">Override auto-fetched rate if needed</span>
                                                                                 </div>
                                                                             <?php else: ?>
                                                                                 <div class="col-lg-3"></div>
                                                                             <?php endif; ?>
 
+                                                                            <!-- ── Overpayment Panel (shown/hidden by JS) ── -->
+                                                                            <div class="col-12" id="overpay-panel-wrapper" style="display:none;">
+                                                                                <div class="overpay-panel">
+                                                                                    <div class="overpay-panel-title">
+                                                                                        <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
+                                                                                        Overpayment — Will Be Applied to Next Installment
+                                                                                    </div>
+                                                                                    <div class="overpay-grid">
+                                                                                        <div class="overpay-item">
+                                                                                            <span class="overpay-label">Current Installment Payable</span>
+                                                                                            <span class="overpay-value" id="overpay-current">—</span>
+                                                                                            <span class="overpay-sub">Will be fully settled</span>
+                                                                                        </div>
+                                                                                        <div class="overpay-item">
+                                                                                            <span class="overpay-label">Overpayment Amount</span>
+                                                                                            <span class="overpay-value" id="overpay-amount">—</span>
+                                                                                            <span class="overpay-sub">Credited to next installment</span>
+                                                                                        </div>
+                                                                                        <div class="overpay-item">
+                                                                                            <span class="overpay-label">Next Installment Breakdown</span>
+                                                                                            <span class="overpay-value" id="overpay-next-breakdown">—</span>
+                                                                                            <span class="overpay-sub" id="overpay-next-sub">—</span>
+                                                                                            <span class="overpay-total" id="overpay-next-total">—</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
                                                                             <div class="col-12"></div>
 
-                                                                            <!-- Row 3: Payment Slip | Note -->
+                                                                            <!-- Row 3: Slip | Note -->
                                                                             <div class="col-12 col-lg-6 d-flex flex-column">
                                                                                 <label class="text-14 main-text">Payment Slip</label>
                                                                                 <?php if ($inquiry_id != 0 && $paymentData['payment_type_id'] == 18):
                                                                                     $paymnetSlips = Database::search("
-                                                                                        SELECT * FROM students_identity_documents
-                                                                                        WHERE students_student_id = '" . $inquiry_id . "'
-                                                                                        AND `students_identity_documents_type_id` = '8'
-                                                                                        ORDER BY date_added DESC LIMIT 1
-                                                                                    ");
+                                                                SELECT * FROM students_identity_documents
+                                                                WHERE students_student_id = '" . $inquiry_id . "'
+                                                                AND `students_identity_documents_type_id` = '8'
+                                                                ORDER BY date_added DESC LIMIT 1
+                                                            ");
                                                                                     if ($paymnetSlips->num_rows > 0):
                                                                                         $paymentSlipData = $paymnetSlips->fetch_assoc(); ?>
                                                                                         <div class="col-12 my-3 file-item">
-                                                                                            <div class="p-3 bl-solid cursor-pointer"
-                                                                                                onclick="window.open('<?= Project::getBaseUrl() ?>/assets/uploads/student-identity-documents/payment-slips/<?= $paymentSlipData['document'] ?>', '_blank')">
+                                                                                            <div class="p-3 bl-solid cursor-pointer" onclick="window.open('<?= Project::getBaseUrl() ?>/assets/uploads/student-identity-documents/payment-slips/<?= $paymentSlipData['document'] ?>', '_blank')">
                                                                                                 <div class="row">
                                                                                                     <div class="col-2"><img src="assets/imgs/icons/image.png" alt=""></div>
                                                                                                     <div class="col-8">
@@ -962,9 +977,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </div>
                                                                                     <?php endif; ?>
                                                                                     <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2 d-none" id="drop-section">
-                                                                                <?php else: ?>
-                                                                                    <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2" id="drop-section">
-                                                                                <?php endif; ?>
+                                                                                    <?php else: ?>
+                                                                                        <div class="p-2 d-flex flex-column bl-solid align-items-center justify-content-center w-100 h-auto cursor-pointer mt-2" id="drop-section">
+                                                                                        <?php endif; ?>
                                                                                         <img src="assets/imgs/icons/cloud.png" alt="cloud">
                                                                                         <span>Drag & Drop your files here</span>
                                                                                         <span>OR</span>
@@ -973,355 +988,470 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <div class="col-12 px-1 mt-4">
                                                                                             <div class="row" id="list-section"></div>
                                                                                         </div>
+                                                                                        </div>
+                                                                                        <div class="mt-2" id="file-feedback"></div>
                                                                                     </div>
-                                                                                <div class="mt-2" id="file-feedback"></div>
-                                                                            </div>
 
-                                                                            <div class="col-12 col-lg-6 d-flex flex-column">
-                                                                                <label class="text-14 main-text">Note</label>
-                                                                                <textarea class="form-control custom-input mt-2" id="note" rows="8"></textarea>
-                                                                                <div class="text-12 text-danger" id="note-feedback"></div>
-                                                                            </div>
+                                                                                    <div class="col-12 col-lg-6 d-flex flex-column">
+                                                                                        <label class="text-14 main-text">Note</label>
+                                                                                        <textarea class="form-control custom-input mt-2" id="note" rows="8"></textarea>
+                                                                                        <div class="text-12 text-danger" id="note-feedback"></div>
+                                                                                    </div>
 
-                                                                            <!-- Save button -->
-                                                                            <div class="col-12 d-flex justify-content-end">
-                                                                                <button class="custom-btn col-12 col-lg-4"
-                                                                                    onclick="uploadStudentPaymentReceipt(this,'<?= $paymentData['course_payments_id'] ?>',getCurrentCurrencyData())">
-                                                                                    Save Payment
-                                                                                </button>
-                                                                            </div>
+                                                                                    <!-- Save -->
+                                                                                    <div class="col-12 d-flex justify-content-end">
+                                                                                        <button class="custom-btn col-12 col-lg-4"
+                                                                                            onclick="uploadStudentPaymentReceipt(this,'<?= $paymentData['course_payments_id'] ?>',getCurrentCurrencyData())">
+                                                                                            Save Payment
+                                                                                        </button>
+                                                                                    </div>
 
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
+
+                                                                <div class="flex-grow-1"></div>
+                                                                <footer><?php include './includes/footer.php' ?></footer>
                                                             </div>
                                                         </div>
+
                                                     </div>
-                                                    <div class="flex-grow-1"></div>
-                                                    <footer><?php include './includes/footer.php' ?></footer>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
-                            <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
-                            <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
-                            <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
-                            <script src="./assets/js/fileChooser.js?v=<?= Project::getVersion() ?>"></script>
+                                <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
+                                <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+                                <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+                                <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                                <script src="./assets/js/fileChooser.js?v=<?= Project::getVersion() ?>"></script>
 
-                            <script>
-                                // ── PHP → JS constants ──────────────────────────────────────────────
-                                // baseBalance: the current outstanding balance in course currency
-                                // (already includes existing receipt taxes, discounts, penalties).
-                                // JS adds the NEW receipt's tax on top of this dynamically.
-                                const baseBalance          = parseFloat("<?= $balance ?>") || 0;
-                                const basePayable          = parseFloat("<?= $payableAmount ?>") || 0;
-                                const isBaseCurrencyLKR    = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
-                                const baseCurrencyCode     = "<?= htmlspecialchars($paymentData['currency_code']) ?>";
-                                const baseCurrencyId       = <?= (int)$paymentData['currency_id'] ?>;
-                                const lkrCurrencyId        = <?= (int)$lkrCurrencyId ?>;
-                                // existingTaxBase: tax already included in baseBalance (in course currency)
-                                const existingTaxBase      = parseFloat("<?= $totalTax ?>") || 0;
+                                <script>
+                                    // ════════════════════════════════════════════════════════════════════════════
+                                    // TAX-INCLUSIVE PAYMENT CALCULATION v7
+                                    // - All display values use exactly 2 decimal places
+                                    // - Overpayment threshold uses epsilon (0.005) to prevent float false-positives
+                                    // - Overpayment currency label reflects active mode (LKR or base)
+                                    // ════════════════════════════════════════════════════════════════════════════
 
-                                let exchangeRate    = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
-                                let exchangeRateId  = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
-                                let currentMode     = 'base'; // 'base' | 'lkr'
+                                    const LATEST_TAX_RATE = <?= (float)$latestTaxRate ?>;
+                                    const TAX_FACTOR = 1 + (LATEST_TAX_RATE / 100);
+                                    const COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
+                                    const EXISTING_TOTAL_DISCOUNT = <?= (float)$totalDiscount ?>;
+                                    const EXISTING_TOTAL_PENALTY = <?= (float)$totalPenalty ?>;
+                                    const EXISTING_PAID_TOTAL = <?= (float)$convertedPaidTotal ?>;
+                                    const baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
+                                    const lkrCurrencyId = <?= (int)$lkrCurrencyId ?>;
+                                    const currencyCode = "<?= htmlspecialchars($paymentData['currency_code']) ?>";
+                                    const isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
 
-                                // DOM refs
-                                const discountInput  = document.getElementById('discount-amount');
-                                const penaltyInput   = document.getElementById('penalty-amount');
-                                const balanceInput   = document.getElementById('balance-amount');
-                                const paidInput      = document.getElementById('paid-amount');
-                                const taxRateInput   = document.getElementById('tax-rate');
-                                const paidDateInput  = document.getElementById('paid-date');
-                                const customRateInput = document.getElementById('custom-exchange-rate');
-                                const rateStatusEl   = document.getElementById('rate-status');
+                                    // Epsilon: half a cent — prevents display-rounding false-positive overpay
+                                    const OVERPAY_EPSILON = 0.005;
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // CORE RECALCULATION
-                                //
-                                // Logic:
-                                //   newBalance (before this receipt's tax) = baseBalance - newDiscount + newPenalty
-                                //   newTaxOnThisReceipt = newBalance * (taxRate / 100)
-                                //   displayedBalance    = newBalance + newTaxOnThisReceipt
-                                //
-                                // The "baseBalance" from PHP already includes existing receipt taxes,
-                                // LKR-converted panelty_payments, and receipt-level penalties.
-                                // ─────────────────────────────────────────────────────────────────────
-                                function recalculate() {
-                                    const rawDiscount = parseFloat(discountInput.value) || 0;
-                                    const rawPenalty  = parseFloat(penaltyInput.value)  || 0;
-                                    const rawPaid     = parseFloat(paidInput?.value)    || 0;
-                                    const taxRate     = Math.max(0, parseFloat(taxRateInput?.value) || 0);
+                                    let exchangeRate = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
+                                    let exchangeRateId = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
+                                    let modalCurrentMode = 'base';
 
-                                    // ── LKR-only path ────────────────────────────────────────────────
-                                    if (isBaseCurrencyLKR || !exchangeRate) {
-                                        let bPreTax = baseBalance - rawDiscount + rawPenalty;
-                                        if (bPreTax < 0) bPreTax = 0;
-                                        const newTaxAmt  = bPreTax * (taxRate / 100);
-                                        const bWithTax   = bPreTax + newTaxAmt;
+                                    // DOM refs
+                                    const discountInput = document.getElementById('discount-amount');
+                                    const penaltyInput = document.getElementById('penalty-amount');
+                                    const balanceInput = document.getElementById('balance-amount');
+                                    const paidInput = document.getElementById('paid-amount');
+                                    const taxAmountDisplay = document.getElementById('tax-amount-display-input');
+                                    const paidDateInput = document.getElementById('paid-date');
+                                    const customRateInput = document.getElementById('custom-exchange-rate');
+                                    const rateStatusEl = document.getElementById('rate-status');
+                                    const balBreakdownEl = document.getElementById('balance-breakdown-hint');
 
-                                        balanceInput.value = bWithTax.toFixed(2);
+                                    // ── Helpers ──────────────────────────────────────────────────────────────
 
-                                        setEl('tax-amount-display',   `Tax on this receipt (${taxRate}%): ${baseCurrencyCode} ${fmt(newTaxAmt)}`);
-                                        setEl('balance-tax-breakdown', `Before new tax: ${baseCurrencyCode} ${fmt(bPreTax)} | Existing tax: ${fmt(existingTaxBase)}`);
-                                        setEl('paid-with-tax-hint',    `Max payable (with new tax): ${fmt(bWithTax)}`);
-                                        return;
+                                    /** Format number to exactly 2 decimal places with thousands separator */
+                                    function fmt(n) {
+                                        return parseFloat(n || 0).toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
                                     }
 
-                                    // ── Multi-currency path ──────────────────────────────────────────
-                                    const toBase = v => currentMode === 'lkr' ? v / exchangeRate : v;
-                                    const toLKR  = v => v * exchangeRate;
-
-                                    const discountBase = toBase(rawDiscount);
-                                    const penaltyBase  = toBase(rawPenalty);
-                                    const paidBase     = toBase(rawPaid);
-
-                                    // Balance before this receipt's tax (in base currency)
-                                    let balPreTaxBase = baseBalance - discountBase + penaltyBase;
-                                    if (balPreTaxBase < 0) balPreTaxBase = 0;
-
-                                    // Tax on this new receipt (always calculated in base)
-                                    const newTaxBase = balPreTaxBase * (taxRate / 100);
-                                    const balWithTax = balPreTaxBase + newTaxBase;
-
-                                    // Update balance display (in selected currency)
-                                    balanceInput.value = currentMode === 'lkr'
-                                        ? (balWithTax * exchangeRate).toFixed(2)
-                                        : balWithTax.toFixed(2);
-
-                                    // ── Tax hints ────────────────────────────────────────────────────
-                                    if (currentMode === 'lkr') {
-                                        setEl('tax-amount-display',
-                                            `Tax (${taxRate}%): LKR ${fmt(newTaxBase * exchangeRate)} (= ${baseCurrencyCode} ${fmt(newTaxBase)})`);
-                                        setEl('balance-tax-breakdown',
-                                            `Before new tax: LKR ${fmt(balPreTaxBase * exchangeRate)} | Existing tax: LKR ${fmt(existingTaxBase * exchangeRate)}`);
-                                        setEl('paid-with-tax-hint',
-                                            `Max payable: LKR ${fmt(balWithTax * exchangeRate)}`);
-                                    } else {
-                                        setEl('tax-amount-display',
-                                            `Tax (${taxRate}%): ${baseCurrencyCode} ${fmt(newTaxBase)} (≈ LKR ${fmt(newTaxBase * exchangeRate)})`);
-                                        setEl('balance-tax-breakdown',
-                                            `Before new tax: ${baseCurrencyCode} ${fmt(balPreTaxBase)} | Existing tax: ${fmt(existingTaxBase)}`);
-                                        setEl('paid-with-tax-hint',
-                                            `Max payable: ${baseCurrencyCode} ${fmt(balWithTax)}`);
+                                    /** Extract base (ex-tax) and tax from a tax-inclusive amount */
+                                    function extractBaseAndTax(taxInclusiveAmount, taxRate) {
+                                        if (taxRate <= 0 || taxInclusiveAmount <= 0) {
+                                            return {
+                                                base: taxInclusiveAmount,
+                                                tax: 0
+                                            };
+                                        }
+                                        const factor = 1 + taxRate / 100;
+                                        const base = taxInclusiveAmount / factor;
+                                        return {
+                                            base: base,
+                                            tax: taxInclusiveAmount - base
+                                        };
                                     }
 
-                                    // ── Conversion hints below each input ────────────────────────────
-                                    if (currentMode === 'lkr') {
-                                        setHint('discount-base-hint', baseCurrencyCode, discountBase, false);
-                                        setHint('penalty-base-hint',  baseCurrencyCode, penaltyBase, false);
-                                        setHint('balance-base-hint',  baseCurrencyCode, balWithTax, false);
-                                        setHint('paid-base-hint',     baseCurrencyCode, paidBase, false);
-                                        setHint('discount-lkr-hint',  'LKR', rawDiscount, false);
-                                        setHint('penalty-lkr-hint',   'LKR', rawPenalty, false);
-                                        setHint('balance-lkr-hint',   'LKR', balWithTax * exchangeRate, false);
-                                        setHint('paid-lkr-hint',      'LKR', rawPaid, false);
-                                    } else {
-                                        setHint('discount-lkr-hint',  'LKR', rawDiscount * exchangeRate);
-                                        setHint('penalty-lkr-hint',   'LKR', rawPenalty  * exchangeRate);
-                                        setHint('balance-lkr-hint',   'LKR', balWithTax  * exchangeRate);
-                                        setHint('paid-lkr-hint',      'LKR', rawPaid     * exchangeRate);
-                                        setHint('discount-base-hint', baseCurrencyCode, rawDiscount, false);
-                                        setHint('penalty-base-hint',  baseCurrencyCode, rawPenalty, false);
-                                        setHint('balance-base-hint',  baseCurrencyCode, balWithTax, false);
-                                        setHint('paid-base-hint',     baseCurrencyCode, paidBase, false);
+                                    /** Update a hint element with label + formatted value */
+                                    function setHint(id, label, value, isApprox = true) {
+                                        const el = document.getElementById(id);
+                                        if (!el) return;
+                                        el.textContent = (isApprox ? '≈ ' : '= ') + label + ' ' + fmt(value);
                                     }
 
-                                    // ── LKR summary panel ────────────────────────────────────────────
-                                    const lkrBalDisp = document.getElementById('lkr-balance-display');
-                                    const lkrBalSub  = document.getElementById('lkr-balance-sub');
-                                    if (lkrBalDisp) lkrBalDisp.textContent = 'LKR ' + fmt(balWithTax * exchangeRate);
-                                    if (lkrBalSub)  lkrBalSub.textContent  = baseCurrencyCode + ' ' + fmt(balWithTax);
+                                    function setRateStatus(type, msg) {
+                                        if (!rateStatusEl) return;
+                                        const cls = {
+                                            loading: 'sub-text',
+                                            success: 'text-dark-green',
+                                            warning: 'text-warning',
+                                            error: 'text-dark-red',
+                                            info: 'text-primary'
+                                        };
+                                        rateStatusEl.className = 'text-12 mt-1 ' + (cls[type] || 'sub-text');
+                                        rateStatusEl.textContent = msg;
+                                    }
 
-                                    const lkrTaxDisp = document.getElementById('lkr-tax-val');
-                                    if (lkrTaxDisp) lkrTaxDisp.textContent = 'LKR ' + fmt((existingTaxBase + newTaxBase) * exchangeRate);
-                                }
+                                    // ── Overpayment panel ────────────────────────────────────────────────────
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // CURRENCY SWITCH
-                                // ─────────────────────────────────────────────────────────────────────
-                                function switchCurrency(mode) {
-                                    if (isBaseCurrencyLKR) return;
-                                    currentMode = mode;
+                                    /**
+                                     * Show overpayment panel.
+                                     * All values passed in are already in the DISPLAY currency (LKR or base).
+                                     * displayLabel is derived from modalCurrentMode so it always matches.
+                                     */
+                                    function showOverpaymentMessage(currentPayable, paidAmount, overpayTotal, overpayBase, overpayTax) {
+                                        const displayLabel = (!isBaseCurrencyLKR && modalCurrentMode === 'lkr') ? 'LKR' : currencyCode;
+                                        const wrapper = document.getElementById('overpay-panel-wrapper');
+                                        if (!wrapper) return;
 
-                                    document.getElementById('btn-base-currency').classList.toggle('active', mode === 'base');
-                                    document.getElementById('btn-lkr-currency').classList.toggle('active', mode === 'lkr');
+                                        document.getElementById('overpay-current').textContent =
+                                            fmt(currentPayable) + ' ' + displayLabel;
 
-                                    const lkrPanel = document.getElementById('lkr-summary-panel');
-                                    if (lkrPanel) lkrPanel.style.display = mode === 'lkr' ? 'block' : 'none';
+                                        document.getElementById('overpay-amount').textContent =
+                                            fmt(overpayTotal) + ' ' + displayLabel;
 
-                                    const label = mode === 'lkr' ? 'LKR' : baseCurrencyCode;
-                                    ['discount', 'penalty', 'balance', 'paid'].forEach(id => {
-                                        const el = document.getElementById(id + '-currency-label');
-                                        if (el) el.textContent = label;
-                                    });
+                                        // Third column: ex-tax amount as headline value
+                                        document.getElementById('overpay-next-breakdown').textContent =
+                                            fmt(overpayBase) + ' ' + displayLabel;
 
-                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(el => {
-                                        el.classList.toggle('d-none', mode === 'lkr');
-                                    });
-                                    document.querySelectorAll('[id$="-base-hint"]').forEach(el => {
-                                        el.classList.toggle('d-none', mode === 'base');
-                                    });
+                                        // Sub-line: breakdown detail
+                                        document.getElementById('overpay-next-sub').textContent =
+                                            displayLabel + ' ' + fmt(overpayBase) + ' course fee' +
+                                            ' + ' + displayLabel + ' ' + fmt(overpayTax) +
+                                            ' tax (' + LATEST_TAX_RATE.toFixed(2) + '%)';
 
-                                    const rawDiscount = parseFloat(discountInput.value) || 0;
-                                    const rawPenalty  = parseFloat(penaltyInput.value)  || 0;
-                                    const rawPaid     = parseFloat(paidInput?.value)    || 0;
+                                        // Total line (dashed separator above in CSS)
+                                        const totalEl = document.getElementById('overpay-next-total');
+                                        if (totalEl) {
+                                            totalEl.textContent = 'Total: ' + displayLabel + ' ' + fmt(overpayBase + overpayTax);
+                                        }
 
-                                    if (exchangeRate && !isBaseCurrencyLKR) {
-                                        if (mode === 'lkr') {
-                                            discountInput.value = (rawDiscount * exchangeRate).toFixed(2);
-                                            penaltyInput.value  = (rawPenalty  * exchangeRate).toFixed(2);
-                                            if (rawPaid) paidInput.value = (rawPaid * exchangeRate).toFixed(2);
+                                        wrapper.style.display = 'block';
+                                    }
+
+                                    function removeOverpaymentMessage() {
+                                        const wrapper = document.getElementById('overpay-panel-wrapper');
+                                        if (wrapper) wrapper.style.display = 'none';
+                                    }
+
+                                    // ── Main recalculate ─────────────────────────────────────────────────────
+
+                                    function recalculate() {
+                                        const rawDiscount = parseFloat(discountInput.value) || 0;
+                                        const rawPenalty = parseFloat(penaltyInput.value) || 0;
+                                        const rawPaid = parseFloat(paidInput?.value) || 0;
+
+                                        // ════════════════════════════════
+                                        // SINGLE CURRENCY PATH (LKR-only)
+                                        // ════════════════════════════════
+                                        if (isBaseCurrencyLKR || !exchangeRate) {
+                                            const totalDiscount = EXISTING_TOTAL_DISCOUNT + rawDiscount;
+                                            const totalPenalty = EXISTING_TOTAL_PENALTY + rawPenalty;
+                                            const basePayable = Math.max(0, COURSE_AMOUNT - totalDiscount + totalPenalty);
+
+                                            // Balance BEFORE this payment (what's still owed)
+                                            const balBeforeBase = Math.max(0, basePayable - (EXISTING_PAID_TOTAL / TAX_FACTOR));
+                                            const balBeforeWithTax = balBeforeBase + balBeforeBase * (LATEST_TAX_RATE / 100);
+
+                                            // After this payment
+                                            const paidBaseSoFar = (EXISTING_PAID_TOTAL + rawPaid) / TAX_FACTOR;
+                                            const remainBase = Math.max(0, basePayable - paidBaseSoFar);
+                                            const remainTax = remainBase * (LATEST_TAX_RATE / 100);
+                                            const remainTotal = remainBase + remainTax;
+
+                                            const thisCalc = extractBaseAndTax(rawPaid, LATEST_TAX_RATE);
+                                            if (taxAmountDisplay) taxAmountDisplay.value = fmt(thisCalc.tax);
+
+                                            // ── Overpayment? (with epsilon guard) ──
+                                            if (rawPaid > 0 && rawPaid > balBeforeWithTax + OVERPAY_EPSILON) {
+                                                const overpayAmt = rawPaid - balBeforeWithTax;
+                                                const overpayCalc = extractBaseAndTax(overpayAmt, LATEST_TAX_RATE);
+
+                                                balanceInput.value = '0.00';
+                                                if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
+                                                showOverpaymentMessage(balBeforeWithTax, rawPaid, overpayAmt, overpayCalc.base, overpayCalc.tax);
+                                                setHint('balance-lkr-hint', 'LKR', 0);
+                                                setHint('balance-base-hint', currencyCode, 0, false);
+
+                                            } else if (rawPaid > 0) {
+                                                balanceInput.value = fmt(remainTotal);
+                                                if (balBreakdownEl) {
+                                                    balBreakdownEl.textContent =
+                                                        'Paid: base ' + fmt(thisCalc.base) + ' + tax ' + fmt(thisCalc.tax) +
+                                                        ' | Remaining: base ' + fmt(remainBase) + ' + tax ' + fmt(remainTax) +
+                                                        ' = ' + fmt(remainTotal);
+                                                }
+                                                removeOverpaymentMessage();
+                                                setHint('balance-lkr-hint', 'LKR', remainTotal);
+                                                setHint('balance-base-hint', currencyCode, remainTotal, false);
+
+                                            } else {
+                                                // No paid amount entered — show current balance
+                                                const curBalBase = Math.max(0, basePayable - (EXISTING_PAID_TOTAL / TAX_FACTOR));
+                                                const curBalTax = curBalBase * (LATEST_TAX_RATE / 100);
+                                                const curBal = curBalBase + curBalTax;
+                                                balanceInput.value = fmt(curBal);
+                                                if (balBreakdownEl) balBreakdownEl.textContent = 'Base ' + fmt(curBalBase) + ' + Tax ' + fmt(curBalTax);
+                                                removeOverpaymentMessage();
+                                                setHint('balance-lkr-hint', 'LKR', curBal);
+                                                setHint('balance-base-hint', currencyCode, curBal, false);
+                                            }
+                                            return;
+                                        }
+
+                                        // ═══════════════════════════════════
+                                        // MULTI-CURRENCY PATH (base + LKR)
+                                        // ═══════════════════════════════════
+                                        const toBase = v => modalCurrentMode === 'lkr' ? v / exchangeRate : v;
+                                        const toDisplay = v => modalCurrentMode === 'lkr' ? v * exchangeRate : v;
+
+                                        const discountBase = toBase(rawDiscount);
+                                        const penaltyBase = toBase(rawPenalty);
+                                        const paidBase = toBase(rawPaid);
+
+                                        const totalDiscountBase = EXISTING_TOTAL_DISCOUNT + discountBase;
+                                        const totalPenaltyBase = EXISTING_TOTAL_PENALTY + penaltyBase;
+                                        const basePayableBase = Math.max(0, COURSE_AMOUNT - totalDiscountBase + totalPenaltyBase);
+
+                                        // Balance BEFORE this payment (in base currency)
+                                        const balBeforeBase_b = Math.max(0, basePayableBase - (EXISTING_PAID_TOTAL / TAX_FACTOR));
+                                        const balBeforeWithTax_b = balBeforeBase_b + balBeforeBase_b * (LATEST_TAX_RATE / 100);
+
+                                        // After this payment
+                                        const paidBaseSoFar_b = (EXISTING_PAID_TOTAL + paidBase) / TAX_FACTOR;
+                                        const remainBase = Math.max(0, basePayableBase - paidBaseSoFar_b);
+                                        const remainTax = remainBase * (LATEST_TAX_RATE / 100);
+                                        const remainTotal = remainBase + remainTax;
+
+                                        const thisCalc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
+                                        const taxDisplay = toDisplay(thisCalc.tax);
+                                        if (taxAmountDisplay) taxAmountDisplay.value = fmt(taxDisplay);
+
+                                        // Balance before this payment in display currency
+                                        const balBeforeDisplayWithTax = toDisplay(balBeforeWithTax_b);
+
+                                        // ── Overpayment? (with epsilon guard) ──
+                                        if (rawPaid > 0 && rawPaid > balBeforeDisplayWithTax + OVERPAY_EPSILON) {
+                                            const overpayDisplay = rawPaid - balBeforeDisplayWithTax;
+                                            const overpayBase_v = toBase(overpayDisplay);
+                                            const overpayTax_v = overpayBase_v * (LATEST_TAX_RATE / 100);
+
+                                            balanceInput.value = '0.00';
+                                            if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
+                                            // Pass display-currency values; showOverpaymentMessage picks label from modalCurrentMode
+                                            showOverpaymentMessage(
+                                                balBeforeDisplayWithTax,
+                                                rawPaid,
+                                                toDisplay(overpayBase_v + overpayTax_v),
+                                                toDisplay(overpayBase_v),
+                                                toDisplay(overpayTax_v)
+                                            );
+                                            setHint('balance-base-hint', currencyCode, 0, false);
+                                            setHint('balance-lkr-hint', 'LKR', 0, false);
+
+                                        } else if (rawPaid > 0) {
+                                            const balDisplay = toDisplay(remainTotal);
+                                            balanceInput.value = fmt(balDisplay);
+                                            if (balBreakdownEl) {
+                                                balBreakdownEl.textContent =
+                                                    'Paid: base ' + fmt(toDisplay(thisCalc.base)) + ' + tax ' + fmt(taxDisplay) +
+                                                    ' | Remaining: base ' + fmt(toDisplay(remainBase)) + ' + tax ' + fmt(toDisplay(remainTax)) +
+                                                    ' = ' + fmt(balDisplay);
+                                            }
+                                            removeOverpaymentMessage();
+                                            if (modalCurrentMode === 'lkr') {
+                                                setHint('balance-base-hint', currencyCode, remainTotal, false);
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(remainTotal), false);
+                                            } else {
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(remainTotal));
+                                                setHint('balance-base-hint', currencyCode, remainTotal, false);
+                                            }
+
                                         } else {
-                                            discountInput.value = rawDiscount > 0 ? (rawDiscount / exchangeRate).toFixed(2) : '0';
-                                            penaltyInput.value  = rawPenalty  > 0 ? (rawPenalty  / exchangeRate).toFixed(2) : '0';
-                                            if (rawPaid) paidInput.value = (rawPaid / exchangeRate).toFixed(2);
+                                            // No paid amount — show current balance in display currency
+                                            const curBalBase = Math.max(0, basePayableBase - (EXISTING_PAID_TOTAL / TAX_FACTOR));
+                                            const curBalTax = curBalBase * (LATEST_TAX_RATE / 100);
+                                            const curBal = curBalBase + curBalTax;
+                                            const balDisplay = toDisplay(curBal);
+                                            balanceInput.value = fmt(balDisplay);
+                                            if (balBreakdownEl) {
+                                                balBreakdownEl.textContent = 'Base ' + fmt(toDisplay(curBalBase)) + ' + Tax ' + fmt(toDisplay(curBalTax));
+                                            }
+                                            removeOverpaymentMessage();
+                                            if (modalCurrentMode === 'lkr') {
+                                                setHint('balance-base-hint', currencyCode, curBal, false);
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(curBal), false);
+                                            } else {
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(curBal));
+                                                setHint('balance-base-hint', currencyCode, curBal, false);
+                                            }
+                                        }
+
+                                        // ── Update all other hints ──
+                                        if (modalCurrentMode === 'lkr') {
+                                            setHint('discount-base-hint', currencyCode, discountBase, false);
+                                            setHint('penalty-base-hint', currencyCode, penaltyBase, false);
+                                            setHint('paid-base-hint', currencyCode, paidBase, false);
+                                            setHint('tax-amount-base-hint', currencyCode, thisCalc.tax, false);
+                                            setHint('discount-lkr-hint', 'LKR', rawDiscount, false);
+                                            setHint('penalty-lkr-hint', 'LKR', rawPenalty, false);
+                                            setHint('paid-lkr-hint', 'LKR', rawPaid, false);
+                                            setHint('tax-amount-lkr-hint', 'LKR', toDisplay(thisCalc.tax), false);
+                                        } else {
+                                            setHint('discount-lkr-hint', 'LKR', toDisplay(rawDiscount));
+                                            setHint('penalty-lkr-hint', 'LKR', toDisplay(rawPenalty));
+                                            setHint('paid-lkr-hint', 'LKR', toDisplay(rawPaid));
+                                            setHint('tax-amount-lkr-hint', 'LKR', toDisplay(thisCalc.tax));
+                                            setHint('discount-base-hint', currencyCode, rawDiscount, false);
+                                            setHint('penalty-base-hint', currencyCode, rawPenalty, false);
+                                            setHint('paid-base-hint', currencyCode, paidBase, false);
+                                            setHint('tax-amount-base-hint', currencyCode, thisCalc.tax, false);
                                         }
                                     }
 
-                                    recalculate();
-                                }
+                                    // ── Currency switch ──────────────────────────────────────────────────────
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // PAID DATE → fetch exchange rate for that date
-                                // ─────────────────────────────────────────────────────────────────────
-                                function onPaidDateChange() {
-                                    if (isBaseCurrencyLKR || !paidDateInput.value) return;
-                                    setRateStatus('loading', 'Fetching exchange rate for selected date...');
+                                    function switchCurrency(mode) {
+                                        if (isBaseCurrencyLKR) return;
+                                        modalCurrentMode = mode;
 
-                                    fetch(`api/getExchangeRate.php?base=${baseCurrencyId}&target=${lkrCurrencyId}&date=${paidDateInput.value}`)
-                                        .then(r => r.json())
-                                        .then(data => {
-                                            if (data.rate) {
-                                                exchangeRate   = parseFloat(data.rate);
-                                                exchangeRateId = data.currency_exchange_rate_id;
-                                                if (customRateInput) customRateInput.value = exchangeRate.toFixed(2);
+                                        document.getElementById('btn-base-currency').classList.toggle('active', mode === 'base');
+                                        document.getElementById('btn-lkr-currency').classList.toggle('active', mode === 'lkr');
 
-                                                const rb = document.getElementById('live-rate-text');
-                                                if (rb) rb.textContent = `1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(2)} (${data.effective_date})`;
+                                        const lkrPanel = document.getElementById('lkr-summary-panel');
+                                        if (lkrPanel) lkrPanel.style.display = mode === 'lkr' ? 'block' : 'none';
 
-                                                const pr = document.getElementById('panel-rate-display');
-                                                if (pr) pr.textContent = exchangeRate.toFixed(2);
-
-                                                setRateStatus('success', `Rate updated: 1 ${baseCurrencyCode} = LKR ${exchangeRate.toFixed(2)}`);
-                                            } else {
-                                                setRateStatus('warning', `No rate found. Using last known (${exchangeRate?.toFixed(2)}).`);
-                                            }
-                                            recalculate();
-                                        })
-                                        .catch(() => {
-                                            setRateStatus('error', 'Could not fetch rate.');
-                                            recalculate();
+                                        // Update field currency-label badges
+                                        const label = mode === 'lkr' ? 'LKR' : currencyCode;
+                                        ['discount', 'penalty', 'balance', 'paid', 'tax-amount'].forEach(id => {
+                                            const el = document.getElementById(id + '-currency-label');
+                                            if (el) el.textContent = label;
                                         });
-                                }
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // CUSTOM RATE OVERRIDE
-                                // ─────────────────────────────────────────────────────────────────────
-                                function onCustomRateChange() {
-                                    const val = parseFloat(customRateInput.value);
-                                    if (!isNaN(val) && val > 0) {
-                                        exchangeRate   = val;
-                                        exchangeRateId = null;
+                                        // Toggle hint visibility
+                                        document.querySelectorAll('[id$="-lkr-hint"]').forEach(el => el.classList.toggle('d-none', mode === 'lkr'));
+                                        document.querySelectorAll('[id$="-base-hint"]').forEach(el => el.classList.toggle('d-none', mode === 'base'));
 
-                                        const pr = document.getElementById('panel-rate-display');
-                                        if (pr) pr.textContent = val.toFixed(2);
-                                        const rb = document.getElementById('live-rate-text');
-                                        if (rb) rb.textContent = `1 ${baseCurrencyCode} = LKR ${val.toFixed(2)} (custom)`;
-
-                                        setRateStatus('info', `Custom rate: 1 ${baseCurrencyCode} = LKR ${val.toFixed(2)}`);
+                                        // Convert existing input values to new currency
+                                        if (exchangeRate && !isBaseCurrencyLKR) {
+                                            [discountInput, penaltyInput, paidInput].forEach(el => {
+                                                if (!el) return;
+                                                const v = parseFloat(el.value) || 0;
+                                                if (!v) return;
+                                                el.value = mode === 'lkr' ?
+                                                    (v * exchangeRate).toFixed(2) :
+                                                    (v / exchangeRate).toFixed(2);
+                                            });
+                                        }
                                         recalculate();
                                     }
-                                }
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // getCurrentCurrencyData — called on Save
-                                // ─────────────────────────────────────────────────────────────────────
-                                function getCurrentCurrencyData() {
-                                    const customRateEl  = document.getElementById('custom-exchange-rate');
-                                    const customRateVal = customRateEl ? parseFloat(customRateEl.value) : NaN;
-                                    const isCustomRate  = !isNaN(customRateVal) && customRateVal > 0 && customRateVal !== exchangeRate;
-                                    const finalRate     = (isCustomRate || (customRateEl && !isNaN(customRateVal) && customRateVal > 0))
-                                        ? customRateVal : exchangeRate;
-                                    const finalRateId   = isCustomRate ? null : exchangeRateId;
-                                    const taxRate       = Math.max(0, parseFloat(taxRateInput?.value) || 0);
+                                    // ── Date change: fetch rate for selected date ────────────────────────────
 
-                                    // Compute the actual tax amount in base currency to send to backend
-                                    const rawDiscount   = parseFloat(discountInput.value) || 0;
-                                    const rawPenalty    = parseFloat(penaltyInput.value)  || 0;
-                                    const toBase        = v => (!isBaseCurrencyLKR && currentMode === 'lkr' && finalRate)
-                                        ? v / finalRate : v;
-                                    const discountBase  = toBase(rawDiscount);
-                                    const penaltyBase   = toBase(rawPenalty);
-                                    let   balPreTax     = baseBalance - discountBase + penaltyBase;
-                                    if (balPreTax < 0) balPreTax = 0;
-                                    const newTaxAmount  = balPreTax * (taxRate / 100);
+                                    function onPaidDateChange() {
+                                        if (isBaseCurrencyLKR || !paidDateInput.value) return;
+                                        setRateStatus('loading', 'Fetching exchange rate for selected date...');
+                                        fetch(`api/getExchangeRate.php?base=${baseCurrencyId}&target=${lkrCurrencyId}&date=${paidDateInput.value}`)
+                                            .then(r => r.json())
+                                            .then(data => {
+                                                if (data.rate) {
+                                                    exchangeRate = parseFloat(data.rate);
+                                                    exchangeRateId = data.currency_exchange_rate_id;
+                                                    if (customRateInput) customRateInput.value = exchangeRate.toFixed(2);
+                                                    const rb = document.getElementById('live-rate-text');
+                                                    if (rb) rb.textContent = `1 ${currencyCode} = LKR ${exchangeRate.toFixed(2)} (${data.effective_date})`;
+                                                    const pr = document.getElementById('panel-rate-display');
+                                                    if (pr) pr.textContent = exchangeRate.toFixed(2);
+                                                    setRateStatus('success', `Rate updated: 1 ${currencyCode} = LKR ${exchangeRate.toFixed(2)}`);
+                                                } else {
+                                                    setRateStatus('warning', `No rate found. Using last known (${exchangeRate?.toFixed(2)}).`);
+                                                }
+                                                recalculate();
+                                            })
+                                            .catch(() => {
+                                                setRateStatus('error', 'Could not fetch rate.');
+                                                recalculate();
+                                            });
+                                    }
 
-                                    return {
-                                        mode:               currentMode,
-                                        baseCurrencyId:     baseCurrencyId,
-                                        exchangeRate:       finalRate,
-                                        isLKR:              isBaseCurrencyLKR || currentMode === 'lkr',
-                                        selectedCurrencyId: (isBaseCurrencyLKR || currentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
-                                        exchangeRateId:     (isBaseCurrencyLKR || currentMode === 'base') ? null : finalRateId,
-                                        isCustomRate:       isCustomRate,
-                                        customRateValue:    isCustomRate ? customRateVal : null,
-                                        taxRate:            taxRate,
-                                        taxAmount:          newTaxAmount, // computed base-currency tax sent to backend
-                                    };
-                                }
+                                    // ── Custom rate override ─────────────────────────────────────────────────
 
-                                // ─────────────────────────────────────────────────────────────────────
-                                // HELPERS
-                                // ─────────────────────────────────────────────────────────────────────
-                                function setHint(id, currencyLabel, value, isApprox = true) {
-                                    const el = document.getElementById(id);
-                                    if (!el) return;
-                                    el.textContent = (isApprox ? '≈ ' : '= ') + currencyLabel + ' ' + fmt(value);
-                                }
+                                    function onCustomRateChange() {
+                                        const val = parseFloat(customRateInput.value);
+                                        if (!isNaN(val) && val > 0) {
+                                            exchangeRate = val;
+                                            exchangeRateId = null;
+                                            const pr = document.getElementById('panel-rate-display');
+                                            if (pr) pr.textContent = val.toFixed(2);
+                                            const rb = document.getElementById('live-rate-text');
+                                            if (rb) rb.textContent = `1 ${currencyCode} = LKR ${val.toFixed(2)} (custom)`;
+                                            setRateStatus('info', `Custom rate: 1 ${currencyCode} = LKR ${val.toFixed(2)}`);
+                                            recalculate();
+                                        }
+                                    }
 
-                                function setEl(id, text) {
-                                    const el = document.getElementById(id);
-                                    if (el) el.textContent = text;
-                                }
+                                    // ── Build currency data object for form submission ───────────────────────
 
-                                function fmt(n) {
-                                    return parseFloat(n).toLocaleString('en-US', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    });
-                                }
+                                    function getCurrentCurrencyData() {
+                                        const customRateEl = document.getElementById('custom-exchange-rate');
+                                        const customRateVal = customRateEl ? parseFloat(customRateEl.value) : NaN;
+                                        const isCustomRate = !isNaN(customRateVal) && customRateVal > 0 && customRateVal !== exchangeRate;
+                                        const finalRate = (customRateEl && !isNaN(customRateVal) && customRateVal > 0) ? customRateVal : exchangeRate;
+                                        const finalRateId = isCustomRate ? null : exchangeRateId;
 
-                                function setRateStatus(type, msg) {
-                                    if (!rateStatusEl) return;
-                                    const cls = {
-                                        loading: 'sub-text',
-                                        success: 'text-dark-green',
-                                        warning: 'text-warning',
-                                        error:   'text-dark-red',
-                                        info:    'text-primary'
-                                    };
-                                    rateStatusEl.className  = 'text-12 mt-1 ' + (cls[type] || 'sub-text');
-                                    rateStatusEl.textContent = msg;
-                                }
+                                        const rawPaid = parseFloat(paidInput?.value) || 0;
+                                        const toBase = v => (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && finalRate) ? v / finalRate : v;
+                                        const paidBase = toBase(rawPaid);
+                                        const calc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
 
-                                // ── Event listeners ──────────────────────────────────────────────────
-                                discountInput.addEventListener('input', recalculate);
-                                penaltyInput.addEventListener('input',  recalculate);
-                                if (paidInput)      paidInput.addEventListener('input',    recalculate);
-                                if (taxRateInput)   taxRateInput.addEventListener('input', recalculate);
-                                if (paidDateInput)  paidDateInput.addEventListener('change', onPaidDateChange);
-                                if (customRateInput) customRateInput.addEventListener('input', onCustomRateChange);
+                                        return {
+                                            mode: modalCurrentMode,
+                                            baseCurrencyId: baseCurrencyId,
+                                            exchangeRate: finalRate,
+                                            isLKR: isBaseCurrencyLKR || modalCurrentMode === 'lkr',
+                                            selectedCurrencyId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
+                                            exchangeRateId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? null : finalRateId,
+                                            isCustomRate: isCustomRate,
+                                            customRateValue: isCustomRate ? customRateVal : null,
+                                            taxRate: LATEST_TAX_RATE,
+                                            taxAmount: calc.tax,
+                                        };
+                                    }
 
-                                // Initial render
-                                recalculate();
-                            </script>
+                                    // ── Event listeners ──────────────────────────────────────────────────────
 
+                                    discountInput.addEventListener('input', recalculate);
+                                    penaltyInput.addEventListener('input', recalculate);
+                                    if (paidInput) paidInput.addEventListener('input', recalculate);
+                                    if (paidDateInput) paidDateInput.addEventListener('change', onPaidDateChange);
+                                    if (customRateInput) customRateInput.addEventListener('input', onCustomRateChange);
+
+                                    // Initial calculation
+                                    recalculate();
+                                    console.log('✓ Payment v7 | Tax:', LATEST_TAX_RATE + '% | Factor:', TAX_FACTOR, '| Epsilon:', OVERPAY_EPSILON);
+                                </script>
                         </body>
+
                         </html>
 <?php
                     }

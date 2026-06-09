@@ -520,7 +520,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     SUM(discount_amount) AS total_discount,
                                                                                                     SUM(panelty_amount)  AS total_sub_panelty_amount
                                                                                                 FROM course_payment_has_payments
-                                                                                                WHERE payment_status_payment_status_id IN (2,3,5,6,8)
+                                                                                                WHERE payment_status_payment_status_id IN (2,3)
                                                                                                 GROUP BY course_payments_course_payments_id
                                                                                             ) cpp ON cp.course_payments_id = cpp.course_payments_course_payments_id
                                                                                             WHERE `shi`.`students_has_intakes_id` = '" . $id . "'
@@ -574,6 +574,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     LEFT JOIN course_payment_receipts AS cpr
                                                                                                         ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
                                                                                                     WHERE cpp.course_payments_course_payments_id = '" . (int)$row['course_payments_id'] . "'
+                                                                                                    
                                                                                                     GROUP BY cpp.course_payment_has_payment_id
                                                                                                 ");
                                                                                                     if ($receipts && $receipts->num_rows > 0) {
@@ -582,10 +583,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             $rec['converted_paid']        = convertToCourseAmount($rec['paid_amount'], $rate);
                                                                                                             $rec['is_foreign_currency']   = ($rate !== null);
                                                                                                             $rec['currency_exchange_rate'] = $rate;
-                                                                                                            $convertedPaidTotal += $rec['converted_paid'];
                                                                                                             $receiptRows[] = $rec;
-                                                                                                            if ($rec['payment_status_id'] == 3) $totalPaidAmount += $rec['converted_paid'];
+
                                                                                                             if (in_array($rec['payment_status_id'], [2, 3])) {
+                                                                                                                                                                                                                            $convertedPaidTotal += $rec['converted_paid'];
+
+                                                                                                                $totalPaidAmount += $rec['converted_paid'];
                                                                                                                 $totalDiscount  += convertToCourseAmount($rec['discount_amount'], $rate);
                                                                                                                 // receipt-level panelty_amount is in the payment's paid currency
                                                                                                                 $totalPenalty   += convertToCourseAmount($rec['panelty_amount'], $rate);

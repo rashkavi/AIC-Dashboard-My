@@ -10,6 +10,8 @@ final class EmailTemplateContent
     public const PAYMENT_PLAN_CREATED = 'payment_plan_created';
     public const PAYMENT_SUCCESSFUL = 'payment_successful';
     public const STUDENT_WELCOME_EMAIL = 'student_welcome_email';
+    public const RECEIPT_EMAIL = 'receipt_email';
+
 
     public static function get(string $type, array $data = []): array
     {
@@ -162,6 +164,38 @@ final class EmailTemplateContent
                     'student_name',
                     'email',
                     'login_url'
+                ],
+            ],
+
+            // Add this constant to the class
+
+            // Add this to the $templates array in the get() method:
+            self::RECEIPT_EMAIL => [
+                'subject' => "Payment Receipt — " . ($data['receipt_number'] ?? 'Receipt'),
+                'heading' => 'Your Payment Receipt',
+                'body' => self::renderBody([
+                    "Dear " . self::value($data, 'student_name', 'Student') . ",",
+                    "Thank you for your payment. Your official payment receipt is attached to this email.",
+                    self::detailList([
+                        'Receipt No'    => self::value($data, 'receipt_number'),
+                        'Programme'     => self::value($data, 'programme'),
+                        'Intake'        => self::value($data, 'intake'),
+                        'Total Paid'    => self::value($data, 'total_paid'),
+                        'Balance Due'   => self::value($data, 'balance_due'),
+                        'Payment Date'  => self::value($data, 'payment_date'),
+                    ]),
+                    "Please keep this receipt for your records. This is a computer-generated receipt and does not require a physical signature.",
+                ]),
+                'button_text' => '',
+                'button_url'  => '',
+                'params' => [
+                    'student_name',
+                    'receipt_number',
+                    'programme',
+                    'intake',
+                    'total_paid',
+                    'balance_due',
+                    'payment_date',
                 ],
             ],
         ];

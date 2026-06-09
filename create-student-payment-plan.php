@@ -136,619 +136,496 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
                                         </div>
 
+                                        <!-- ── Main Content Card ── -->
                                         <div class="col-12 p-4 component-theme">
-                                            <div class="row p-0 m-0 align-content-center">
-                                                <div class="col-12 p-0 g-0">
-                                                    <div class="row gx-4 gy-3">
-                                                        <div class="col-12 mt-3">
-                                                            <label class="text-16 fw-semibold main-text mb-2 d-block required">
-                                                                Payment Pan Type
-                                                            </label>
-                                                            <div class="d-flex gap-4 px-2 mt-4">
-                                                                <div class="form-check">
-                                                                    <input class="form-check-input text-20 mt-0 mb-0 me-2"
-                                                                        type="radio"
-                                                                        name="paymentPlanType"
-                                                                        id="intakePaymentPlan"
-                                                                        value="intake"
-                                                                        checked>
-                                                                    <label class="form-check-label" for="intakePaymentPlan">
-                                                                        Intake Payment Plan
-                                                                    </label>
-                                                                </div>
 
-                                                                <div class="form-check">
-                                                                    <input class="form-check-input text-20 mt-0 mb-0 me-2"
-                                                                        type="radio"
-                                                                        name="paymentPlanType"
-                                                                        id="customPaymentPlan"
-                                                                        value="custom">
-                                                                    <label class="form-check-label" for="customPaymentPlan">
-                                                                        Custom Payment Plan
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                            <!-- ══ PAYMENT GROUP TYPE TOGGLE ══ -->
+                                            <p class="sub-topic">Select payment group type</p>
+                                            <div class="d-flex gap-3 mb-4 flex-column flex-md-row">
+
+                                                <!-- Option A: Intake Payment Group -->
+                                                <div class="grp-toggle-card active" id="btn-intake-group" onclick="switchPaymentGroup('intake')" role="button" tabindex="0">
+                                                    <div class="grp-icon">
+                                                        <iconify-icon icon="mdi:bank-outline" width="20" height="20" style="color:#fff;" aria-hidden="true"></iconify-icon>
+                                                    </div>
+                                                    <div class="d-flex flex-column">
+                                                        <span class="text-14 main-text fw-semibold" id="grp-label-intake">Intake Payment Group</span>
+                                                        <span class="text-12 sub-text mt-1">Select from pre-configured intake plans</span>
+                                                    </div>
+                                                    <div class="grp-radio ms-auto" id="radio-intake">
+                                                        <iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;" aria-hidden="true"></iconify-icon>
                                                     </div>
                                                 </div>
 
-                                                <div class="col-12 mt-3" id="intakes-payment-plan-arae">
-                                                    <div class="row">
-                                                        <?php
-                                                        $plans = Database::search("SELECT * FROM `intake_has_payment_plans`
-                                            INNER JOIN `payment_plan` ON `intake_has_payment_plans`.`payment_plan_payment_plan_id` = `payment_plan_id`
-                                            INNER JOIN `payment_category` ON `intake_has_payment_plans`.`payment_category_payment_category_id` = `payment_category_id` 
-                                            INNER JOIN `currencies` ON `payment_category`.`currencies_currency_id` = `currencies`.`currency_id`
-                                            WHERE `intakes_intake_id`='" . $lead['intakes_intake_id'] . "' ORDER BY `date_added` ASC");
+                                                <!-- Option B: Custom Payment Group -->
+                                                <div class="grp-toggle-card" id="btn-custom-group" onclick="switchPaymentGroup('custom')" role="button" tabindex="0">
+                                                    <div class="grp-icon">
+                                                        <iconify-icon icon="mdi:tune-variant" width="20" height="20" style="color:var(--sub-text);" id="icon-custom" aria-hidden="true"></iconify-icon>
+                                                    </div>
+                                                    <div class="d-flex flex-column">
+                                                        <span class="text-14 main-text fw-semibold">Custom Payment Group</span>
+                                                        <span class="text-12 sub-text mt-1">Manually configure a payment plan</span>
+                                                    </div>
+                                                    <div class="grp-radio ms-auto" id="radio-custom"></div>
+                                                </div>
 
-                                                        if ($plans->num_rows > 0) {
-                                                        ?>
-                                                            <div class="col-12 py-3 g-0 component-theme mb-10">
-                                                                <div class="row p-0 m-0 g-0 align-content-center" id="accordionParent">
-                                                                    <?php
-                                                                    while ($data = $plans->fetch_assoc()) {
-                                                                    ?>
-                                                                        <div class="col-12 bl-solid py-3 m-0 g-0 mt-3">
-                                                                            <div class="row p-0 g-0 m-0">
-                                                                                <div class="col-12 position-relative">
+                                            </div>
 
-                                                                                    <?php
-                                                                                    if ($data['is_default_plan'] == 1) {
-                                                                                    ?>
-                                                                                        <span class="default-ribbon">Default</span>
-                                                                                    <?php
-                                                                                    }
-                                                                                    ?>
-                                                                                    <!-- Default Badge -->
-                                                                                    <div class="row payment-plan-content d-flex pe-4 py-0 align-items-center">
+                                            <hr class="my-3" style="border-color:var(--line-color);">
 
-                                                                                        <div class="col-auto">
-                                                                                            <input type="checkbox"
-                                                                                                class="form-check-input hw-20 intake-plan-checkbox"
-                                                                                                name="selected_intake_plan"
-                                                                                                value="<?= $data['intake_has_payment_plan_id'] ?>"
-                                                                                                data-plan-id="<?= $data['intake_has_payment_plan_id'] ?>"
-                                                                                                onchange="selectIntakePaymentPlan(this)">
-                                                                                        </div>
+                                            <div id="section-intake-group">
+                                                <p class="sub-topic">Available intake payment plans</p>
 
-                                                                                        <div class="col"
-                                                                                            data-bs-toggle="collapse"
-                                                                                            role="button"
-                                                                                            data-bs-target="#intake-plan-collapse-<?= $data['intake_has_payment_plan_id'] ?>">
+                                                <div id="iplan-list-container">
+                                                    <?php
+                                                    $plans = Database::search("SELECT * FROM `intake_has_payment_plans`
+                                                        INNER JOIN `payment_plan` ON `intake_has_payment_plans`.`payment_plan_payment_plan_id` = `payment_plan_id`
+                                                        INNER JOIN `payment_category` ON `intake_has_payment_plans`.`payment_category_payment_category_id` = `payment_category_id` 
+                                                        INNER JOIN `currencies` ON `payment_category`.`currencies_currency_id` = `currencies`.`currency_id`
+                                                        WHERE `intakes_intake_id`='" . $lead['intakes_intake_id'] . "' ORDER BY `date_added` ASC");
 
-                                                                                            <p class="text-16 dark-color fw-bold m-0">
-                                                                                                <?= $data['payment_plan_name'] ?> - <?= $data['payment_category'] ?>
-                                                                                            </p>
+                                                    if ($plans->num_rows > 0) {
+                                                    ?>
+                                                        <div class="col-12 py-3 g-0 component-theme mb-10">
+                                                            <div class="row p-0 m-0 g-0 align-content-center" id="accordionParent">
+                                                                <?php
+                                                                while ($data = $plans->fetch_assoc()) {
+                                                                ?>
+                                                                    <div class="col-12 bl-solid py-3 m-0 g-0 mt-3">
+                                                                        <div class="row p-0 g-0 m-0">
+                                                                            <div class="col-12 position-relative">
 
-                                                                                            <span class="text-14 sub-text mt-1">Payment Plan : </span>
-                                                                                            <span class="text-14 sub-text mt-1 fw-medium">
-                                                                                                <?= $data['payment_plan'] ?> | <?= $data['code'] ?> <?= number_format($data['amount']) ?>
-                                                                                            </span>
-                                                                                        </div>
+                                                                                <?php
+                                                                                if ($data['is_default_plan'] == 1) {
+                                                                                ?>
+                                                                                    <span class="default-ribbon">Default</span>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                                <!-- Default Badge -->
+                                                                                <div class="row payment-plan-content d-flex pe-4 py-0 align-items-center">
 
+                                                                                    <div class="col-auto">
+                                                                                        <input type="checkbox"
+                                                                                            class="form-check-input hw-20 intake-plan-checkbox"
+                                                                                            name="selected_intake_plan"
+                                                                                            value="<?= $data['intake_has_payment_plan_id'] ?>"
+                                                                                            data-plan-id="<?= $data['intake_has_payment_plan_id'] ?>"
+                                                                                            onchange="selectIntakePaymentPlan(this)">
                                                                                     </div>
+
+                                                                                    <div class="col"
+                                                                                        data-bs-toggle="collapse"
+                                                                                        role="button"
+                                                                                        data-bs-target="#intake-plan-collapse-<?= $data['intake_has_payment_plan_id'] ?>">
+
+                                                                                        <p class="text-16 dark-color fw-bold m-0">
+                                                                                            <?= $data['payment_plan_name'] ?> - <?= $data['payment_category'] ?>
+                                                                                        </p>
+
+                                                                                        <span class="text-14 sub-text mt-1">Payment Plan : </span>
+                                                                                        <span class="text-14 sub-text mt-1 fw-medium">
+                                                                                            <?= $data['payment_plan'] ?> | <?= $data['code'] ?> <?= number_format($data['amount']) ?>
+                                                                                        </span>
+                                                                                    </div>
+
                                                                                 </div>
-                                                                                <div class="overflow-x-auto p-0 mt-3 g-0 collapse" id="intake-plan-collapse-<?= $data['intake_has_payment_plan_id'] ?>" data-bs-target="#accordionParent" aria-expanded="false" aria-controls="accordionParent">
-                                                                                    <div class="p-4 g-0">
-                                                                                        <?php
-                                                                                        $planHasPayments = Database::search("SELECT * FROM `intake_payments_plan_has_payments`
+                                                                            </div>
+                                                                            <div class="overflow-x-auto p-0 mt-3 g-0 collapse" id="intake-plan-collapse-<?= $data['intake_has_payment_plan_id'] ?>" data-bs-target="#accordionParent" aria-expanded="false" aria-controls="accordionParent">
+                                                                                <div class="p-4 g-0">
+                                                                                    <?php
+                                                                                    $planHasPayments = Database::search("SELECT * FROM `intake_payments_plan_has_payments`
                                                                                         INNER JOIN `payment_type` ON `intake_payments_plan_has_payments`.`payment_type_payment_type_id` = `payment_type`.`payment_type_id`
                                                                                         WHERE `intake_has_payment_plan_id`='" . $data['intake_has_payment_plan_id'] . "'");
-                                                                                        if ($planHasPayments->num_rows > 0) {
-                                                                                            $planId = $data['intake_has_payment_plan_id'];
-                                                                                        ?>
-                                                                                            <div class="accordion" id="fees-type-intake-plan">
-                                                                                                <?php
-                                                                                                for ($x = 0; $x < $planHasPayments->num_rows; $x++) {
-                                                                                                    $data = $planHasPayments->fetch_assoc();
-                                                                                                    $itemId = "plan{$planId}_item{$data['intake_payments_plan_has_payment_id']}";
-                                                                                                ?>
-                                                                                                    <div class="accordion-item br-0" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
-                                                                                                        <h2 class="accordion-header br-0" id="heading-<?= $itemId ?>">
-                                                                                                            <button class="accordion-button br-0 <?= $x != 0 ? 'collapsed' : '' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?= $itemId ?>" aria-expanded="<?= $x == 0 ? 'true' : 'false' ?>" aria-controls="collapse-<?= $itemId ?>">
-                                                                                                                <?= $data['payment_type'] ?>
-                                                                                                            </button>
-                                                                                                        </h2>
-                                                                                                        <div id="collapse-<?= $itemId ?>" class="accordion-collapse collapse <?= $x == 0 ? 'show' : '' ?>" aria-labelledby="heading-<?= $itemId ?>" data-bs-parent="#fees-type-intake-plan">
-                                                                                                            <div class="accordion-body">
+                                                                                    if ($planHasPayments->num_rows > 0) {
+                                                                                        $planId = $data['intake_has_payment_plan_id'];
+                                                                                    ?>
+                                                                                        <div class="accordion" id="fees-type-intake-plan">
+                                                                                            <?php
+                                                                                            for ($x = 0; $x < $planHasPayments->num_rows; $x++) {
+                                                                                                $data = $planHasPayments->fetch_assoc();
+                                                                                                $itemId = "plan{$planId}_item{$data['intake_payments_plan_has_payment_id']}";
+                                                                                            ?>
+                                                                                                <div class="accordion-item br-0" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
+                                                                                                    <h2 class="accordion-header br-0" id="heading-<?= $itemId ?>">
+                                                                                                        <button class="accordion-button br-0 <?= $x != 0 ? 'collapsed' : '' ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?= $itemId ?>" aria-expanded="<?= $x == 0 ? 'true' : 'false' ?>" aria-controls="collapse-<?= $itemId ?>">
+                                                                                                            <?= $data['payment_type'] ?>
+                                                                                                        </button>
+                                                                                                    </h2>
+                                                                                                    <div id="collapse-<?= $itemId ?>" class="accordion-collapse collapse <?= $x == 0 ? 'show' : '' ?>" aria-labelledby="heading-<?= $itemId ?>" data-bs-parent="#fees-type-intake-plan">
+                                                                                                        <div class="accordion-body">
 
-                                                                                                                <div class="col-12 component-theme">
-                                                                                                                    <div class="row p-0 gy-3 gx-3 align-content-center <?= $data['payment_type_payment_type_id'] == 18 ? 'mark-paid-box' : '' ?>">
+                                                                                                            <div class="col-12 component-theme">
+                                                                                                                <div class="row p-0 gy-3 gx-3 align-content-center <?= $data['payment_type_payment_type_id'] == 18 ? 'mark-paid-box' : '' ?>">
 
-                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                            <label for="" class="text-14 main-text required">Amount</label>
-                                                                                                                            <input type="number" class="form-control custom-input mt-2" id="amount" value="<?= $data['amount'] ?>">
-                                                                                                                            <span class="text-dark-red text-12" id="amount-feedback"></span>
-                                                                                                                        </div>
-                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                            <label class="text-14 main-text required" for="">Discount Type</label>
-                                                                                                                            <select id="discount-type" class="form-select custom-select mt-2" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="changenstallmentDiscountType(this)">
-                                                                                                                                <?php
-                                                                                                                                $discountTypes = Database::search("SELECT * FROM `discount_type`");
-                                                                                                                                while ($discountType = $discountTypes->fetch_assoc()) {
-                                                                                                                                ?>
-                                                                                                                                    <option value="<?php echo $discountType['discount_type_id'] ?>" <?= $data['discount_type_discount_type_id'] == $discountType['discount_type_id'] ? 'selected' : '' ?> data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
-                                                                                                                                <?php
-                                                                                                                                }
-                                                                                                                                ?>
-                                                                                                                            </select>
-                                                                                                                            <span id="discount-type-feedback" class="text-dark-red text-12"></span>
-                                                                                                                        </div>
-                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column <?= $data['discount_type_discount_type_id'] == 1 ? 'd-none' : '' ?>" id="discount-amount-area">
-                                                                                                                            <label class="text-14 main-text required" id="discount-label" for="">Discount</label>
-                                                                                                                            <input type="number" class="form-control custom-input mt-2" id="discount" min="0" value="<?= $data['discount'] ?>">
-                                                                                                                            <span id="discount-feedback" class="text-dark-red text-12"></span>
-                                                                                                                        </div>
-                                                                                                                        <div class="col-12 d-flex flex-column <?= $data['discount_type_discount_type_id'] == 1 ? 'd-none' : '' ?>" id="discount-note-area">
-                                                                                                                            <label class="text-14 main-text" id="discount-note-label" for="">Discount Note</label>
-                                                                                                                            <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
-                                                                                                                            <span id="discount-note-feedback" class="text-dark-red text-12"></span>
-                                                                                                                        </div>
-                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                            <label class="text-14 main-text not-required" for="">Due Date</label>
-                                                                                                                            <input type="date" class="form-control custom-input mt-2" id="due-date" min="0" value="<?= $data['due_date'] ?>">
-                                                                                                                            <span id="due-date-feedback" class="text-dark-red text-12"></span>
-                                                                                                                        </div>
-                                                                                                                        <div class="col-12 d-flex align-items-center">
-                                                                                                                            <input type="checkbox" disabled class="form-check-input hw-20 m-0 p-0" id="enable-panelty" <?= $data['panelty_payment_option_panelty_payment_option_id'] != 1 ? 'checked' : '' ?> data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="enablePanelty(this)">
-                                                                                                                            <label class="text-14 main-text px-3" for="">Enable Panelty Payment</label>
-                                                                                                                        </div>
-
-
-
-                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column <?= $data['panelty_payment_option_panelty_payment_option_id'] == 1 ? 'd-none' : '' ?>" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" id="panelty-option-area">
-                                                                                                                            <label class="text-14 main-text required" for="">Panelty Options</label>
-                                                                                                                            <select id="panelty-option" class="form-select custom-select mt-2" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="paneltyOptionChange(this)">
-                                                                                                                                <option selected value="0">- Select -</option>
-                                                                                                                                <?php
-                                                                                                                                $options = Database::search("SELECT * FROM `panelty_payment_option` WHERE `panelty_payment_option_id` != 1");
-                                                                                                                                while ($option = $options->fetch_assoc()) {
-                                                                                                                                ?>
-                                                                                                                                    <option value="<?php echo $option['panelty_payment_option_id'] ?>" <?= $data['panelty_payment_option_panelty_payment_option_id'] == $option['panelty_payment_option_id'] ? 'selected' : '' ?>><?php echo $option['panelty_payment_option'] ?></option>
-                                                                                                                                <?php
-                                                                                                                                }
-                                                                                                                                ?>
-                                                                                                                            </select>
-                                                                                                                            <span id="panelty-option-feedback" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" class="text-dark-red text-12"></span>
-                                                                                                                        </div>
-
-                                                                                                                        <div class="col-12 <?= $data['panelty_payment_option_panelty_payment_option_id'] != 1 && $data['panelty_payment_option_panelty_payment_option_id'] != 4 ? '' : 'd-none' ?>" id="panelty-flat-area" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
-                                                                                                                            <div class="row p-0 gy-3 gx-3 align-content-center">
-                                                                                                                                <?php
-                                                                                                                                $amountType = 0;
-                                                                                                                                $amount = 0;
-                                                                                                                                $panelties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id` = '" . $data['intake_payments_plan_has_payment_id'] . "'");
-                                                                                                                                if ($panelties->num_rows > 0) {
-                                                                                                                                    $paneltiesData = $panelties->fetch_assoc();
-                                                                                                                                    $amountType = $paneltiesData['panelty_payment_type_panelty_payment_type_id'];
-                                                                                                                                    $amount = $paneltiesData['amount'];
-                                                                                                                                }
-                                                                                                                                ?>
-                                                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                                    <label for="" class="text-14 main-text required">Panelty Amount Type</label>
-                                                                                                                                    <select class="form-select custom-select mt-2" id="flat-type">
-                                                                                                                                        <option value="0">- Select -</option>
-                                                                                                                                        <?php
-                                                                                                                                        $types = Database::search("SELECT * FROM `panelty_payments_type`");
-
-                                                                                                                                        while ($type = $types->fetch_assoc()) {
-                                                                                                                                        ?>
-                                                                                                                                            <option value="<?php echo $type['panelty_payments_type_id']; ?>" <?= $amountType == $type['panelty_payments_type_id'] ? 'selected' : '' ?>><?php echo $type['panelty_payments_type']; ?></option>
-                                                                                                                                        <?php
-                                                                                                                                        }
-                                                                                                                                        ?>
-                                                                                                                                    </select>
-                                                                                                                                    <span class="text-12 text-dark-red" id="flat-type-feedback"></span>
-                                                                                                                                </div>
-                                                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                                    <label for="" class="text-14 main-text required" id="amount-label">Amount</label>
-                                                                                                                                    <input type="number" class="form-control custom-input mt-2" id="flat-amount" value="<?= $amount ?>">
-                                                                                                                                    <span class="text-12 text-dark-red" id="flat-amount-feedback"></span>
-                                                                                                                                </div>
-                                                                                                                            </div>
-                                                                                                                        </div>
+                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                        <label for="" class="text-14 main-text required">Amount</label>
+                                                                                                                        <input type="number" class="form-control custom-input mt-2" id="amount" value="<?= $data['amount'] ?>">
+                                                                                                                        <span class="text-dark-red text-12" id="amount-feedback"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                        <label class="text-14 main-text required" for="">Discount Type</label>
+                                                                                                                        <select id="discount-type" class="form-select custom-select mt-2" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="changenstallmentDiscountType(this)">
+                                                                                                                            <?php
+                                                                                                                            $discountTypes = Database::search("SELECT * FROM `discount_type`");
+                                                                                                                            while ($discountType = $discountTypes->fetch_assoc()) {
+                                                                                                                            ?>
+                                                                                                                                <option value="<?php echo $discountType['discount_type_id'] ?>" <?= $data['discount_type_discount_type_id'] == $discountType['discount_type_id'] ? 'selected' : '' ?> data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
+                                                                                                                            <?php
+                                                                                                                            }
+                                                                                                                            ?>
+                                                                                                                        </select>
+                                                                                                                        <span id="discount-type-feedback" class="text-dark-red text-12"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column <?= $data['discount_type_discount_type_id'] == 1 ? 'd-none' : '' ?>" id="discount-amount-area">
+                                                                                                                        <label class="text-14 main-text required" id="discount-label" for="">Discount</label>
+                                                                                                                        <input type="number" class="form-control custom-input mt-2" id="discount" min="0" value="<?= $data['discount'] ?>">
+                                                                                                                        <span id="discount-feedback" class="text-dark-red text-12"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 d-flex flex-column <?= $data['discount_type_discount_type_id'] == 1 ? 'd-none' : '' ?>">
+                                                                                                                        <label class="text-14 main-text" id="discount-note-label" for="">Discount Note</label>
+                                                                                                                        <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
+                                                                                                                        <span id="discount-note-feedback" class="text-dark-red text-12"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                        <label class="text-14 main-text not-required" for="">Due Date</label>
+                                                                                                                        <input type="date" class="form-control custom-input mt-2" id="due-date" min="0" value="<?= $data['due_date'] ?>">
+                                                                                                                        <span id="due-date-feedback" class="text-dark-red text-12"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 d-flex align-items-center">
+                                                                                                                        <input type="checkbox" disabled class="form-check-input hw-20 m-0 p-0" id="enable-panelty" <?= $data['panelty_payment_option_panelty_payment_option_id'] != 1 ? 'checked' : '' ?> data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="enablePanelty(this)">
+                                                                                                                        <label class="text-14 main-text px-3" for="">Enable Panelty Payment</label>
+                                                                                                                    </div>
 
 
-                                                                                                                        <div class="col-12 d-flex flex-column <?= $data['panelty_payment_option_panelty_payment_option_id'] != 4 ? 'd-none' : '' ?>" id="panelty-custom-area" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
-                                                                                                                            <div class="row p-0 m-0" id="custom-slots">
 
-                                                                                                                                <?php
-                                                                                                                                $panelties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id` = '" . $data['intake_payments_plan_has_payment_id'] . "'");
-                                                                                                                                if ($panelties->num_rows > 0) {
-                                                                                                                                    for ($y = 0; $y < $panelties->num_rows; $y++) {
-                                                                                                                                        $panelty = $panelties->fetch_assoc();
-                                                                                                                                ?>
-                                                                                                                                        <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
-                                                                                                                                            <div class="row p-4 gy-3 gx-3 align-content-center ">
-                                                                                                                                                <div class="d-flex justify-content-between">
-                                                                                                                                                    <span class="text-14 sub-topic">Custom Date Slot - <?= $y + 1 ?></span>
-                                                                                                                                                </div>
+                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column <?= $data['panelty_payment_option_panelty_payment_option_id'] == 1 ? 'd-none' : '' ?>" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" id="panelty-option-area">
+                                                                                                                        <label class="text-14 main-text required" for="">Panelty Options</label>
+                                                                                                                        <select id="panelty-option" class="form-select custom-select mt-2" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="paneltyOptionChange(this)">
+                                                                                                                            <option selected value="0">- Select -</option>
+                                                                                                                            <?php
+                                                                                                                            $options = Database::search("SELECT * FROM `panelty_payment_option` WHERE `panelty_payment_option_id` != 1");
+                                                                                                                            while ($option = $options->fetch_assoc()) {
+                                                                                                                            ?>
+                                                                                                                                <option value="<?php echo $option['panelty_payment_option_id'] ?>" <?= $data['panelty_payment_option_panelty_payment_option_id'] == $option['panelty_payment_option_id'] ? 'selected' : '' ?>><?php echo $option['panelty_payment_option'] ?></option>
+                                                                                                                            <?php
+                                                                                                                            }
+                                                                                                                            ?>
+                                                                                                                        </select>
+                                                                                                                        <span id="panelty-option-feedback" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" class="text-dark-red text-12"></span>
+                                                                                                                    </div>
 
-                                                                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                                                    <label class="text-14 main-text required">Panelty Amount Type</label>
-                                                                                                                                                    <select class="form-select custom-select mt-2 panelty-type">
-                                                                                                                                                        <option value="0">- Select -</option>
-                                                                                                                                                        <option value="1" <?= $panelty['panelty_payment_type_panelty_payment_type_id'] == 1 ? 'selected' : '' ?>>Fixed</option>
-                                                                                                                                                        <option value="2" <?= $panelty['panelty_payment_type_panelty_payment_type_id'] == 2 ? 'selected' : '' ?>>Percentage</option>
-                                                                                                                                                    </select>
-                                                                                                                                                </div>
+                                                                                                                    <div class="col-12 <?= $data['panelty_payment_option_panelty_payment_option_id'] != 1 && $data['panelty_payment_option_panelty_payment_option_id'] != 4 ? '' : 'd-none' ?>" id="panelty-flat-area" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
+                                                                                                                        <div class="row p-0 gy-3 gx-3 align-content-center">
+                                                                                                                            <?php
+                                                                                                                            $amountType = 0;
+                                                                                                                            $amount = 0;
+                                                                                                                            $panelties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id` = '" . $data['intake_payments_plan_has_payment_id'] . "'");
+                                                                                                                            if ($panelties->num_rows > 0) {
+                                                                                                                                $paneltiesData = $panelties->fetch_assoc();
+                                                                                                                                $amountType = $paneltiesData['panelty_payment_type_panelty_payment_type_id'];
+                                                                                                                                $amount = $paneltiesData['amount'];
+                                                                                                                            }
+                                                                                                                            ?>
+                                                                                                                            <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                                <label for="" class="text-14 main-text required">Panelty Amount Type</label>
+                                                                                                                                <select class="form-select custom-select mt-2" id="flat-type">
+                                                                                                                                    <option value="0">- Select -</option>
+                                                                                                                                    <?php
+                                                                                                                                    $types = Database::search("SELECT * FROM `panelty_payments_type`");
 
-                                                                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                                                    <label class="text-14 main-text required">Amount</label>
-                                                                                                                                                    <input type="number" class="form-control custom-input mt-2 panelty-amount" value="<?= $panelty['amount'] ?>">
-                                                                                                                                                </div>
-
-                                                                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                                                    <label class="text-14 main-text required">Days</label>
-                                                                                                                                                    <input type="number" class="form-control custom-input mt-2 panelty-days" value="<?= $panelty['days'] ?>">
-                                                                                                                                                </div>
-                                                                                                                                            </div>
-                                                                                                                                        </div>
+                                                                                                                                    while ($type = $types->fetch_assoc()) {
+                                                                                                                                    ?>
+                                                                                                                                        <option value="<?php echo $type['panelty_payments_type_id']; ?>" <?= $amountType == $type['panelty_payments_type_id'] ? 'selected' : '' ?>><?php echo $type['panelty_payments_type']; ?></option>
                                                                                                                                     <?php
                                                                                                                                     }
-                                                                                                                                } else {
                                                                                                                                     ?>
+                                                                                                                                </select>
+                                                                                                                                <span class="text-12 text-dark-red" id="flat-type-feedback"></span>
+                                                                                                                            </div>
+                                                                                                                            <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                                <label for="" class="text-14 main-text required" id="amount-label">Amount</label>
+                                                                                                                                <input type="number" class="form-control custom-input mt-2" id="flat-amount" value="<?= $amount ?>">
+                                                                                                                                <span class="text-12 text-dark-red" id="flat-amount-feedback"></span>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    </div>
+
+
+                                                                                                                    <div class="col-12 d-flex flex-column <?= $data['panelty_payment_option_panelty_payment_option_id'] != 4 ? 'd-none' : '' ?>" id="panelty-custom-area" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">
+                                                                                                                        <div class="row p-0 m-0" id="custom-slots">
+
+                                                                                                                            <?php
+                                                                                                                            $panelties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id` = '" . $data['intake_payments_plan_has_payment_id'] . "'");
+                                                                                                                            if ($panelties->num_rows > 0) {
+                                                                                                                                for ($y = 0; $y < $panelties->num_rows; $y++) {
+                                                                                                                                    $panelty = $panelties->fetch_assoc();
+                                                                                                                            ?>
                                                                                                                                     <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
                                                                                                                                         <div class="row p-4 gy-3 gx-3 align-content-center ">
                                                                                                                                             <div class="d-flex justify-content-between">
-                                                                                                                                                <span class="text-14 sub-topic">Custom Date Slot - 1</span>
+                                                                                                                                                <span class="text-14 sub-topic">Custom Date Slot - <?= $y + 1 ?></span>
                                                                                                                                             </div>
 
                                                                                                                                             <div class="col-12 col-lg-4 d-flex flex-column">
                                                                                                                                                 <label class="text-14 main-text required">Panelty Amount Type</label>
                                                                                                                                                 <select class="form-select custom-select mt-2 panelty-type">
                                                                                                                                                     <option value="0">- Select -</option>
-                                                                                                                                                    <option value="1">Fixed</option>
-                                                                                                                                                    <option value="2">Percentage</option>
+                                                                                                                                                    <option value="1" <?= $panelty['panelty_payment_type_panelty_payment_type_id'] == 1 ? 'selected' : '' ?>>Fixed</option>
+                                                                                                                                                    <option value="2" <?= $panelty['panelty_payment_type_panelty_payment_type_id'] == 2 ? 'selected' : '' ?>>Percentage</option>
                                                                                                                                                 </select>
                                                                                                                                             </div>
 
                                                                                                                                             <div class="col-12 col-lg-4 d-flex flex-column">
                                                                                                                                                 <label class="text-14 main-text required">Amount</label>
-                                                                                                                                                <input type="number" class="form-control custom-input mt-2 panelty-amount">
+                                                                                                                                                <input type="number" class="form-control custom-input mt-2 panelty-amount" value="<?= $panelty['amount'] ?>">
                                                                                                                                             </div>
 
                                                                                                                                             <div class="col-12 col-lg-4 d-flex flex-column">
                                                                                                                                                 <label class="text-14 main-text required">Days</label>
-                                                                                                                                                <input type="number" class="form-control custom-input mt-2 panelty-days">
+                                                                                                                                                <input type="number" class="form-control custom-input mt-2 panelty-days" value="<?= $panelty['days'] ?>">
                                                                                                                                             </div>
                                                                                                                                         </div>
                                                                                                                                     </div>
                                                                                                                                 <?php
                                                                                                                                 }
+                                                                                                                            } else {
                                                                                                                                 ?>
-                                                                                                                            </div>
+                                                                                                                                <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
+                                                                                                                                    <div class="row p-4 gy-3 gx-3 align-content-center ">
+                                                                                                                                        <div class="d-flex justify-content-between">
+                                                                                                                                            <span class="text-14 sub-topic">Custom Date Slot - 1</span>
+                                                                                                                                        </div>
 
+                                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                                            <label class="text-14 main-text required">Panelty Amount Type</label>
+                                                                                                                                            <select class="form-select custom-select mt-2 panelty-type">
+                                                                                                                                                <option value="0">- Select -</option>
+                                                                                                                                                <option value="1">Fixed</option>
+                                                                                                                                                <option value="2">Percentage</option>
+                                                                                                                                            </select>
+                                                                                                                                        </div>
+
+                                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                                            <label class="text-14 main-text required">Amount</label>
+                                                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-amount">
+                                                                                                                                        </div>
+
+                                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                                            <label class="text-14 main-text required">Days</label>
+                                                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-days">
+                                                                                                                                        </div>
+                                                                                                                                    </div>
+                                                                                                                                </div>
+                                                                                                                            <?php
+                                                                                                                            }
+                                                                                                                            ?>
                                                                                                                         </div>
 
-                                                                                                                        <?php
-                                                                                                                        if ((int)$data['payment_type_payment_type_id'] === 18) {
-                                                                                                                        ?>
-                                                                                                                            <div class="col-12 d-flex align-items-center">
-                                                                                                                                <div class="form-check d-flex align-items-center">
-                                                                                                                                    <input type="checkbox"
-                                                                                                                                        class="form-check-input hw-20 me-3 intake-mark-paid-checkbox"
-                                                                                                                                        data-payment-type-id="<?= $data['payment_type_payment_type_id'] ?>"
-                                                                                                                                        data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>"
-                                                                                                                                        onchange="toggleMarkPaidFields(this)">
-                                                                                                                                    <label class="form-check-label fw-semibold main-text">
-                                                                                                                                        Registration fee already paid
-                                                                                                                                    </label>
-                                                                                                                                </div>
-                                                                                                                            </div>
-                                                                                                                        <?php
-                                                                                                                        }
-                                                                                                                        ?>
-                                                                                                                        <?php
-                                                                                                                        if ($data['payment_type_payment_type_id'] == 18) {
-                                                                                                                        ?>
-                                                                                                                            <div class="row mt-3 d-none mark-paid-fields">
-                                                                                                                                <div class="col-12 col-md-4">
-                                                                                                                                    <label class="text-14 main-text required">Paid Amount</label>
-                                                                                                                                    <input type="number" class="form-control custom-input mt-2 paid-amount"
-                                                                                                                                        value="<?= $data['amount'] ?>">
-                                                                                                                                    <span id="paid-amount-feedback" class="text-dark-red text-12"></span>
-                                                                                                                                </div>
-                                                                                                                                <div class="col-12 col-md-4">
-                                                                                                                                    <label class="text-14 main-text required">Discount Amount</label>
-                                                                                                                                    <input type="number" class="form-control custom-input mt-2 discount"
-                                                                                                                                        value="0">
-                                                                                                                                    <span id="discount-feedback" class="text-dark-red text-12"></span>
-                                                                                                                                </div>
-
-                                                                                                                                <div class="col-12 col-md-4">
-                                                                                                                                    <label class="text-14 main-text required">Paid Date</label>
-                                                                                                                                    <input type="date" class="form-control custom-input mt-2 paid-date"
-                                                                                                                                        value="<?= date('Y-m-d') ?>">
-                                                                                                                                    <span id="paid-date-feedback" class="text-dark-red text-12"></span>
-                                                                                                                                </div>
-
-                                                                                                                                <div class="col-12 col-md-4">
-                                                                                                                                    <label class="text-14 main-text required">Payment Method</label>
-                                                                                                                                    <select class="form-select custom-select mt-2 paid-method">
-                                                                                                                                        <?php
-                                                                                                                                        $methods = Database::search("SELECT * FROM `payment_method`");
-                                                                                                                                        while ($method = $methods->fetch_assoc()) {
-                                                                                                                                        ?>
-                                                                                                                                            <option value="<?= $method['payment_method_id'] ?>" <?= $method['payment_method_id'] == 1 ? 'selected' : '' ?>>
-                                                                                                                                                <?= $method['payment_method'] ?>
-                                                                                                                                            </option>
-                                                                                                                                        <?php } ?>
-                                                                                                                                    </select>
-                                                                                                                                    <span id="method-feedback" class="text-dark-red text-12"></span>
-                                                                                                                                </div>
-
-                                                                                                                                <div class="col-12 mt-3">
-                                                                                                                                    <label class="text-14 main-text">Payment Note</label>
-                                                                                                                                    <textarea class="form-control custom-input mt-2 paid-note"
-                                                                                                                                        rows="3"></textarea>
-                                                                                                                                </div>
-                                                                                                                            </div>
-                                                                                                                        <?php
-                                                                                                                        }
-                                                                                                                        ?>
                                                                                                                     </div>
+                                                                                                                    <?php
+                                                                                                                    if ((int)$data['payment_type_payment_type_id'] === 18) {
+                                                                                                                    ?>
+                                                                                                                        <div class="col-12 d-flex align-items-center">
+                                                                                                                            <div class="form-check d-flex align-items-center">
+                                                                                                                                <input type="checkbox"
+                                                                                                                                    class="form-check-input hw-20 me-3 intake-mark-paid-checkbox"
+                                                                                                                                    data-payment-type-id="<?= $data['payment_type_payment_type_id'] ?>"
+                                                                                                                                    data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>"
+                                                                                                                                    onchange="toggleMarkPaidFields(this)">
+                                                                                                                                <label class="form-check-label fw-semibold main-text">
+                                                                                                                                    Registration fee already paid
+                                                                                                                                </label>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    <?php
+                                                                                                                    }
+                                                                                                                    ?>
+
+                                                                                                                    <?php
+                                                                                                                    if ($data['payment_type_payment_type_id'] == 18) {
+                                                                                                                    ?>
+                                                                                                                        <div class="row mt-3 d-none mark-paid-fields">
+                                                                                                                            <div class="col-12 col-md-4">
+                                                                                                                                <label class="text-14 main-text required">Paid Amount</label>
+                                                                                                                                <input type="number" class="form-control custom-input mt-2 paid-amount"
+                                                                                                                                    value="<?= $data['amount'] ?>">
+                                                                                                                                <span id="paid-amount-feedback" class="text-dark-red text-12"></span>
+                                                                                                                            </div>
+                                                                                                                            <div class="col-12 col-md-4">
+                                                                                                                                <label class="text-14 main-text required">Discount Amount</label>
+                                                                                                                                <input type="number" class="form-control custom-input mt-2 discount"
+                                                                                                                                    value="0">
+                                                                                                                                <span id="discount-feedback" class="text-dark-red text-12"></span>
+                                                                                                                            </div>
+
+                                                                                                                            <div class="col-12 col-md-4">
+                                                                                                                                <label class="text-14 main-text required">Paid Date</label>
+                                                                                                                                <input type="date" class="form-control custom-input mt-2 paid-date"
+                                                                                                                                    value="<?= date('Y-m-d') ?>">
+                                                                                                                                <span id="paid-date-feedback" class="text-dark-red text-12"></span>
+                                                                                                                            </div>
+
+                                                                                                                            <div class="col-12 col-md-4">
+                                                                                                                                <label class="text-14 main-text required">Payment Method</label>
+                                                                                                                                <select class="form-select custom-select mt-2 paid-method">
+                                                                                                                                    <?php
+                                                                                                                                    $methods = Database::search("SELECT * FROM `payment_method`");
+                                                                                                                                    while ($method = $methods->fetch_assoc()) {
+                                                                                                                                    ?>
+                                                                                                                                        <option value="<?= $method['payment_method_id'] ?>" <?= $method['payment_method_id'] == 1 ? 'selected' : '' ?>>
+                                                                                                                                            <?= $method['payment_method'] ?>
+                                                                                                                                        </option>
+                                                                                                                                    <?php } ?>
+                                                                                                                                </select>
+                                                                                                                                <span id="method-feedback" class="text-dark-red text-12"></span>
+                                                                                                                            </div>
+
+                                                                                                                            <div class="col-12 mt-3">
+                                                                                                                                <label class="text-14 main-text">Payment Note</label>
+                                                                                                                                <textarea class="form-control custom-input mt-2 paid-note"
+                                                                                                                                    rows="3"></textarea>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    <?php
+                                                                                                                    }
+                                                                                                                    ?>
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     </div>
-                                                                                                <?php
-                                                                                                }
-                                                                                                ?>
-                                                                                            </div>
-                                                                                        <?php
-                                                                                        }
-                                                                                        ?>
-                                                                                    </div>
-
+                                                                                                </div>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </div>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
                                                                                 </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    <?php
-                                                                    }
-                                                                    ?>
-                                                                </div>
-                                                            </div>
-                                                        <?php
-                                                        } else {
-                                                        ?>
-                                                            <div class="col-12 px-4 py-3 component-theme">
-                                                                <div class="row align-items-center justify-content-center">
-                                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
-                                                                </div>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
-                                                    </div>
-                                                </div>
 
-                                                <div class="col-12 mt-3 p-0 component-theme mb-4 d-none" id="custom-plan-area">
-                                                    <div class="row p-0 m-0 align-content-center">
-                                                        <div class="col-12 p-0 g-0">
-                                                            <div class="row gx-4 gy-3">
-
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
-                                                                    <label class="text-14 main-text required" for="">Payment Category</label>
-                                                                    <select id="payment-category" class="form-select custom-select mt-2">
-                                                                        <option selected value="0">- Select -</option>
-                                                                        <?php
-                                                                        $paymentCategory = Database::search("SELECT * FROM `payment_category`");
-                                                                        while ($paymentCategoryData = $paymentCategory->fetch_assoc()) {
-                                                                        ?>
-                                                                            <option value="<?= $paymentCategoryData['payment_category_id'] ?>"><?= $paymentCategoryData['payment_category'] ?></option>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
-                                                                    </select>
-                                                                    <span id="payment-category-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
-                                                                    <label class="text-14 main-text required" for="">Payment Plan</label>
-                                                                    <select id="payment-plan" class="form-select custom-select mt-2" onchange="loadPaymentType()">
-                                                                        <option selected value="0">- Select -</option>
-                                                                        <?php
-                                                                        $paymentsPlan = Database::search("SELECT * FROM `payment_plan`");
-                                                                        while ($paymentPlan = $paymentsPlan->fetch_assoc()) {
-                                                                        ?>
-                                                                            <option value="<?= $paymentPlan['payment_plan_id'] ?>"><?= $paymentPlan['payment_plan'] ?></option>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
-                                                                    </select>
-                                                                    <span id="payment-plan-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
-                                                                    <label class="text-14 main-text required" for="">Total Amount</label>
-                                                                    <input type="number" class="form-control custom-input mt-2" id="payment-amount" min="0">
-                                                                    <span id="payment-amount-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
-                                                                    <label class="text-14 main-text required" for="">Discount Type</label>
-                                                                    <select id="plan-discount-type" class="form-select custom-select mt-2" onclick="changeDiscountType(this)">
-                                                                        <option selected value="0">Select Discount Type</option>
-                                                                        <?php
-                                                                        $discountTypes = Database::search("SELECT * FROM `discount_type`");
-                                                                        while ($discountType = $discountTypes->fetch_assoc()) {
-                                                                        ?>
-                                                                            <option value="<?php echo $discountType['discount_type_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
-                                                                    </select>
-                                                                    <span id="plan-discount-type-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column d-none" id="discount-container">
-                                                                    <label class="text-14 main-text" for="" id="discount-label">Discount</label>
-                                                                    <input type="number" class="form-control custom-input mt-2" id="plan-discount" min="0" value="0">
-                                                                    <span id="plan-discount-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-                                                                <div class="col-12 d-flex flex-column d-none" id="discount-note-container">
-                                                                    <label class="text-14 main-text" for="">Discount Note</label>
-                                                                    <textarea id="plan-discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
-                                                                    <span id="plan-discount-note-feedback" class="text-dark-red text-12"></span>
-                                                                </div>
-
-
-                                                                <div class="accordion d-none" id="fees-type">
-                                                                    <div class="accordion-item br-0" data-installment-id="1">
-                                                                        <h2 class="accordion-header br-0" id="headingOne1">
-                                                                            <button class="accordion-button br-0 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne1" aria-expanded="true" aria-controls="collapseOne1">
-                                                                                <span class="flex-grow-1 payment-btn-text">Payment - 1</span>
-                                                                            </button>
-                                                                        </h2>
-                                                                        <div id="collapseOne1" class="accordion-collapse collapse show" aria-labelledby="headingOne1" data-bs-parent="#fees-type">
-                                                                            <div class="accordion-body">
-                                                                                <div class="col-12 component-theme">
-                                                                                    <div class="row p-0 gy-3 gx-3 align-content-center">
-                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
-                                                                                            <label class="text-14 main-text required" for="">Payment Type</label>
-                                                                                            <select id="payment-type" class="form-select custom-select mt-2" disabled>
-                                                                                                <option selected value="0">- Select -</option>
-                                                                                            </select>
-                                                                                            <span id="payment-type-feedback" class="text-dark-red text-12"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
-                                                                                            <label for="" class="text-14 main-text required">Amount</label>
-                                                                                            <input type="number" class="form-control custom-input mt-2" id="amount">
-                                                                                            <span class="text-dark-red text-12" id="amount-feedback"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
-                                                                                            <label class="text-14 main-text not-required" for="">Discount Type</label>
-                                                                                            <select id="discount-type" class="form-select custom-select mt-2" data-installment-id="1" onchange="changenstallmentDiscountType(this)">
-                                                                                                <?php
-                                                                                                $discountTypes = Database::search("SELECT * FROM `discount_type`");
-                                                                                                while ($discountType = $discountTypes->fetch_assoc()) {
-                                                                                                ?>
-                                                                                                    <option value="<?php echo $discountType['discount_type_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
-                                                                                                <?php
-                                                                                                }
-                                                                                                ?>
-                                                                                            </select>
-                                                                                            <span id="discount-type-feedback" class="text-dark-red text-12"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex flex-column d-none" id="discount-amount-area">
-                                                                                            <label class="text-14 main-text required" id="discount-label" for="">Discount</label>
-                                                                                            <input type="number" class="form-control custom-input mt-2" id="discount" min="0">
-                                                                                            <span id="discount-feedback" class="text-dark-red text-12"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 d-flex flex-column d-none" id="discount-note-area">
-                                                                                            <label class="text-14 main-text" id="discount-note-label" for="">Discount Note</label>
-                                                                                            <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
-                                                                                            <span id="discount-note-feedback" class="text-dark-red text-12"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
-                                                                                            <label class="text-14 main-text not-required" for="">Due Date</label>
-                                                                                            <input type="date" class="form-control custom-input mt-2" id="due-date" min="0">
-                                                                                            <span id="due-date-feedback" class="text-dark-red text-12"></span>
-                                                                                        </div>
-                                                                                        <div class="col-12 d-flex align-items-center">
-                                                                                            <input type="checkbox" class="form-check-input hw-20 m-0 p-0" id="enable-panelty" data-installment-id="1" onchange="enablePanelty(this)">
-                                                                                            <label class="text-14 main-text px-3" for="">Enable Panelty Payment</label>
-                                                                                        </div>
-
-                                                                                        <div class="col-12 col-lg-4 d-flex flex-column d-none" data-installment-id="1" id="panelty-option-area">
-                                                                                            <label class="text-14 main-text required" for="">Panelty Options</label>
-                                                                                            <select id="panelty-option" class="form-select custom-select mt-2" data-installment-id="1" onchange="paneltyOptionChange(this)">
-                                                                                                <option selected value="0">- Select -</option>
-                                                                                                <?php
-                                                                                                $options = Database::search("SELECT * FROM `panelty_payment_option` WHERE `panelty_payment_option_id` != 1");
-                                                                                                while ($option = $options->fetch_assoc()) {
-                                                                                                ?>
-                                                                                                    <option value="<?php echo $option['panelty_payment_option_id'] ?>"><?php echo $option['panelty_payment_option'] ?></option>
-                                                                                                <?php
-                                                                                                }
-                                                                                                ?>
-                                                                                            </select>
-                                                                                            <span id="panelty-option-feedback" data-installment-id="1" class="text-dark-red text-12"></span>
-                                                                                        </div>
-
-                                                                                        <div class="col-12 d-none" id="panelty-flat-area" data-installment-id="1">
-                                                                                            <div class="row p-0 gy-3 gx-3 align-content-center">
-                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                    <label for="" class="text-14 main-text required">Panelty Amount Type</label>
-                                                                                                    <select class="form-select custom-select mt-2" id="flat-type">
-                                                                                                        <option value="0">- Select -</option>
-                                                                                                        <?php
-                                                                                                        $types = Database::search("SELECT * FROM `panelty_payments_type`");
-                                                                                                        while ($type = $types->fetch_assoc()) {
-                                                                                                        ?>
-                                                                                                            <option value="<?php echo $type['panelty_payments_type_id']; ?>"><?php echo $type['panelty_payments_type']; ?></option>
-                                                                                                        <?php
-                                                                                                        }
-                                                                                                        ?>
-                                                                                                    </select>
-                                                                                                    <span class="text-12 text-dark-red" id="flat-type-feedback"></span>
-                                                                                                </div>
-                                                                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                    <label for="" class="text-14 main-text required" id="amount-label">Amount</label>
-                                                                                                    <input type="number" class="form-control custom-input mt-2" id="flat-amount">
-                                                                                                    <span class="text-12 text-dark-red" id="flat-amount-feedback"></span>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        </div>
-
-                                                                                        <div class="col-12 d-flex flex-column d-none" id="panelty-custom-area" data-installment-id="1">
-                                                                                            <div class="row p-0 m-0" id="custom-slots">
-
-                                                                                                <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
-                                                                                                    <div class="row p-4 gy-3 gx-3 align-content-center ">
-                                                                                                        <div class="d-flex justify-content-between">
-                                                                                                            <span class="text-14 sub-topic">Custom Date Slot - 1</span>
-
-                                                                                                        </div>
-
-                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                            <label class="text-14 main-text required">Panelty Amount Type</label>
-                                                                                                            <select class="form-select custom-select mt-2 panelty-type">
-                                                                                                                <option value="0">- Select -</option>
-                                                                                                                <option value="1">Fixed</option>
-                                                                                                                <option value="2">Percentage</option>
-                                                                                                            </select>
-                                                                                                        </div>
-
-                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                            <label class="text-14 main-text required">Amount</label>
-                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-amount">
-                                                                                                        </div>
-
-                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                            <label class="text-14 main-text required">Days</label>
-                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-days">
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                            <div class="col-12 p-0 m-0 d-flex justify-content-end mt-3">
-                                                                                                <button class="custom-btn col-6 col-lg-2" onclick="addNewCustomPaneltyArea(this, 1);">Add New</button>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                                <div class="col-12 p-0 m-0 d-flex justify-content-end mt-3 d-none" id="add-new-payment-area">
-                                                                    <button class="custom-btn col-6 col-lg-2" onclick="addNewPaymentArea();">Add New Payment</button>
-                                                                </div>
-
+                                                                <?php
+                                                                }
+                                                                ?>
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    <?php
+                                                    } else {
+                                                    ?>
+                                                        <div class="col-12 px-4 py-3 component-theme">
+                                                            <div class="row align-items-center justify-content-center">
+                                                                <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                            </div>
+                                                        </div>
+                                                    <?php
+                                                    }
+                                                    ?>
                                                 </div>
-
-                                                <div class="col-12 p-0 g- d-none" id="save-plan-btn">
-                                                    <div class="row gx-4 gy-3">
-                                                        <div class="col-12 col-md-12 d-flex flex-column align-items-end">
+                                                <?php
+                                                if ($plans->num_rows > 0) {
+                                                ?>
+                                                    <div class="col-12 d-flex flex-column mt-4">
+                                                        <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                             <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
-                                                                <button class="custom-btn w-100" onclick="handleStudentPaymentPlan(this,<?= $leadId ?>);">Save Payment Plan</button>
+                                                                <button class="custom-btn w-100"
+                                                                    onclick="createStudentPaymentPlan(this, <?= (int)$lead['sId'] ?>);">
+                                                                    Save Payment Plan
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
+                                                <?php
+                                                }
+                                                ?>
+
+
+                                            </div>
+                                            <!-- ══ END SECTION A ══ -->
+
+                                            <!-- ══════════════════════════════════════
+                                                                                    SECTION B — CUSTOM PAYMENT GROUP
+                                                                                ══════════════════════════════════════ -->
+                                            <div id="section-custom-group" class="d-none">
+                                                <p class="sub-topic">Configure custom payment plan</p>
+                                                <div class="row gx-4 gy-3">
+
+                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                        <label class="text-14 main-text required">Payment Category</label>
+                                                        <select id="payment-category" class="form-select custom-select mt-2">
+                                                            <option selected value="0">- Select -</option>
+                                                            <?php
+                                                            $paymentCategory = Database::search("SELECT * FROM `payment_category`");
+                                                            while ($paymentCategoryData = $paymentCategory->fetch_assoc()) { ?>
+                                                                <option value="<?= $paymentCategoryData['payment_category_id'] ?>"><?= $paymentCategoryData['payment_category'] ?></option>
+                                                            <?php } ?>
+                                                        </select>
+                                                        <span id="payment-category-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                        <label class="text-14 main-text required">Payment Plan</label>
+                                                        <select id="payment-plan" class="form-select custom-select mt-2">
+                                                            <option selected value="0">- Select -</option>
+                                                            <?php
+                                                            $paymentsPlan = Database::search("SELECT * FROM `payment_plan`");
+                                                            while ($paymentPlan = $paymentsPlan->fetch_assoc()) { ?>
+                                                                <option value="<?= $paymentPlan['payment_plan_id'] ?>"><?= $paymentPlan['payment_plan'] ?></option>
+                                                            <?php } ?>
+                                                        </select>
+                                                        <span id="payment-plan-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                        <label class="text-14 main-text required">Course Amount</label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="payment-amount" min="0">
+                                                        <span id="payment-amount-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                        <label class="text-14 main-text required">Discount Type</label>
+                                                        <select id="plan-discount-type" class="form-select custom-select mt-2" onchange="changeDiscountType(this)">
+                                                            <option selected value="0">- Select -</option>
+                                                            <?php
+                                                            $discountTypes = Database::search("SELECT * FROM `discount_type`");
+                                                            while ($discountType = $discountTypes->fetch_assoc()) { ?>
+                                                                <option value="<?= $discountType['discount_type_id'] ?>"><?= $discountType['discount_type'] ?></option>
+                                                            <?php } ?>
+                                                        </select>
+                                                        <span id="plan-discount-type-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4 d-flex flex-column d-none" id="discount-area">
+                                                        <label class="text-14 main-text required" id="discount-label">Discount</label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="plan-discount" min="0">
+                                                        <span id="plan-discount-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 d-flex flex-column d-none" id="discount-note-area">
+                                                        <label class="text-14 main-text notice-icon">Discount Note</label>
+                                                        <textarea id="plan-discount-note" class="form-control custom-input mt-2" rows="5"></textarea>
+                                                        <span id="plan-discount-note-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
+
+                                                    <div class="col-12 d-flex flex-column mt-4">
+                                                        <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
+                                                            <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
+                                                                <button class="custom-btn w-100"
+                                                                    onclick="createCustomStudentPaymentPlan(this, <?= (int)$lead['sId'] ?>);">
+                                                                    Save Payment Plan
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                 </div>
                                             </div>
+                                            <!-- ══ END SECTION B ══ -->
+
                                         </div>
+                                        <!-- ── End Main Content Card ── -->
 
                                     </div>
                                     <div class="flex-grow-1"></div>

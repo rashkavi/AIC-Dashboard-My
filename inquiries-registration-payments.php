@@ -195,6 +195,8 @@ if (!SessionUser::hasValidSession()) {
                                                              `sl`.`log` AS `latest_log`,
                                                              `sl`.`note` AS `latest_note`,
 
+                                                             `students_has_intakes`.`students_has_intakes_id` AS `shiId`,
+
                                                              
                                                          
                                                              `updated_user`.`user_id` AS `updated_user_id`,
@@ -210,6 +212,9 @@ if (!SessionUser::hasValidSession()) {
                                                          
                                                          INNER JOIN `title`
                                                              ON `students`.`title_title_id` = `title`.`title_id`
+
+                                                        INNER JOIN `students_has_intakes`
+                                                            ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                                                          
                                                          INNER JOIN `lead_student_status`
                                                              ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
@@ -316,7 +321,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ?>
 
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-payment-plan?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>">
                                                                                                     <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     View Student Payment Plan</a></li>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">

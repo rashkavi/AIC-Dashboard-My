@@ -15,7 +15,7 @@ if (!SessionUser::hasValidSession()) {
             header("Location: ./students");
         } else {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 10))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 10))) {
                 header("Location: ./students");
             } else {
                 $id = $_GET['inquiry-id'];
@@ -50,7 +50,7 @@ if (!SessionUser::hasValidSession()) {
 
                     $fieldsDisabled = false;
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 10))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10))) {
                         $fieldsDisabled = true;
                     }
 
@@ -62,6 +62,7 @@ if (!SessionUser::hasValidSession()) {
                             'name' => $data['country_name']
                         ]);
                     }
+
 
                     function h($value)
                     {
@@ -280,7 +281,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="row gx-3 justify-content-end">
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                 ?>
                                                                     <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-btn col-12" onclick="editInquiry(this,'<?php echo $id ?>');">Save Changes</button>
@@ -312,7 +313,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             }
 
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                             ?>
                                                                                 <div class="upload-image text-white p-2 bottom-0 start-0" onclick="uploadImage('file-input','student-profile-image');">
                                                                                     <iconify-icon icon="ic:baseline-upload" width="20" height="20" class="text-white px-2"></iconify-icon>
@@ -325,7 +326,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                         <!-- Hiddedn file input -->
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                         ?>
                                                                             <input type="file" id="file-input" class="d-none" accept="image/*" />
                                                                             <p class="text-center text-14 sub-text mt-2 mb-0" id="profile-image-text">Image size must be 2MB or less, with a 1:1 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>

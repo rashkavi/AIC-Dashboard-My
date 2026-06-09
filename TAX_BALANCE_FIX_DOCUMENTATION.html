@@ -1,0 +1,459 @@
+<?php
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * TAX & BALANCE CALCULATION FIX - Comprehensive Documentation
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Issue: Tax calculation was incorrect. The paid amount is TAX-INCLUSIVE.
+ * 
+ * Example Problem:
+ * ───────────────
+ * Student paid: LKR 10,250
+ * Tax rate: 2.5%
+ * 
+ * WRONG (OLD):
+ *   tax = 10,250 × 0.025 = 256.25 ❌
+ *   base = 10,250 - 256.25 = 9,993.75 ❌
+ * 
+ * CORRECT (NEW):
+ *   factor = 1 + 0.025 = 1.025
+ *   base = 10,250 ÷ 1.025 = 10,000 ✓
+ *   tax = 10,250 - 10,000 = 250 ✓
+ *   Verify: 10,000 + 250 = 10,250 ✓
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tax & Balance Calculation Fix Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        h1 {
+            color: #1a365d;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #2d3748;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #4a5568;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .formula-box {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .wrong {
+            color: #c53030;
+            background: #fff5f5;
+            border-left: 4px solid #fc8181;
+        }
+        .correct {
+            color: #22543d;
+            background: #f0fff4;
+            border-left: 4px solid #9ae6b4;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #edf2f7;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        tr:hover {
+            background: #f7fafc;
+        }
+        .code-section {
+            background: #1a202c;
+            color: #a0aec0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .keyword { color: #ff7eb6; }
+        .function { color: #63b3ed; }
+        .number { color: #f6ad55; }
+        .string { color: #9ae6b4; }
+        .comment { color: #718096; font-style: italic; }
+        .file-name {
+            background: #667eea;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .status.done {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            color: #22543d;
+        }
+        .status.info {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            color: #2c5282;
+        }
+        ul, ol {
+            line-height: 1.8;
+        }
+        .flow-diagram {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #cbd5e0;
+        }
+        .arrow { margin: 10px 0; text-align: center; font-size: 24px; color: #667eea; }
+        .example-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .example-table td {
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .example-table td:first-child {
+            font-weight: 600;
+            background: #edf2f7;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Tax & Balance Calculation Fix</h1>
+
+        <div class="status done">
+            <strong>✓ Status: FIXED</strong><br>
+            All tax calculations now correctly extract tax from tax-inclusive paid amounts.
+            Taxes and penalties are only processed when payment is APPROVED (status = 3).
+        </div>
+
+        <h2>📋 Files Updated</h2>
+        <ol>
+            <li><code>api/updatePaymentStatus.php</code> - Fixed tax extraction formula</li>
+            <li><code>api/uploadStudentPaymentReceipt.php</code> - Fixed tax extraction formula</li>
+            <li><code>student-payment.php</code> - Fixed frontend calculation (previous fix)</li>
+        </ol>
+
+        <h2>❌ The Problem (Before)</h2>
+        <p>Tax was being calculated <strong>incorrectly</strong> by multiplying the paid amount by the tax rate:</p>
+        
+        <div class="formula-box wrong">
+            WRONG FORMULA:
+            tax = paid × (rate / 100)
+            base = paid - tax
+            
+            Example: paid = 10,250, rate = 2.5%
+            tax = 10,250 × 0.025 = 256.25 ❌
+            base = 10,250 - 256.25 = 9,993.75 ❌
+            
+            This doesn't make sense because:
+            9,993.75 + 256.25 = 10,250 (works mathematically, but conceptually wrong)
+            The issue: tax should be proportional to the BASE fee, not the total paid amount
+        </div>
+
+        <h2>✅ The Solution (After)</h2>
+        <p>Tax is now <strong>correctly extracted</strong> from the tax-inclusive paid amount:</p>
+        
+        <div class="formula-box correct">
+            CORRECT FORMULA (Tax-Inclusive Model):
+            factor = 1 + (rate / 100)
+            base = paid ÷ factor
+            tax = paid - base
+            
+            Example: paid = 10,250, rate = 2.5%
+            factor = 1 + 0.025 = 1.025
+            base = 10,250 ÷ 1.025 = 10,000 ✓
+            tax = 10,250 - 10,000 = 250 ✓
+            
+            Verification: 10,000 + 250 = 10,250 ✓ (Perfect!)
+            Tax rate check: 250 ÷ 10,000 = 0.025 = 2.5% ✓
+        </div>
+
+        <h2>🔍 Real-World Examples</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Paid Amount</th>
+                    <th>Tax Rate</th>
+                    <th>Calculated Base</th>
+                    <th>Extracted Tax</th>
+                    <th>Verification</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>LKR 10,250</td>
+                    <td>2.5%</td>
+                    <td>LKR 10,000</td>
+                    <td>LKR 250</td>
+                    <td>10,000 + 250 = 10,250</td>
+                    <td>✓</td>
+                </tr>
+                <tr>
+                    <td>LKR 51,250</td>
+                    <td>2.5%</td>
+                    <td>LKR 50,000</td>
+                    <td>LKR 1,250</td>
+                    <td>50,000 + 1,250 = 51,250</td>
+                    <td>✓</td>
+                </tr>
+                <tr>
+                    <td>USD 500</td>
+                    <td>3.0%</td>
+                    <td>USD 485.44</td>
+                    <td>USD 14.56</td>
+                    <td>485.44 + 14.56 = 500</td>
+                    <td>✓</td>
+                </tr>
+                <tr>
+                    <td>LKR 25,500</td>
+                    <td>2%</td>
+                    <td>LKR 25,000</td>
+                    <td>LKR 500</td>
+                    <td>25,000 + 500 = 25,500</td>
+                    <td>✓</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>📝 Code Changes</h2>
+
+        <h3>1. Helper Function (Both Files)</h3>
+        <p>A new function to extract tax correctly:</p>
+        <div class="code-section">
+<span class="comment">/**
+ * Extract base and tax from a tax-inclusive paid amount
+ * @param float $paid Tax-inclusive amount paid
+ * @param float $rate Tax rate (e.g., 2.5)
+ * @return array ['base' => base_amount, 'tax' => tax_amount]
+ */</span>
+<span class="keyword">function</span> <span class="function">extractTaxFromPaid</span>($paid, $rate)
+{
+    <span class="keyword">if</span> ($rate &lt;= 0 || $paid &lt;= 0) <span class="keyword">return</span> ['base' =&gt; $paid, 'tax' =&gt; 0];
+    $factor = 1 + ($rate / 100);
+    $base   = $paid / $factor;
+    $tax    = $paid - $base;
+    <span class="keyword">return</span> ['base' =&gt; <span class="function">round</span>($base, 4), 'tax' =&gt; <span class="function">round</span>($tax, 4)];
+}
+        </div>
+
+        <h3>2. Processing Only When Approved</h3>
+        <p>Taxes and penalties are now only processed when payment status is changed to <strong>3 (Approved)</strong>:</p>
+        <div class="code-section">
+<span class="keyword">if</span> ($newStatus == 3 && $taxRate &gt; 0) {
+    <span class="comment">// Only when approving: extract tax from paid amount</span>
+    $extracted = <span class="function">extractTaxFromPaid</span>($paidAmountBase, $taxRate);
+    $paidAmountBase = $extracted['base'];    <span class="comment">// Update to base amount</span>
+    $taxAmountBase  = $extracted['tax'];     <span class="comment">// Extracted tax amount</span>
+} <span class="keyword">else</span> {
+    <span class="comment">// If not approving or no tax rate, tax is 0</span>
+    $taxAmountBase = 0;
+}
+        </div>
+
+        <h3>3. Penalty Processing</h3>
+        <p>Penalties are inserted into the database <strong>ONLY when payment is approved</strong>:</p>
+        <div class="code-section">
+<span class="comment">// INSERT penalty_payments table if penalty amount > 0</span>
+<span class="comment">// ✅ ONLY WHEN APPROVED (status = 3)</span>
+<span class="keyword">if</span> ($penaltyAmountLKR &gt; 0 && $newStatus == 3) {
+    Database::iud(<span class="string">"INSERT INTO `panelty_payments` ..."</span>);
+}
+        </div>
+
+        <h2>🔄 Data Flow</h2>
+        
+        <h3>When User Submits Payment:</h3>
+        <div class="flow-diagram">
+            <strong>Frontend (student-payment.php)</strong><br>
+            Paid Amount: 10,250 (tax-inclusive)<br>
+            Tax Rate: 2.5%<br>
+            ↓ Calculate<br>
+            Base: 10,000<br>
+            Tax: 250<br>
+            <div class="arrow">↓</div>
+            <strong>Backend API (updatePaymentStatus.php or uploadStudentPaymentReceipt.php)</strong><br>
+            Receive paid, tax_rate<br>
+            ↓ Extract Tax<br>
+            base = 10,250 ÷ 1.025 = 10,000<br>
+            tax = 10,250 - 10,000 = 250<br>
+            <div class="arrow">↓</div>
+            <strong>Status Check</strong><br>
+            Is status = 3 (Approved)? → Process tax, penalties, overpayments<br>
+            Is status = 4 (Rejected)? → Skip processing<br>
+            <div class="arrow">↓</div>
+            <strong>Database Storage</strong><br>
+            course_payment_has_payments:<br>
+            - paid_amount: 10,000 (base)<br>
+            - tax_amount: 250<br>
+            - tax_rate: 2.5<br>
+            <br>
+            panelty_payments: (if penalty > 0 AND status = 3)<br>
+            - amount: [penalty in LKR]<br>
+        </div>
+
+        <h2>⚙️ Technical Details</h2>
+
+        <h3>updatePaymentStatus.php Changes:</h3>
+        <ul>
+            <li>Added <code>extractTaxFromPaid()</code> function with correct formula</li>
+            <li>Tax extraction only happens when status = 3 (approved)</li>
+            <li>Penalty insertion only happens when status = 3</li>
+            <li>Tax rate validation and storage improved</li>
+        </ul>
+
+        <h3>uploadStudentPaymentReceipt.php Changes:</h3>
+        <ul>
+            <li>Replaced <code>calculateTaxOnBase()</code> with <code>extractTaxFromPaid()</code></li>
+            <li>Tax is extracted from the paid amount, not calculated as add-on</li>
+            <li>Overpayment handling uses correct tax extraction</li>
+            <li>Next installment calculations use extracted tax model</li>
+        </ul>
+
+        <h2>✅ Testing Checklist</h2>
+        <ol>
+            <li>
+                <strong>Single Payment (No Overpay)</strong>
+                <ul>
+                    <li>Installment Base: LKR 10,000</li>
+                    <li>Tax Rate: 2.5%</li>
+                    <li>Expected Payment: LKR 10,250</li>
+                    <li>✓ Pay exactly LKR 10,250</li>
+                    <li>✓ Verify Base = 10,000, Tax = 250</li>
+                    <li>✓ Balance = 0</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Overpayment (To Next Installment)</strong>
+                <ul>
+                    <li>Installment 1 Base: LKR 10,000 (owes 10,250)</li>
+                    <li>Installment 2 Base: LKR 15,000 (owes 15,375)</li>
+                    <li>✓ Pay LKR 25,000 for both</li>
+                    <li>✓ Installment 1 marked complete</li>
+                    <li>✓ Overpay applied to Installment 2</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Rejection (Status = 4)</strong>
+                <ul>
+                    <li>✓ Reject payment</li>
+                    <li>✓ No penalties inserted</li>
+                    <li>✓ No tax processing</li>
+                    <li>✓ Payment stays in pending state</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Currency Conversion</strong>
+                <ul>
+                    <li>✓ USD payment with exchange rate</li>
+                    <li>✓ Tax extracted correctly in USD</li>
+                    <li>✓ Converted to LKR for storage</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h2>📊 Summary of Fixes</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Issue</th>
+                    <th>Before</th>
+                    <th>After</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Tax Extraction</strong></td>
+                    <td>Wrong formula (multiplied)</td>
+                    <td>Correct formula (divided)</td>
+                </tr>
+                <tr>
+                    <td><strong>Balance Calculation</strong></td>
+                    <td>Based on wrong tax</td>
+                    <td>Based on correct tax</td>
+                </tr>
+                <tr>
+                    <td><strong>Tax Processing</strong></td>
+                    <td>Processed on all status</td>
+                    <td>Only when approved (3)</td>
+                </tr>
+                <tr>
+                    <td><strong>Penalty Recording</strong></td>
+                    <td>Processed on all status</td>
+                    <td>Only when approved (3)</td>
+                </tr>
+                <tr>
+                    <td><strong>Overpayment Handling</strong></td>
+                    <td>Used wrong tax calculations</td>
+                    <td>Uses correct tax extraction</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>🎯 Results</h2>
+        <div class="status done">
+            <strong>✓ All calculations are now mathematically correct</strong>
+            <ul>
+                <li>Tax is properly extracted from tax-inclusive amounts</li>
+                <li>Balance calculations are accurate</li>
+                <li>Taxes only processed when payment approved</li>
+                <li>Penalties only inserted when payment approved</li>
+                <li>Overpayments handled with correct tax model</li>
+                <li>Works with multiple currencies and exchange rates</li>
+            </ul>
+        </div>
+
+    </div>
+</body>
+</html>
