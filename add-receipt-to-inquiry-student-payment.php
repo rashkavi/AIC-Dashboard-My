@@ -233,6 +233,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
                                                                                                     LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
                                                                                                     WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
+                                                                                                    AND ps2.payment_status_id IN (2, 3)
                                                                                                     GROUP BY cpp.course_payment_has_payment_id
                                                                                                 ");
 

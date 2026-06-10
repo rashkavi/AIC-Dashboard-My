@@ -1,14 +1,27 @@
 <?php
 
 /**
- * PAYMENT RECEIPT PROCESSOR - CORRECTED VERSION
+ * PAYMENT RECEIPT PROCESSOR - CORRECTED VERSION (FINAL FIX)
  * 
  * Key Fixes:
- * 1. Tax Model: BASE + TAX (not extraction from inclusive)
+ * 1. Tax Model: BASE + TAX (additive, not inclusive extraction)
  * 2. Tax Rate: Latest from tax_rates table, default 2.50%
- * 3. Calculation: amount (base) + (amount × taxRate%) = total paid
+ * 3. First Payment: amount (base) + (amount × taxRate%) = total
+ *    Example: GBP 10 @ 2.5% = 10 + 0.25 = 10.25 ✓
  * 
- * Example: GBP 10 @ 2.5% = 10 + 0.25 = 10.25 ✓
+ * 4. SUBSEQUENT PAYMENTS (CRITICAL FIX):
+ *    When balance remains from prior partial payments:
+ *    - Balance is TOTAL (base + tax already)
+ *    - Reverse-extract base: base = balance ÷ (1 + taxRate%)
+ *    - Apply fresh tax: tax = base × (taxRate%)
+ *    - Total = base + tax
+ *    
+ *    Example: Scheduled 10 GBP, paid 5 GBP (including tax)
+ *      Payable: 10 + 0.25 = 10.25 GBP
+ *      Remaining: 10.25 - 5.00 = 5.25 GBP
+ *      Base: 5.25 ÷ 1.025 = 5.12 GBP
+ *      Tax: 5.12 × 0.025 = 0.13 GBP
+ *      Total: 5.12 + 0.13 = 5.25 ✓
  */
 
 $status = new stdClass();
@@ -195,6 +208,38 @@ if (SessionUser::hasValidSession()) {
                         }
 
                         // ════════════════════════════════════════════════════════════════════
+                        // HELPER: Reverse-extract base from a TOTAL amount (base + tax)
+                        //
+                        // Given a total amount that already includes tax,
+                        // extract the original base amount
+                        // 
+                        // total = base × (1 + taxRate%)
+                        // base = total ÷ (1 + taxRate%)
+                        // tax = total - base
+                        // ════════════════════════════════════════════════════════════════════
+                        function extractBaseFromTotal(float $totalAmount, float $taxRate): array
+                        {
+                            if ($taxRate < 0 || $totalAmount < 0) {
+                                return ['base' => $totalAmount, 'tax' => 0.0];
+                            }
+                            if ($totalAmount == 0 || $taxRate == 0) {
+                                return ['base' => round($totalAmount, 2), 'tax' => 0.0];
+                            }
+                            
+                            // total = base × (1 + rate/100)
+                            // base = total ÷ (1 + rate/100)
+                            $taxMultiplier = 1 + ($taxRate / 100);
+                            $base = $totalAmount / $taxMultiplier;
+                            $tax = $totalAmount - $base;
+                            
+                            return [
+                                'base' => round($base, 2),
+                                'tax' => round($tax, 2),
+                                'total' => round($totalAmount, 2)
+                            ];
+                        }
+
+                        // ════════════════════════════════════════════════════════════════════
                         // HELPER: Resolve exchange rate for a receipt row
                         // ════════════════════════════════════════════════════════════════════
                         function resolveExchangeRate($row, $courseCurrencyId)
@@ -368,23 +413,29 @@ if (SessionUser::hasValidSession()) {
                         //              + tax on cp.amount
                         //              - cpDiscountAmount (installment-level discount)
                         //              + mainPenaltyCP (from panelty_payments table)
-                        //              - receiptDiscountCP (receipt-level discounts)
-                        //              + receiptPenaltyCP (receipt-level penalties)
-                        //              + receiptTaxCP (receipt-level tax already paid)
+                        //
+                        // CRITICAL: Do NOT add back receiptTaxCP, receiptDiscountCP, or 
+                        // receiptPenaltyCP as those are already included in the 
+                        // convertedPaidTotal (the paid_amount column already includes tax).
+                        //
+                        // The payableAmount is FIXED for each installment.
+                        // Prior payments are subtracted from it directly.
                         //
                         // This represents the TOTAL amount due for this installment
                         // including any applicable tax, discounts, and penalties.
                         //
-                        // balance = payableAmount - (convertedPaidTotal + newPayment)
-                        //   → 0 when fully paid
+                        // Example: 
+                        //   base = 10, tax = 0.25, discount = 0, penalty = 0
+                        //   payableAmount = 10 + 0.25 = 10.25 (FIXED)
+                        //   
+                        //   If prior payment = 5.00:
+                        //   remaining = 10.25 - 5.00 = 5.25 (correct!)
+                        //   NOT: 10.25 + 0.12 (prior tax) = 10.37 (wrong!)
                         // ════════════════════════════════════════════════════════════════════
                         $payableAmount = $baseAmountToStore
                             + $taxAmountToStore
                             - $cpDiscountAmount
-                            + $mainPenaltyCP
-                            - $receiptDiscountCP
-                            + $receiptPenaltyCP
-                            + $receiptTaxCP;
+                            + $mainPenaltyCP;
 
                         // Total paid after this new receipt is added
                         $totalPaidWithNewAmount = $convertedPaidTotal + $baseAmountToStore + $taxAmountToStore;
@@ -402,25 +453,45 @@ if (SessionUser::hasValidSession()) {
                         //   Use the full installment base amount + calculated tax
                         //
                         // IF has prior payments:
-                        //   Calculate remaining balance and tax on balance
+                        //   Calculate remaining balance (which is a TOTAL: base + tax)
+                        //   REVERSE-EXTRACT the base from this total
+                        //   Calculate fresh tax on the extracted base
                         //
                         // All amounts stored to 2 decimal places
+                        //
+                        // CRITICAL FIX:
+                        // When $convertedPaidTotal > 0, the remainingBalance is already
+                        // a TOTAL amount (base + tax). We must use extractBaseFromTotal()
+                        // to reverse-calculate the base, then apply fresh tax.
                         // ════════════════════════════════════════════════════════════════════
 
                         $escapedNote = !empty($note) ? "'" . Database::escape($note) . "'" : "NULL";
 
                         // Determine if this is the first payment or a subsequent payment
                         if ($convertedPaidTotal == 0) {
+                            // ────────────────────────────────────────────────────────────
                             // NO prior payments — use full installment amount
+                            // ────────────────────────────────────────────────────────────
                             $payment_base_amount = $baseAmountToStore;
                             $paid_tax_amount = $taxAmountToStore;
                         } else {
-                            // HAS prior payments — use remaining balance
+                            // ────────────────────────────────────────────────────────────
+                            // HAS prior payments — remainingBalance is TOTAL (base+tax)
+                            // REVERSE-EXTRACT the base, then apply fresh tax
+                            //
+                            // Example: Scheduled 10, paid 5 (including tax)
+                            //   Payable: 10 + 0.25 = 10.25
+                            //   Remaining: 10.25 - 5.00 = 5.25
+                            //   Extracted base: 5.25 ÷ 1.025 = 5.12
+                            //   Tax on base: 5.12 × 0.025 = 0.13
+                            //   Total: 5.12 + 0.13 = 5.25 ✓
+                            // ────────────────────────────────────────────────────────────
                             $remainingBalance = $payableAmount - $convertedPaidTotal;
                             $balanceNegative = $remainingBalance < 0;
                             $absBalance = abs($remainingBalance);
 
-                            $balanceTaxInfo = calculateTaxOnBase($absBalance, $taxRate);
+                            // Use the NEW helper function to reverse-extract base from total
+                            $balanceTaxInfo = extractBaseFromTotal($absBalance, $taxRate);
 
                             $payment_base_amount = $balanceTaxInfo['base'];
                             $paid_tax_amount = $balanceTaxInfo['tax'];

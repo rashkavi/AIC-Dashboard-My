@@ -3566,7 +3566,6 @@ option {
                                 background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
                                 overflow: hidden;
                                 margin-bottom: 20px;
-                                border-radius: 8px;
                             }
 
                             .lkr-panel-top {

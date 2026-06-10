@@ -110,14 +110,15 @@ if (!SessionUser::hasValidSession()) {
                     } else {
                         $paymentData = $paymentPlan->fetch_assoc();
 
-                        // ════════════════════════════════════════════════════════════════════
+                        // ════════════════════════════════════════════════════════════════════════
                         // FETCH LATEST TAX RATE
-                        // ════════════════════════════════════════════════════════════════════
+                        // ════════════════════════════════════════════════════════════════════════
                         $taxRateQuery = Database::search("
                             SELECT `tax_rate` AS `rate` FROM `tax_rates`
+                            WHERE `tax_rate` IS NOT NULL AND `tax_rate` > 0
                             ORDER BY `date_added` DESC LIMIT 1
                         ");
-                        $latestTaxRate = 0;
+                        $latestTaxRate = 2.50; // DEFAULT fallback
                         if ($taxRateQuery && $taxRateQuery->num_rows > 0) {
                             $taxRateRow    = $taxRateQuery->fetch_assoc();
                             $latestTaxRate = (float)$taxRateRow['rate'];
@@ -156,14 +157,10 @@ if (!SessionUser::hasValidSession()) {
                         $lkrCurrencyId     = 1;
                         $isBaseCurrencyLKR = ($paymentData['currency_id'] == $lkrCurrencyId);
 
-                        // ── CP-level discount ────────────────────────────────────────────
+                        // ── CP-level discount (course currency) ──────────────────────────
                         $discountAmountCP = ($paymentData['discount_type_id'] == 3)
                             ? $paymentData['amount'] / 100 * $paymentData['discount']
                             : (float)$paymentData['discount'];
-
-                        $totalDiscount = $discountAmountCP;
-                        $totalPenalty  = (float)$paymentData['panelty_amount'];
-                        $totalTax      = 0;
 
                         // ── Exchange rate for display ─────────────────────────────────────
                         $exchangeRate      = null;
@@ -208,79 +205,83 @@ if (!SessionUser::hasValidSession()) {
                                 cpp.currency_exchange_rate,
                                 cpp.tax_rate,
                                 cpp.tax_amount
-                            FROM course_payment_has_payments AS cpp
-                            INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
-                            INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
-                            LEFT  JOIN currencies     AS cur ON cpp.currencies_currency_id           = cur.currency_id
-                            WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
-                            GROUP BY cpp.course_payment_has_payment_id
+                            FROM `course_payment_has_payments` AS cpp
+                            INNER JOIN `payment_method` AS pm  ON cpp.`payment_method_payment_method_id` = pm.`payment_method_id`
+                            INNER JOIN `payment_status` AS ps2 ON cpp.`payment_status_payment_status_id` = ps2.`payment_status_id`
+                            LEFT  JOIN `currencies`     AS cur ON cpp.`currencies_currency_id`           = cur.`currency_id`
+                            WHERE cpp.`course_payments_course_payments_id` = '" . (int)$paymentData['course_payments_id'] . "'
+                            AND ps2.`payment_status_id` IN (2, 3)
+                            GROUP BY cpp.`course_payment_has_payment_id`
                         ");
 
-                        // ════════════════════════════════════════════════════════════════════
-                        // TAX MODEL: Tax is a percentage of paid_amount (inclusive)
-                        //   tax     = paid_amount × taxRate%
-                        //   base    = paid_amount - tax  = paid_amount × (1 - taxRate%)
+                        // ════════════════════════════════════════════════════════════════════════
+                        // ACCUMULATE PAID TOTALS — matches second file's correct model:
+                        //   payableAmount = amount - totalDiscount + totalPenalty + totalTax
+                        //   balance       = payableAmount - convertedPaidTotal
                         //
-                        // So stored paid_amount already contains tax.
-                        // We accumulate the FULL paid_amount for "total paid" display.
-                        // For balance: balance = payable - total_paid
-                        // Where: payable = (course_amount - discount + penalty) + tax_on_payable
-                        //        tax_on_payable = payable_before_tax × taxRate%
-                        // ════════════════════════════════════════════════════════════════════
+                        // paid_amount in each receipt is TAX-INCLUSIVE.
+                        // Tax already collected is stored in tax_amount; we accumulate it
+                        // and add it to payable so that balance stays consistent.
+                        // ════════════════════════════════════════════════════════════════════════
                         $convertedPaidTotal = 0;
                         $receiptRows        = [];
                         $totalReceiptDisc   = 0;
                         $totalReceiptPen    = 0;
+                        $totalReceiptTax    = 0; // ← accumulate tax from receipts
 
                         if ($receipts && $receipts->num_rows > 0) {
                             while ($rec = $receipts->fetch_assoc()) {
                                 $rate = resolveExchangeRate($rec, $paymentData['currency_id']);
 
-                                // paid_amount is stored tax-inclusive → convert to course currency
-                                $rec['converted_paid']         = convertToCourseAmount($rec['paid_amount'], $rate);
+                                $rec['converted_paid']         = convertToCourseAmount((float)$rec['paid_amount'], $rate);
                                 $rec['is_foreign_currency']    = ($rate !== null);
                                 $rec['currency_exchange_rate'] = $rate;
 
                                 $convertedPaidTotal += $rec['converted_paid'];
                                 $receiptRows[]       = $rec;
 
-                                // Accumulate only pending(2) or confirmed(3) receipts
                                 if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
                                     $totalReceiptDisc += convertToCourseAmount((float)($rec['discount_amount'] ?? 0), $rate);
-                                    $totalReceiptPen  += convertToCourseAmount((float)($rec['panelty_amount'] ?? 0), $rate);
-                                    $totalTax         += convertToCourseAmount((float)($rec['tax_amount'] ?? 0), $rate);
+                                    $totalReceiptPen  += convertToCourseAmount((float)($rec['panelty_amount']  ?? 0), $rate);
+                                    $totalReceiptTax  += convertToCourseAmount((float)($rec['tax_amount']      ?? 0), $rate);
                                 }
                             }
                         }
 
-                        $totalDiscount += $totalReceiptDisc;
-                        $totalPenalty  += $totalReceiptPen;
+                        $totalDiscount = $discountAmountCP + $totalReceiptDisc;
+                        $totalPenalty  = (float)$paymentData['panelty_amount'] + $totalReceiptPen;
+                        $totalTax      = $totalReceiptTax;
 
-                        // ── Payable Calculation ───────────────────────────────────────────
-                        // Base payable = course_amount - discount + penalty
-                        // Tax on payable = basePayable × latestTaxRate%
-                        // Total payable  = basePayable + tax
-                        $basePayable   = max(0, $paymentData['amount'] - $totalDiscount + $totalPenalty);
-                        $taxOnPayable  = round($basePayable * $latestTaxRate / 100, 4);
-                        $payableAmount = $basePayable + $taxOnPayable;
+                        // ════════════════════════════════════════════════════════════════════════
+                        // CORRECTED PAYABLE CALCULATION  (identical to second file's model)
+                        //
+                        //   netBase       = amount − totalDiscount + totalPenalty
+                        //   payableAmount = netBase + totalTax
+                        //   balance       = payableAmount − convertedPaidTotal
+                        //
+                        // taxOnPayable is the accumulated tax from receipts — NOT re-derived
+                        // from the base with the rate. That would double-count tax.
+                        // ════════════════════════════════════════════════════════════════════════
+                        $netBase       = max(0, $paymentData['amount'] - $totalDiscount + $totalPenalty);
+                        $taxOnPayable  = $totalTax;   // actual tax collected, from receipt rows
+                        $payableAmount = $netBase + $taxOnPayable;
+                        $balance       = $payableAmount - $convertedPaidTotal;
+                        $paidAmount    = $convertedPaidTotal;
 
-                        // Balance = totalPayable - all paid (including tax in paid amounts)
-                        $balance    = $payableAmount - $convertedPaidTotal;
-                        $paidAmount = $convertedPaidTotal;
-
-                        // ── Next installment data (for overpayment display) ───────────────
+                        // ── Overpayment (next installment credit) ─────────────────────────
                         $nextInstallmentData = null;
                         if ($balance < 0) {
-                            // Overpayment: next installment amount
                             $overpayAmount = abs($balance);
-                            $nextTax       = round($overpayAmount * $latestTaxRate / 100, 4);
-                            $nextBase      = $overpayAmount - $nextTax;
+                            // Extract tax from overpay (tax-inclusive model)
+                            $overpayFactor   = 1 + ($latestTaxRate / 100);
+                            $nextBase        = round($overpayAmount / $overpayFactor, 2);
+                            $nextTax         = round($overpayAmount - $nextBase, 2);
                             $nextInstallmentData = [
-                                'overpay'  => $overpayAmount,
-                                'base'     => $nextBase,
-                                'tax'      => $nextTax,
+                                'overpay' => $overpayAmount,
+                                'base'    => $nextBase,
+                                'tax'     => $nextTax,
                             ];
-                            $balance = 0; // current installment fully paid
+                            $balance = 0;
                         }
 
                         // ── LKR equivalents for display ───────────────────────────────────
@@ -298,12 +299,17 @@ if (!SessionUser::hasValidSession()) {
                         $receiptConvertedAmt = convertToCourseAmount($coursepaymentData['paid_amount'], $receiptRate);
                         $receiptIsForeign    = ($receiptRate !== null);
 
-                        // Tax model: tax = paid × rate%  →  base = paid × (1 - rate%)
                         $receiptTaxRate    = (float)($coursepaymentData['tax_rate']   ?? $latestTaxRate);
                         $receiptPaidAmt    = (float)$coursepaymentData['paid_amount'];
-                        $receiptTaxAmount  = $coursepaymentData['tax_amount'];
+                        $receiptTaxAmount  = (float)($coursepaymentData['tax_amount'] ?? 0);
                         $receiptBaseAmount = $receiptPaidAmt - $receiptTaxAmount;
                         $receiptTaxConverted = convertToCourseAmount($receiptTaxAmount, $receiptRate);
+
+                        // ── JS constants for modal (this receipt's stored values) ─────────
+                        $jsCurrentReceiptPaid     = (float)$coursepaymentData['paid_amount'];
+                        $jsCurrentReceiptDiscount = (float)($coursepaymentData['discount_amount'] ?? 0);
+                        $jsCurrentReceiptPenalty  = (float)($coursepaymentData['panelty_amount']  ?? 0);
+                        $jsCurrentReceiptTax      = (float)($coursepaymentData['tax_amount']      ?? 0);
 
                         function formatDateSafe($date, $outputFormat = 'Y-m-d')
                         {
@@ -341,80 +347,6 @@ if (!SessionUser::hasValidSession()) {
                         </head>
 
                         <style>
-                            /* ── LKR Summary Panel ──────────────────────────────────────────────── */
-                            .lkr-panel {
-                                background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-                                overflow: hidden;
-                                margin-bottom: 20px;
-                                border-radius: 8px;
-                            }
-
-                            .lkr-panel-top {
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                                padding: 10px 18px;
-                                border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
-                            }
-
-                            .lkr-panel-top-left {
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                                font-size: 16px;
-                                font-weight: 500;
-                                color: rgba(255, 255, 255, 0.9);
-                            }
-
-                            .lkr-panel-top-left iconify-icon {
-                                color: rgba(255, 255, 255, 0.6);
-                            }
-
-                            .lkr-panel-rate-note {
-                                font-size: 13px;
-                                color: rgba(255, 255, 255, 0.5);
-                            }
-
-                            .lkr-panel-grid {
-                                display: grid;
-                                grid-template-columns: repeat(6, minmax(0, 1fr));
-                            }
-
-                            .lkr-panel-item {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 4px;
-                                padding: 14px 18px;
-                                border-right: 0.5px solid rgba(255, 255, 255, 0.10);
-                            }
-
-                            .lkr-panel-item:last-child {
-                                border-right: none;
-                            }
-
-                            .lkr-item-label {
-                                font-size: 12px;
-                                font-weight: 500;
-                                letter-spacing: 0.04em;
-                                text-transform: uppercase;
-                                color: rgba(255, 255, 255, 0.5);
-                            }
-
-                            .lkr-item-value {
-                                font-size: 16px;
-                                font-weight: 500;
-                                color: rgba(255, 255, 255, 0.9);
-                            }
-
-                            .lkr-item-sub {
-                                font-size: 12px;
-                                color: rgba(255, 255, 255, 0.35);
-                            }
-
-                            .lkr-panel-item.balance-item .lkr-item-value {
-                                color: #5DCAA5;
-                            }
-
                             /* ── Overpayment / Next Installment Panel ───────────────────────────── */
                             .overpay-panel {
                                 border-left: 4px solid #3b82f6;
@@ -594,7 +526,8 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 col-md-10">
                                                                 <div class="row">
                                                                     <span class="main-topic lh-lg" data-i18n="payment-details">Payment Details</span>
-                                                                    <nav aria-label="breadcrumb">
+
+                                                                    <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                                         <ol class="breadcrumb m-0">
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='payments'>Payments</a></li>
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./students-payments'>Student Payments</a></li>
@@ -606,13 +539,13 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                             <?php
                                                             $receiptCheck = Database::search("
-                                        SELECT cpr.receipt_number, cpr.course_payment_receipt_id
-                                        FROM course_payment_has_payments cpp
-                                        INNER JOIN course_payment_receipts cpr
-                                            ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
-                                        WHERE cpp.course_payment_has_payment_id = '" . $coursepaymentData['course_payment_has_payment_id'] . "'
-                                        LIMIT 1
-                                    ");
+                        SELECT cpr.receipt_number, cpr.course_payment_receipt_id
+                        FROM course_payment_has_payments cpp
+                        INNER JOIN course_payment_receipts cpr
+                            ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
+                        WHERE cpp.course_payment_has_payment_id = '" . $coursepaymentData['course_payment_has_payment_id'] . "'
+                        LIMIT 1
+                    ");
                                                             if ($receiptCheck && $receiptCheck->num_rows > 0):
                                                                 $receiptInfo = $receiptCheck->fetch_assoc();
                                                             ?>
@@ -867,7 +800,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <span class="currency-label-badge tax-badge"><?= number_format($latestTaxRate, 2) ?>%</span>
                                                                                     </span>
                                                                                     <span class="detail-value"><?= $currencyCode ?> <?= number_format($taxOnPayable, 2) ?></span>
-                                                                                    <span class="detail-lkr-hint">On base: <?= $currencyCode ?> <?= number_format($basePayable, 2) ?></span>
+                                                                                    <span class="detail-lkr-hint">Accumulated from receipts</span>
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?><span class="detail-lkr-hint">≈ LKR <?= number_format($taxAmtLKR, 2) ?></span><?php endif; ?>
                                                                                 </div>
                                                                             </div>
@@ -901,52 +834,17 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
                                                                         </div>
 
-                                                                        <!-- ════════════════════════════════════════════════════════════
-                                                     OVERPAYMENT / NEXT INSTALLMENT PANEL
-                                                     Shows when paid_amount > current installment payable
-                                                ════════════════════════════════════════════════════════════ -->
-                                                                        <?php if ($nextInstallmentData): ?>
-                                                                            <div class="col-12 mt-2">
-                                                                                <div class="overpay-panel">
-                                                                                    <div class="overpay-panel-title">
-                                                                                        <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
-                                                                                        Overpayment Applied — Next Installment Credit
-                                                                                    </div>
-                                                                                    <div class="overpay-grid">
-                                                                                        <div class="overpay-item">
-                                                                                            <span class="overpay-label">Current Installment</span>
-                                                                                            <span class="overpay-value"><?= $currencyCode ?> <?= number_format($payableAmount, 2) ?></span>
-                                                                                            <span class="overpay-sub">Fully Paid ✓</span>
-                                                                                        </div>
-                                                                                        <div class="overpay-item">
-                                                                                            <span class="overpay-label">Overpayment Amount</span>
-                                                                                            <span class="overpay-value"><?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?></span>
-                                                                                            <span class="overpay-sub">Applied to next installment</span>
-                                                                                        </div>
-                                                                                        <div class="overpay-item">
-                                                                                            <span class="overpay-label">Next Installment Breakdown</span>
-                                                                                            <span class="overpay-value" style="font-size:13px;">
-                                                                                                <?= $currencyCode ?> <?= number_format($nextInstallmentData['base'], 2) ?>
-                                                                                                <span style="font-size:11px;color:var(--sub-text-color);font-weight:400;">course fee</span>
-                                                                                                + <?= $currencyCode ?> <?= number_format($nextInstallmentData['tax'], 2) ?>
-                                                                                                <span>tax (<?= number_format($latestTaxRate, 2) ?>%)</span>
-                                                                                            </span>
-                                                                                            <span class="overpay-sub">Total: <?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?></span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        <?php endif; ?>
+
 
                                                                         <!-- Penalty rules -->
                                                                         <?php
                                                                         if ($paymentData['panelty_payment_option_panelty_payment_option_id'] != 1):
                                                                             $panelties = Database::search("
-                                                        SELECT * FROM `course_payments_penalties`
-                                                        INNER JOIN `panelty_payments_type`
-                                                            ON `course_payments_penalties`.`panelty_payment_type_panelty_payment_type_id` = `panelty_payments_type`.`panelty_payments_type_id`
-                                                        WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
-                                                    ");
+                                                    SELECT * FROM `course_payments_penalties`
+                                                    INNER JOIN `panelty_payments_type`
+                                                        ON `course_payments_penalties`.`panelty_payment_type_panelty_payment_type_id` = `panelty_payments_type`.`panelty_payments_type_id`
+                                                    WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
+                                                ");
                                                                             if ($panelties->num_rows > 0):
                                                                         ?>
                                                                                 <span class="reference-label my-3">PENALTY PAYMENT ENABLED</span>
@@ -978,7 +876,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             </div>
 
-                                                            <!-- ── Receipt card ────────────────────────────────────── -->
+                                                            <!-- ── Receipt card ────────────────────────────────── -->
                                                             <div class="payment-card-container mt-4">
                                                                 <div class="payment-card">
                                                                     <div class="card-background-ongoing"></div>
@@ -1020,14 +918,12 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
 
                                                                         <div class="details-row d-flex flex-column flex-lg-row">
-                                                                            <!-- Date Paid -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Date Paid</span>
                                                                                     <span class="detail-value"><?= date_format(date_create($coursepaymentData["date_paid"]), "Y-m-d h:i A") ?? '--/--/----' ?></span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Discount -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Given Discount</span>
@@ -1036,7 +932,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?><span class="detail-lkr-hint">≈ LKR <?= number_format($recDiscConverted * $exchangeRateValue, 2) ?></span><?php endif; ?>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Penalty -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Added Penalty</span>
@@ -1045,26 +940,18 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?><span class="detail-lkr-hint">≈ LKR <?= number_format($recPenConverted * $exchangeRateValue, 2) ?></span><?php endif; ?>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Tax Rate -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Tax Rate</span>
-                                                                                    <span class="detail-value">
-                                                                                        <?= $receiptTaxRate > 0 ? number_format($receiptTaxRate, 2) . '%' : 'N/A' ?>
-                                                                                    </span>
+                                                                                    <span class="detail-value"><?= $receiptTaxRate > 0 ? number_format($receiptTaxRate, 2) . '%' : 'N/A' ?></span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Tax Amount (calculated from paid × rate%) -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Tax Amount</span>
-                                                                                    <span class="detail-value">
-                                                                                        <?= $receiptTaxAmount > 0 ? $paidCurrCode . ' ' . number_format($receiptTaxAmount, 2) : 'N/A' ?>
-                                                                                    </span>
+                                                                                    <span class="detail-value"><?= $receiptTaxAmount > 0 ? $paidCurrCode . ' ' . number_format($receiptTaxAmount, 2) : 'N/A' ?></span>
                                                                                     <?php if ($receiptTaxAmount > 0): ?>
-                                                                                        <span class="detail-lkr-hint">
-                                                                                            <?= $paidCurrCode ?> <?= number_format($receiptPaidAmt, 2) ?> × <?= number_format($receiptTaxRate, 2) ?>% = <?= number_format($receiptTaxAmount, 2) ?>
-                                                                                        </span>
+                                                                                        <span class="detail-lkr-hint">Extracted from paid (tax-inclusive)</span>
                                                                                     <?php endif; ?>
                                                                                     <?php if ($receiptTaxAmount > 0 && $paidIsDiffFromCourse): ?>
                                                                                         <span class="detail-lkr-hint">= <?= $currencyCode ?> <?= number_format($receiptTaxConverted, 2) ?></span>
@@ -1074,7 +961,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php endif; ?>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Course Fee (base) -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Course Fee (Base)</span>
@@ -1082,7 +968,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="detail-lkr-hint"><?= $paidCurrCode ?> <?= number_format($receiptPaidAmt, 2) ?> − <?= number_format($receiptTaxAmount, 2) ?> tax</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <!-- Payment Method -->
                                                                             <div class="detail-item">
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Payment Method</span>
@@ -1279,12 +1164,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <tbody id="user-table-data">
                                                                                         <?php
                                                                                         $users = Database::search("
-                                                                    SELECT * FROM `payment_logs`
-                                                                    INNER JOIN `users` ON `payment_logs`.`users_user_id` = `users`.`user_id`
-                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
-                                                                    WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
-                                                                    ORDER BY `date_updated` DESC
-                                                                ");
+                                                    SELECT * FROM `payment_logs`
+                                                    INNER JOIN `users` ON `payment_logs`.`users_user_id` = `users`.`user_id`
+                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                                                    WHERE `course_payments_course_payments_id` = '" . $paymentData['course_payments_id'] . "'
+                                                    ORDER BY `date_updated` DESC
+                                                ");
                                                                                         if ($users->num_rows > 0) {
                                                                                             while ($data = $users->fetch_assoc()):
                                                                                         ?>
@@ -1339,8 +1224,8 @@ if (!SessionUser::hasValidSession()) {
                             </div>
 
                             <!-- ════════════════════════════════════════════════════════════════════════
-         UPDATE PAYMENT STATUS MODAL
-    ════════════════════════════════════════════════════════════════════════════ -->
+                                 UPDATE PAYMENT STATUS MODAL
+                            ════════════════════════════════════════════════════════════════════════ -->
                             <div class="modal fade" id="updatePaymentStatus" tabindex="-1" role="dialog" aria-hidden="true">
                                 <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
                                     <div class="modal-content component-theme">
@@ -1373,7 +1258,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="modal-body">
                                             <div class="row gx-4 gy-3">
 
-                                                <!-- LKR Summary Panel (shown when LKR mode active) -->
+                                                <!-- LKR Summary Panel -->
                                                 <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
                                                     <div class="col-12" id="modal-lkr-summary-panel" style="display:none;">
                                                         <div class="lkr-panel">
@@ -1432,18 +1317,18 @@ if (!SessionUser::hasValidSession()) {
                                                     <?php endif; ?>
                                                 </div>
 
-                                                <!-- Row 2: Discount | Penalty | Tax (auto-calculated) -->
+                                                <!-- Row 2: Discount | Penalty | Tax (read-only) -->
                                                 <div class="col-12 col-lg-4 d-flex flex-column">
                                                     <label class="text-14 main-text">
                                                         Discount Given
                                                         <span class="currency-label-badge" id="modal-discount-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="number" class="form-control custom-input mt-2" id="modal-discount-amount"
-                                                        value="<?= $coursepaymentData['discount_amount'] ?? 0 ?>"
+                                                        value="<?= $jsCurrentReceiptDiscount ?>"
                                                         step="0.01" min="0"
                                                         <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
                                                     <div class="text-12 text-danger" id="modal-discount-feedback"></div>
-                                                    <span class="convert-hint" id="modal-discount-lkr-hint">≈ LKR <?= number_format(($coursepaymentData['discount_amount'] ?? 0) * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint" id="modal-discount-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptDiscount * $exchangeRateValue, 2) ?></span>
                                                     <span class="convert-hint d-none" id="modal-discount-base-hint">= <?= $currencyCode ?> 0.00</span>
                                                 </div>
 
@@ -1453,18 +1338,14 @@ if (!SessionUser::hasValidSession()) {
                                                         <span class="currency-label-badge" id="modal-penalty-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="number" class="form-control custom-input mt-2" id="modal-penalty-amount"
-                                                        value="<?= $coursepaymentData['panelty_amount'] ?? 0 ?>"
+                                                        value="<?= $jsCurrentReceiptPenalty ?>"
                                                         step="0.01" min="0"
                                                         <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
                                                     <div class="text-12 text-danger" id="modal-penalty-feedback"></div>
-                                                    <span class="convert-hint" id="modal-penalty-lkr-hint">≈ LKR <?= number_format(($coursepaymentData['panelty_amount'] ?? 0) * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint" id="modal-penalty-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptPenalty * $exchangeRateValue, 2) ?></span>
                                                     <span class="convert-hint d-none" id="modal-penalty-base-hint">= <?= $currencyCode ?> 0.00</span>
                                                 </div>
 
-                                                <!-- ════════════════════════════════════════════════
-                             TAX — READ-ONLY, auto-calculated from paid amount
-                             Formula: tax = paid_amount × taxRate%
-                        ════════════════════════════════════════════════ -->
                                                 <div class="col-12 col-lg-4 d-flex flex-column">
                                                     <label class="text-14 main-text">
                                                         Tax Amount
@@ -1472,45 +1353,42 @@ if (!SessionUser::hasValidSession()) {
                                                         <span class="currency-label-badge" id="modal-tax-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="text" class="form-control custom-input tax-readonly mt-2" id="modal-tax-amount-display"
-                                                        value="<?= number_format($receiptTaxAmount, 2) ?>"
+                                                        value="<?= number_format($jsCurrentReceiptTax, 2) ?>"
                                                         readonly tabindex="-1">
-                                                    <!-- Formula hint: paid × rate% = tax -->
                                                     <span class="convert-hint mt-1" style="color:#d97706;" id="modal-tax-formula-hint">
-                                                        <?= $currencyCode ?> <?= number_format($receiptPaidAmt, 2) ?> × <?= number_format($latestTaxRate, 2) ?>% = <?= $currencyCode ?> <?= number_format($receiptTaxAmount, 2) ?>
+                                                        Extracted from paid (tax-inclusive model)
                                                     </span>
-                                                    <span class="convert-hint" id="modal-tax-lkr-hint">≈ LKR <?= number_format($receiptTaxAmount * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint" id="modal-tax-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptTax * $exchangeRateValue, 2) ?></span>
                                                     <span class="convert-hint d-none" id="modal-tax-base-hint">= <?= $currencyCode ?> 0.00</span>
                                                 </div>
 
-                                                <!-- Row 3: Paid Amount | Base Payable | Custom Rate -->
+                                                <!-- Row 3: Paid Amount | Net Base (display) | Custom Rate -->
                                                 <div class="col-12 col-lg-4 d-flex flex-column">
                                                     <label class="text-14 main-text">
                                                         Total Paid Amount (incl. tax)
                                                         <span class="currency-label-badge" id="modal-paid-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="number" class="form-control custom-input mt-2" id="modal-paid-amount"
-                                                        value="<?= $coursepaymentData['paid_amount'] ?>"
+                                                        value="<?= $jsCurrentReceiptPaid ?>"
                                                         step="0.01" min="0"
                                                         <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
                                                     <div class="text-12 text-danger" id="paid-amount-feedback"></div>
-                                                    <span class="convert-hint" id="modal-paid-lkr-hint">≈ LKR <?= number_format($coursepaymentData['paid_amount'] * $exchangeRateValue, 2) ?></span>
+                                                    <span class="convert-hint" id="modal-paid-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptPaid * $exchangeRateValue, 2) ?></span>
                                                     <span class="convert-hint d-none" id="modal-paid-base-hint">= <?= $currencyCode ?> 0.00</span>
-                                                    <!-- Auto hint: shows base + tax suggestion based on payable -->
                                                     <span class="convert-hint mt-1" style="color:#0ea5e9;" id="modal-paid-auto-hint">
                                                         Suggested: <?= $currencyCode ?> <?= number_format($payableAmount, 2) ?>
-                                                        (<?= number_format($basePayable, 2) ?> + <?= number_format($taxOnPayable, 2) ?> tax)
                                                     </span>
                                                 </div>
 
                                                 <div class="col-12 col-lg-4 d-flex flex-column">
                                                     <label class="text-14 main-text">
-                                                        Base Payable (Course Fee)
+                                                        Net Base (Course Fee − Discount + Penalty)
                                                         <span class="currency-label-badge" id="modal-base-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="text" class="form-control custom-input mt-2" id="modal-base-payable-display"
-                                                        value="<?= number_format($basePayable, 2) ?>" disabled>
+                                                        value="<?= number_format($netBase, 2) ?>" disabled>
                                                     <span class="convert-hint mt-1" id="modal-base-formula-hint">
-                                                        paid − (paid × <?= number_format($latestTaxRate, 2) ?>%) = course fee
+                                                        <?= $currencyCode ?> amount − discount + penalty
                                                     </span>
                                                 </div>
 
@@ -1536,15 +1414,12 @@ if (!SessionUser::hasValidSession()) {
                                                         <span class="currency-label-badge" id="modal-balance-currency-label"><?= $currencyCode ?></span>
                                                     </label>
                                                     <input type="text" class="form-control custom-input mt-2" id="modal-balance-display"
-                                                        value="<?= number_format($balance, 2) ?>" disabled>
-                                                    <span class="convert-hint" id="modal-balance-lkr-hint">≈ LKR <?= number_format($balance * $exchangeRateValue, 2) ?></span>
+                                                        value="<?= number_format(max(0, $balance), 2) ?>" disabled>
+                                                    <span class="convert-hint" id="modal-balance-lkr-hint">≈ LKR <?= number_format(max(0, $balance) * $exchangeRateValue, 2) ?></span>
                                                     <span class="convert-hint d-none" id="modal-balance-base-hint">= <?= $currencyCode ?> 0.00</span>
                                                 </div>
 
-                                                <!-- ════════════════════════════════════════════════
-                             NEXT INSTALLMENT OVERPAYMENT PANEL (modal)
-                             Appears dynamically when paid > payable
-                        ════════════════════════════════════════════════ -->
+                                                <!-- OVERPAYMENT PANEL -->
                                                 <div class="col-12" id="modal-overpay-panel" style="display:none;">
                                                     <div class="overpay-panel">
                                                         <div class="overpay-panel-title">
@@ -1629,13 +1504,30 @@ if (!SessionUser::hasValidSession()) {
 
                             <script>
                                 /* ════════════════════════════════════════════════════════════════════════
-       PHP-INJECTED CONSTANTS
-    ════════════════════════════════════════════════════════════════════════ */
+                                   PHP-INJECTED CONSTANTS
+                                   
+                                   These represent the FULL installment state at page-load time,
+                                   including ALL receipts (status 2 and 3), converted to course currency.
+                                   
+                                   The modal allows editing THIS receipt's values before approval,
+                                   so we subtract the current receipt's stored values and replace
+                                   with the new ones the admin enters.
+                                ════════════════════════════════════════════════════════════════════════ */
                                 var COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
-                                var FIXED_TAX_RATE = <?= (float)$latestTaxRate ?>; // latest from DB
-                                var EXISTING_TOTAL_PAID = <?= (float)$paidAmount ?>; // already-paid total
+                                var FIXED_TAX_RATE = <?= (float)$latestTaxRate ?>;
+
+                                // Total accumulated values from ALL receipts (incl. current pending)
+                                var EXISTING_TOTAL_PAID = <?= (float)$convertedPaidTotal ?>;
                                 var EXISTING_TOTAL_DISC = <?= (float)$totalDiscount ?>;
                                 var EXISTING_TOTAL_PEN = <?= (float)$totalPenalty ?>;
+                                var EXISTING_TOTAL_TAX = <?= (float)$totalReceiptTax ?>;
+
+                                // This receipt's currently stored values (to subtract before recalc)
+                                var CURRENT_RECEIPT_PAID = <?= (float)$jsCurrentReceiptPaid ?>;
+                                var CURRENT_RECEIPT_DISCOUNT = <?= (float)$jsCurrentReceiptDiscount ?>;
+                                var CURRENT_RECEIPT_PENALTY = <?= (float)$jsCurrentReceiptPenalty ?>;
+                                var CURRENT_RECEIPT_TAX = <?= (float)$jsCurrentReceiptTax ?>;
+
                                 var currencyCode = "<?= $currencyCode ?>";
                                 var isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
                                 var baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
@@ -1650,15 +1542,10 @@ if (!SessionUser::hasValidSession()) {
                                 };
 
                                 /* ════════════════════════════════════════════════════════════════════════
-                                   TAX MODEL (matches backend & add-receipt page):
-                                     tax  = paid_amount × taxRate%
-                                     base = paid_amount − tax  = paid_amount × (1 − taxRate%)
-
-                                   Example (taxRate = 2.5%):
-                                     paid = 10,250  →  base = 10,000  →  tax = 250
-                                     (Correct: base = paid ÷ (1 + rate%), tax = paid - base)
+                                   HELPER: Extract tax from a tax-inclusive paid amount
+                                   Formula: tax = paid − (paid / (1 + rate/100))
                                 ════════════════════════════════════════════════════════════════════════ */
-                                function calcTaxFromPaid(paid, rate) {
+                                function extractTaxFromPaid(paid, rate) {
                                     if (rate <= 0 || paid <= 0) return {
                                         base: paid,
                                         tax: 0
@@ -1673,8 +1560,18 @@ if (!SessionUser::hasValidSession()) {
                                 }
 
                                 /* ════════════════════════════════════════════════════════════════════════
-                                   MAIN MODAL RECALCULATE
-                                   Called whenever: paid amount, discount, penalty, exchange rate changes
+                                   CORRECTED MODAL RECALCULATE
+                                   
+                                   Model (identical to second file / correct PHP):
+                                     newTotalDisc  = EXISTING_TOTAL_DISC  - CURRENT_DISC  + newDisc
+                                     newTotalPen   = EXISTING_TOTAL_PEN   - CURRENT_PEN   + newPen
+                                     newTotalPaid  = EXISTING_TOTAL_PAID  - CURRENT_PAID  + newPaid
+                                     newTaxFromPaid = extractTax(newPaid, rate).tax
+                                     newTotalTax   = EXISTING_TOTAL_TAX   - CURRENT_TAX   + newTaxFromPaid
+                                     
+                                     netBase       = COURSE_AMOUNT - newTotalDisc + newTotalPen
+                                     payableAmount = netBase + newTotalTax
+                                     balance       = payableAmount - newTotalPaid
                                 ════════════════════════════════════════════════════════════════════════ */
                                 function modalRecalculate() {
                                     var rate = modalExchangeRate || modalExchangeRateValue || 1;
@@ -1687,110 +1584,107 @@ if (!SessionUser::hasValidSession()) {
                                         return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v * rate : v;
                                     }
 
+                                    // ── Raw input values (in current display currency) ──────────────
                                     var rawDisc = Math.max(0, parseFloat((mGet('modal-discount-amount') || {}).value) || 0);
                                     var rawPen = Math.max(0, parseFloat((mGet('modal-penalty-amount') || {}).value) || 0);
                                     var rawPaid = Math.max(0, parseFloat((mGet('modal-paid-amount') || {}).value) || 0);
 
+                                    // ── Convert to base/course currency ────────────────────────────
                                     var discBase = toBase(rawDisc);
                                     var penBase = toBase(rawPen);
                                     var paidBase = toBase(rawPaid);
 
-                                    // ── Payable for THIS installment ────────────────────────────────────
-                                    // basePayable = course_amount - discount + penalty  (no tax yet)
-                                    // tax         = basePayable × rate%
-                                    // totalPayable = basePayable + tax
-                                    var basePayable = Math.max(0, COURSE_AMOUNT - discBase + penBase);
-                                    var taxOnPayable = basePayable * (FIXED_TAX_RATE / 100);
-                                    var totalPayable = basePayable + taxOnPayable;
+                                    // ── Extract tax from new paid amount (tax-inclusive model) ─────
+                                    var taxCalc = extractTaxFromPaid(paidBase, FIXED_TAX_RATE);
+                                    var newTaxBase = taxCalc.tax;
+                                    var newFeeBase = taxCalc.base;
 
-                                    // ── Tax extracted from the entered paid amount ──────────────────────
-                                    // tax_from_paid = paid × rate%   (same model as above)
-                                    var calcFromPaid = calcTaxFromPaid(paidBase, FIXED_TAX_RATE);
-                                    var taxFromPaid = calcFromPaid.tax;
-                                    var baseFromPaid = calcFromPaid.base;
+                                    // ── Rebuild accumulated totals replacing this receipt ──────────
+                                    var newTotalDisc = EXISTING_TOTAL_DISC - CURRENT_RECEIPT_DISCOUNT + discBase;
+                                    var newTotalPen = EXISTING_TOTAL_PEN - CURRENT_RECEIPT_PENALTY + penBase;
+                                    var newTotalPaid = EXISTING_TOTAL_PAID - CURRENT_RECEIPT_PAID + paidBase;
+                                    var newTotalTax = EXISTING_TOTAL_TAX - CURRENT_RECEIPT_TAX + newTaxBase;
 
-                                    // ── Balance ─────────────────────────────────────────────────────────
-                                    var balBase = totalPayable - paidBase; // can be negative (overpayment)
+                                    // ── Payable = netBase + accumulated tax (matches second file) ──
+                                    var netBase = Math.max(0, COURSE_AMOUNT - newTotalDisc + newTotalPen);
+                                    var payableAmount = netBase + newTotalTax;
+                                    var balBase = payableAmount - newTotalPaid;
 
-                                    // ── Update displays ─────────────────────────────────────────────────
-                                    var taxDisplay = toDisplay(taxFromPaid);
-                                    var baseDisplay = toDisplay(baseFromPaid);
-                                    var balDisplay = toDisplay(balBase);
+                                    // ── Display values (convert to selected currency mode) ──────────
                                     var label = modalCurrentMode === 'lkr' ? 'LKR' : currencyCode;
+                                    var taxDisplay = toDisplay(newTaxBase);
+                                    var feeDisplay = toDisplay(newFeeBase);
+                                    var balDisplay = toDisplay(balBase);
+                                    var payDisplay = toDisplay(payableAmount);
+                                    var netDisplay = toDisplay(netBase);
 
+                                    // Tax field
                                     var taxEl = mGet('modal-tax-amount-display');
                                     if (taxEl) taxEl.value = taxDisplay.toFixed(2);
 
+                                    // Net base field
                                     var baseEl = mGet('modal-base-payable-display');
-                                    if (baseEl) baseEl.value = baseDisplay.toFixed(2);
+                                    if (baseEl) baseEl.value = netDisplay.toFixed(2);
 
                                     // Tax formula hint
                                     setText('modal-tax-formula-hint',
-                                        label + ' ' + fmt(toDisplay(paidBase)) + ' × ' + FIXED_TAX_RATE.toFixed(2) + '% = ' + label + ' ' + fmt(taxDisplay));
+                                        label + ' ' + fmt(toDisplay(paidBase)) +
+                                        ' ÷ ' + (1 + FIXED_TAX_RATE / 100).toFixed(4) +
+                                        ' → fee ' + fmt(feeDisplay) + ' + tax ' + fmt(taxDisplay));
 
-                                    // Auto hint (suggested payable)
-                                    var totalPayableDisplay = toDisplay(totalPayable);
-                                    var basePayableDisplay = toDisplay(basePayable);
-                                    var taxPayableDisplay = toDisplay(taxOnPayable);
+                                    // Suggested paid amount hint
                                     setText('modal-paid-auto-hint',
-                                        'Suggested: ' + label + ' ' + fmt(totalPayableDisplay) +
-                                        ' (' + fmt(basePayableDisplay) + ' course + ' + fmt(taxPayableDisplay) + ' tax)');
+                                        'Suggested: ' + label + ' ' + fmt(payDisplay) +
+                                        ' (' + fmt(netDisplay) + ' base + ' + fmt(toDisplay(newTotalTax)) + ' tax)');
 
-                                    // Balance
+                                    // Balance field
                                     var balEl = mGet('modal-balance-display');
                                     if (balEl) balEl.value = Math.max(0, balDisplay).toFixed(2);
 
-                                    // ── Overpayment detection ────────────────────────────────────────────
-                                    if (paidBase > totalPayable + 0.001 && rawPaid > 0) {
-                                        var overpayBase = paidBase - totalPayable;
-                                        var overpayDisp = toDisplay(overpayBase);
-                                        var nextCalc = calcTaxFromPaid(overpayBase, FIXED_TAX_RATE);
-                                        var nextTaxDisp = toDisplay(nextCalc.tax);
-                                        var nextBaseDisp = toDisplay(nextCalc.base);
-                                        var nextTotalDisp = toDisplay(overpayBase);
+                                    // Net base formula hint
+                                    setText('modal-base-formula-hint',
+                                        label + ' ' + fmt(toDisplay(COURSE_AMOUNT)) +
+                                        ' − ' + fmt(toDisplay(newTotalDisc)) + ' disc' +
+                                        ' + ' + fmt(toDisplay(newTotalPen)) + ' pen' +
+                                        ' = ' + fmt(netDisplay));
 
-                                        showModalOverpayPanel(
-                                            toDisplay(totalPayable),
-                                            overpayDisp,
-                                            nextBaseDisp,
-                                            nextTaxDisp,
-                                            nextTotalDisp,
-                                            label
-                                        );
+                                    // ── Overpayment detection ─────────────────────────────────────
+                                    if (paidBase > payableAmount + 0.001 && rawPaid > 0) {
+                                        var overpayBase = paidBase - payableAmount;
+                                        var overpayDisp = toDisplay(overpayBase);
+                                        // Extract tax from overpay (tax-inclusive)
+                                        var ovCalc = extractTaxFromPaid(overpayBase, FIXED_TAX_RATE);
+                                        var ovTaxDisp = toDisplay(ovCalc.tax);
+                                        var ovFeeDisp = toDisplay(ovCalc.base);
+
+                                        showModalOverpayPanel(payDisplay, overpayDisp, ovFeeDisp, ovTaxDisp, overpayDisp, label);
                                     } else {
                                         hideModalOverpayPanel();
                                     }
 
-                                    // ── LKR hints ───────────────────────────────────────────────────────
+                                    // ── LKR hints ─────────────────────────────────────────────────
                                     if (!isBaseCurrencyLKR && rate) {
                                         if (modalCurrentMode === 'lkr') {
                                             setHint('modal-discount-base-hint', currencyCode, discBase, false);
                                             setHint('modal-penalty-base-hint', currencyCode, penBase, false);
-                                            setHint('modal-tax-base-hint', currencyCode, taxFromPaid, false);
+                                            setHint('modal-tax-base-hint', currencyCode, newTaxBase, false);
                                             setHint('modal-balance-base-hint', currencyCode, Math.max(0, balBase), false);
                                             setHint('modal-paid-base-hint', currencyCode, paidBase, false);
-                                            setHint('modal-discount-lkr-hint', 'LKR', rawDisc);
-                                            setHint('modal-penalty-lkr-hint', 'LKR', rawPen);
-                                            setHint('modal-tax-lkr-hint', 'LKR', taxDisplay);
-                                            setHint('modal-balance-lkr-hint', 'LKR', Math.max(0, balDisplay));
-                                            setHint('modal-paid-lkr-hint', 'LKR', rawPaid);
                                         } else {
                                             setHint('modal-discount-lkr-hint', 'LKR', rawDisc * rate);
                                             setHint('modal-penalty-lkr-hint', 'LKR', rawPen * rate);
-                                            setHint('modal-tax-lkr-hint', 'LKR', taxFromPaid * rate);
+                                            setHint('modal-tax-lkr-hint', 'LKR', newTaxBase * rate);
                                             setHint('modal-balance-lkr-hint', 'LKR', Math.max(0, balBase) * rate);
                                             setHint('modal-paid-lkr-hint', 'LKR', rawPaid * rate);
                                         }
 
-                                        // LKR summary panel updates
                                         setText('modal-lkr-balance-val', 'LKR ' + fmt(Math.max(0, balBase) * rate));
                                         setText('modal-lkr-balance-sub', currencyCode + ' ' + fmt(Math.max(0, balBase)));
-                                        setText('modal-lkr-discount-val', 'LKR ' + fmt(discBase * rate));
-                                        setText('modal-lkr-penalty-val', 'LKR ' + fmt(penBase * rate));
-                                        setText('modal-lkr-tax-val', 'LKR ' + fmt(taxFromPaid * rate));
-                                        setText('modal-lkr-tax-sub', currencyCode + ' ' + fmt(taxFromPaid));
+                                        setText('modal-lkr-discount-val', 'LKR ' + fmt(newTotalDisc * rate));
+                                        setText('modal-lkr-penalty-val', 'LKR ' + fmt(newTotalPen * rate));
+                                        setText('modal-lkr-tax-val', 'LKR ' + fmt(newTotalTax * rate));
+                                        setText('modal-lkr-tax-sub', currencyCode + ' ' + fmt(newTotalTax));
                                     } else {
-                                        // LKR course — clear LKR hints
                                         ['modal-discount-lkr-hint', 'modal-penalty-lkr-hint', 'modal-tax-lkr-hint',
                                             'modal-balance-lkr-hint', 'modal-paid-lkr-hint'
                                         ].forEach(function(id) {
@@ -1801,17 +1695,17 @@ if (!SessionUser::hasValidSession()) {
                                 }
 
                                 /* ════════════════════════════════════════════════════════════════════════
-                                   OVERPAYMENT PANEL HELPERS
+                                   HELPER FUNCTIONS
                                 ════════════════════════════════════════════════════════════════════════ */
-                                function showModalOverpayPanel(currentPayable, overpay, nextBase, nextTax, nextTotal, label) {
+                                function showModalOverpayPanel(currentPayable, overpay, nextFee, nextTax, nextTotal, label) {
                                     var panel = mGet('modal-overpay-panel');
                                     if (!panel) return;
                                     panel.style.display = 'block';
                                     setText('modal-overpay-current', label + ' ' + fmt(currentPayable));
                                     setText('modal-overpay-amount', label + ' ' + fmt(overpay));
                                     setText('modal-overpay-next-breakdown',
-                                        label + ' ' + fmt(nextBase) + ' course fee + ' + label + ' ' + fmt(nextTax) +
-                                        ' tax (' + FIXED_TAX_RATE.toFixed(2) + '%)');
+                                        label + ' ' + fmt(nextFee) + ' course fee + ' +
+                                        label + ' ' + fmt(nextTax) + ' tax (' + FIXED_TAX_RATE.toFixed(2) + '%)');
                                     setText('modal-overpay-next-total', 'Total: ' + label + ' ' + fmt(nextTotal));
                                 }
 
@@ -1820,105 +1714,6 @@ if (!SessionUser::hasValidSession()) {
                                     if (panel) panel.style.display = 'none';
                                 }
 
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   CURRENCY SWITCH
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function modalSwitchCurrency(mode) {
-                                    if (isBaseCurrencyLKR) return;
-                                    var rate = modalExchangeRate || modalExchangeRateValue || 1;
-                                    modalCurrentMode = mode;
-
-                                    var btnBase = mGet('modal-btn-base-currency');
-                                    var btnLkr = mGet('modal-btn-lkr-currency');
-                                    if (btnBase) btnBase.classList.toggle('active', mode === 'base');
-                                    if (btnLkr) btnLkr.classList.toggle('active', mode === 'lkr');
-
-                                    var panel = mGet('modal-lkr-summary-panel');
-                                    if (panel) panel.style.display = mode === 'lkr' ? 'block' : 'none';
-
-                                    var label = mode === 'lkr' ? 'LKR' : currencyCode;
-                                    ['modal-discount-currency-label', 'modal-penalty-currency-label',
-                                        'modal-balance-currency-label', 'modal-paid-currency-label',
-                                        'modal-base-currency-label', 'modal-tax-currency-label'
-                                    ].forEach(function(id) {
-                                        var el = mGet(id);
-                                        if (el && !el.classList.contains('tax-badge')) el.textContent = label;
-                                    });
-
-                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(function(el) {
-                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'lkr');
-                                    });
-                                    document.querySelectorAll('[id$="-base-hint"]').forEach(function(el) {
-                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'base');
-                                    });
-
-                                    // Convert editable inputs between base↔LKR
-                                    ['modal-discount-amount', 'modal-penalty-amount', 'modal-paid-amount'].forEach(function(id) {
-                                        var el = mGet(id);
-                                        if (!el || el.disabled) return;
-                                        var v = parseFloat(el.value) || 0;
-                                        if (!v) return;
-                                        el.value = mode === 'lkr' ? (v * rate).toFixed(2) : (v / rate).toFixed(2);
-                                    });
-
-                                    modalRecalculate();
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   PAID DATE CHANGE → fetch new exchange rate
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function modalOnPaidDateChange() {
-                                    if (isBaseCurrencyLKR) return;
-                                    var dateEl = mGet('modal-paid-date');
-                                    if (!dateEl || !dateEl.value) return;
-                                    setModalRateStatus('loading', 'Fetching exchange rate for selected date…');
-
-                                    fetch('api/getExchangeRate.php?base=' + baseCurrencyId + '&target=' + lkrCurrencyId + '&date=' + dateEl.value)
-                                        .then(function(r) {
-                                            return r.json();
-                                        })
-                                        .then(function(data) {
-                                            if (data.rate) {
-                                                modalExchangeRate = parseFloat(data.rate);
-                                                modalExchangeRateId = data.currency_exchange_rate_id;
-                                                var cr = mGet('modal-custom-rate');
-                                                if (cr) cr.value = modalExchangeRate.toFixed(2);
-                                                setText('modal-live-rate-text',
-                                                    '1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2) + ' (' + data.effective_date + ')');
-                                                var pr = mGet('modal-panel-rate-display');
-                                                if (pr) pr.textContent = modalExchangeRate.toFixed(2);
-                                                setModalRateStatus('success', 'Rate updated: 1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2));
-                                            } else {
-                                                setModalRateStatus('warning', 'No rate found. Using last known (' + (modalExchangeRate || modalExchangeRateValue).toFixed(2) + ').');
-                                            }
-                                            modalRecalculate();
-                                        })
-                                        .catch(function() {
-                                            setModalRateStatus('error', 'Could not fetch rate.');
-                                            modalRecalculate();
-                                        });
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   CUSTOM RATE OVERRIDE
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function modalOnCustomRateChange() {
-                                    var el = mGet('modal-custom-rate');
-                                    var val = el ? parseFloat(el.value) : NaN;
-                                    if (!isNaN(val) && val > 0) {
-                                        modalExchangeRate = val;
-                                        modalExchangeRateId = null;
-                                        var pr = mGet('modal-panel-rate-display');
-                                        if (pr) pr.textContent = val.toFixed(2);
-                                        setText('modal-live-rate-text', '1 ' + currencyCode + ' = LKR ' + val.toFixed(2) + ' (custom)');
-                                        setModalRateStatus('info', 'Custom rate applied: 1 ' + currencyCode + ' = LKR ' + val.toFixed(2));
-                                        modalRecalculate();
-                                    }
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   HELPERS
-                                ════════════════════════════════════════════════════════════════════════ */
                                 function setHint(id, label, value, isApprox) {
                                     if (isApprox === undefined) isApprox = true;
                                     var el = mGet(id);
@@ -1951,10 +1746,97 @@ if (!SessionUser::hasValidSession()) {
                                     el.textContent = msg;
                                 }
 
-                                /* ── Wire events on DOM ready ─────────────────────────────────────────── */
+                                function modalSwitchCurrency(mode) {
+                                    if (isBaseCurrencyLKR) return;
+                                    var rate = modalExchangeRate || modalExchangeRateValue || 1;
+                                    modalCurrentMode = mode;
+
+                                    var btnBase = mGet('modal-btn-base-currency');
+                                    var btnLkr = mGet('modal-btn-lkr-currency');
+                                    if (btnBase) btnBase.classList.toggle('active', mode === 'base');
+                                    if (btnLkr) btnLkr.classList.toggle('active', mode === 'lkr');
+
+                                    var panel = mGet('modal-lkr-summary-panel');
+                                    if (panel) panel.style.display = mode === 'lkr' ? 'block' : 'none';
+
+                                    var label = mode === 'lkr' ? 'LKR' : currencyCode;
+                                    ['modal-discount-currency-label', 'modal-penalty-currency-label',
+                                        'modal-balance-currency-label', 'modal-paid-currency-label',
+                                        'modal-base-currency-label', 'modal-tax-currency-label'
+                                    ].forEach(function(id) {
+                                        var el = mGet(id);
+                                        if (el && !el.classList.contains('tax-badge')) el.textContent = label;
+                                    });
+
+                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(function(el) {
+                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'lkr');
+                                    });
+                                    document.querySelectorAll('[id$="-base-hint"]').forEach(function(el) {
+                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'base');
+                                    });
+
+                                    ['modal-discount-amount', 'modal-penalty-amount', 'modal-paid-amount'].forEach(function(id) {
+                                        var el = mGet(id);
+                                        if (!el || el.disabled) return;
+                                        var v = parseFloat(el.value) || 0;
+                                        if (!v) return;
+                                        el.value = mode === 'lkr' ? (v * rate).toFixed(2) : (v / rate).toFixed(2);
+                                    });
+
+                                    modalRecalculate();
+                                }
+
+                                function modalOnPaidDateChange() {
+                                    if (isBaseCurrencyLKR) return;
+                                    var dateEl = mGet('modal-paid-date');
+                                    if (!dateEl || !dateEl.value) return;
+                                    setModalRateStatus('loading', 'Fetching exchange rate for selected date…');
+
+                                    fetch('api/getExchangeRate.php?base=' + baseCurrencyId + '&target=' + lkrCurrencyId + '&date=' + dateEl.value)
+                                        .then(function(r) {
+                                            return r.json();
+                                        })
+                                        .then(function(data) {
+                                            if (data.rate) {
+                                                modalExchangeRate = parseFloat(data.rate);
+                                                modalExchangeRateId = data.currency_exchange_rate_id;
+                                                var cr = mGet('modal-custom-rate');
+                                                if (cr) cr.value = modalExchangeRate.toFixed(2);
+                                                setText('modal-live-rate-text',
+                                                    '1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2) + ' (' + data.effective_date + ')');
+                                                var pr = mGet('modal-panel-rate-display');
+                                                if (pr) pr.textContent = modalExchangeRate.toFixed(2);
+                                                setModalRateStatus('success', 'Rate updated: 1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2));
+                                            } else {
+                                                setModalRateStatus('warning', 'No rate found. Using last known (' + (modalExchangeRate || modalExchangeRateValue).toFixed(2) + ').');
+                                            }
+                                            modalRecalculate();
+                                        })
+                                        .catch(function() {
+                                            setModalRateStatus('error', 'Could not fetch rate.');
+                                            modalRecalculate();
+                                        });
+                                }
+
+                                function modalOnCustomRateChange() {
+                                    var el = mGet('modal-custom-rate');
+                                    var val = el ? parseFloat(el.value) : NaN;
+                                    if (!isNaN(val) && val > 0) {
+                                        modalExchangeRate = val;
+                                        modalExchangeRateId = null;
+                                        var pr = mGet('modal-panel-rate-display');
+                                        if (pr) pr.textContent = val.toFixed(2);
+                                        setText('modal-live-rate-text', '1 ' + currencyCode + ' = LKR ' + val.toFixed(2) + ' (custom)');
+                                        setModalRateStatus('info', 'Custom rate applied: 1 ' + currencyCode + ' = LKR ' + val.toFixed(2));
+                                        modalRecalculate();
+                                    }
+                                }
+
+                                /* ════════════════════════════════════════════════════════════════════════
+                                   EVENT LISTENER SETUP
+                                ════════════════════════════════════════════════════════════════════════ */
                                 document.addEventListener('DOMContentLoaded', function() {
 
-                                    // Progress bar animation
                                     var progressBar = document.querySelector('.progress-bar');
                                     if (progressBar) setTimeout(function() {
                                         progressBar.style.width = '<?= $progress ?>%';
@@ -1969,23 +1851,16 @@ if (!SessionUser::hasValidSession()) {
                                         });
                                     });
 
-                                    // Discount & penalty → recalculate
-                                    ['modal-discount-amount', 'modal-penalty-amount'].forEach(function(id) {
+                                    ['modal-discount-amount', 'modal-penalty-amount', 'modal-paid-amount'].forEach(function(id) {
                                         var el = mGet(id);
                                         if (el) el.addEventListener('input', modalRecalculate);
                                     });
 
-                                    // Paid amount → recalculate tax & overpay
-                                    var paidEl = mGet('modal-paid-amount');
-                                    if (paidEl) paidEl.addEventListener('input', modalRecalculate);
-
-                                    // Date & custom rate
                                     var paidDateEl = mGet('modal-paid-date');
                                     var customRateEl = mGet('modal-custom-rate');
                                     if (paidDateEl) paidDateEl.addEventListener('change', modalOnPaidDateChange);
                                     if (customRateEl) customRateEl.addEventListener('input', modalOnCustomRateChange);
 
-                                    // Recalculate when modal opens
                                     var modal = document.getElementById('updatePaymentStatus');
                                     if (modal) modal.addEventListener('shown.bs.modal', function() {
                                         modalRecalculate();
@@ -1993,554 +1868,8 @@ if (!SessionUser::hasValidSession()) {
                                 });
                             </script>
 
-                            <!-- Receipt renderer script (unchanged from original) -->
-                            <script>
-                                var mGet = function(id) {
-                                    return document.getElementById(id);
-                                };
+                            <script src="./assets/js/paymentReceiptRenderer.js?v=<?= Project::getVersion() ?>"></script>
 
-                                function fmt(n, dp) {
-                                    dp = (dp === undefined) ? 2 : dp;
-                                    return parseFloat(n || 0).toLocaleString('en-US', {
-                                        minimumFractionDigits: dp,
-                                        maximumFractionDigits: dp
-                                    });
-                                }
-
-                                function esc(s) {
-                                    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                                }
-                                var currentReceiptId = null;
-
-                                function openReceiptModal(receiptId) {
-                                    currentReceiptId = receiptId;
-                                    var body = mGet('receipt-modal-body');
-                                    if (body) {
-                                        body.style.overflow = 'hidden';
-                                        body.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#1e3a5f;border-radius:50%;animation:rcptSpin .7s linear infinite;margin:0 auto 14px;"></div><span style="font-size:12px;color:#94a3b8;">Loading receipt…</span></div><style>@keyframes rcptSpin{to{transform:rotate(360deg);}}</style>';
-                                    }
-                                    var modal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
-                                    modal.show();
-                                    fetch('api/getReceiptData.php?receipt_id=' + receiptId)
-                                        .then(function(r) {
-                                            return r.json();
-                                        })
-                                        .then(function(data) {
-                                            if (data.error) {
-                                                if (body) body.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444;font-size:12px;">' + esc(data.error) + '</div>';
-                                                return;
-                                            }
-                                            renderReceiptHTML(data);
-                                        })
-                                        .catch(function() {
-                                            if (body) body.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444;font-size:12px;">Failed to load receipt.</div>';
-                                        });
-                                }
-
-                                function downloadReceipt() {
-                                    var printArea = mGet('receipt-print-area');
-                                    if (!printArea) return;
-                                    var win = window.open('', '_blank');
-                                    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payment Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11px;background:#fff;color:#111827;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 portrait;margin:8mm 10mm;}}</style></head><body>' + printArea.outerHTML + '<script>window.onload=function(){setTimeout(function(){window.print();},400);window.onafterprint=function(){window.close();};};<\/script></body></html>');
-                                    win.document.close();
-                                }
-
-                                function sendReceiptEmail() {
-                                    if (!currentReceiptId) return;
-                                    var btn = document.querySelector('#receiptPreviewModal .table-btn-success');
-                                    var origHtml = btn ? btn.innerHTML : '';
-                                    if (btn) {
-                                        btn.disabled = true;
-                                        btn.innerHTML = '<iconify-icon icon="mdi:loading" width="13" style="vertical-align:-2px;margin-right:4px;animation:rcptSpin .7s linear infinite;display:inline-block;"></iconify-icon>Sending…';
-                                    }
-                                    fetch('api/sendReceiptEmail.php', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            },
-                                            body: JSON.stringify({
-                                                receipt_id: currentReceiptId
-                                            })
-                                        })
-                                        .then(function(r) {
-                                            return r.json();
-                                        })
-                                        .then(function(res) {
-                                            if (btn) {
-                                                btn.disabled = false;
-                                                btn.innerHTML = origHtml;
-                                            }
-                                            if (res.done) showToast('success', res.done);
-                                            else showToast('error', res.error || 'Failed to send email.');
-                                        })
-                                        .catch(function() {
-                                            if (btn) {
-                                                btn.disabled = false;
-                                                btn.innerHTML = origHtml;
-                                            }
-                                            showToast('error', 'Network error — could not send email.');
-                                        });
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════════
-                                    MAIN RENDERER
-                                 ════════════════════════════════════════════════════════════════════════════ */
-                                function renderReceiptHTML(data) {
-                                    var body = mGet('receipt-modal-body');
-
-                                    /* ── Currency setup ──────────────────────────────────────────────────── */
-                                    var cc = (data.course_currency || 'LKR').trim(); // invoice currency
-                                    var isLKR = (cc === 'LKR');
-
-                                    /* ── Payment table rows ──────────────────────────────────────────────── */
-                                    var payRows = '';
-                                    (data.payments || []).forEach(function(p, idx) {
-
-                                        /* Determine the currency the student paid in */
-                                        var paidCurr = (p.paid_currency || cc).trim();
-                                        var isForeign = (paidCurr !== cc); // paid in a different currency than invoice
-                                        var exRate = parseFloat(p.exchange_rate || 0);
-
-                                        /*
-                                         * PAID column
-                                         * Primary  : always show what the student actually handed over (paid_currency + paid_amount)
-                                         * Sub-note : if foreign, also show the course-currency equivalent
-                                         */
-                                        var paidMain, paidSub = '';
-                                        if (isForeign && exRate > 0) {
-                                            paidMain = paidCurr + ' ' + fmt(p.paid_amount);
-                                            paidSub = subLine('= ' + cc + ' ' + fmt(p.paid_in_course) +
-                                                ' &nbsp;(@ 1 ' + cc + ' = ' + paidCurr + ' ' + fmt(exRate) + ')');
-                                        } else {
-                                            /* Same currency — just show paid_in_course (already in cc) */
-                                            paidMain = cc + ' ' + fmt(p.paid_in_course);
-                                        }
-
-                                        /*
-                                         * TAX column  — tax_amount is stored in paid_currency;
-                                         *               tax_course is the course-currency equivalent (from PHP)
-                                         */
-                                        var taxRateDisp = parseFloat(p.tax_rate || 0) > 0 ? fmt(p.tax_rate) + '%' : dash();
-                                        var taxMain = dash();
-                                        var taxSub = '';
-                                        if (parseFloat(p.tax_course || p.tax_amount || 0) > 0) {
-                                            taxMain = cc + ' ' + fmt(p.tax_course || p.tax_amount);
-                                            if (isForeign && parseFloat(p.tax_amount || 0) > 0) {
-                                                taxSub = subLine(paidCurr + ' ' + fmt(p.tax_amount));
-                                            }
-                                        }
-
-                                        /* DISCOUNT & PENALTY — stored / returned in course currency */
-                                        var discMain = parseFloat(p.discount_amount || 0) > 0 ?
-                                            cc + ' ' + fmt(p.discount_amount) : dash();
-                                        var penMain = parseFloat(p.penalty_course || 0) > 0 ?
-                                            cc + ' ' + fmt(p.penalty_course) : dash();
-
-                                        var bg = (idx % 2 === 0) ? '#ffffff' : '#f8fafc';
-
-                                        payRows +=
-                                            '<tr style="background:' + bg + ';">' +
-                                            tdN(idx + 1) +
-                                            tdB(esc(p.reference || '—')) +
-                                            td(esc(p.payment_type || '—')) +
-                                            td(p.date_paid ? p.date_paid.substring(0, 10) : '—', 'white-space:nowrap;') +
-                                            td(esc(p.payment_method || '—')) +
-                                            tdR(cc + ' ' + fmt(p.cp_amount)) +
-                                            tdR(discMain) +
-                                            tdR(penMain) +
-                                            tdC(taxRateDisp) +
-                                            tdR(taxMain + taxSub) +
-                                            tdRB(paidMain + paidSub) +
-                                            '</tr>';
-                                    });
-
-                                    /* ── Summary totals (always in course currency cc) ───────────────────── */
-                                    var balanceDue = Math.max(0,
-                                        (data.grand_total_amount || 0) -
-                                        (data.grand_total_discount || 0) +
-                                        (data.grand_total_penalty || 0) +
-                                        (data.grand_total_tax || 0) -
-                                        (data.grand_total_paid || 0)
-                                    );
-
-                                    var summaryRows = [
-                                        ['Course Amount', cc + ' ' + fmt(data.grand_total_amount)],
-                                        ['Total Discount', cc + ' ' + fmt(data.grand_total_discount)],
-                                        ['Total Penalty', cc + ' ' + fmt(data.grand_total_penalty)],
-                                        ['Total Tax', cc + ' ' + fmt(data.grand_total_tax)],
-                                    ];
-
-                                    var summaryHTML = summaryRows.map(function(row) {
-                                        return '<tr>' +
-                                            '<td style="' + STYL.sumLabel + '">' + row[0] + '</td>' +
-                                            '<td style="' + STYL.sumVal + '">' + row[1] + '</td>' +
-                                            '</tr>';
-                                    }).join('');
-
-                                    var balanceRow = balanceDue > 0.005 ?
-                                        '<tr style="background:#fef2f2;">' +
-                                        '<td style="' + STYL.sumLabel + 'color:#dc2626;">Balance Due</td>' +
-                                        '<td style="' + STYL.sumVal + 'color:#dc2626;font-weight:700;">' +
-                                        cc + ' ' + fmt(balanceDue) + '</td></tr>' :
-                                        '<tr style="background:#f0fdf4;">' +
-                                        '<td style="' + STYL.sumLabel + 'color:#16a34a;">Status</td>' +
-                                        '<td style="' + STYL.sumVal + 'color:#16a34a;font-weight:700;">FULLY PAID</td></tr>';
-
-                                    /* ── Exchange rate note (only when foreign-currency receipts exist) ──── */
-                                    var exRateNote = buildExchangeNote(data, cc);
-
-                                    /* ── Dates ───────────────────────────────────────────────────────────── */
-                                    var recDate = data.date_added ? data.date_added.substring(0, 10) : '';
-
-                                    /* ════════════════════════════════════════════════════════════════════════
-                                       BUILD HTML
-                                    ════════════════════════════════════════════════════════════════════════ */
-                                    var html =
-                                        /* ── Scoped print styles ── */
-                                        '<style>' +
-                                        '@keyframes rcptSpin{to{transform:rotate(360deg);}}' +
-                                        '@media print{' +
-                                        ' body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-                                        ' @page{size:A4 portrait;margin:8mm 10mm;}' +
-                                        ' .rcpt-no-print{display:none!important;}' +
-                                        '}' +
-                                        '#receipt-print-area table{page-break-inside:auto;}' +
-                                        '#receipt-print-area tr{page-break-inside:avoid;}' +
-                                        /* Fix modal scrollbar — only scroll the inner receipt wrapper */
-                                        '#receipt-modal-body{overflow:hidden!important;}' +
-                                        '#receipt-scroll-wrap{overflow-y:auto;overflow-x:hidden;' +
-                                        ' max-height:calc(90vh - 120px);scrollbar-width:thin;' +
-                                        ' scrollbar-color:#d1d5db #f9fafb;}' +
-                                        '#receipt-scroll-wrap::-webkit-scrollbar{width:5px;}' +
-                                        '#receipt-scroll-wrap::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px;}' +
-                                        '#receipt-scroll-wrap::-webkit-scrollbar-track{background:#f9fafb;}' +
-                                        '</style>' +
-
-                                        /* ── Outer scroll wrapper ── */
-                                        '<div id="receipt-scroll-wrap">' +
-
-                                        /* ── Print area (A4-proportioned, small dense text) ── */
-                                        '<div id="receipt-print-area" style="' +
-                                        'font-family:\'Segoe UI\',system-ui,-apple-system,sans-serif;' +
-                                        'font-size:11px;line-height:1.5;color:#111827;background:#fff;' +
-                                        'max-width:880px;margin:0 auto;padding:28px 32px;">' +
-
-                                        /* ════ HEADER ════ */
-                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
-                                        '<tr>' +
-                                        '<td style="vertical-align:top;width:58%;">' +
-                                        '<div style="display:flex-column;align-items:center;gap:12px;">' +
-                                        '<img src="./assets/imgs/common/logo.png" alt="" style="height:44px;width:auto;" onerror="this.style.display=\'none\'">' +
-                                        '<div>' +
-                                        (data.branch_address ? '<div style="font-size:10px;color:#6b7280;margin-top:1px;">' + esc(data.branch_address) + '</div>' : '') +
-                                        (data.branch_phone ? '<div style="font-size:10px;color:#6b7280;">Tel: ' + esc(data.branch_phone) + '</div>' : '') +
-                                        (data.branch_email ? '<div style="font-size:10px;color:#6b7280;">' + esc(data.branch_email) + '</div>' : '') +
-                                        '</div></div>' +
-                                        '</td>' +
-                                        '<td style="vertical-align:top;text-align:right;">' +
-                                        '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px;">OFFICIAL PAYMENT RECEIPT</div>' +
-                                        '<div style="font-size:20px;font-weight:800;color:#111827;letter-spacing:-.4px;">' + esc(data.receipt_number || '') + '</div>' +
-                                        '<div style="font-size:10px;color:#6b7280;margin-top:2px;">Date: ' + recDate + '</div>' +
-                                        '<div style="margin-top:6px;">' +
-                                        '<span style="display:inline-block;background:#d1fae5;color:#065f46;' +
-                                        'padding:2px 12px;border-radius:20px;font-size:9px;font-weight:700;' +
-                                        'letter-spacing:.06em;border:1px solid #6ee7b7;">&#10003; APPROVED</span>' +
-                                        '</div>' +
-                                        '</td>' +
-                                        '</tr>' +
-                                        '</table>' +
-
-                                        /* Divider */
-                                        '<div style="height:2px;background:##F7F9FF;margin-bottom:18px;border-radius:1px;"></div>' +
-
-                                        /* ════ BILL TO + PROGRAMME ════ */
-                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;">' +
-                                        '<tr>' +
-                                        '<td style="width:50%;vertical-align:top;padding-right:10px;">' +
-                                        boxOpen() +
-                                        label('Bill To') +
-                                        '<div style="font-size:13px;font-weight:700;color:#111827;">' +
-                                        esc((data.student_title || '') + '. ' + (data.first_name || '') + ' ' + (data.last_name || '')) +
-                                        '</div>' +
-                                        '<div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.8;">' +
-                                        'ID: ' + esc(data.student_reg_id || '') + '<br>' +
-                                        esc(data.email || '') + '<br>' + esc(data.mobile || '') +
-                                        '</div>' +
-                                        boxClose() +
-                                        '</td>' +
-                                        '<td style="width:50%;vertical-align:top;padding-left:10px;">' +
-                                        boxOpen() +
-                                        label('Programme Details') +
-                                        '<div style="font-size:11px;font-weight:600;color:#111827;">' + esc(data.faculty || '') + '</div>' +
-                                        '<div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.8;">' +
-                                        esc(data.programme || '') + '<br>' + esc(data.intake || '') +
-                                        '</div>' +
-                                        '<div style="font-size:9px;color:#9ca3af;margin-top:6px;padding-top:6px;border-top:1px solid #f3f4f6;">' +
-                                        'Processed by: ' + esc((data.user_title || '') + '. ' + (data.user_fname || '') + ' ' + (data.user_lname || '')) +
-                                        '</div>' +
-                                        boxClose() +
-                                        '</td>' +
-                                        '</tr>' +
-                                        '</table>' +
-
-                                        /* ════ PAYMENT TABLE ════ */
-                                        label('Payment Records') +
-                                        '<div style="border:1px solid #e5e7eb;border-radius:3px;overflow:hidden;margin-bottom:18px;">' +
-                                        '<div style="overflow-x:auto;">' +
-                                        '<table style="width:100%;border-collapse:collapse;min-width:640px;">' +
-                                        '<thead>' +
-                                        '<tr style="background:#1e3a5f;">' +
-                                        thH('#') + thH('Reference') + thH('Type') + thH('Date') + thH('Method') +
-                                        thHR('Invoice Amt') + thHR('Discount') + thHR('Penalty') +
-                                        thHC('Tax %') + thHR('Tax Amt') + thHRB('Paid') +
-                                        '</tr>' +
-                                        '</thead>' +
-                                        '<tbody>' + (payRows || noDataRow()) + '</tbody>' +
-                                        '</table>' +
-                                        '</div>' +
-                                        '</div>' +
-
-                                        /* ════ SUMMARY + EXCHANGE NOTES ════ */
-                                        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">' +
-                                        '<tr>' +
-
-                                        /* Left — exchange rate notes (or empty if none) */
-                                        '<td style="width:50%;vertical-align:top;padding-right:16px;">' +
-                                        (exRateNote || '<div style="font-size:9px;color:#9ca3af;line-height:1.7;margin-top:4px;">' +
-                                            'Payments made will not be refundable or transferable under any circumstances.<br>' +
-                                            'This receipt is valid subject to realisation of cheque.<br>' +
-                                            'Taxes or bank charges may be applied where required.' +
-                                            '</div>') +
-                                        '</td>' +
-
-                                        /* Right — totals panel */
-                                        '<td style="vertical-align:top;">' +
-                                        '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:3px;overflow:hidden;">' +
-                                        summaryHTML +
-                                        '<tr style="background:#1e3a5f;">' +
-                                        '<td style="padding:8px 14px;font-size:11px;font-weight:700;color:#fff;">TOTAL PAID</td>' +
-                                        '<td style="padding:8px 14px;font-size:12px;font-weight:800;color:#fff;text-align:right;">' +
-                                        cc + ' ' + fmt(data.grand_total_paid) +
-                                        '</td>' +
-                                        '</tr>' +
-                                        balanceRow +
-                                        '</table>' +
-                                        '</td>' +
-
-                                        '</tr>' +
-                                        '</table>' +
-
-                                        /* ════ FOOTER ════ */
-                                        '<div style="border-top:1px dashed #d1d5db;padding-top:10px;' +
-                                        'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-                                        '<div style="font-size:9px;color:#9ca3af;">' +
-                                        'This is a computer-generated receipt and does not require a physical signature.' +
-                                        '</div>' +
-                                        '<div style="font-size:9px;color:#6b7280;text-align:right;">' +
-                                        'Receipt No: <strong style="color:#374151;">' + esc(data.receipt_number || '') + '</strong>' +
-                                        '&nbsp; | &nbsp;Generated: ' + recDate +
-                                        '</div>' +
-                                        '</div>' +
-
-                                        /* ════ SYSTEM FOOTER ════ */
-                                        '<div style="text-align:center;margin-top:14px;padding-top:10px;' +
-                                        'border-top:1px solid #f3f4f6;">' +
-                                        '<span style="font-size:9px;color:#c4c9d4;letter-spacing:.04em;">' +
-                                        'ENLIXO LMS 2026 &copy; — All rights reserved' +
-                                        '</span>' +
-                                        '</div>' +
-
-                                        '</div>' + /* /receipt-print-area */
-                                        '</div>'; /* /receipt-scroll-wrap */
-
-                                    if (body) {
-                                        body.style.overflow = 'hidden'; /* parent stays hidden — scroll handled inside */
-                                        body.innerHTML = html;
-                                    }
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════════
-                                   EXCHANGE RATE NOTE BLOCK
-                                ════════════════════════════════════════════════════════════════════════════ */
-                                function buildExchangeNote(data, cc) {
-                                    if (!data.payments || !data.payments.length) return '';
-                                    var lines = [];
-                                    var seen = {};
-                                    data.payments.forEach(function(p) {
-                                        var pc = (p.paid_currency || cc).trim();
-                                        if (pc !== cc && p.exchange_rate && !seen[pc]) {
-                                            seen[pc] = true;
-                                            lines.push('1 ' + cc + ' = ' + pc + ' ' + fmt(p.exchange_rate) +
-                                                (p.date_paid ? ' (' + p.date_paid.substring(0, 10) + ')' : ''));
-                                        }
-                                    });
-                                    if (!lines.length) return '';
-                                    return '<div style="border:1px solid #e5e7eb;border-radius:3px;padding:10px 12px;font-size:10px;color:#6b7280;line-height:2;">' +
-                                        '<div style="font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Exchange Rates Used</div>' +
-                                        lines.map(function(l) {
-                                            return '&#8226; ' + l;
-                                        }).join('<br>') +
-                                        '</div>' +
-                                        '<div style="font-size:9px;color:#9ca3af;line-height:1.7;margin-top:8px;">' +
-                                        'Payments made will not be refundable or transferable under any circumstances.<br>' +
-                                        'This receipt is valid subject to realisation of cheque.' +
-                                        '</div>';
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════════
-                                   MINI STYLE CONSTANTS
-                                ════════════════════════════════════════════════════════════════════════════ */
-                                var STYL = {
-                                    sumLabel: 'padding:6px 12px;font-size:10px;color:#374151;border-bottom:1px solid #e5e7eb;',
-                                    sumVal: 'padding:6px 12px;font-size:10px;color:#111827;font-weight:500;text-align:right;border-bottom:1px solid #e5e7eb;'
-                                };
-
-                                /* ── reusable fragment helpers ── */
-                                function boxOpen() {
-                                    return '<div style="border:1px solid #e5e7eb;border-radius:3px;padding:12px 14px;">';
-                                }
-
-                                function boxClose() {
-                                    return '</div>';
-                                }
-
-                                function label(t) {
-                                    return '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;' +
-                                        'letter-spacing:.1em;margin-bottom:7px;">' + t + '</div>';
-                                }
-
-                                function subLine(t) {
-                                    return '<div style="font-size:9px;color:#6b7280;margin-top:2px;">' + t + '</div>';
-                                }
-
-                                function dash() {
-                                    return '<span style="color:#d1d5db;">—</span>';
-                                }
-
-                                /* ── table cell helpers ── */
-                                var C = 'padding:7px 8px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
-
-                                function td(c, ex) {
-                                    return '<td style="' + C + (ex || '') + '">' + c + '</td>';
-                                }
-
-                                function tdN(c) {
-                                    return '<td style="' + C + 'color:#9ca3af;width:24px;">' + c + '</td>';
-                                }
-
-                                function tdB(c) {
-                                    return '<td style="' + C + 'font-weight:600;color:#111827;">' + c + '</td>';
-                                }
-
-                                function tdR(c) {
-                                    return '<td style="' + C + 'text-align:right;">' + c + '</td>';
-                                }
-
-                                function tdRB(c) {
-                                    return '<td style="' + C + 'text-align:right;font-weight:700;color:#111827;">' + c + '</td>';
-                                }
-
-                                function tdC(c) {
-                                    return '<td style="' + C + 'text-align:center;">' + c + '</td>';
-                                }
-
-                                var TH = 'padding:7px 8px;font-size:9px;font-weight:600;color:rgba(255,255,255,.9);letter-spacing:.04em;';
-
-                                function thH(l) {
-                                    return '<th style="' + TH + 'text-align:left;">' + l + '</th>';
-                                }
-
-                                function thHR(l) {
-                                    return '<th style="' + TH + 'text-align:right;">' + l + '</th>';
-                                }
-
-                                function thHRB(l) {
-                                    return '<th style="' + TH + 'text-align:right;color:#fff;">' + l + '</th>';
-                                }
-
-                                function thHC(l) {
-                                    return '<th style="' + TH + 'text-align:center;">' + l + '</th>';
-                                }
-
-                                function noDataRow() {
-                                    return '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════════
-                                   DOWNLOAD PDF  (print-to-PDF via new window)
-                                ════════════════════════════════════════════════════════════════════════════ */
-                                function downloadReceipt() {
-                                    var printArea = mGet('receipt-print-area');
-                                    if (!printArea) return;
-
-                                    var win = window.open('', '_blank');
-                                    win.document.write(
-                                        '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payment Receipt</title>' +
-                                        '<style>' +
-                                        '*{box-sizing:border-box;margin:0;padding:0;}' +
-                                        'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11px;background:#fff;color:#111827;}' +
-                                        '@media print{' +
-                                        ' body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-                                        ' @page{size:A4 portrait;margin:8mm 10mm;}' +
-                                        '}' +
-                                        '</style></head><body>' +
-                                        printArea.outerHTML +
-                                        '<script>window.onload=function(){setTimeout(function(){window.print();},400);' +
-                                        'window.onafterprint=function(){window.close();};};<\/script>' +
-                                        '</body></html>'
-                                    );
-                                    win.document.close();
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════════
-                                   SEND EMAIL  → ajax/sendReceiptEmail.php
-                                ════════════════════════════════════════════════════════════════════════════ */
-                                function sendReceiptEmail() {
-                                    if (!currentReceiptId) return;
-
-                                    var btn = document.querySelector('#receiptPreviewModal .table-btn-success');
-                                    var origHtml = btn ? btn.innerHTML : '';
-
-                                    if (btn) {
-                                        btn.disabled = true;
-                                        btn.innerHTML =
-                                            '<iconify-icon icon="mdi:loading" width="13" ' +
-                                            'style="vertical-align:-2px;margin-right:4px;' +
-                                            'animation:rcptSpin .7s linear infinite;display:inline-block;"></iconify-icon>' +
-                                            'Sending…';
-                                    }
-
-                                    fetch('api/sendReceiptEmail.php', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            },
-                                            body: JSON.stringify({
-                                                receipt_id: currentReceiptId
-                                            })
-                                        })
-                                        .then(function(r) {
-                                            console.log(r.text());
-                                            return r.json();
-                                        })
-                                        .then(function(res) {
-
-                                            if (btn) {
-                                                btn.disabled = false;
-                                                btn.innerHTML = origHtml;
-                                            }
-                                            if (res.done) showToast('success', res.done);
-                                            else showToast('error', res.error || 'Failed to send email.');
-                                        })
-                                        .catch(function() {
-                                            if (btn) {
-                                                btn.disabled = false;
-                                                btn.innerHTML = origHtml;
-                                            }
-                                            showToast('error', 'Network error — could not send email.');
-                                        });
-                                }
-                            </script>
                         </body>
 
                         </html>

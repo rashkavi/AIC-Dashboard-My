@@ -578,6 +578,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     LEFT JOIN course_payment_receipts AS cpr
                                                                                                         ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
                                                                                                     WHERE cpp.course_payments_course_payments_id = '" . (int)$row['course_payments_id'] . "'
+                                                                                                    AND ps2.payment_status_id IN (2, 3)
                                                                                                     GROUP BY cpp.course_payment_has_payment_id
                                                                                                 ");
                                                                                                     if ($receipts && $receipts->num_rows > 0) {
