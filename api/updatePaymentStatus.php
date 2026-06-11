@@ -519,11 +519,36 @@ Database::iud("
 $receiptId = Database::$connection->insert_id;
 
 /* ════════════════════════════════════════════════════════════════════════════
+   ✅ CONVERT AMOUNTS TO PAYMENT CURRENCY FOR STORAGE
+   
+   If paying in LKR (currencyId=1) for a GBP course:
+   - All amounts (paidBase, discountAmount, etc.) are in base currency (GBP)
+   - Need to multiply by exchange rate to get payment currency (LKR)
+   
+   If paying in same currency as course:
+   - No conversion needed
+════════════════════════════════════════════════════════════════════════════ */
+$isPayingInForeignCurrency = ($currencyId && $currencyId != $courseCurrencyId && $resolvedRate);
+
+if ($isPayingInForeignCurrency) {
+    // Convert from course currency (e.g., GBP) to payment currency (e.g., LKR)
+    $amountForCurrent_stored = round($amountForCurrent * $resolvedRate, 2);
+    $discountAmount_stored   = round($discountAmount * $resolvedRate, 2);
+    $penaltyAmount_stored    = round($penaltyAmount * $resolvedRate, 2);
+    $taxForCurrent_stored    = round($taxForCurrentReceipt * $resolvedRate, 2);
+} else {
+    // Same currency, no conversion needed
+    $amountForCurrent_stored = round($amountForCurrent, 2);
+    $discountAmount_stored   = round($discountAmount, 2);
+    $penaltyAmount_stored    = round($penaltyAmount, 2);
+    $taxForCurrent_stored    = round($taxForCurrentReceipt, 2);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
    UPDATE course_payment_has_payments  (pending → approved)
 
-   paid_amount is stored as the tax-inclusive amount applied to THIS
-   installment (amountForCurrent). Overpayment excess goes into new rows
-   for next installment(s).
+   paid_amount is stored in the payment currency (e.g., LKR 40,000 or GBP 100)
+   Tax amount is also stored in payment currency
 ════════════════════════════════════════════════════════════════════════════ */
 $exchangeRateSql   = $resolvedRate    ? "'" . number_format($resolvedRate, 4, '.', '') . "'" : 'NULL';
 $exchangeRateIdSql = $exchangeRateId  ? "'$exchangeRateId'" : 'NULL';
@@ -535,11 +560,11 @@ Database::iud("
     UPDATE `course_payment_has_payments`
     SET
         `payment_status_payment_status_id`                  = '3',
-        `paid_amount`                                       = '" . number_format($amountForCurrent,     4, '.', '') . "',
-        `discount_amount`                                   = '" . number_format($discountAmount,       4, '.', '') . "',
-        `panelty_amount`                                    = '" . number_format($penaltyAmount,        4, '.', '') . "',
-        `tax_rate`                                          = '" . number_format($latestTaxRate,        2, '.', '') . "',
-        `tax_amount`                                        = '" . number_format($taxForCurrentReceipt, 4, '.', '') . "',
+        `paid_amount`                                       = '" . number_format($amountForCurrent_stored, 4, '.', '') . "',
+        `discount_amount`                                   = '" . number_format($discountAmount_stored, 4, '.', '') . "',
+        `panelty_amount`                                    = '" . number_format($penaltyAmount_stored, 4, '.', '') . "',
+        `tax_rate`                                          = '" . number_format($latestTaxRate, 2, '.', '') . "',
+        `tax_amount`                                        = '" . number_format($taxForCurrent_stored, 4, '.', '') . "',
         `payment_method_payment_method_id`                  = '$paymentMethod',
         `date_paid`                                         = $paidDateSql,
         `currencies_currency_id`                            = $currencyIdSql,
@@ -565,14 +590,23 @@ if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT OVERPAYMENT RECORDS FOR NEXT INSTALLMENTS
+   
+   ✅ All amounts are converted to payment currency before storing
 ════════════════════════════════════════════════════════════════════════════ */
 if (!empty($nextInstallmentPayments)) {
     foreach ($nextInstallmentPayments as $nextPmt) {
         $nextPaymentId  = $nextPmt['payment_id'];
-        $nextPaidAmount = $nextPmt['paid_amount'];
-        $nextTaxStored  = $nextPmt['tax_amount'];
-        $nextTotalOwed  = $nextPmt['next_total_owed'];
-        $nextRemaining  = $nextPmt['next_remaining'];
+        $nextPaidAmount = $nextPmt['paid_amount'];  // in base currency
+        $nextTaxStored  = $nextPmt['tax_amount'];   // in base currency
+
+        // ✅ Convert to payment currency if needed
+        if ($isPayingInForeignCurrency) {
+            $nextPaidAmount_stored = round($nextPaidAmount * $resolvedRate, 2);
+            $nextTaxStored_amount  = round($nextTaxStored * $resolvedRate, 2);
+        } else {
+            $nextPaidAmount_stored = round($nextPaidAmount, 2);
+            $nextTaxStored_amount  = round($nextTaxStored, 2);
+        }
 
         $next_col = "
             `course_payments_course_payments_id`,
@@ -592,14 +626,14 @@ if (!empty($nextInstallmentPayments)) {
             '$nextPaymentId',
             '$paymentMethod',
             $paidDateSql,
-            '" . number_format($nextPaidAmount, 4, '.', '') . "',
+            '" . number_format($nextPaidAmount_stored, 4, '.', '') . "',
             '0',
             '0',
             '3',
             $currencyIdSql,
             'Auto-applied overpayment from receipt {$receiptNumber}',
-            '" . number_format($latestTaxRate,  2, '.', '') . "',
-            '" . number_format($nextTaxStored,  4, '.', '') . "',
+            '" . number_format($latestTaxRate, 2, '.', '') . "',
+            '" . number_format($nextTaxStored_amount, 4, '.', '') . "',
             '$receiptId'";
 
         if ($currencyId && $currencyId != $courseCurrencyId) {
@@ -619,7 +653,7 @@ if (!empty($nextInstallmentPayments)) {
          *           installment amount). This correctly marks the next
          *           installment as fully paid even if prior partial payments exist.
          */
-        if ($nextPaidAmount >= $nextRemaining - 0.001) {
+        if ($nextPaidAmount >= $nextPmt['next_remaining'] - 0.001) {
             Database::iud("
                 UPDATE `course_payments`
                 SET `payment_status_payment_status_id` = '5'
@@ -630,8 +664,8 @@ if (!empty($nextInstallmentPayments)) {
         /* Log the overpayment application */
         $overpay_log = Database::escape(
             'Auto-applied overpayment from ' . $receiptNumber
-                . ' [' . $courseCurrencyCode . ' ' . number_format($nextPaidAmount, 2)
-                . ' (incl. tax ' . number_format($nextTaxStored, 2) . ')]'
+                . ' [' . ($currencyId == 1 ? 'LKR' : $courseCurrencyCode) . ' ' . number_format($nextPaidAmount_stored, 2)
+                . ' (incl. tax ' . number_format($nextTaxStored_amount, 2) . ')]'
         );
         Database::iud("
             INSERT INTO `payment_logs`
@@ -704,16 +738,21 @@ if (in_array((int)$pay['lead_student_status_lead_student_status_id'], [5, 9])) {
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN APPROVAL LOG
 ════════════════════════════════════════════════════════════════════════════ */
-$displayAmount = $courseCurrencyCode . ' ' . number_format($paidBase, 2);
+$displayCurrency = ($currencyId == 1) ? 'LKR' : $courseCurrencyCode;
+$displayAmount   = $displayCurrency . ' ' . number_format($amountForCurrent_stored, 2);
 
 $log  = 'Payment receipt approved';
 $log .= ' | Paid: ' . $displayAmount;
 if ($latestTaxRate > 0) {
     $log .= ' | Tax Rate: ' . $latestTaxRate . '%'
-        . ' | Tax on current installment: ' . $courseCurrencyCode . ' ' . number_format($taxForCurrentReceipt, 2);
+        . ' | Tax on current installment: ' . $displayCurrency . ' ' . number_format($taxForCurrent_stored, 2);
 }
 if ($overpayAmount > 0.001) {
-    $log .= ' | Overpayment: ' . $courseCurrencyCode . ' ' . number_format($overpayAmount, 2) . ' applied to next installment(s)';
+    $overpayDisplay = $displayCurrency . ' ' . number_format(
+        $isPayingInForeignCurrency ? ($overpayAmount * $resolvedRate) : $overpayAmount,
+        2
+    );
+    $log .= ' | Overpayment: ' . $overpayDisplay . ' applied to next installment(s)';
 }
 
 $log_cols = "`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `log`";
@@ -741,7 +780,9 @@ $status->done          = $statusMsg;
 $status->receiptNumber = $receiptNumber;
 $status->taxRate       = $latestTaxRate;
 $status->paidBase      = round($paidBase, 2);
-$status->taxAmount     = round($taxForCurrentReceipt, 2);
+$status->paidStored    = round($amountForCurrent_stored, 2);
+$status->paidCurrency  = $displayCurrency;
+$status->taxAmount     = round($taxForCurrent_stored, 2);
 
 if ($overpaymentInfo) {
     $status->overpayment = [

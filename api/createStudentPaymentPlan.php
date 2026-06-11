@@ -31,6 +31,8 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `students_has_intakes` ON `students_has_intakes`.`students_student_id` = `students`.`student_id`
                         INNER JOIN `intakes` ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
                         INNER JOIN `programmes` ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
+                        INNER JOIN `faculties` ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
+                        INNER JOIN `branches` ON `branches`.`branch_id` = `faculties`.`branches_branch_id`
                         WHERE `students`.`student_id` = '" . $leadId . "'");
                         if ($isValidLead->num_rows == 0) {
                             $status->error = 'Invalid Lead Id';
@@ -157,6 +159,27 @@ if (SessionUser::hasValidSession()) {
                                                             ,`date_paid`,`paid_amount`,`discount_amount`,`payment_status_payment_status_id`,`panelty_amount`,`bank_bank_id`,`currencies_currency_id`,`currency_exchange_rate_id`,`currency_exchange_rate`";
 
                                                             $values = "'" . $paymentId . "','" . $markAsPaidPayment['payment_method_id'] . "','" . $markAsPaidPayment['paid_date'] . "','" . $markAsPaidPayment['paid_amount'] . "','" . $markAsPaidPayment['discount'] . "','3','0',NULL,'" . $paymentCurrencyId . "',NULL,'1.0000'";
+
+                                                            $branchName   = $leadData['branch'] ?? 'XX';
+                                                            $branchPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $branchName), 0, 2));
+                                                            if (strlen($branchPrefix) < 2) $branchPrefix = str_pad($branchPrefix, 2, 'X');
+                                                            $year = date('Y');
+
+                                                            $seqQ  = Database::search("SELECT COUNT(*) AS cnt FROM course_payment_receipts WHERE receipt_number LIKE '" . addslashes($branchPrefix . $year) . "-%'");
+                                                            $seq   = 1 + (int)(($seqQ && $seqQ->num_rows > 0) ? $seqQ->fetch_assoc()['cnt'] : 0);
+                                                            $receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+
+                                                            Database::iud("
+    INSERT INTO course_payment_receipts
+        (receipt_number, users_user_id, date_added, students_has_intakes_students_has_intakes_id)
+    VALUES
+        ('" . addslashes($receiptNumber) . "', '" . $sessionUserObject['user_id'] . "', '" . $addTime . "', '" . $leadData['students_has_intakes_id'] . "')
+");
+                                                            $receiptId = (int)Database::$connection->insert_id;
+
+                                                            $columns .= ",`course_payment_receipts_course_payment_receipt_id`";
+                                                            $values .= ",'" . $receiptId . "'";
+
 
                                                             Database::iud("INSERT INTO `course_payment_has_payments` (" . $columns . ") VALUES (" . $values . ")");
                                                             $cphp_id = Database::$connection->insert_id;

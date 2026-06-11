@@ -260,6 +260,8 @@ if ($isLkrPaymentForForeignCourse) {
     $penalty_base  = round($penalty_original,     2);
 }
 
+
+
 /* ════════════════════════════════════════════════════════════════════════════
    CALCULATE CURRENT INSTALLMENT PAYABLE (all in base currency)
 ════════════════════════════════════════════════════════════════════════════ */
@@ -360,6 +362,15 @@ if ($isLkrPaymentForForeignCourse) {
 } else {
     $taxForCurrent_stored = round($taxForCurrent_base, 2);                 // base currency
     $paidAmount_stored    = round($paid_amount_original, 2);               // base currency
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ✅ CONVERT CURRENT INSTALLMENT AMOUNT TO PAYMENT CURRENCY FOR STORAGE
+════════════════════════════════════════════════════════════════════════════ */
+if ($isLkrPaymentForForeignCourse) {
+    $paidAmountForCurrent_stored = round($amountForCurrent_base * $exchangeRate, 2); // LKR
+} else {
+    $paidAmountForCurrent_stored = round($amountForCurrent_base, 2); // base currency
 }
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT → distribute to next installments
@@ -505,7 +516,7 @@ $cols = "`course_payments_course_payments_id`, `payment_method_payment_method_id
 
 $vals = "'{$payment_id}', '{$method}',
          '{$paid_date}',
-         '" . round($paidAmount_stored, 2) . "',  
+         '" . round($paidAmountForCurrent_stored, 2) . "',  
          '" . round($discount_original,    2) . "',
          '" . round($penalty_original,     2) . "',
          '3', '{$selectedCurrencyId}',
@@ -657,7 +668,7 @@ $status->done            = 'Payment receipt uploaded successfully';
 $status->id              = $paymentData['students_has_intakes_id'];
 $status->receiptNumber   = $receiptNumber;
 $status->taxRate         = $latestTaxRate;
-$status->paidAmount      = round($paid_amount_original,2);  // original payment currency
+$status->paidAmount      = round($paid_amount_original, 2);  // original payment currency
 $status->paidBase        = round($paidNetBase,          2); // base currency (ex-tax)
 $status->paidTax         = round($paidTax_base,         2); // base currency tax
 $status->paidTaxStored   = round($taxForCurrent_stored, 2); // tax in payment currency (what was saved)

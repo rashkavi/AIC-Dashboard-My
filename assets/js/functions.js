@@ -12755,19 +12755,23 @@ const uploadInquiryStudentPaymentReceipt = (btn, id) => {
 
 function submitUpdatePaymentStatus(btn, paymentId) {
     var rate = (modalExchangeRate || modalExchangeRateValue) || 1;
+
+    // ✅ Determine which currency the payment was ACTUALLY made in
+    var paymentCurrencyId = baseCurrencyId;  // Default to course currency
+    if (!isBaseCurrencyLKR && modalCurrentMode === 'lkr') {
+        paymentCurrencyId = 1;  // LKR
+    }
+
     var toBase = function (v) {
         return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
     };
 
-    /* ── Get tax AMOUNT from display field (NOT rate) ── */
     var taxAmountDisplay = parseFloat(mGet('modal-tax-amount-display') ? mGet('modal-tax-amount-display').value : 0) || 0;
     var taxAmountBase = toBase(taxAmountDisplay);
 
-    /* ── Get balance ── */
     var balanceDisplay = parseFloat(mGet('modal-balance-display') ? mGet('modal-balance-display').value : 0) || 0;
     var balanceBase = toBase(balanceDisplay);
 
-    /* ── Get tax rate from badge ── */
     var taxRateEl = mGet('modal-tax-rate-badge');
     var taxRate = taxRateEl ? parseFloat(taxRateEl.textContent) : 0;
 
@@ -12777,18 +12781,22 @@ function submitUpdatePaymentStatus(btn, paymentId) {
         paidAmount: toBase(parseFloat(mGet('modal-paid-amount') ? mGet('modal-paid-amount').value : 0) || 0).toFixed(2),
         discountAmount: toBase(parseFloat(mGet('modal-discount-amount') ? mGet('modal-discount-amount').value : 0) || 0).toFixed(2),
         penaltyAmount: toBase(parseFloat(mGet('modal-penalty-amount') ? mGet('modal-penalty-amount').value : 0) || 0).toFixed(2),
-        taxAmount: taxAmountBase.toFixed(2),  // ✅ NOW SENDING TAX AMOUNT (NOT RATE)
-        taxRate: taxRate,                      // Sending rate for reference
-        balance: balanceBase.toFixed(2),       // ✅ FOR CHECKING IF COMPLETED
+        taxAmount: taxAmountBase.toFixed(2),
+        taxRate: taxRate,
+        balance: balanceBase.toFixed(2),
         paymentMethod: mGet('payment-method') ? mGet('payment-method').value : '',
         paidDate: mGet('modal-paid-date') ? mGet('modal-paid-date').value : '',
         exchangeRate: modalExchangeRate,
         exchangeRateId: modalExchangeRateId,
-        currencyId: baseCurrencyId,
+        currencyId: paymentCurrencyId,  // ✅ NOW SENDS CORRECT CURRENCY!
         note: mGet('note') ? mGet('note').value : '',
     };
 
-    console.log('Data being sent:', data);
+    console.log('Sending:', {
+        currency: paymentCurrencyId === 1 ? 'LKR' : currencyCode,
+        paidAmount: data.paidAmount,
+        mode: modalCurrentMode
+    });
 
     var validationMap = {
         status: ['#status-selector', '#status-selector-feedback'],
