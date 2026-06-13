@@ -226,17 +226,32 @@ if (!SessionUser::hasValidSession()) {
                         }
 
                         // ============================================================
-                        // BALANCE CALCULATION
+                        // BALANCE CALCULATION - CORRECTED FOR NEW TAX MODEL
                         // ============================================================
                         $basePayable    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
-                        $taxOnBase      = $basePayable * ($latestTaxRate / 100);
-                        $payableAmount  = $basePayable + $taxOnBase;
 
-                        $paidBaseTotal  = ($taxFactor > 0) ? $convertedPaidTotal / $taxFactor : $convertedPaidTotal;
+                        // NEW TAX MODEL: tax is calculated on final amount
+                        // base = final * (1 - taxRate/100)
+                        // tax = final * (taxRate/100)
+                        $taxRateDecimal = $latestTaxRate / 100;
+                        $basePortion = 1 - $taxRateDecimal;
+
+                        if ($basePortion > 0) {
+                            $paidBaseTotal = $convertedPaidTotal * $basePortion;
+                        } else {
+                            $paidBaseTotal = 0;
+                        }
+
                         $remainingBase  = max(0, $basePayable - $paidBaseTotal);
-                        $remainingTax   = $remainingBase * ($latestTaxRate / 100);
-                        $balance        = $remainingBase + $remainingTax;
 
+                        // Calculate remaining tax: remainingBase * (taxRate / (100 - taxRate))
+                        if ($basePortion > 0) {
+                            $remainingTax = $remainingBase * ($latestTaxRate / (100 - $latestTaxRate));
+                        } else {
+                            $remainingTax = 0;
+                        }
+
+                        $balance        = $remainingBase + $remainingTax;
                         $paidAmount     = $convertedPaidTotal;
 
                         // ============================================================
@@ -274,7 +289,7 @@ if (!SessionUser::hasValidSession()) {
 
                         // LKR equivalents for the summary panel
                         $balanceLKR     = $balance        * $exchangeRateValue;
-                        $payableAmtLKR  = $payableAmount  * $exchangeRateValue;
+                        $payableAmtLKR  = ($basePayable + ($basePayable * ($latestTaxRate / (100 - $latestTaxRate)))) * $exchangeRateValue;
                         $paidAmountLKR  = $paidAmount     * $exchangeRateValue;
                         $discountAmtLKR = $totalDiscount  * $exchangeRateValue;
                         $taxAmtLKR      = $totalTax       * $exchangeRateValue;
@@ -715,8 +730,8 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </svg></div>
                                                                                 <div class="detail-content">
                                                                                     <span class="detail-label">Total Payable Amount</span>
-                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?>
-                                                                                        <small class="d-block" style="font-size:11px;opacity:.6;">Base <?= number_format($basePayable, 2) ?> + Tax <?= number_format($taxOnBase, 2) ?></small>
+                                                                                    <span class="detail-value"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmtLKR / $exchangeRateValue, 2) ?>
+                                                                                        <small class="d-block" style="font-size:11px;opacity:.6;">Base <?= number_format($basePayable, 2) ?> + Tax <?= number_format($basePayable * ($latestTaxRate / (100 - $latestTaxRate)), 2) ?></small>
                                                                                     </span>
                                                                                 </div>
                                                                             </div>
@@ -836,7 +851,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span></div>
                                                                                             <div class="lkr-panel-item"><span class="lkr-item-label">Total Penalty</span><span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span></div>
                                                                                             <div class="lkr-panel-item"><span class="lkr-item-label">Total Tax</span><span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmtLKR / $exchangeRateValue, 2) ?></span></div>
                                                                                             <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value">LKR <?= number_format($paidAmountLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span></div>
                                                                                             <div class="lkr-panel-item balance-item"><span class="lkr-item-label">Balance Due</span><span class="lkr-item-value" id="lkr-balance-display">LKR <?= number_format($balanceLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-balance-sub"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span></div>
                                                                                         </div>
@@ -1031,14 +1046,10 @@ if (!SessionUser::hasValidSession()) {
 
                                 <script>
                                     // ════════════════════════════════════════════════════════════════════════════
-                                    // TAX-INCLUSIVE PAYMENT CALCULATION v7
-                                    // - All display values use exactly 2 decimal places
-                                    // - Overpayment threshold uses epsilon (0.005) to prevent float false-positives
-                                    // - Overpayment currency label reflects active mode (LKR or base)
+                                    // TAX CALCULATION CORRECTED v8 - Tax as % of final (tax-inclusive) amount
                                     // ════════════════════════════════════════════════════════════════════════════
 
                                     const LATEST_TAX_RATE = <?= (float)$latestTaxRate ?>;
-                                    const TAX_FACTOR = 1 + (LATEST_TAX_RATE / 100);
                                     const COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
                                     const EXISTING_TOTAL_DISCOUNT = <?= (float)$totalDiscount ?>;
                                     const EXISTING_TOTAL_PENALTY = <?= (float)$totalPenalty ?>;
@@ -1048,7 +1059,7 @@ if (!SessionUser::hasValidSession()) {
                                     const currencyCode = "<?= htmlspecialchars($paymentData['currency_code']) ?>";
                                     const isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
 
-                                    // Epsilon: half a cent — prevents display-rounding false-positive overpay
+                                    // Epsilon: prevents display-rounding false-positive overpay
                                     const OVERPAY_EPSILON = 0.005;
 
                                     let exchangeRate = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
@@ -1068,7 +1079,6 @@ if (!SessionUser::hasValidSession()) {
 
                                     // ── Helpers ──────────────────────────────────────────────────────────────
 
-                                    /** Format number to exactly 2 decimal places with thousands separator */
                                     function fmt(n) {
                                         return parseFloat(n || 0).toLocaleString('en-US', {
                                             minimumFractionDigits: 2,
@@ -1076,7 +1086,11 @@ if (!SessionUser::hasValidSession()) {
                                         });
                                     }
 
-                                    /** Extract base (ex-tax) and tax from a tax-inclusive amount */
+                                    /**
+                                     * NEW TAX MODEL: Extract base and tax from tax-inclusive amount
+                                     * base = final * (1 - taxRate/100)
+                                     * tax = final * (taxRate/100)
+                                     */
                                     function extractBaseAndTax(taxInclusiveAmount, taxRate) {
                                         if (taxRate <= 0 || taxInclusiveAmount <= 0) {
                                             return {
@@ -1084,15 +1098,63 @@ if (!SessionUser::hasValidSession()) {
                                                 tax: 0
                                             };
                                         }
-                                        const factor = 1 + taxRate / 100;
-                                        const base = taxInclusiveAmount / factor;
+
+                                        const taxRateDecimal = taxRate / 100;
+                                        const basePortion = 1 - taxRateDecimal;
+
+                                        if (basePortion <= 0) {
+                                            return {
+                                                base: 0,
+                                                tax: taxInclusiveAmount
+                                            };
+                                        }
+
+                                        const base = taxInclusiveAmount * basePortion;
+                                        const tax = taxInclusiveAmount * taxRateDecimal;
+
                                         return {
                                             base: base,
-                                            tax: taxInclusiveAmount - base
+                                            tax: tax
                                         };
                                     }
 
-                                    /** Update a hint element with label + formatted value */
+                                    /**
+                                     * NEW TAX MODEL: Calculate tax-inclusive amount from base
+                                     * final = base / (1 - taxRate/100)
+                                     */
+                                    function calculateTaxInclusiveAmount(baseAmount, taxRate) {
+                                        if (taxRate <= 0 || baseAmount <= 0) {
+                                            return baseAmount;
+                                        }
+
+                                        const taxRateDecimal = taxRate / 100;
+                                        const divisor = 1 - taxRateDecimal;
+
+                                        if (divisor <= 0) {
+                                            console.error('Invalid tax rate - would be >= 100%');
+                                            return baseAmount;
+                                        }
+
+                                        return baseAmount / divisor;
+                                    }
+
+                                    /**
+                                     * NEW TAX MODEL: Calculate tax amount from base
+                                     * tax = base * (taxRate / (100 - taxRate))
+                                     */
+                                    function calculateTaxAmount(baseAmount, taxRate) {
+                                        if (taxRate <= 0 || baseAmount <= 0) {
+                                            return 0;
+                                        }
+
+                                        if (taxRate >= 100) {
+                                            console.error('Invalid tax rate - must be less than 100%');
+                                            return 0;
+                                        }
+
+                                        return baseAmount * (taxRate / (100 - taxRate));
+                                    }
+
                                     function setHint(id, label, value, isApprox = true) {
                                         const el = document.getElementById(id);
                                         if (!el) return;
@@ -1114,11 +1176,6 @@ if (!SessionUser::hasValidSession()) {
 
                                     // ── Overpayment panel ────────────────────────────────────────────────────
 
-                                    /**
-                                     * Show overpayment panel.
-                                     * All values passed in are already in the DISPLAY currency (LKR or base).
-                                     * displayLabel is derived from modalCurrentMode so it always matches.
-                                     */
                                     function showOverpaymentMessage(currentPayable, paidAmount, overpayTotal, overpayBase, overpayTax) {
                                         const displayLabel = (!isBaseCurrencyLKR && modalCurrentMode === 'lkr') ? 'LKR' : currencyCode;
                                         const wrapper = document.getElementById('overpay-panel-wrapper');
@@ -1130,17 +1187,14 @@ if (!SessionUser::hasValidSession()) {
                                         document.getElementById('overpay-amount').textContent =
                                             fmt(overpayTotal) + ' ' + displayLabel;
 
-                                        // Third column: ex-tax amount as headline value
                                         document.getElementById('overpay-next-breakdown').textContent =
                                             fmt(overpayBase) + ' ' + displayLabel;
 
-                                        // Sub-line: breakdown detail
                                         document.getElementById('overpay-next-sub').textContent =
                                             displayLabel + ' ' + fmt(overpayBase) + ' course fee' +
                                             ' + ' + displayLabel + ' ' + fmt(overpayTax) +
                                             ' tax (' + LATEST_TAX_RATE.toFixed(2) + '%)';
 
-                                        // Total line (dashed separator above in CSS)
                                         const totalEl = document.getElementById('overpay-next-total');
                                         if (totalEl) {
                                             totalEl.textContent = 'Total: ' + displayLabel + ' ' + fmt(overpayBase + overpayTax);
@@ -1161,67 +1215,76 @@ if (!SessionUser::hasValidSession()) {
                                         const rawPenalty = parseFloat(penaltyInput.value) || 0;
                                         const rawPaid = parseFloat(paidInput?.value) || 0;
 
-                                        // ════════════════════════════════
-                                        // SINGLE CURRENCY PATH (LKR-only)
-                                        // ════════════════════════════════
                                         if (isBaseCurrencyLKR || !exchangeRate) {
-                                            const totalDiscount = EXISTING_TOTAL_DISCOUNT + rawDiscount;
-                                            const totalPenalty = EXISTING_TOTAL_PENALTY + rawPenalty;
-                                            const basePayable = Math.max(0, COURSE_AMOUNT - totalDiscount + totalPenalty);
-
-                                            // Balance BEFORE this payment (what's still owed)
-                                            const balBeforeBase = Math.max(0, basePayable - (EXISTING_PAID_TOTAL / TAX_FACTOR));
-                                            const balBeforeWithTax = balBeforeBase + balBeforeBase * (LATEST_TAX_RATE / 100);
-
-                                            // After this payment
-                                            const paidBaseSoFar = (EXISTING_PAID_TOTAL + rawPaid) / TAX_FACTOR;
-                                            const remainBase = Math.max(0, basePayable - paidBaseSoFar);
-                                            const remainTax = remainBase * (LATEST_TAX_RATE / 100);
-                                            const remainTotal = remainBase + remainTax;
-
-                                            const thisCalc = extractBaseAndTax(rawPaid, LATEST_TAX_RATE);
-                                            if (taxAmountDisplay) taxAmountDisplay.value = fmt(thisCalc.tax);
-
-                                            // ── Overpayment? (with epsilon guard) ──
-                                            if (rawPaid > 0 && rawPaid > balBeforeWithTax + OVERPAY_EPSILON) {
-                                                const overpayAmt = rawPaid - balBeforeWithTax;
-                                                const overpayCalc = extractBaseAndTax(overpayAmt, LATEST_TAX_RATE);
-
-                                                balanceInput.value = '0.00';
-                                                if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
-                                                showOverpaymentMessage(balBeforeWithTax, rawPaid, overpayAmt, overpayCalc.base, overpayCalc.tax);
-                                                setHint('balance-lkr-hint', 'LKR', 0);
-                                                setHint('balance-base-hint', currencyCode, 0, false);
-
-                                            } else if (rawPaid > 0) {
-                                                balanceInput.value = fmt(remainTotal);
-                                                if (balBreakdownEl) {
-                                                    balBreakdownEl.textContent =
-                                                        'Paid: base ' + fmt(thisCalc.base) + ' + tax ' + fmt(thisCalc.tax) +
-                                                        ' | Remaining: base ' + fmt(remainBase) + ' + tax ' + fmt(remainTax) +
-                                                        ' = ' + fmt(remainTotal);
-                                                }
-                                                removeOverpaymentMessage();
-                                                setHint('balance-lkr-hint', 'LKR', remainTotal);
-                                                setHint('balance-base-hint', currencyCode, remainTotal, false);
-
-                                            } else {
-                                                // No paid amount entered — show current balance
-                                                const curBalBase = Math.max(0, basePayable - (EXISTING_PAID_TOTAL / TAX_FACTOR));
-                                                const curBalTax = curBalBase * (LATEST_TAX_RATE / 100);
-                                                const curBal = curBalBase + curBalTax;
-                                                balanceInput.value = fmt(curBal);
-                                                if (balBreakdownEl) balBreakdownEl.textContent = 'Base ' + fmt(curBalBase) + ' + Tax ' + fmt(curBalTax);
-                                                removeOverpaymentMessage();
-                                                setHint('balance-lkr-hint', 'LKR', curBal);
-                                                setHint('balance-base-hint', currencyCode, curBal, false);
-                                            }
-                                            return;
+                                            return recalculateSingleCurrency(rawDiscount, rawPenalty, rawPaid);
                                         }
 
-                                        // ═══════════════════════════════════
-                                        // MULTI-CURRENCY PATH (base + LKR)
-                                        // ═══════════════════════════════════
+                                        return recalculateMultiCurrency(rawDiscount, rawPenalty, rawPaid);
+                                    }
+
+                                    function recalculateSingleCurrency(rawDiscount, rawPenalty, rawPaid) {
+                                        const totalDiscount = EXISTING_TOTAL_DISCOUNT + rawDiscount;
+                                        const totalPenalty = EXISTING_TOTAL_PENALTY + rawPenalty;
+                                        const basePayable = Math.max(0, COURSE_AMOUNT - totalDiscount + totalPenalty);
+
+                                        // What's owed BEFORE this payment (base amount, excluding tax)
+                                        const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                        const basePortion = 1 - taxRateDecimal;
+                                        const paidBaseBeforeThis = EXISTING_PAID_TOTAL * basePortion;
+                                        const balBeforeBase = Math.max(0, basePayable - paidBaseBeforeThis);
+
+                                        // Balance BEFORE this payment (with tax)
+                                        const balBeforeWithTax = calculateTaxInclusiveAmount(balBeforeBase, LATEST_TAX_RATE);
+
+                                        // Extract tax from paid amount
+                                        const paidCalc = extractBaseAndTax(rawPaid, LATEST_TAX_RATE);
+
+                                        // Total paid so far (in base terms)
+                                        const totalPaidBaseSoFar = paidBaseBeforeThis + paidCalc.base;
+                                        const remainBase = Math.max(0, basePayable - totalPaidBaseSoFar);
+                                        const remainTotal = calculateTaxInclusiveAmount(remainBase, LATEST_TAX_RATE);
+
+                                        // Update tax display
+                                        if (taxAmountDisplay) taxAmountDisplay.value = fmt(paidCalc.tax);
+
+                                        // Check for overpayment
+                                        if (rawPaid > 0 && rawPaid > balBeforeWithTax + OVERPAY_EPSILON) {
+                                            const overpayAmt = rawPaid - balBeforeWithTax;
+                                            const overpayCalc = extractBaseAndTax(overpayAmt, LATEST_TAX_RATE);
+
+                                            balanceInput.value = '0.00';
+                                            if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
+                                            showOverpaymentMessage(balBeforeWithTax, rawPaid, overpayAmt, overpayCalc.base, overpayCalc.tax);
+                                            setHint('balance-lkr-hint', 'LKR', 0);
+                                            setHint('balance-base-hint', currencyCode, 0, false);
+
+                                        } else if (rawPaid > 0) {
+                                            balanceInput.value = fmt(remainTotal);
+                                            if (balBreakdownEl) {
+                                                const remainTaxAmount = calculateTaxAmount(remainBase, LATEST_TAX_RATE);
+                                                balBreakdownEl.textContent =
+                                                    'Paid: base ' + fmt(paidCalc.base) + ' + tax ' + fmt(paidCalc.tax) +
+                                                    ' | Remaining: base ' + fmt(remainBase) + ' + tax ' + fmt(remainTaxAmount) +
+                                                    ' = ' + fmt(remainTotal);
+                                            }
+                                            removeOverpaymentMessage();
+                                            setHint('balance-lkr-hint', 'LKR', remainTotal);
+                                            setHint('balance-base-hint', currencyCode, remainTotal, false);
+
+                                        } else {
+                                            // No paid amount entered
+                                            const balTaxAmount = calculateTaxAmount(balBeforeBase, LATEST_TAX_RATE);
+                                            balanceInput.value = fmt(balBeforeWithTax);
+                                            if (balBreakdownEl) {
+                                                balBreakdownEl.textContent = 'Base ' + fmt(balBeforeBase) + ' + Tax ' + fmt(balTaxAmount);
+                                            }
+                                            removeOverpaymentMessage();
+                                            setHint('balance-lkr-hint', 'LKR', balBeforeWithTax);
+                                            setHint('balance-base-hint', currencyCode, balBeforeWithTax, false);
+                                        }
+                                    }
+
+                                    function recalculateMultiCurrency(rawDiscount, rawPenalty, rawPaid) {
                                         const toBase = v => modalCurrentMode === 'lkr' ? v / exchangeRate : v;
                                         const toDisplay = v => modalCurrentMode === 'lkr' ? v * exchangeRate : v;
 
@@ -1233,32 +1296,38 @@ if (!SessionUser::hasValidSession()) {
                                         const totalPenaltyBase = EXISTING_TOTAL_PENALTY + penaltyBase;
                                         const basePayableBase = Math.max(0, COURSE_AMOUNT - totalDiscountBase + totalPenaltyBase);
 
-                                        // Balance BEFORE this payment (in base currency)
-                                        const balBeforeBase_b = Math.max(0, basePayableBase - (EXISTING_PAID_TOTAL / TAX_FACTOR));
-                                        const balBeforeWithTax_b = balBeforeBase_b + balBeforeBase_b * (LATEST_TAX_RATE / 100);
+                                        // What's owed BEFORE this payment
+                                        const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                        const basePortion = 1 - taxRateDecimal;
+                                        const paidBaseBeforeThis = EXISTING_PAID_TOTAL * basePortion;
+                                        const balBeforeBase = Math.max(0, basePayableBase - paidBaseBeforeThis);
 
-                                        // After this payment
-                                        const paidBaseSoFar_b = (EXISTING_PAID_TOTAL + paidBase) / TAX_FACTOR;
-                                        const remainBase = Math.max(0, basePayableBase - paidBaseSoFar_b);
-                                        const remainTax = remainBase * (LATEST_TAX_RATE / 100);
-                                        const remainTotal = remainBase + remainTax;
+                                        // Balance BEFORE this payment with tax (in base currency)
+                                        const balBeforeWithTax_baseCcy = calculateTaxInclusiveAmount(balBeforeBase, LATEST_TAX_RATE);
 
-                                        const thisCalc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
-                                        const taxDisplay = toDisplay(thisCalc.tax);
+                                        // Convert to display currency
+                                        const balBeforeDisplayWithTax = toDisplay(balBeforeWithTax_baseCcy);
+
+                                        // Extract tax using corrected formula
+                                        const paidCalc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
+                                        const taxDisplay = toDisplay(paidCalc.tax);
+
                                         if (taxAmountDisplay) taxAmountDisplay.value = fmt(taxDisplay);
 
-                                        // Balance before this payment in display currency
-                                        const balBeforeDisplayWithTax = toDisplay(balBeforeWithTax_b);
+                                        // Total paid so far in base terms
+                                        const totalPaidBaseSoFar = paidBaseBeforeThis + paidCalc.base;
+                                        const remainBase = Math.max(0, basePayableBase - totalPaidBaseSoFar);
+                                        const remainTotal = calculateTaxInclusiveAmount(remainBase, LATEST_TAX_RATE);
 
-                                        // ── Overpayment? (with epsilon guard) ──
+                                        // Check for overpayment
                                         if (rawPaid > 0 && rawPaid > balBeforeDisplayWithTax + OVERPAY_EPSILON) {
                                             const overpayDisplay = rawPaid - balBeforeDisplayWithTax;
                                             const overpayBase_v = toBase(overpayDisplay);
-                                            const overpayTax_v = overpayBase_v * (LATEST_TAX_RATE / 100);
+                                            const overpayTax_v = calculateTaxAmount(overpayBase_v, LATEST_TAX_RATE);
 
                                             balanceInput.value = '0.00';
                                             if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
-                                            // Pass display-currency values; showOverpaymentMessage picks label from modalCurrentMode
+
                                             showOverpaymentMessage(
                                                 balBeforeDisplayWithTax,
                                                 rawPaid,
@@ -1273,9 +1342,10 @@ if (!SessionUser::hasValidSession()) {
                                             const balDisplay = toDisplay(remainTotal);
                                             balanceInput.value = fmt(balDisplay);
                                             if (balBreakdownEl) {
+                                                const remainTaxBase = calculateTaxAmount(remainBase, LATEST_TAX_RATE);
                                                 balBreakdownEl.textContent =
-                                                    'Paid: base ' + fmt(toDisplay(thisCalc.base)) + ' + tax ' + fmt(taxDisplay) +
-                                                    ' | Remaining: base ' + fmt(toDisplay(remainBase)) + ' + tax ' + fmt(toDisplay(remainTax)) +
+                                                    'Paid: base ' + fmt(toDisplay(paidCalc.base)) + ' + tax ' + fmt(taxDisplay) +
+                                                    ' | Remaining: base ' + fmt(toDisplay(remainBase)) + ' + tax ' + fmt(toDisplay(remainTaxBase)) +
                                                     ' = ' + fmt(balDisplay);
                                             }
                                             removeOverpaymentMessage();
@@ -1288,44 +1358,42 @@ if (!SessionUser::hasValidSession()) {
                                             }
 
                                         } else {
-                                            // No paid amount — show current balance in display currency
-                                            const curBalBase = Math.max(0, basePayableBase - (EXISTING_PAID_TOTAL / TAX_FACTOR));
-                                            const curBalTax = curBalBase * (LATEST_TAX_RATE / 100);
-                                            const curBal = curBalBase + curBalTax;
-                                            const balDisplay = toDisplay(curBal);
+                                            // No paid amount
+                                            const balDisplay = toDisplay(balBeforeWithTax_baseCcy);
                                             balanceInput.value = fmt(balDisplay);
                                             if (balBreakdownEl) {
-                                                balBreakdownEl.textContent = 'Base ' + fmt(toDisplay(curBalBase)) + ' + Tax ' + fmt(toDisplay(curBalTax));
+                                                const balTaxBase = calculateTaxAmount(balBeforeBase, LATEST_TAX_RATE);
+                                                balBreakdownEl.textContent = 'Base ' + fmt(toDisplay(balBeforeBase)) + ' + Tax ' + fmt(toDisplay(balTaxBase));
                                             }
                                             removeOverpaymentMessage();
                                             if (modalCurrentMode === 'lkr') {
-                                                setHint('balance-base-hint', currencyCode, curBal, false);
-                                                setHint('balance-lkr-hint', 'LKR', toDisplay(curBal), false);
+                                                setHint('balance-base-hint', currencyCode, balBeforeWithTax_baseCcy, false);
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(balBeforeWithTax_baseCcy), false);
                                             } else {
-                                                setHint('balance-lkr-hint', 'LKR', toDisplay(curBal));
-                                                setHint('balance-base-hint', currencyCode, curBal, false);
+                                                setHint('balance-lkr-hint', 'LKR', toDisplay(balBeforeWithTax_baseCcy));
+                                                setHint('balance-base-hint', currencyCode, balBeforeWithTax_baseCcy, false);
                                             }
                                         }
 
-                                        // ── Update all other hints ──
+                                        // Update other hints based on currency mode
                                         if (modalCurrentMode === 'lkr') {
                                             setHint('discount-base-hint', currencyCode, discountBase, false);
                                             setHint('penalty-base-hint', currencyCode, penaltyBase, false);
                                             setHint('paid-base-hint', currencyCode, paidBase, false);
-                                            setHint('tax-amount-base-hint', currencyCode, thisCalc.tax, false);
+                                            setHint('tax-amount-base-hint', currencyCode, paidCalc.tax, false);
                                             setHint('discount-lkr-hint', 'LKR', rawDiscount, false);
                                             setHint('penalty-lkr-hint', 'LKR', rawPenalty, false);
                                             setHint('paid-lkr-hint', 'LKR', rawPaid, false);
-                                            setHint('tax-amount-lkr-hint', 'LKR', toDisplay(thisCalc.tax), false);
+                                            setHint('tax-amount-lkr-hint', 'LKR', taxDisplay, false);
                                         } else {
                                             setHint('discount-lkr-hint', 'LKR', toDisplay(rawDiscount));
                                             setHint('penalty-lkr-hint', 'LKR', toDisplay(rawPenalty));
                                             setHint('paid-lkr-hint', 'LKR', toDisplay(rawPaid));
-                                            setHint('tax-amount-lkr-hint', 'LKR', toDisplay(thisCalc.tax));
+                                            setHint('tax-amount-lkr-hint', 'LKR', toDisplay(paidCalc.tax));
                                             setHint('discount-base-hint', currencyCode, rawDiscount, false);
                                             setHint('penalty-base-hint', currencyCode, rawPenalty, false);
                                             setHint('paid-base-hint', currencyCode, paidBase, false);
-                                            setHint('tax-amount-base-hint', currencyCode, thisCalc.tax, false);
+                                            setHint('tax-amount-base-hint', currencyCode, paidCalc.tax, false);
                                         }
                                     }
 
@@ -1448,7 +1516,7 @@ if (!SessionUser::hasValidSession()) {
 
                                     // Initial calculation
                                     recalculate();
-                                    console.log('✓ Payment v7 | Tax:', LATEST_TAX_RATE + '% | Factor:', TAX_FACTOR, '| Epsilon:', OVERPAY_EPSILON);
+                                    console.log('✓ Payment Tax Calculation v8 CORRECTED | Tax:', LATEST_TAX_RATE + '% | Model: Tax as % of final amount');
                                 </script>
                         </body>
 

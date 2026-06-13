@@ -273,9 +273,10 @@ if (!SessionUser::hasValidSession()) {
                         if ($balance < 0) {
                             $overpayAmount = abs($balance);
                             // Extract tax from overpay (tax-inclusive model)
-                            $overpayFactor   = 1 + ($latestTaxRate / 100);
-                            $nextBase        = round($overpayAmount / $overpayFactor, 2);
-                            $nextTax         = round($overpayAmount - $nextBase, 2);
+                            $taxRateDecimal = $latestTaxRate / 100;
+                            $basePortion = 1 - $taxRateDecimal;
+                            $nextBase = round($overpayAmount * $basePortion, 2);
+                            $nextTax = round($overpayAmount * $taxRateDecimal, 2);
                             $nextInstallmentData = [
                                 'overpay' => $overpayAmount,
                                 'base'    => $nextBase,
@@ -1550,13 +1551,28 @@ if (!SessionUser::hasValidSession()) {
                                         base: paid,
                                         tax: 0
                                     };
-                                    var factor = 1 + (rate / 100);
-                                    var base = paid / factor;
-                                    var tax = paid - base;
+                                    var taxRateDecimal = rate / 100;
+                                    var basePortion = 1 - taxRateDecimal;
+                                    var base = paid * basePortion;
+                                    var tax = paid * taxRateDecimal;
                                     return {
                                         base: base,
                                         tax: tax
                                     };
+                                }
+
+                                function calculateTaxInclusiveAmount(base, rate) {
+                                    if (rate <= 0) return base;
+                                    var taxRateDecimal = rate / 100;
+                                    var divisor = 1 - taxRateDecimal;
+                                    if (divisor <= 0) return base;
+                                    return base / divisor;
+                                }
+
+                                function calculateTaxAmount(base, rate) {
+                                    if (rate <= 0) return 0;
+                                    var taxRateFraction = rate / (100 - rate);
+                                    return base * taxRateFraction;
                                 }
 
                                 /* ════════════════════════════════════════════════════════════════════════

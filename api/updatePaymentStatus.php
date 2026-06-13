@@ -28,7 +28,7 @@ $input = json_decode(file_get_contents("php://input"), true);
 /* ══════════════════════════════════════════════════════════════════════════
    INPUT PARSING
 ══════════════════════════════════════════════════════════════════════════════ */
-$paymentId      = (int)($input['paymentId']        ?? 0);
+$paymentId      = (int)($input['paymentId']      ?? 0);
 $newStatus      = (int)($input['status']           ?? 0);
 $paidAmount     = (float)($input['paidAmount']     ?? 0);   // always in BASE currency from frontend
 $discountAmount = (float)($input['discountAmount'] ?? 0);
@@ -82,8 +82,8 @@ $paymentRow = Database::search("
     SELECT
         cpp.*,
         cp.course_payments_id,
-        cp.amount                           AS cp_amount,
-        cp.discount                         AS cp_discount,
+        cp.amount                                   AS cp_amount,
+        cp.discount                                 AS cp_discount,
         cp.discount_type_discount_type_id,
         cp.payment_plan_has_students_has_intakes_id,
         cp.panelty_payment_option_panelty_payment_option_id,
@@ -171,7 +171,6 @@ $latestTaxRate = 0.0;
 if ($taxRateQuery && $taxRateQuery->num_rows > 0) {
     $latestTaxRate = (float)$taxRateQuery->fetch_assoc()['rate'];
 }
-$taxFactor = 1.0 + ($latestTaxRate / 100.0);
 
 /* ══════════════════════════════════════════════════════════════════════════
    CURRENCY / EXCHANGE RATE RESOLUTION
@@ -240,20 +239,20 @@ if ($newStatus == 4) {
 ══════════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Extract tax component from a tax-inclusive amount.
- *
- * paid = base × (1 + rate/100)
- * ⟹ base = paid / (1 + rate/100)
- *    tax  = paid − base
+ * Extract tax component from a final tax-inclusive amount.
+ * * base = paid × (1 - rate/100)
+ * tax  = paid × (rate/100)
  *
  * Returns ['base' => float, 'tax' => float]
  */
 function extractTaxFromPaid(float $paid, float $taxRate): array
 {
     if ($taxRate <= 0 || $paid <= 0) return ['base' => $paid, 'tax' => 0.0];
-    $factor = 1.0 + ($taxRate / 100.0);
-    $base   = $paid / $factor;
-    $tax    = $paid - $base;
+    $taxRateDecimal = $taxRate / 100.0;
+    $basePortion    = 1.0 - $taxRateDecimal;
+
+    $base = $paid * $basePortion;
+    $tax  = $paid * $taxRateDecimal;
     return ['base' => round($base, 4), 'tax' => round($tax, 4)];
 }
 
@@ -262,12 +261,11 @@ $paidBase = round($paidAmount, 4);
 
 /* ════════════════════════════════════════════════════════════════════════════
    CURRENT INSTALLMENT PAYABLE CALCULATION
-   Mirrors uploadStudentPaymentReceipt.php exactly:
      1. Compute installment-level discount from course_payments record.
      2. Fetch ALL existing receipts (pending=2 AND approved=3) for this
         installment, normalising each to base currency via exchange rate.
-     3. Compute basePayable  = amount - totalDiscount + totalPenalty
-        totalPayable = basePayable × taxFactor   (tax-inclusive reference)
+     3. Compute basePayable = amount - totalDiscount + totalPenalty
+        totalPayable = basePayable / (1 - tax_rate/100)
 ════════════════════════════════════════════════════════════════════════════ */
 
 /* Installment-level discount (from the course_payments record) */
@@ -275,17 +273,6 @@ $cpDiscountAmount = ($pay['discount_type_discount_type_id'] == 3)
     ? $pay['cp_amount'] / 100.0 * $pay['cp_discount']
     : (float)$pay['cp_discount'];
 
-/*
- * FIX #1  — Include PENDING (status=2) receipts in the "already paid" sum,
- *           not just approved (status=3) ones.
- *
- * FIX #2  — Normalise every existing receipt to base currency using its
- *           stored currency_exchange_rate, so LKR receipts on a GBP course
- *           don't inflate the "already paid" total.
- *
- * We exclude the current receipt being approved (course_payment_has_payment_id != '$paymentId')
- * so we don't double-count what we are about to approve.
- */
 $existingReceiptQuery = Database::search("
     SELECT
         COALESCE(SUM(
@@ -343,26 +330,21 @@ if ($existingReceiptQuery && $existingReceiptQuery->num_rows > 0) {
     $receiptPenalty_base  = (float)($exRow['existing_penalty_base']  ?? 0);
 }
 
-/*
- * FIX #3  — Do NOT bake the submitted $penaltyAmount into installmentTotal.
- *           Instead, accumulate penalty the same way File 2 does:
- *             totalDiscount = cpDiscountAmount + receiptDiscounts + thisReceiptDiscount
- *             totalPenalty  = receiptPenalties + thisReceiptPenalty
- *           This ensures installmentTotal is stable regardless of what the
- *           frontend submits, preventing phantom overpayments.
- */
 $totalDiscountBase = $cpDiscountAmount + $receiptDiscount_base + $discountAmount;
 $totalPenaltyBase  = $receiptPenalty_base + $penaltyAmount;
 
 $basePayable      = max(0.0, $pay['cp_amount'] - $totalDiscountBase + $totalPenaltyBase);
-$installmentTotal = round($basePayable * $taxFactor, 4); // tax-inclusive reference; fixed, not per-receipt
+
+/* Calculate Tax-Inclusive Total from Base Amount using structural Divisor */
+if ($latestTaxRate > 0 && $latestTaxRate < 100) {
+    $divisor = 1.0 - ($latestTaxRate / 100.0);
+    $installmentTotal = round($basePayable / $divisor, 4);
+} else {
+    $installmentTotal = round($basePayable, 4);
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT DETECTION  (all in base currency)
-
-   remainingBefore_base = what the student still owes BEFORE this receipt
-   amountForCurrent     = portion of paidBase applied to current installment
-   overpayAmount        = any excess
 ════════════════════════════════════════════════════════════════════════════ */
 $remainingBefore_base = round(max(0.0, $installmentTotal - $existingPaid_base), 4);
 $amountForCurrent     = round(min($paidBase, $remainingBefore_base), 4);
@@ -443,14 +425,15 @@ if ($overpayAmount > 0.01) {
                 : (float)$nextPayment['discount'];
 
             $nextBasePayable = max(0.0, $nextPayment['amount'] - $nextDiscount);
-            $nextTotalOwed   = round($nextBasePayable * $taxFactor, 4);
 
-            /*
-             * FIX #4  — Fetch existing paid amounts for the NEXT installment
-             *           (normalised to base currency) and subtract before
-             *           applying overpay. Without this, overpay could exceed
-             *           what is actually still owed on that installment.
-             */
+            /* Structural inclusive formula logic applied for cascading assignments */
+            if ($latestTaxRate > 0 && $latestTaxRate < 100) {
+                $nextDivisor = 1.0 - ($latestTaxRate / 100.0);
+                $nextTotalOwed = round($nextBasePayable / $nextDivisor, 4);
+            } else {
+                $nextTotalOwed = round($nextBasePayable, 4);
+            }
+
             $nextExistingQ = Database::search("
                 SELECT COALESCE(SUM(
                     CASE
@@ -491,7 +474,6 @@ if ($overpayAmount > 0.01) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    GENERATE RECEIPT NUMBER
-   Format: [BRANCH_2_LETTERS][YEAR]-[SEQ_5DIGITS]   e.g. CO2025-00042
 ════════════════════════════════════════════════════════════════════════════ */
 $branchName   = $pay['branch_name'] ?? 'XX';
 $branchPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $branchName), 0, 2));
@@ -519,25 +501,16 @@ Database::iud("
 $receiptId = Database::$connection->insert_id;
 
 /* ════════════════════════════════════════════════════════════════════════════
-   ✅ CONVERT AMOUNTS TO PAYMENT CURRENCY FOR STORAGE
-   
-   If paying in LKR (currencyId=1) for a GBP course:
-   - All amounts (paidBase, discountAmount, etc.) are in base currency (GBP)
-   - Need to multiply by exchange rate to get payment currency (LKR)
-   
-   If paying in same currency as course:
-   - No conversion needed
+   CONVERT AMOUNTS TO PAYMENT CURRENCY FOR STORAGE
 ════════════════════════════════════════════════════════════════════════════ */
 $isPayingInForeignCurrency = ($currencyId && $currencyId != $courseCurrencyId && $resolvedRate);
 
 if ($isPayingInForeignCurrency) {
-    // Convert from course currency (e.g., GBP) to payment currency (e.g., LKR)
     $amountForCurrent_stored = round($amountForCurrent * $resolvedRate, 2);
     $discountAmount_stored   = round($discountAmount * $resolvedRate, 2);
     $penaltyAmount_stored    = round($penaltyAmount * $resolvedRate, 2);
     $taxForCurrent_stored    = round($taxForCurrentReceipt * $resolvedRate, 2);
 } else {
-    // Same currency, no conversion needed
     $amountForCurrent_stored = round($amountForCurrent, 2);
     $discountAmount_stored   = round($discountAmount, 2);
     $penaltyAmount_stored    = round($penaltyAmount, 2);
@@ -546,9 +519,6 @@ if ($isPayingInForeignCurrency) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    UPDATE course_payment_has_payments  (pending → approved)
-
-   paid_amount is stored in the payment currency (e.g., LKR 40,000 or GBP 100)
-   Tax amount is also stored in payment currency
 ════════════════════════════════════════════════════════════════════════════ */
 $exchangeRateSql   = $resolvedRate    ? "'" . number_format($resolvedRate, 4, '.', '') . "'" : 'NULL';
 $exchangeRateIdSql = $exchangeRateId  ? "'$exchangeRateId'" : 'NULL';
@@ -575,9 +545,15 @@ Database::iud("
     WHERE `course_payment_has_payment_id` = '$paymentId'
 ");
 
+Database::iud("
+            INSERT INTO `payment_logs`
+                (`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `log`)
+            VALUES
+                ('" . $pay['course_payments_id'] . "', '$paymentId', '$userId', '$now', 'Payment receipt approved')
+        ");
+
 /* ════════════════════════════════════════════════════════════════════════════
    MARK CURRENT INSTALLMENT AS FULLY PAID IF NOW COVERED
-   Compare total tax-inclusive paid (existing + this receipt) vs installmentTotal.
 ════════════════════════════════════════════════════════════════════════════ */
 $newTotalPaidOnCurrent = round($existingPaid_base + $amountForCurrent, 4);
 if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
@@ -590,16 +566,13 @@ if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT OVERPAYMENT RECORDS FOR NEXT INSTALLMENTS
-   
-   ✅ All amounts are converted to payment currency before storing
 ════════════════════════════════════════════════════════════════════════════ */
 if (!empty($nextInstallmentPayments)) {
     foreach ($nextInstallmentPayments as $nextPmt) {
         $nextPaymentId  = $nextPmt['payment_id'];
-        $nextPaidAmount = $nextPmt['paid_amount'];  // in base currency
-        $nextTaxStored  = $nextPmt['tax_amount'];   // in base currency
+        $nextPaidAmount = $nextPmt['paid_amount'];
+        $nextTaxStored  = $nextPmt['tax_amount'];
 
-        // ✅ Convert to payment currency if needed
         if ($isPayingInForeignCurrency) {
             $nextPaidAmount_stored = round($nextPaidAmount * $resolvedRate, 2);
             $nextTaxStored_amount  = round($nextTaxStored * $resolvedRate, 2);
@@ -647,12 +620,6 @@ if (!empty($nextInstallmentPayments)) {
         ");
         $nextPaymentReceiptId = Database::$connection->insert_id;
 
-        /*
-         * FIX #5  — Compare nextPaidAmount against $nextRemaining (what was
-         *           actually still owed) rather than $nextTotalOwed (the full
-         *           installment amount). This correctly marks the next
-         *           installment as fully paid even if prior partial payments exist.
-         */
         if ($nextPaidAmount >= $nextPmt['next_remaining'] - 0.001) {
             Database::iud("
                 UPDATE `course_payments`
@@ -678,7 +645,6 @@ if (!empty($nextInstallmentPayments)) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    REGISTRATION PAYMENT STATUS UPDATE
-   (mirrors uploadPaymentReceipt.php — payment_type_id = 18, student status = 4)
 ════════════════════════════════════════════════════════════════════════════ */
 if ((int)$pay['payment_type_id'] == 18 && (int)$pay['lead_student_status_lead_student_status_id'] == 4) {
     Database::iud("
@@ -696,9 +662,6 @@ if ((int)$pay['payment_type_id'] == 18 && (int)$pay['lead_student_status_lead_st
 
 /* ════════════════════════════════════════════════════════════════════════════
    FIRST INSTALLMENT LOG
-   FIX #6  — Trigger statuses must be [5, 9] to match uploadPaymentReceipt.php.
-             The old code used [8, 9]; status 8 is the "first installment
-             uploaded" log state itself, not a valid trigger state.
 ════════════════════════════════════════════════════════════════════════════ */
 if (in_array((int)$pay['lead_student_status_lead_student_status_id'], [5, 9])) {
     $nextRs = Database::search("
@@ -735,62 +698,6 @@ if (in_array((int)$pay['lead_student_status_lead_student_status_id'], [5, 9])) {
     }
 }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   MAIN APPROVAL LOG
-════════════════════════════════════════════════════════════════════════════ */
-$displayCurrency = ($currencyId == 1) ? 'LKR' : $courseCurrencyCode;
-$displayAmount   = $displayCurrency . ' ' . number_format($amountForCurrent_stored, 2);
-
-$log  = 'Payment receipt approved';
-$log .= ' | Paid: ' . $displayAmount;
-if ($latestTaxRate > 0) {
-    $log .= ' | Tax Rate: ' . $latestTaxRate . '%'
-        . ' | Tax on current installment: ' . $displayCurrency . ' ' . number_format($taxForCurrent_stored, 2);
-}
-if ($overpayAmount > 0.001) {
-    $overpayDisplay = $displayCurrency . ' ' . number_format(
-        $isPayingInForeignCurrency ? ($overpayAmount * $resolvedRate) : $overpayAmount,
-        2
-    );
-    $log .= ' | Overpayment: ' . $overpayDisplay . ' applied to next installment(s)';
-}
-
-$log_cols = "`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `log`";
-$log_vals = "'$coursePaymentsId', '$paymentId', '$userId', '$now', '" . Database::escape($log) . "'";
-
-if (!empty($note)) {
-    $log_cols .= ", `note`";
-    $log_vals .= ", '" . Database::escape($note) . "'";
-}
-
-Database::iud("INSERT INTO `payment_logs` ($log_cols) VALUES ($log_vals)");
-
-/* ════════════════════════════════════════════════════════════════════════════
-   RESPONSE
-════════════════════════════════════════════════════════════════════════════ */
-http_response_code(200);
-
-$statusMsg = 'Payment approved successfully.';
-if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
-    $statusMsg .= ' Installment is now fully paid.';
-}
-$statusMsg .= ' Receipt No: ' . $receiptNumber;
-
-$status->done          = $statusMsg;
-$status->receiptNumber = $receiptNumber;
-$status->taxRate       = $latestTaxRate;
-$status->paidBase      = round($paidBase, 2);
-$status->paidStored    = round($amountForCurrent_stored, 2);
-$status->paidCurrency  = $displayCurrency;
-$status->taxAmount     = round($taxForCurrent_stored, 2);
-
-if ($overpaymentInfo) {
-    $status->overpayment = [
-        'detected'         => true,
-        'currentApplied'   => round($overpaymentInfo['current_applied'], 2),
-        'overpayAmount'    => round($overpaymentInfo['overpay_amount'], 2),
-        'nextInstallments' => count($nextInstallmentPayments),
-    ];
-}
-
+$status->done = 'Payment processing has completed successfully.';
 echo json_encode($status);
+exit;

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * uploadStudentPaymentReceipt.php - FIXED CURRENCY HANDLING
+ * uploadStudentPaymentReceipt.php - FIXED CURRENCY HANDLING WITH CORRECTED TAX CALCULATION
  *
  * KEY RULES:
  * - paid_amount stored in the currency the student ACTUALLY paid in (original, no conversion)
@@ -10,10 +10,16 @@
  * - All balance/overpayment calculations done in BASE currency (e.g. GBP)
  * - Before storing, amounts are converted BACK to payment currency (e.g. LKR)
  *
+ * TAX CALCULATION FIX:
+ * - OLD (WRONG): base = taxInclusive / (1 + taxRate/100)
+ * - NEW (CORRECT): base = taxInclusive × (1 - taxRate/100)
+ * - Tax is now calculated as a percentage of the FINAL (tax-inclusive) amount
+ *
  * Example:
  *   Course in GBP, student pays LKR 5000, exchange rate = 400
  *   → paid_amount = 5000, currency_id = 1 (LKR), exchange_rate = 400
- *   → tax extracted from (5000/400 = 12.5 GBP) = ~1.09 GBP → stored as 1.09 * 400 = 436 LKR
+ *   → base (5000/400 = 12.5 GBP) × 0.975 = 12.1875 GBP
+ *   → tax = 12.5 × 0.025 = 0.3125 GBP → stored as 0.3125 × 400 = 125 LKR
  */
 
 $status = new stdClass();
@@ -48,7 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 /**
- * Extract tax component from a tax-inclusive amount.
+ * Extract tax component from a tax-inclusive amount using CORRECT formula.
+ * 
+ * Tax is calculated as a percentage of the FINAL (tax-inclusive) amount.
+ * 
+ * Formula:
+ *   base = taxInclusiveAmount × (1 - taxRate/100)
+ *   tax = taxInclusiveAmount × (taxRate/100)
+ * 
+ * Example (200 GBP with 2.5% tax):
+ *   base = 200 × 0.975 = 195 GBP
+ *   tax = 200 × 0.025 = 5 GBP
+ * 
  * Returns ['base' => float, 'tax' => float]
  */
 function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
@@ -56,10 +73,64 @@ function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
     if ($taxRate <= 0 || $taxInclusiveAmt <= 0) {
         return ['base' => $taxInclusiveAmt, 'tax' => 0.0];
     }
-    $factor = 1.0 + ($taxRate / 100.0);
-    $base   = $taxInclusiveAmt / $factor;
-    $tax    = $taxInclusiveAmt - $base;
+
+    $taxRateDecimal = $taxRate / 100.0;
+    $basePortion = 1.0 - $taxRateDecimal;
+    $base = $taxInclusiveAmt * $basePortion;
+    $tax = $taxInclusiveAmt * $taxRateDecimal;
+
     return ['base' => round($base, 2), 'tax' => round($tax, 2)];
+}
+
+/**
+ * Calculate tax-inclusive amount from base amount using CORRECT formula.
+ * 
+ * When you have a base amount and need to calculate the tax-inclusive amount:
+ * inclusive = base / (1 - taxRate/100)
+ * 
+ * Example (base 195 GBP with 2.5% tax):
+ *   inclusive = 195 / 0.975 = 200 GBP
+ * 
+ * Returns float
+ */
+function calculateTaxInclusiveAmount(float $base, float $taxRate): float
+{
+    if ($taxRate <= 0 || $base <= 0) {
+        return $base;
+    }
+
+    $taxRateDecimal = $taxRate / 100.0;
+    $basePortion = 1.0 - $taxRateDecimal;
+
+    if ($basePortion <= 0) {
+        return $base; // Prevent division by zero
+    }
+
+    return round($base / $basePortion, 2);
+}
+
+/**
+ * Calculate tax amount from base using CORRECT formula.
+ * 
+ * tax = base × (taxRate / (100 - taxRate))
+ * 
+ * Example (base 200 GBP with 2.5% tax):
+ *   tax = 200 × (2.5 / 97.5) = 5.128 GBP
+ * 
+ * Returns float
+ */
+function calculateTaxFromBase(float $base, float $taxRate): float
+{
+    if ($taxRate <= 0 || $base <= 0) {
+        return 0.0;
+    }
+
+    $divisor = 100.0 - $taxRate;
+    if ($divisor <= 0) {
+        return 0.0; // Prevent division by zero
+    }
+
+    return round($base * ($taxRate / $divisor), 2);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -123,7 +194,6 @@ $latestTaxRate = 0.0;
 if ($taxRateRow && $taxRateRow->num_rows > 0) {
     $latestTaxRate = (float)$taxRateRow->fetch_assoc()['rate'];
 }
-$taxFactor = 1.0 + ($latestTaxRate / 100.0);
 
 /* ════════════════════════════════════════════════════════════════════════════
    FETCH PAYMENT PLAN
@@ -260,8 +330,6 @@ if ($isLkrPaymentForForeignCourse) {
     $penalty_base  = round($penalty_original,     2);
 }
 
-
-
 /* ════════════════════════════════════════════════════════════════════════════
    CALCULATE CURRENT INSTALLMENT PAYABLE (all in base currency)
 ════════════════════════════════════════════════════════════════════════════ */
@@ -319,7 +387,10 @@ $receiptPenalty_base = (float)($exRow['receipt_penalty_base']  ?? 0); // in base
 $totalDiscountBase = $cpDiscountAmt + $receiptDisc_base + $discount_base;
 $totalPenaltyBase  = $receiptPenalty_base + $penalty_base;
 $basePayable       = max(0.0, $paymentData['amount'] - $totalDiscountBase + $totalPenaltyBase);
-$totalPayable      = $basePayable * $taxFactor; // total due incl. tax, in base currency
+
+// Calculate total payable INCLUDING TAX using correct formula
+// inclusive = base / (1 - taxRate/100)
+$totalPayable = calculateTaxInclusiveAmount($basePayable, $latestTaxRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
    EXTRACT TAX FROM THIS PAYMENT (in base currency)
@@ -332,10 +403,14 @@ $paidTax_base = $extracted['tax'];  // tax portion in base currency
    BALANCE CALCULATION (base currency)
 ════════════════════════════════════════════════════════════════════════════ */
 $totalPaidAfterThisReceipt = $existingPaid_base + $paid_base;
-$paidNetSoFar              = $totalPaidAfterThisReceipt / $taxFactor;
-$remainingBase             = max(0.0, $basePayable - $paidNetSoFar);
-$remainingTax              = $remainingBase * ($latestTaxRate / 100.0);
-$balanceAfter_base         = $remainingBase + $remainingTax; // balance in base currency
+
+// To get the remaining balance, we need to calculate how much net amount (ex-tax) has been paid
+$paidNetSoFar = extractTaxFromInclusive($totalPaidAfterThisReceipt, $latestTaxRate)['base'];
+
+$remainingBase = max(0.0, $basePayable - $paidNetSoFar);
+
+// Remaining balance including tax
+$balanceAfter_base = calculateTaxInclusiveAmount($remainingBase, $latestTaxRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT DETECTION (base currency)
@@ -372,6 +447,7 @@ if ($isLkrPaymentForForeignCourse) {
 } else {
     $paidAmountForCurrent_stored = round($amountForCurrent_base, 2); // base currency
 }
+
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT → distribute to next installments
 ════════════════════════════════════════════════════════════════════════════ */
@@ -445,8 +521,11 @@ if ($overpayAmount_base > 0.001) {
         ");
         $nextExistingPaid_base = (float)($nextExistingQ->fetch_assoc()['paid_base'] ?? 0);
 
-        $nextBasePayable     = max(0.0, $nextRow['amount'] - $nextDisc);
-        $nextTotalPayable_base = $nextBasePayable * $taxFactor;
+        $nextBasePayable = max(0.0, $nextRow['amount'] - $nextDisc);
+
+        // Calculate total payable including tax using CORRECT formula
+        $nextTotalPayable_base = calculateTaxInclusiveAmount($nextBasePayable, $latestTaxRate);
+
         $nextRemaining_base  = max(0.0, $nextTotalPayable_base - $nextExistingPaid_base);
         $applyToNext_base    = min($remainingOverpay_base, $nextRemaining_base);
         $remainingOverpay_base = round($remainingOverpay_base - $applyToNext_base, 2);

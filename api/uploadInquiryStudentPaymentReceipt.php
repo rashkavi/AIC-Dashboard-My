@@ -1,27 +1,33 @@
 <?php
 
 /**
- * PAYMENT RECEIPT PROCESSOR - CORRECTED VERSION (FINAL FIX)
+ * PAYMENT RECEIPT PROCESSOR - CORRECTED VERSION (FINAL FIX - TAX MODEL)
  * 
  * Key Fixes:
- * 1. Tax Model: BASE + TAX (additive, not inclusive extraction)
+ * 1. Tax Model: Tax is calculated as a PERCENTAGE OF THE FINAL (TAX-INCLUSIVE) AMOUNT
  * 2. Tax Rate: Latest from tax_rates table, default 2.50%
- * 3. First Payment: amount (base) + (amount × taxRate%) = total
- *    Example: GBP 10 @ 2.5% = 10 + 0.25 = 10.25 ✓
+ * 3. First Payment: amount (base) is scheduled amount
+ *    When student pays this amount WITH tax:
+ *    - base = paid_amount × (1 - taxRate%)
+ *    - tax = paid_amount × (taxRate%)
+ *    - total_due = paid_amount
+ *    Example: Student pays 200 GBP (tax-inclusive)
+ *      base = 200 × 0.975 = 195 GBP
+ *      tax = 200 × 0.025 = 5 GBP
+ *      total = 200 GBP ✓ (exactly 2.5% of 200)
  * 
  * 4. SUBSEQUENT PAYMENTS (CRITICAL FIX):
  *    When balance remains from prior partial payments:
- *    - Balance is TOTAL (base + tax already)
- *    - Reverse-extract base: base = balance ÷ (1 + taxRate%)
- *    - Apply fresh tax: tax = base × (taxRate%)
- *    - Total = base + tax
+ *    - Balance is the remaining TOTAL due (base + tax)
+ *    - Extract base: base = balance × (1 - taxRate%)
+ *    - Calculate tax: tax = balance × (taxRate%)
+ *    - Total owed = balance
  *    
- *    Example: Scheduled 10 GBP, paid 5 GBP (including tax)
- *      Payable: 10 + 0.25 = 10.25 GBP
- *      Remaining: 10.25 - 5.00 = 5.25 GBP
- *      Base: 5.25 ÷ 1.025 = 5.12 GBP
- *      Tax: 5.12 × 0.025 = 0.13 GBP
- *      Total: 5.12 + 0.13 = 5.25 ✓
+ *    Example: Scheduled 200 GBP, paid 100 GBP (including tax)
+ *      Remaining balance: 200 - 100 = 100 GBP
+ *      Base of remaining: 100 × 0.975 = 97.5 GBP
+ *      Tax of remaining: 100 × 0.025 = 2.5 GBP
+ *      Total: 97.5 + 2.5 = 100 GBP ✓
  */
 
 $status = new stdClass();
@@ -165,12 +171,16 @@ if (SessionUser::hasValidSession()) {
                         // STEP 1: Fetch latest tax rate from tax_rates table
                         //         Default to 2.50% if table is empty
                         //
-                        // Tax Model: ADDITIVE (not inclusive)
-                        //   totalPaid = baseAmount + (baseAmount × taxRate%)
+                        // Tax Model: CORRECT FORMULA (as percentage of final amount)
+                        //   When student pays X amount (tax-inclusive):
+                        //   - base = X × (1 - taxRate%)
+                        //   - tax = X × (taxRate%)
                         //
-                        // Example: baseAmount = 10, taxRate = 2.5%
-                        //   tax = 10 × (2.5/100) = 0.25
-                        //   totalPaid = 10 + 0.25 = 10.25 ✓
+                        // Example: Student pays 200 GBP (tax-inclusive), taxRate = 2.5%
+                        //   base = 200 × 0.975 = 195 GBP
+                        //   tax = 200 × 0.025 = 5 GBP
+                        //   total = 200 GBP ✓
+                        //   Check: 5 ÷ 200 = 2.5% ✓
                         // ════════════════════════════════════════════════════════════════════
                         $taxRate = 2.50; // Default: 2.50%
 
@@ -185,57 +195,79 @@ if (SessionUser::hasValidSession()) {
                         }
 
                         // ════════════════════════════════════════════════════════════════════
-                        // HELPER: Calculate tax on a BASE amount (additive model)
-                        // 
-                        // Treats the input amount as the BASE (net amount)
-                        // Tax is calculated as a percentage and ADDED to the base
+                        // HELPER: Extract base and tax from a TAX-INCLUSIVE amount
+                        //
+                        // Given an amount that INCLUDES tax, extract the base and tax portions
+                        // using the CORRECT formula.
+                        //
+                        // When you have the INCLUSIVE (total) amount:
+                        //   base = inclusive × (1 - taxRate%)
+                        //   tax = inclusive × (taxRate%)
+                        //
+                        // This ensures: tax is exactly taxRate% of the paid amount
                         // ════════════════════════════════════════════════════════════════════
-                        function calculateTaxOnBase(float $baseAmount, float $taxRate): array
+                        function extractBaseAndTaxFromInclusive(float $inclusiveAmount, float $taxRate): array
                         {
-                            if ($taxRate < 0 || $baseAmount < 0) {
-                                return ['base' => $baseAmount, 'tax' => 0.0];
+                            if ($taxRate < 0 || $inclusiveAmount < 0) {
+                                return ['base' => $inclusiveAmount, 'tax' => 0.0, 'total' => $inclusiveAmount];
                             }
-                            if ($baseAmount == 0 || $taxRate == 0) {
-                                return ['base' => round($baseAmount, 2), 'tax' => 0.0];
+                            if ($inclusiveAmount == 0 || $taxRate == 0) {
+                                return ['base' => round($inclusiveAmount, 2), 'tax' => 0.0, 'total' => round($inclusiveAmount, 2)];
                             }
-                            // Tax = base × (rate / 100)
-                            $tax = $baseAmount * ($taxRate / 100);
+
+                            // CORRECT FORMULA:
+                            // base = inclusive × (1 - rate/100)
+                            // tax = inclusive × (rate/100)
+                            $taxRateDecimal = $taxRate / 100;
+                            $basePortion = 1.0 - $taxRateDecimal;
+                            $base = $inclusiveAmount * $basePortion;
+                            $tax = $inclusiveAmount * $taxRateDecimal;
+
                             return [
-                                'base' => round($baseAmount, 2),
+                                'base' => round($base, 2),
                                 'tax' => round($tax, 2),
-                                'total' => round($baseAmount + $tax, 2)
+                                'total' => round($inclusiveAmount, 2)
                             ];
                         }
 
                         // ════════════════════════════════════════════════════════════════════
-                        // HELPER: Reverse-extract base from a TOTAL amount (base + tax)
+                        // HELPER: Calculate tax-inclusive amount from a BASE amount
                         //
-                        // Given a total amount that already includes tax,
-                        // extract the original base amount
+                        // Given a base amount, calculate the tax-inclusive total.
                         // 
-                        // total = base × (1 + taxRate%)
-                        // base = total ÷ (1 + taxRate%)
-                        // tax = total - base
+                        // Formula:
+                        //   inclusive = base / (1 - taxRate%)
+                        //
+                        // Example: base = 195 GBP, taxRate = 2.5%
+                        //   inclusive = 195 / 0.975 = 200 GBP
+                        //   tax = 200 × 0.025 = 5 GBP ✓
                         // ════════════════════════════════════════════════════════════════════
-                        function extractBaseFromTotal(float $totalAmount, float $taxRate): array
+                        function calculateTaxInclusiveFromBase(float $baseAmount, float $taxRate): array
                         {
-                            if ($taxRate < 0 || $totalAmount < 0) {
-                                return ['base' => $totalAmount, 'tax' => 0.0];
+                            if ($taxRate < 0 || $baseAmount < 0) {
+                                return ['base' => $baseAmount, 'tax' => 0.0, 'total' => $baseAmount];
                             }
-                            if ($totalAmount == 0 || $taxRate == 0) {
-                                return ['base' => round($totalAmount, 2), 'tax' => 0.0];
+                            if ($baseAmount == 0 || $taxRate == 0) {
+                                return ['base' => round($baseAmount, 2), 'tax' => 0.0, 'total' => round($baseAmount, 2)];
                             }
-                            
-                            // total = base × (1 + rate/100)
-                            // base = total ÷ (1 + rate/100)
-                            $taxMultiplier = 1 + ($taxRate / 100);
-                            $base = $totalAmount / $taxMultiplier;
-                            $tax = $totalAmount - $base;
-                            
+
+                            // CORRECT FORMULA:
+                            // basePortion = 1 - (rate/100)
+                            // inclusive = base / basePortion
+                            $taxRateDecimal = $taxRate / 100;
+                            $basePortion = 1.0 - $taxRateDecimal;
+
+                            if ($basePortion <= 0) {
+                                return ['base' => round($baseAmount, 2), 'tax' => 0.0, 'total' => round($baseAmount, 2)];
+                            }
+
+                            $inclusive = $baseAmount / $basePortion;
+                            $tax = $inclusive - $baseAmount;
+
                             return [
-                                'base' => round($base, 2),
+                                'base' => round($baseAmount, 2),
                                 'tax' => round($tax, 2),
-                                'total' => round($totalAmount, 2)
+                                'total' => round($inclusive, 2)
                             ];
                         }
 
@@ -394,23 +426,24 @@ if (SessionUser::hasValidSession()) {
                         // The installment amount (cp.amount) is the BASE amount
                         // (what the student is scheduled to pay before tax).
                         //
-                        // Using ADDITIVE tax model:
-                        //   tax = baseAmount × (taxRate / 100)
-                        //   totalPaid = baseAmount + tax
+                        // Using CORRECT tax model (tax as percentage of final amount):
+                        //   inclusive = base / (1 - taxRate%)
+                        //   tax = inclusive - base
                         //
-                        // Example: cp.amount = 10, taxRate = 2.5%
-                        //   tax = 10 × 0.025 = 0.25
-                        //   totalPaid = 10 + 0.25 = 10.25 ✓
+                        // Example: cp.amount = 195 GBP, taxRate = 2.5%
+                        //   inclusive = 195 / 0.975 = 200 GBP
+                        //   tax = 200 - 195 = 5 GBP
+                        //   Check: 5 ÷ 200 = 2.5% ✓
                         // ════════════════════════════════════════════════════════════════════
-                        $baseAmountToStore = (float)$paymentData['amount'];  // BASE amount
-                        $taxInfo           = calculateTaxOnBase($baseAmountToStore, $taxRate);
-                        $taxAmountToStore  = $taxInfo['tax'];                 // Extracted tax
+                        $baseAmountToStore = (float)$paymentData['amount'];  // BASE amount (scheduled)
+                        $taxInfo           = calculateTaxInclusiveFromBase($baseAmountToStore, $taxRate);
+                        $taxAmountToStore  = $taxInfo['tax'];                 // Calculated tax
+                        $totalScheduled    = $taxInfo['total'];              // Total including tax
 
                         // ════════════════════════════════════════════════════════════════════
                         // STEP 7: Payable amount & balance (all in course currency)
                         //
-                        // payableAmount = cp.amount (base)
-                        //              + tax on cp.amount
+                        // payableAmount = scheduled_base + scheduled_tax
                         //              - cpDiscountAmount (installment-level discount)
                         //              + mainPenaltyCP (from panelty_payments table)
                         //
@@ -425,12 +458,12 @@ if (SessionUser::hasValidSession()) {
                         // including any applicable tax, discounts, and penalties.
                         //
                         // Example: 
-                        //   base = 10, tax = 0.25, discount = 0, penalty = 0
-                        //   payableAmount = 10 + 0.25 = 10.25 (FIXED)
+                        //   scheduled_base = 195, scheduled_tax = 5, discount = 0, penalty = 0
+                        //   payableAmount = 195 + 5 = 200 (FIXED)
                         //   
-                        //   If prior payment = 5.00:
-                        //   remaining = 10.25 - 5.00 = 5.25 (correct!)
-                        //   NOT: 10.25 + 0.12 (prior tax) = 10.37 (wrong!)
+                        //   If prior payment = 100:
+                        //   remaining = 200 - 100 = 100 (correct!)
+                        //   NOT: 200 + prior_tax = wrong!
                         // ════════════════════════════════════════════════════════════════════
                         $payableAmount = $baseAmountToStore
                             + $taxAmountToStore
@@ -454,15 +487,16 @@ if (SessionUser::hasValidSession()) {
                         //
                         // IF has prior payments:
                         //   Calculate remaining balance (which is a TOTAL: base + tax)
-                        //   REVERSE-EXTRACT the base from this total
-                        //   Calculate fresh tax on the extracted base
+                        //   EXTRACT base and tax from this remaining balance
+                        //   Using: base = remaining × (1 - taxRate%)
+                        //          tax = remaining × (taxRate%)
                         //
                         // All amounts stored to 2 decimal places
                         //
                         // CRITICAL FIX:
                         // When $convertedPaidTotal > 0, the remainingBalance is already
-                        // a TOTAL amount (base + tax). We must use extractBaseFromTotal()
-                        // to reverse-calculate the base, then apply fresh tax.
+                        // a TOTAL amount (base + tax). We must use extractBaseAndTaxFromInclusive()
+                        // to extract base and tax properly.
                         // ════════════════════════════════════════════════════════════════════
 
                         $escapedNote = !empty($note) ? "'" . Database::escape($note) . "'" : "NULL";
@@ -477,21 +511,21 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             // ────────────────────────────────────────────────────────────
                             // HAS prior payments — remainingBalance is TOTAL (base+tax)
-                            // REVERSE-EXTRACT the base, then apply fresh tax
+                            // EXTRACT base and tax using CORRECT formula
                             //
-                            // Example: Scheduled 10, paid 5 (including tax)
-                            //   Payable: 10 + 0.25 = 10.25
-                            //   Remaining: 10.25 - 5.00 = 5.25
-                            //   Extracted base: 5.25 ÷ 1.025 = 5.12
-                            //   Tax on base: 5.12 × 0.025 = 0.13
-                            //   Total: 5.12 + 0.13 = 5.25 ✓
+                            // Example: Scheduled 200 (195 base + 5 tax), paid 100
+                            //   Payable: 200
+                            //   Remaining: 200 - 100 = 100
+                            //   Base of remaining: 100 × 0.975 = 97.5
+                            //   Tax of remaining: 100 × 0.025 = 2.5
+                            //   Total: 97.5 + 2.5 = 100 ✓
                             // ────────────────────────────────────────────────────────────
                             $remainingBalance = $payableAmount - $convertedPaidTotal;
                             $balanceNegative = $remainingBalance < 0;
                             $absBalance = abs($remainingBalance);
 
-                            // Use the NEW helper function to reverse-extract base from total
-                            $balanceTaxInfo = extractBaseFromTotal($absBalance, $taxRate);
+                            // Use the CORRECT helper function to extract base from inclusive total
+                            $balanceTaxInfo = extractBaseAndTaxFromInclusive($absBalance, $taxRate);
 
                             $payment_base_amount = $balanceTaxInfo['base'];
                             $paid_tax_amount = $balanceTaxInfo['tax'];
@@ -563,7 +597,7 @@ if (SessionUser::hasValidSession()) {
                         // ════════════════════════════════════════════════════════════════════
                         // STEP 10: Payment log
                         // ════════════════════════════════════════════════════════════════════
-                        $log = 'Upload Direct Payment Receipt and Confirm Payment';
+                        $log = 'Upload Direct Payment Receipt';
 
                         $log_cols = "`course_payments_course_payments_id`,
                                      `course_payment_has_payment_id`,
