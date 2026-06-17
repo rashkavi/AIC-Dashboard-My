@@ -8,6 +8,25 @@ require_once("../includes/phpmailer/EmailLayoutRenderer.php");
 require_once("../includes/phpmailer/EmailNotificationService.php");
 require_once("../includes/phpmailer/EmailTemplateContent.php");
 require_once("../includes/phpmailer/mail-process.php");
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// ── DOMPDF Configuration ─────────────────────────────────────────────────────
+$dompdfPaths = [
+    '../vendor/autoload.php',
+    '../includes/dompdf/autoload.inc.php',
+];
+
+$usePdf = false;
+foreach ($dompdfPaths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $usePdf = true;
+        break;
+    }
+}
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -239,10 +258,17 @@ if (SessionUser::hasValidSession()) {
                                         ld.first_name,
                                         ld.last_name,
                                         ld.email,
+                                        s.mobile,
                                         t.title,
                                         pp.payment_plan,
                                         pc.payment_category,
-                                        c.code
+                                        c.code,
+                                        pphsi.amount AS total_plan_amount,
+                                        pphsi.discount AS plan_discount,
+                                        pphsi.discount_type_discount_type_id,
+                                        prog.programme,
+                                        i.intake,
+                                        f.faculty
 
                                     FROM students s
 
@@ -263,11 +289,22 @@ if (SessionUser::hasValidSession()) {
                                     INNER JOIN currencies c
                                         ON pc.currencies_currency_id = c.currency_id
 
+                                    INNER JOIN students_has_intakes shi
+                                        ON shi.students_has_intakes_id = '" . $studentHasIntakeId . "'
+
+                                    INNER JOIN intakes i
+                                        ON i.intake_id = shi.intakes_intake_id
+
+                                    INNER JOIN programmes prog
+                                        ON prog.programme_id = i.programmes_programme_id
+
+                                    INNER JOIN faculties f
+                                        ON f.faculty_id = prog.faculties_faculty_id
+
                                     WHERE s.student_id = '" . $leadId . "'
                                 ")->fetch_assoc();
 
-                                        $paymentRows = "";
-
+                                        // ── Fetch course payments with tax rates ───────────────────────────────
                                         $coursePayments = Database::search("
                                                     SELECT 
                                                         cp.*,
@@ -287,18 +324,70 @@ if (SessionUser::hasValidSession()) {
                                                     ORDER BY cp.due_date ASC
                                                 ");
 
+                                        // ── Build payment rows for PDF and email ──────────────────────────────
+                                        $paymentRows = "";
+                                        $paymentTableData = [];
+                                        $totalAmountBeforeTax = 0;
+                                        $totalDiscount = 0;
+                                        $totalTax = 0;
+                                        $totalPayable = 0;
                                         $count = 1;
+
+                                        // ── Fetch latest tax rate from database ──────────────────────────────
+                                        $taxRate = 2.5; // Default fallback
+                                        $latestTaxRate = Database::search("
+                                            SELECT * FROM tax_rates 
+                                            ORDER BY date_added DESC 
+                                            LIMIT 1
+                                        ");
+                                        if ($latestTaxRate && $latestTaxRate->num_rows > 0) {
+                                            $latestTaxRate = $latestTaxRate->fetch_assoc();
+                                            $taxRate = (float)$latestTaxRate['tax_rate'];
+                                        }
+
+                                        // ── Validate tax rate to prevent division by zero ──────────────────────
+                                        if ($taxRate >= 100) {
+                                            error_log('Invalid tax rate: ' . $taxRate . '% - Tax rate cannot be 100% or higher');
+                                            $taxRate = 0; // Fallback to no tax
+                                        }
 
                                         while ($payment = $coursePayments->fetch_assoc()) {
 
+                                            // ── Calculate discount amount ────────────────────────────────────────
                                             $discountAmount = $payment['discount'];
-
                                             if ($payment['discount_type_discount_type_id'] == 3) {
+                                                // Type 3 = Percentage discount
                                                 $discountAmount = ($payment['amount'] / 100) * $payment['discount'];
                                             }
 
-                                            $finalAmount = $payment['amount'] - $discountAmount;
+                                            // ── Amount after discount ───────────────────────────────────────────
+                                            $amountAfterDiscount = $payment['amount'] - $discountAmount;
 
+                                            // ═════════════════════════════════════════════════════════════════════
+                                            // ── MARKUP TAX CALCULATION (CORRECTED) ──────────────────────────────
+                                            // Formula: Tax = Amount × Tax% / (100 - Tax%)
+                                            // 
+                                            // Example: Amount=10000, Tax=2.5%
+                                            // Tax = 10000 × 2.5 / (100 - 2.5)
+                                            //     = 10000 × 2.5 / 97.5
+                                            //     = 256.41
+                                            // Payable = 10000 + 256.41 = 10256.41 ✓
+                                            // ═════════════════════════════════════════════════════════════════════
+
+                                            $taxAmount = 0;
+                                            if ($taxRate > 0 && $taxRate < 100) {
+                                                $taxAmount = $amountAfterDiscount * $taxRate / (100 - $taxRate);
+                                            }
+
+                                            $payableAmount = $amountAfterDiscount + $taxAmount;
+
+                                            // ── Accumulate totals ───────────────────────────────────────────────
+                                            $totalAmountBeforeTax += $payment['amount'];
+                                            $totalDiscount += $discountAmount;
+                                            $totalTax += $taxAmount;
+                                            $totalPayable += $payableAmount;
+
+                                            // ── Build HTML email table row ──────────────────────────────────────
                                             $paymentRows .= '
                                                 <tr>
                                                     <td style="padding:10px;border:1px solid #ddd;">' . $count . '</td>
@@ -308,7 +397,7 @@ if (SessionUser::hasValidSession()) {
                                                     </td>
 
                                                     <td style="padding:10px;border:1px solid #ddd;">
-                                                        ' . htmlspecialchars($payment['due_date']) . '
+                                                        ' . htmlspecialchars($payment['due_date'] ?? 'N/A') . '
                                                     </td>
 
                                                     <td style="padding:10px;border:1px solid #ddd;text-align:right;">
@@ -316,18 +405,68 @@ if (SessionUser::hasValidSession()) {
                                                     </td>
 
                                                     <td style="padding:10px;border:1px solid #ddd;text-align:right;">
-                                                        ' . $studentData['code'] . ' ' . number_format($discountAmount, 2) . '
+                                                        ' . ($discountAmount > 0 ? $studentData['code'] . ' ' . number_format($discountAmount, 2) : '<span style="color:#999;">—</span>') . '
+                                                    </td>
+
+                                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                                        ' . number_format($taxRate, 2) . '%
+                                                    </td>
+
+                                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                                        ' . $studentData['code'] . ' ' . number_format($taxAmount, 2) . '
                                                     </td>
 
                                                     <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:bold;">
-                                                        ' . $studentData['code'] . ' ' . number_format($finalAmount, 2) . '
+                                                        ' . $studentData['code'] . ' ' . number_format($payableAmount, 2) . '
                                                     </td>
                                                 </tr>
                                             ';
 
+                                            // ── Store data for PDF ──────────────────────────────────────────────
+                                            $paymentTableData[] = [
+                                                'count' => $count,
+                                                'payment_type' => $payment['payment_type'],
+                                                'due_date' => $payment['due_date'] ?? 'N/A',
+                                                'amount' => $payment['amount'],
+                                                'discount' => $discountAmount,
+                                                'tax_rate' => $taxRate,
+                                                'tax_amount' => $taxAmount,
+                                                'payable' => $payableAmount
+                                            ];
+
                                             $count++;
                                         }
 
+                                        // ── Generate Payment Plan PDF ────────────────────────────────────────
+                                        $pdfPath = null;
+                                        if ($usePdf && class_exists('Dompdf\Dompdf')) {
+                                            try {
+                                                $planPdfHtml = buildPaymentPlanPdf(
+                                                    $studentData,
+                                                    $paymentTableData,
+                                                    $totalAmountBeforeTax,
+                                                    $totalDiscount,
+                                                    $totalTax,
+                                                    $totalPayable,
+                                                    $planId,
+                                                    $addTime
+                                                );
+
+                                                $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => true]);
+                                                $dompdf->loadHtml($planPdfHtml);
+                                                $dompdf->setPaper('A4', 'portrait');
+                                                $dompdf->render();
+
+                                                $pdfOutput = $dompdf->output();
+                                                $pdfPath = sys_get_temp_dir() . '/payment_plan_' . $planId . '_' . time() . '.pdf';
+                                                file_put_contents($pdfPath, $pdfOutput);
+                                            } catch (Exception $e) {
+                                                error_log('PDF Generation Error: ' . $e->getMessage());
+                                                $pdfPath = null;
+                                            }
+                                        }
+
+                                        // ── Update student status ────────────────────────────────────────────
                                         Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '4' WHERE `student_id` = '" . $leadId . "'");
 
                                         Database::iud("INSERT INTO `students_logs` 
@@ -335,17 +474,18 @@ if (SessionUser::hasValidSession()) {
                                      VALUES ('" . $leadId . "', '" . $addTime . "', '" . $sessionUserObject['user_id'] . "','Payment Plan Created','4')");
 
 
+                                        // ── Send email with PDF attachment ──────────────────────────────────────
+
+                                        require_once '../includes/phpmailer/src/Exception.php';
+                                        require_once '../includes/phpmailer/src/PHPMailer.php';
+                                        require_once '../includes/phpmailer/src/SMTP.php';
+
                                         $mail = EmailNotificationService::build(
                                             EmailTemplateContent::PAYMENT_PLAN_CREATED,
                                             [
-
-
                                                 'student_name' => $studentData['first_name'] . ' ' . $studentData['last_name'],
-
                                                 'payment_plan' => $studentData['payment_plan'],
-
                                                 'payment_category' => $studentData['payment_category'],
-
                                                 'payment_table' => '
                                                 <table width="100%" cellspacing="0" cellpadding="0"
                                                        style="border-collapse:collapse;margin-top:15px;font-size:14px;">
@@ -357,6 +497,8 @@ if (SessionUser::hasValidSession()) {
                                                             <th style="padding:10px;border:1px solid #ddd;">Due Date</th>
                                                             <th style="padding:10px;border:1px solid #ddd;">Amount</th>
                                                             <th style="padding:10px;border:1px solid #ddd;">Discount</th>
+                                                            <th style="padding:10px;border:1px solid #ddd;">Tax %</th>
+                                                            <th style="padding:10px;border:1px solid #ddd;">Tax Amount</th>
                                                             <th style="padding:10px;border:1px solid #ddd;">Payable</th>
                                                         </tr>
                                                     </thead>
@@ -367,15 +509,66 @@ if (SessionUser::hasValidSession()) {
                                     
                                                 </table>
                                             '
-
                                             ]
                                         );
 
-                                        $fullName = $studentData['title'] . "." . $studentData['first_name'] . ' ' . $studentData['last_name'];
-                                        sendMail($studentData['email'], $fullName, $mail['subject'], $mail['body']);
+                                        try {
+                                            $mailer = new PHPMailer(true);
+                                            $mailer->SMTPDebug  = 0;
+                                            $mailer->isSMTP();
+                                            $mailer->Host       = 'smtp.titan.email';
+                                            $mailer->SMTPAuth   = true;
+                                            $mailer->Username   = 'no-reply@aiccampuslms.com';
+                                            $mailer->Password   = 'AicLMS#@!2026Campus';
+                                            $mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                                            $mailer->Port       = 465;
 
+                                            $mailer->setFrom('no-reply@aiccampuslms.com', Project::getBaseName());
+                                            $fullName = $studentData['title'] . ". " . $studentData['first_name'] . ' ' . $studentData['last_name'];
+                                            $mailer->addAddress($studentData['email'], $fullName);
 
-                                        $status->done = 'Payment Plan Created Successfully';
+                                            // ── Attach PDF ──────────────────────────────────────────────────────
+                                            if ($pdfPath && file_exists($pdfPath)) {
+                                                $mailer->addAttachment(
+                                                    $pdfPath,
+                                                    'Payment-Plan-' . date('Y-m-d') . '.pdf',
+                                                    PHPMailer::ENCODING_BASE64,
+                                                    'application/pdf'
+                                                );
+                                            }
+
+                                            $mailer->isHTML(true);
+                                            $mailer->Subject = $mail['subject'];
+                                            $mailer->Body    = $mail['body'];
+                                            $mailer->AltBody = 'Payment Plan Created for ' . $fullName . '. Please see attached PDF for details.';
+
+                                            $mailer->send();
+
+                                            // ── Clean up temp PDF ───────────────────────────────────────────────
+                                            if ($pdfPath && file_exists($pdfPath)) {
+                                                @unlink($pdfPath);
+                                            }
+
+                                            // ── Log the email send ───────────────────────────────────────────────
+                                            Database::iud("
+                                                INSERT INTO payment_logs
+                                                    (course_payments_course_payments_id, users_user_id, date_updated, log)
+                                                SELECT
+                                                    cp.course_payments_id,
+                                                    '" . (int)$sessionUserObject['user_id'] . "',
+                                                    '" . $addTime . "',
+                                                    'Payment Plan email sent to " . Database::escape($studentData['email']) . " with PDF attachment (Tax Method: Markup, Rate: " . $taxRate . "%)'
+                                                FROM course_payments cp
+                                                WHERE cp.payment_plan_has_students_has_intakes_id = '" . $planId . "'
+                                                LIMIT 1
+                                            ");
+
+                                            $status->done = 'Payment Plan Created Successfully and emailed to ' . $studentData['email'];
+                                        } catch (Exception $e) {
+                                            if ($pdfPath && file_exists($pdfPath)) @unlink($pdfPath);
+                                            $status->error = 'Failed to send email: ' . $mailer->ErrorInfo;
+                                            error_log('Email Error: ' . $mailer->ErrorInfo);
+                                        }
                                     }
                                 }
                             }
@@ -401,6 +594,11 @@ if (SessionUser::hasValidSession()) {
 }
 
 echo (json_encode($status));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─ Helper Functions ─
+// ═══════════════════════════════════════════════════════════════════════════
+
 function generateSecureUniqueId()
 {
     $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -411,4 +609,176 @@ function generateSecureUniqueId()
     }
 
     return $randomString;
+}
+
+function fmtN($n, $dp = 2)
+{
+    return number_format((float)($n ?? 0), $dp);
+}
+
+/**
+ * Build professional Payment Plan PDF HTML
+ * 
+ * Uses Markup Tax method:
+ * Tax Amount = Amount × Tax% / (100 - Tax%)
+ * Payable = Amount + Tax Amount
+ */
+function buildPaymentPlanPdf($studentData, $paymentTableData, $totalAmount, $totalDiscount, $totalTax, $totalPayable, $planId, $createdDate)
+{
+    $baseUrl = Project::getBaseUrl();
+    $planDate = substr($createdDate, 0, 10);
+    $currency = $studentData['code'];
+
+    // ── Build payment schedule rows ────────────────────────────────────────
+    $paymentRows = '';
+    foreach ($paymentTableData as $payment) {
+        $bg = ($payment['count'] % 2 === 0) ? '#ffffff' : '#f8fafc';
+        $C = 'padding:8px 10px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
+
+        $paymentRows .= '<tr style="background:' . $bg . ';">'
+            . '<td style="' . $C . 'color:#9ca3af;text-align:center;">' . $payment['count'] . '</td>'
+            . '<td style="' . $C . 'font-weight:600;">' . htmlspecialchars($payment['payment_type']) . '</td>'
+            . '<td style="' . $C . 'white-space:nowrap;">' . htmlspecialchars($payment['due_date']) . '</td>'
+            . '<td style="' . $C . 'text-align:right;">' . $currency . ' ' . fmtN($payment['amount']) . '</td>'
+            . '<td style="' . $C . 'text-align:right;">' . ($payment['discount'] > 0 ? $currency . ' ' . fmtN($payment['discount']) : '<span style="color:#d1d5db;">—</span>') . '</td>'
+            . '<td style="' . $C . 'text-align:center;">' . fmtN($payment['tax_rate']) . '%</td>'
+            . '<td style="' . $C . 'text-align:right;">' . $currency . ' ' . fmtN($payment['tax_amount']) . '</td>'
+            . '<td style="' . $C . 'text-align:right;font-weight:700;color:#1e3a5f;">' . $currency . ' ' . fmtN($payment['payable']) . '</td>'
+            . '</tr>';
+    }
+
+    if (!$paymentRows) {
+        $paymentRows = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
+    }
+
+    $TH = 'padding:10px;font-size:9px;font-weight:700;color:rgba(255,255,255,.95);letter-spacing:.04em;';
+
+    $studentName = htmlspecialchars($studentData['title'] . '. ' . $studentData['first_name'] . ' ' . $studentData['last_name']);
+
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Payment Plan - {$studentData['student_id']}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; background: #fff; color: #111827; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+  }
+</style>
+</head>
+<body style="padding: 28px 32px;">
+
+<!-- Header -->
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
+<tr>
+  <td style="vertical-align: top; width: 58%;">
+    <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png" alt="" style="height: 44px; width: auto;">
+    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">No.3</div>
+    <div style="font-size: 10px; color: #6b7280;">Tel: +94 769 679778</div>
+    <div style="font-size: 10px; color: #6b7280;">Colombo</div>
+  </td>
+  <td style="vertical-align: top; text-align: right;">
+    <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 3px;">PAYMENT PLAN SCHEDULE</div>
+    <div style="font-size: 20px; font-weight: 800; color: #111827;">PAYMENT PLAN</div>
+    <div style="font-size: 10px; color: #6b7280; margin-top: 2px;">Date: {$planDate}</div>
+  </td>
+</tr>
+</table>
+
+<div style="height: 2px; background: #1e3a5f; margin-bottom: 18px; border-radius: 1px;"></div>
+
+<!-- Student & Programme Details -->
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
+<tr>
+  <td style="width: 50%; vertical-align: top; padding-right: 10px;">
+    <div style="border: 1px solid #e5e7eb; border-radius: 3px; padding: 12px 14px;">
+      <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Student Information</div>
+      <div style="font-size: 13px; font-weight: 700; color: #111827;">{$studentName}</div>
+      <div style="font-size: 10px; color: #6b7280; margin-top: 4px; line-height: 1.8;">
+        Student ID: {$studentData['student_id']}<br>
+        Email: {$studentData['email']}<br>
+        Mobile: {$studentData['mobile']}
+      </div>
+    </div>
+  </td>
+  <td style="width: 50%; vertical-align: top; padding-left: 10px;">
+    <div style="border: 1px solid #e5e7eb; border-radius: 3px; padding: 12px 14px;">
+      <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Programme & Plan Details</div>
+      <div style="font-size: 11px; font-weight: 600; color: #111827;">{$studentData['faculty']}</div>
+      <div style="font-size: 10px; color: #6b7280; margin-top: 3px; line-height: 1.8;">
+        <strong>Programme:</strong> {$studentData['programme']}<br>
+        <strong>Intake:</strong> {$studentData['intake']}<br>
+        <strong>Plan:</strong> {$studentData['payment_plan']}<br>
+        <strong>Category:</strong> {$studentData['payment_category']}
+      </div>
+    </div>
+  </td>
+</tr>
+</table>
+
+<!-- Payment Schedule Table -->
+<div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Payment Schedule</div>
+<div style="border: 1px solid #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 18px;">
+<table style="width: 100%; border-collapse: collapse;">
+<thead>
+<tr style="background: #1e3a5f;">
+  <th style="{$TH} text-align: center;">#</th>
+  <th style="{$TH} text-align: left;">Payment Type</th>
+  <th style="{$TH} text-align: left;">Due Date</th>
+  <th style="{$TH} text-align: right;">Amount</th>
+  <th style="{$TH} text-align: right;">Discount</th>
+  <th style="{$TH} text-align: center;">Tax %</th>
+  <th style="{$TH} text-align: right;">Tax Amount</th>
+  <th style="{$TH} text-align: right;">Payable Amount</th>
+</tr>
+</thead>
+<tbody>{$paymentRows}</tbody>
+</table>
+</div>
+
+<!-- Summary Section -->
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+<tr>
+  <td style="width: 55%; vertical-align: top; padding-right: 16px;">
+    <div style="font-size: 9px; color: #9ca3af; line-height: 1.8; background: #f9fafb; padding: 12px 14px; border-radius: 3px; border: 1px solid #f3f4f6;">
+      <strong style="color: #374151;">Important Notes:</strong><br>
+      • Payment shall be made on or before the due date specified.<br>
+      • Tax rates are applicable as per the latest government regulations.<br>
+      • Tax is calculated using Markup method: Amount × Tax% / (100 - Tax%).<br>
+      • Discounts applied are non-refundable and non-transferable.<br>
+      • Late payments may incur penalty charges as per institutional policy.<br>
+      • This plan is valid subject to student's continued enrollment.
+    </div>
+  </td>
+ 
+</tr>
+</table>
+
+<!-- Footer -->
+<div style="
+position: fixed;
+bottom: 20px;
+left: 32px;
+right: 32px;
+border-top: 1px dashed #d1d5db;
+padding-top: 10px;
+">
+  <div style="font-size: 9px; color: #9ca3af;">This is a computer-generated payment plan document and does not require a physical signature.</div>
+  <div style="font-size: 9px; color: #6b7280; text-align: right;">Plan ID: <strong>{$planId}</strong> | Generated: {$planDate}</div>
+
+<div style="text-align: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f3f4f6;">
+  <span style="font-size: 9px; color: #c4c9d4; letter-spacing: .04em;">&copy;<?php echo date("Y"); ?> ENLIXO Uni. All Rights Reserved | Powered by
+    <a href="https://enviiz.com" target="_blank" style="text-decoration:none;">
+      <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares" style="width: auto; height: 40px;">
+    </a></span>
+</div>
+</div>
+
+</body>
+</html>
+HTML;
 }

@@ -10,6 +10,11 @@
  * - All balance/overpayment calculations done in BASE currency (e.g. GBP)
  * - Before storing, amounts are converted BACK to payment currency (e.g. LKR)
  *
+ * ✅ CRITICAL FIX: NEVER overwrite the original paid_amount
+ * - Student paid 50,000 LKR → store 50,000 LKR (always)
+ * - Overpayment 4,473 LKR → distribute to next installments
+ * - Sum: 50,000 = paid_amount + overpay ✓
+ *
  * TAX CALCULATION FIX:
  * - OLD (WRONG): base = taxInclusive / (1 + taxRate/100)
  * - NEW (CORRECT): base = taxInclusive × (1 - taxRate/100)
@@ -426,27 +431,30 @@ $taxForCurrent_base    = $currentExtracted['tax']; // base currency
 $remaingBaseFor_Conversion = $remainingBefore_base;
 
 /* ════════════════════════════════════════════════════════════════════════════
-   ✅ CONVERT TAX BACK TO PAYMENT CURRENCY FOR STORAGE
-
-   The paid_amount will be stored in LKR (original).
-   The tax_amount must also be stored in LKR to be consistent.
+   ✅ CRITICAL FIX: ALWAYS store the ORIGINAL paid amount as entered
+   
+   DO NOT OVERWRITE with amountForCurrent!
+   
+   paid_amount = what student actually paid (LKR 50,000) 
+   tax_amount  = tax extracted from that amount (LKR ~436)
+   discount_amount = discount given (original currency)
+   penalty_amount = penalty added (original currency)
+   
+   Overpayment will be calculated and distributed to next installments separately.
 ════════════════════════════════════════════════════════════════════════════ */
+$paidAmountForCurrent_stored = round($paid_amount_original, 2);  // ✅ ALWAYS original
+$discountForStorage          = round($discount_original, 2);     // Original discount
+$penaltyForStorage           = round($penalty_original, 2);      // Original penalty
+
+// Tax is extracted from the paid amount (in base currency) then converted back to payment currency
 if ($isLkrPaymentForForeignCourse) {
     $taxForCurrent_stored = round($taxForCurrent_base * $exchangeRate, 2); // LKR
-    $paidAmount_stored    = round($paid_amount_original, 2);               // LKR — what student actually handed over
 } else {
-    $taxForCurrent_stored = round($taxForCurrent_base, 2);                 // base currency
-    $paidAmount_stored    = round($paid_amount_original, 2);               // base currency
+    $taxForCurrent_stored = round($taxForCurrent_base, 2);  // base currency
 }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   ✅ CONVERT CURRENT INSTALLMENT AMOUNT TO PAYMENT CURRENCY FOR STORAGE
-════════════════════════════════════════════════════════════════════════════ */
-if ($isLkrPaymentForForeignCourse) {
-    $paidAmountForCurrent_stored = round($amountForCurrent_base * $exchangeRate, 2); // LKR
-} else {
-    $paidAmountForCurrent_stored = round($amountForCurrent_base, 2); // base currency
-}
+// ✅ NOTE: We do NOT modify $paidAmountForCurrent_stored even if there's overpayment
+// The original amount stays as what was paid. Overpayment is handled separately below.
 
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT → distribute to next installments
@@ -578,14 +586,23 @@ $receiptId = (int)Database::$connection->insert_id;
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT PAYMENT RECORD
-   - paid_amount    → original amount in payment currency (e.g. LKR 5000)
+   - paid_amount    → original amount in payment currency (e.g. LKR 50,000) ✅ ALWAYS ORIGINAL
    - discount_amount→ original discount in payment currency
    - panelty_amount → original penalty in payment currency
-   - tax_amount     → tax converted BACK to payment currency (e.g. LKR 436)
+   - tax_amount     → tax converted BACK to payment currency (e.g. LKR ~436)
    - currencies_currency_id → payment currency (e.g. 1 for LKR)
    - currency_exchange_rate → rate used (only when currencies differ)
 ════════════════════════════════════════════════════════════════════════════ */
 $qn = fn($v) => $v !== null ? "'" . addslashes((string)$v) . "'" : 'NULL';
+
+$paidAmountForCurrent_stored = $paidAmountForCurrent_stored;
+if ($overpayAmount_base > 0.001) {
+    if ($isLkrPaymentForForeignCourse) {
+        $paidAmountForCurrent_stored = $paidAmountForCurrent_stored - (round($overpayAmount_base * $exchangeRate, 2));
+    } else {
+        $paidAmountForCurrent_stored = $paidAmountForCurrent_stored - round($overpayAmount_base, 2);
+    }
+}
 
 $cols = "`course_payments_course_payments_id`, `payment_method_payment_method_id`,
          `date_paid`, `paid_amount`, `discount_amount`, `panelty_amount`,
@@ -596,12 +613,13 @@ $cols = "`course_payments_course_payments_id`, `payment_method_payment_method_id
 $vals = "'{$payment_id}', '{$method}',
          '{$paid_date}',
          '" . round($paidAmountForCurrent_stored, 2) . "',  
-         '" . round($discount_original,    2) . "',
-         '" . round($penalty_original,     2) . "',
+         '" . round($discountForStorage,     2) . "',
+         '" . round($penaltyForStorage,      2) . "',
          '3', '{$selectedCurrencyId}',
          " . ($note !== '' ? "'" . addslashes($note) . "'" : 'NULL') . ",
          '{$latestTaxRate}', '{$taxForCurrent_stored}',
          '{$receiptId}'";
+
 // Only store exchange rate when currencies differ
 if ($selectedCurrencyId != $baseCurrencyId) {
     $cols .= ", `currency_exchange_rate_id`, `currency_exchange_rate`";

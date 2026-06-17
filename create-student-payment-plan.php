@@ -584,14 +584,13 @@ if (!SessionUser::hasValidSession()) {
                                                         <span id="payment-amount-feedback" class="text-dark-red text-12"></span>
                                                     </div>
 
-                                                    <div class="col-12 col-md-4 d-flex flex-column">
+                                                    <div class="col-12 col-md-4 d-flex flex-column d-none">
                                                         <label class="text-14 main-text required">Discount Type</label>
                                                         <select id="plan-discount-type" class="form-select custom-select mt-2" onchange="changeDiscountType(this)">
-                                                            <option selected value="0">- Select -</option>
                                                             <?php
                                                             $discountTypes = Database::search("SELECT * FROM `discount_type`");
                                                             while ($discountType = $discountTypes->fetch_assoc()) { ?>
-                                                                <option value="<?= $discountType['discount_type_id'] ?>"><?= $discountType['discount_type'] ?></option>
+                                                                <option value="<?= $discountType['discount_type_id'] ?>" <?= $discountType['discount_type_id'] == 1 ? 'selected' : '' ?>><?= $discountType['discount_type'] ?></option>
                                                             <?php } ?>
                                                         </select>
                                                         <span id="plan-discount-type-feedback" class="text-dark-red text-12"></span>

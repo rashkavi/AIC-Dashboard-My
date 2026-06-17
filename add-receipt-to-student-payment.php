@@ -35,6 +35,7 @@ if (!SessionUser::hasValidSession()) {
                     `pr`.`programme_id`, `pr`.`programme`,
                     `f`.`faculty_id`, `f`.`faculty`,
                     `ld`.`first_name`, `ld`.`last_name`,
+                    `s`.`student_id`,
                     `t`.`title`,
                     `pt`.`payment_type`,
                     `pt`.`payment_type_id`,
@@ -788,7 +789,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     <path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z" />
                                                                                                     <path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
                                                                                                 </svg></div>
-                                                                                            <div class="detail-content"><span class="detail-label">Amount</span><span class="detail-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($panelty["amount"], 2); ?></span></div>
+                                                                                            <div class="detail-content"><span class="detail-label">Amount</span><span class="detail-value">LKR <?= number_format($panelty["amount"], 2); ?></span></div>
                                                                                         </div>
                                                                                         <?php if (!empty($panelty["days"])): ?>
                                                                                             <div class="detail-item">
@@ -969,13 +970,13 @@ if (!SessionUser::hasValidSession()) {
                                                                             <!-- Row 3: Slip | Note -->
                                                                             <div class="col-12 col-lg-6 d-flex flex-column">
                                                                                 <label class="text-14 main-text">Payment Slip</label>
-                                                                                <?php if ($inquiry_id != 0 && $paymentData['payment_type_id'] == 18):
+                                                                                <?php if ($paymentData['payment_type_id'] == 18):
                                                                                     $paymnetSlips = Database::search("
-                                                                SELECT * FROM students_identity_documents
-                                                                WHERE students_student_id = '" . $inquiry_id . "'
-                                                                AND `students_identity_documents_type_id` = '8'
-                                                                ORDER BY date_added DESC LIMIT 1
-                                                            ");
+                                                                                        SELECT * FROM students_identity_documents
+                                                                                        WHERE students_student_id = '" . $paymentData['student_id'] . "'
+                                                                                        AND `students_identity_documents_type_id` = '8'
+                                                                                        ORDER BY date_added DESC LIMIT 1
+                                                                                    ");
                                                                                     if ($paymnetSlips->num_rows > 0):
                                                                                         $paymentSlipData = $paymnetSlips->fetch_assoc(); ?>
                                                                                         <div class="col-12 my-3 file-item">

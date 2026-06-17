@@ -172,15 +172,14 @@ if (!SessionUser::hasValidSession()) {
                                                                     <input type="number" class="form-control custom-input mt-2" id="payment-amount" min="0">
                                                                     <span id="payment-amount-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                                <div class="col-12 col-md-4 d-flex flex-column d-none">
                                                                     <label class="text-14 main-text required" for="">Discount Type</label>
                                                                     <select id="plan-discount-type" class="form-select custom-select mt-2" onclick="changeDiscountType(this)">
-                                                                        <option selected value="0">Select Discount Type</option>
                                                                         <?php
                                                                         $discountTypes = Database::search("SELECT * FROM `discount_type`");
                                                                         while ($discountType = $discountTypes->fetch_assoc()) {
                                                                         ?>
-                                                                            <option value="<?php echo $discountType['discount_type_id'] ?>"><?php echo $discountType['discount_type'] ?></option>
+                                                                            <option value="<?php echo $discountType['discount_type_id'] ?>" <?= $discountType['discount_type_id'] == 1 ? 'selected' : '' ?>><?php echo $discountType['discount_type'] ?></option>
                                                                         <?php
                                                                         }
                                                                         ?>

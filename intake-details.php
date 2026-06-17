@@ -1016,7 +1016,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     "0"     => "table-btn-purple",
                                                                                                                     "1"  => "table-btn-yellow",
 
-                                                                                                                    "9"  => "table-btn-success",
+                                                                                                                    "5"  => "table-btn-success",
                                                                                                                 ];
                                                                                                                 $sbutton_class = $status_classes[$data["payment_status_id"]];
                                                                                                                 ?>

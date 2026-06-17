@@ -49,6 +49,13 @@ if (SessionUser::hasValidSession()) {
                     $gemail = isset($_POST['gemail']) ? trim($_POST['gemail']) : '';
                     $gmobile = isset($_POST['gmobile']) ? trim($_POST['gmobile']) : '';
                     $gwhatsapp = isset($_POST['gwhatsapp']) ? trim($_POST['gwhatsapp']) : '';
+                    $certificate_name = isset($_POST['certificate_name']) ? trim($_POST['certificate_name']) : '';
+                    $school = isset($_POST['school']) ? trim($_POST['school']) : '';
+                    $ol_results = isset($_POST['ol_results']) ? trim($_POST['ol_results']) : '';
+                    $al_results = isset($_POST['al_results']) ? trim($_POST['al_results']) : '';
+                    $work_experience = isset($_POST['work_experience']) ? trim($_POST['work_experience']) : '';
+                    $team_username = isset($_POST['team_username']) ? trim($_POST['team_username']) : '';
+                    $team_password = isset($_POST['team_password']) ? trim($_POST['team_password']) : '';
                     $image = '';
 
                     if (empty($fname)) {
@@ -262,53 +269,41 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
+                    if (!empty($certificate_name) && strlen($certificate_name) > 100) {
+                        $status->certificate_name = "Certificate name should be less than 100 characters";
+                    }
+
+                    if (!empty($school) && strlen($school) > 150) {
+                        $status->school = "School name should be less than 150 characters";
+                    }
+
+                    if (!empty($ol_results) && strlen($ol_results) > 100) {
+                        $status->ol_results = "O/L results should be less than 100 characters";
+                    }
+
+                    if (!empty($al_results) && strlen($al_results) > 100) {
+                        $status->al_results = "A/L results should be less than 100 characters";
+                    }
+
+                    if (!empty($work_experience) && strlen($work_experience) > 1000) {
+                        $status->work_experience = "Work experience is too long";
+                    }
+
+                    if (!empty($team_username) && strlen($team_username) > 100) {
+                        $status->team_username = "Team username too long";
+                    }
+
+                    if (!empty($team_password) && strlen($team_password) > 100) {
+                        $status->team_password = "Team password too long";
+                    }
+
                     $studentDocuments = validateStudentDocuments($id);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
                         $status->$key = $message;
                     }
 
-                    $requiredProperties = [
-                        'fname',
-                        'lname',
-                        'fullname',
-                        'nwi',
-                        'title',
-                        'gender',
-                        'marital_status',
-                        'nationality',
-                        'nic',
-                        'cob',
-                        'cor',
-                        'dob',
-                        'email',
-                        'mobile',
-                        'whatsapp',
-                        'address',
-                        'address2',
-                        'city',
-                        'pcode',
-                        'image',
-
-                        'gtitle',
-                        'grelationship',
-                        'gfname',
-                        'glname',
-                        'gemail',
-                        'gmobile',
-                    ];
-                    $allFieldsPresent = true;
-                    foreach ($requiredProperties as $property) {
-                        if (property_exists($status, $property)) {
-                            $allFieldsPresent = false;
-                            break; // Exit loop on the first missing property
-                        }
-                    }
-                    foreach ($studentDocuments["errors"] as $key => $message) {
-                        $allPropertiesExist = false;
-                        break; // Exit loop on the first missing property
-                    }
-                    if ($allFieldsPresent) {
+                    if (empty(get_object_vars($status))) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);
                         $resetTime = $dateTime->format('Y-m-d H:i:s');
@@ -353,6 +348,16 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $student_table_update .= ",`nationality`='Sri Lanka'";
                         }
+
+                        $student_table_update .= "
+                            ,`certificate_name`='" . $certificate_name . "'
+                            ,`school_attended`='" . Database::escape($school) . "'
+                            ,`ol_results`='" . Database::escape($ol_results) . "'
+                            ,`al_results`='" . Database::escape($al_results) . "'
+                            ,`work_experience`='" . Database::escape($work_experience) . "'
+                            ,`ms_team_username`='" . Database::escape($team_username) . "'
+                            ,`ms_team_password`='" . Database::escape($team_password) . "'
+                            ";
 
                         Database::iud("UPDATE `login_details` SET " . $login_table_update . " WHERE `login_details_id` = '" . $student["login_details_login_details_id"] . "'");
                         Database::iud("UPDATE `students` SET " . $student_table_update . " WHERE `student_id` = '" . $student["student_id"] . "'");

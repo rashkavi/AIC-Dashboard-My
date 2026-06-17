@@ -530,11 +530,11 @@ Database::iud("
     UPDATE `course_payment_has_payments`
     SET
         `payment_status_payment_status_id`                  = '3',
-        `paid_amount`                                       = '" . number_format($amountForCurrent_stored, 4, '.', '') . "',
-        `discount_amount`                                   = '" . number_format($discountAmount_stored, 4, '.', '') . "',
-        `panelty_amount`                                    = '" . number_format($penaltyAmount_stored, 4, '.', '') . "',
+        `paid_amount`                                       = '" . number_format($amountForCurrent_stored, 2, '.', '') . "',
+        `discount_amount`                                   = '" . number_format($discountAmount_stored, 2, '.', '') . "',
+        `panelty_amount`                                    = '" . number_format($penaltyAmount_stored, 2, '.', '') . "',
         `tax_rate`                                          = '" . number_format($latestTaxRate, 2, '.', '') . "',
-        `tax_amount`                                        = '" . number_format($taxForCurrent_stored, 4, '.', '') . "',
+        `tax_amount`                                        = '" . number_format($taxForCurrent_stored, 2, '.', '') . "',
         `payment_method_payment_method_id`                  = '$paymentMethod',
         `date_paid`                                         = $paidDateSql,
         `currencies_currency_id`                            = $currencyIdSql,
@@ -599,14 +599,14 @@ if (!empty($nextInstallmentPayments)) {
             '$nextPaymentId',
             '$paymentMethod',
             $paidDateSql,
-            '" . number_format($nextPaidAmount_stored, 4, '.', '') . "',
+            '" . number_format($nextPaidAmount_stored, 2, '.', '') . "',
             '0',
             '0',
             '3',
             $currencyIdSql,
             'Auto-applied overpayment from receipt {$receiptNumber}',
             '" . number_format($latestTaxRate, 2, '.', '') . "',
-            '" . number_format($nextTaxStored_amount, 4, '.', '') . "',
+            '" . number_format($nextTaxStored_amount, 2, '.', '') . "',
             '$receiptId'";
 
         if ($currencyId && $currencyId != $courseCurrencyId) {

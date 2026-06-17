@@ -410,6 +410,13 @@ const addStudent = (btn) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("certificate_name", $("#certificate-name").val());
+    form.append("school", $("#school").val());
+    form.append("ol_results", $("#ol-results").val());
+    form.append("al_results", $("#al-results").val());
+    form.append("work_experience", $("#work-experience").val());
+    form.append("team_username", $("#team-username").val());
+    form.append("team_password", $("#team-password").val());
 
     appendStudentDocumentsToFormData(form);
 
@@ -454,7 +461,14 @@ const addStudent = (btn) => {
         other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
-        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"]
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        certificate_name: ["#certificate-name", "#certificate-name-feedback"],
+        school: ["#school", "#school-feedback"],
+        ol_results: ["#ol-results", "#ol-results-feedback"],
+        al_results: ["#al-results", "#al-results-feedback"],
+        work_experience: ["#work-experience", "#work-experience-feedback"],
+        team_username: ["#team-username", "#team-username-feedback"],
+        team_password: ["#team-password", "#team-password-feedback"]
     };
 
     fetch("api/addStudent.php", {
@@ -514,6 +528,13 @@ const editStudent = (btn, id) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
+    form.append("certificate_name", $("#certificate-name").val());
+    form.append("school", $("#school").val());
+    form.append("ol_results", $("#ol-results").val());
+    form.append("al_results", $("#al-results").val());
+    form.append("work_experience", $("#work-experience").val());
+    form.append("team_username", $("#team-username").val());
+    form.append("team_password", $("#team-password").val());
     form.append("removed_documents", removedExistingDocuments);
     appendStudentDocumentsToFormData(form);
 
@@ -559,7 +580,14 @@ const editStudent = (btn, id) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
-        payment_option: ["#payment-option", "#payment-option-feedback"]
+        payment_option: ["#payment-option", "#payment-option-feedback"],
+        certificate_name: ["#certificate-name", "#certificate-name-feedback"],
+        school: ["#school", "#school-feedback"],
+        ol_results: ["#ol-results", "#ol-results-feedback"],
+        al_results: ["#al-results", "#al-results-feedback"],
+        work_experience: ["#work-experience", "#work-experience-feedback"],
+        team_username: ["#team-username", "#team-username-feedback"],
+        team_password: ["#team-password", "#team-password-feedback"]
     };
 
     fetch("api/editStudent.php", {
@@ -4181,6 +4209,13 @@ const addStudentToIntake = (btn, id) => {
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
     form.append("entry_type", $("input[name='entry_type']:checked").val());
     form.append("payment_option", $("#payment-option").val());
+    form.append("certificate_name", $("#certificate-name").val());
+    form.append("school", $("#school").val());
+    form.append("ol_results", $("#ol-results").val());
+    form.append("al_results", $("#al-results").val());
+    form.append("work_experience", $("#work-experience").val());
+    form.append("team_username", $("#team-username").val());
+    form.append("team_password", $("#team-password").val());
 
     appendStudentDocumentsToFormData(form);
 
@@ -4225,7 +4260,14 @@ const addStudentToIntake = (btn, id) => {
         other_entry_documents: ["#doc-other-entry-documents", "#doc-other-entry-documents-feedback"],
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
-        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"]
+        discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        certificate_name: ["#certificate-name", "#certificate-name-feedback"],
+        school: ["#school", "#school-feedback"],
+        ol_results: ["#ol-results", "#ol-results-feedback"],
+        al_results: ["#al-results", "#al-results-feedback"],
+        work_experience: ["#work-experience", "#work-experience-feedback"],
+        team_username: ["#team-username", "#team-username-feedback"],
+        team_password: ["#team-password", "#team-password-feedback"]
     };
 
     fetch("api/addStudentToIntake.php", {
@@ -11832,7 +11874,7 @@ const createStudentPaymentPlan = (btn, leadId) => {
             if (response.done) {
                 showToast("success", response.done);
                 setTimeout(() => {
-                    window.location = "inquiry-payment-plan?inquiry-id=" + leadId;
+                    window.history.back();
                 }, 3000);
 
             } else if (response.error) {

@@ -191,6 +191,32 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="mdi:report-bar" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
+                                                            Students Payments Reports
+                                                        </span>
+                                                        <span class="text-14 main-text" data-i18n="">
+                                                            View, manage, and track scheduled payments assigned to students efficiently
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="students-payments-reports" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100" data-i18n="">View</button>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
                                                     <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:student" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="student-payments">Students Payments</span>

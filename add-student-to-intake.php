@@ -200,7 +200,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <option value="<?php echo $data["gender_id"]; ?>"><?php echo $data["gender"]; ?></option>
                                                                                             <?php
                                                                                             }
-
                                                                                             ?>
                                                                                         </select>
                                                                                         <span id="gender-feedback" class="text-dark-red text-12"></span>
@@ -365,6 +364,76 @@ if (!SessionUser::hasValidSession()) {
                                                                         <label class="text-14 main-text" for="">Postal Code</label>
                                                                         <input type="text" class="form-control custom-input mt-2" id="postal-code" maxlength="5">
                                                                     </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="col-12 p-0 g-0 mt-5">
+                                                                <div class="row gx-4 gy-3">
+                                                                    <span class="sub-topic">Academic Details</span>
+
+                                                                    <div class="col-12 d-flex flex-column">
+                                                                        <label class="text-14 main-text">Name Should be in the Certificate</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="certificate-name"
+                                                                            maxlength="100">
+                                                                        <span id="certificate-name-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 d-flex flex-column">
+                                                                        <label class="text-14 main-text">School Attended</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="school">
+                                                                        <span id="school-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text">O/L Results</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="ol-results">
+                                                                        <span id="ol-results-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text">A/L Results</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="al-results">
+                                                                        <span id="al-results-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 d-flex flex-column">
+                                                                        <label class="text-14 main-text">Work Experience</label>
+                                                                        <textarea class="form-control custom-input mt-2"
+                                                                            rows="5"
+                                                                            id="work-experience"></textarea>
+                                                                        <span id="work-experience-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text">MS Team Username</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="team-username">
+                                                                        <span id="team-username-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
+                                                                    <div class="col-12 col-md-3 d-flex flex-column">
+                                                                        <label class="text-14 main-text">MS Team Password</label>
+                                                                        <input type="text"
+                                                                            class="form-control custom-input mt-2"
+
+                                                                            id="team-password">
+                                                                        <span id="team-password-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+
                                                                 </div>
                                                             </div>
 

@@ -1,17 +1,21 @@
 <?php
+
 /**
- * api/getReceiptData.php  v2
+ * api/getReceiptData.php - FIXED v4
  *
- * Key fixes vs v1:
- *  • paid_currency always resolved — never falls back to course currency silently
- *  • grand_total_amount included (sum of cp.amount in course currency)
- *  • discount_amount returned in course currency (was sometimes in paid currency)
- *  • tax_course reliably computed (paid currency → course currency conversion)
- *  • branch_phone / branch_email included in response
+ * KEY FIX: Penalties added AFTER payment date are completely excluded
+ * 
+ * Business Logic:
+ * - Payment on 2026-06-10: include only penalties added before/on 2026-06-10
+ * - Penalties added 2026-06-12 (after payment): EXCLUDE from this receipt
+ * - Receipt created 2026-06-14: still uses same logic
+ *
+ * Formula:
+ * Balance Due = Course Fee - Discount + (Penalties added BEFORE payment) + Tax - Amount Paid
  */
 
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 
 require_once('../includes/UserClass.php');
 require_once('../includes/connection.php');
@@ -56,7 +60,6 @@ $receiptRow = Database::search("
         f.faculty,
 
         b.branch        AS branch_name
-     
 
     FROM course_payment_receipts cpr
     INNER JOIN users             u   ON cpr.users_user_id
@@ -92,6 +95,19 @@ $receipt = $receiptRow->fetch_assoc();
 
 /* ════════════════════════════════════════════════════════════════════════════
    Payments linked to this receipt
+   
+   🔴 CRITICAL: Penalty filtering by payment date
+   
+   Rule: Only count penalties where date_created <= date_paid
+   This ensures penalties added AFTER the payment are NOT included in this receipt.
+   
+   Example:
+   - Payment made: 2026-06-10
+   - Penalty added: 2026-06-12 (AFTER payment)
+   - Receipt created: 2026-06-14
+   → Penalty should NOT appear in receipt
+   
+   SQL filters using: pp.created_at <= cpp.date_paid (or equivalent date field)
 ════════════════════════════════════════════════════════════════════════════ */
 $paymentsRow = Database::search("
     SELECT
@@ -109,8 +125,6 @@ $paymentsRow = Database::search("
 
         pm.payment_method,
 
-        /* paid currency — use COALESCE so it falls back to course currency code
-           when the student paid in the same currency as the course              */
         COALESCE(cur.code, c.code)   AS paid_currency_code,
 
         cp.refference,
@@ -125,6 +139,17 @@ $paymentsRow = Database::search("
         c.code                       AS course_currency_code,
         c.decimal_places             AS course_decimal_places,
 
+        /*
+         * 🔴 PENALTY FILTER FIX:
+         * 
+         * This subquery ONLY sums penalties where:
+         *   created_at <= payment.date_paid
+         *
+         * If payment was made 2026-06-10, only penalties created 
+         * on or before 2026-06-10 are counted.
+         * 
+         * Penalties added later are completely excluded.
+         */
         COALESCE(pp.total_penalty_lkr, 0) AS total_penalty_lkr
 
     FROM course_payment_has_payments cpp
@@ -146,10 +171,25 @@ $paymentsRow = Database::search("
     INNER JOIN currencies       c    ON pc.currencies_currency_id
                                           = c.currency_id
     LEFT  JOIN (
-        SELECT course_payments_course_payments_id,
-               SUM(amount) AS total_penalty_lkr
-        FROM   panelty_payments
-        GROUP  BY course_payments_course_payments_id
+        /*
+         * Correlated subquery: Count penalties ONLY if created BEFORE/ON payment date
+         * 
+         * Adjust the date field based on your schema:
+         *   - panelty_payments.created_at  (recommended)
+         *   - panelty_payments.date_added
+         *   - panelty_payments.penalty_date
+         */
+        SELECT
+            pp_inner.course_payments_course_payments_id,
+            SUM(pp_inner.amount) AS total_penalty_lkr
+        FROM panelty_payments pp_inner
+        INNER JOIN course_payment_has_payments cpp_inner
+               ON pp_inner.course_payments_course_payments_id
+                    = cpp_inner.course_payments_course_payments_id
+        WHERE  cpp_inner.course_payment_receipts_course_payment_receipt_id = '$receiptId'
+          /* 🔴 KEY FIX: Only count penalties created ON OR BEFORE payment date */
+          AND  DATE(pp_inner.date_added) <= DATE(cpp_inner.date_paid)
+        GROUP  BY pp_inner.course_payments_course_payments_id
     ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
 
     WHERE  cpp.course_payment_receipts_course_payment_receipt_id = '$receiptId'
@@ -161,6 +201,7 @@ $paymentsRow = Database::search("
    Helpers
 ════════════════════════════════════════════════════════════════════════════ */
 $lkrCurrencyId = 1;
+$__rateCache   = [];
 
 /**
  * Resolve the exchange rate for a single payment row.
@@ -171,16 +212,13 @@ function resolveRate(array $row, int $courseCurrId): ?float
 {
     $paidId = (int)($row['paid_currency_db_id'] ?? 0);
 
-    /* If no paid-currency ID recorded, or same as course → no conversion */
     if (!$paidId || $paidId === $courseCurrId) {
         return null;
     }
 
-    /* Use stored rate first */
     $rate = (float)($row['currency_exchange_rate'] ?? 0);
     if ($rate > 0) return $rate;
 
-    /* Fall back to rate table */
     $rateId = (int)($row['currency_exchange_rate_id'] ?? 0);
     if ($rateId) {
         global $__rateCache;
@@ -208,39 +246,37 @@ function toCourse(float $amount, ?float $rate): float
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   Aggregate
+   Aggregate ALL payments (with pre-payment-date penalty filtering)
 ════════════════════════════════════════════════════════════════════════════ */
 $payments           = [];
 $grandTotalPaid     = 0.0;
 $grandTotalAmount   = 0.0;
 $grandTotalDiscount = 0.0;
-$grandTotalPenalty  = 0.0;
+$grandTotalPenalty  = 0.0;  // Only pre-payment penalties!
 $grandTotalTax      = 0.0;
 $courseCurrencyCode = 'LKR';
-$__rateCache        = [];
 
 while ($p = $paymentsRow->fetch_assoc()) {
 
     $courseCurrId      = (int)$p['course_currency_id'];
     $isCourseLKR       = ($courseCurrId === $lkrCurrencyId);
-    $courseCurrencyCode = $p['course_currency_code'];   // e.g. "GBP" or "LKR"
+    $courseCurrencyCode = $p['course_currency_code'];
 
-    /* Exchange rate: 1 course_currency = X paid_currency */
     $exRate = resolveRate($p, $courseCurrId);
 
-    /* paid_in_course = how much was received expressed in course currency */
     $paidInCourse = toCourse((float)$p['paid_amount'], $exRate);
 
-    /* Penalty stored in LKR → convert to course currency */
+    /*
+     * 🔴 PENALTY FIX: This is ALREADY filtered by SQL
+     * total_penalty_lkr is 0 if penalty was added after payment date
+     * (no need for additional checks here)
+     */
     $penaltyLKR      = (float)$p['total_penalty_lkr'];
     $penaltyInCourse = ($isCourseLKR || $exRate === null)
         ? $penaltyLKR
         : $penaltyLKR / ($exRate ?: 1);
 
-    /* Tax: cpp.tax_amount is in the PAID currency → convert to course currency */
-    $taxInCourse = toCourse((float)($p['tax_amount'] ?? 0), $exRate);
-
-    /* Discount: cpp.discount_amount is in course currency (no conversion needed) */
+    $taxInCourse      = toCourse((float)($p['tax_amount'] ?? 0), $exRate);
     $discountInCourse = (float)$p['discount_amount'];
 
     $payments[] = [
@@ -251,31 +287,28 @@ while ($p = $paymentsRow->fetch_assoc()) {
         'due_date'        => $p['due_date'],
         'payment_method'  => $p['payment_method'],
         'course_currency' => $courseCurrencyCode,
-
-        /* ── CRITICAL: paid_currency is what the student ACTUALLY paid in ── */
-        'paid_currency'   => $p['paid_currency_code'],   /* never null — COALESCE in SQL */
-
+        'paid_currency'   => $p['paid_currency_code'],
         'cp_amount'       => (float)$p['cp_amount'],
-        'paid_amount'     => (float)$p['paid_amount'],   /* in paid_currency */
-        'paid_in_course'  => $paidInCourse,              /* in course_currency */
+        'paid_amount'     => (float)$p['paid_amount'],
+        'paid_in_course'  => $paidInCourse,
         'discount_amount' => $discountInCourse,
         'penalty_lkr'     => $penaltyLKR,
         'penalty_course'  => $penaltyInCourse,
         'tax_rate'        => (float)$p['tax_rate'],
-        'tax_amount'      => (float)$p['tax_amount'],    /* in paid_currency */
-        'tax_course'      => $taxInCourse,               /* in course_currency */
-        'exchange_rate'   => $exRate,                    /* null if same currency */
+        'tax_amount'      => (float)$p['tax_amount'],
+        'tax_course'      => $taxInCourse,
+        'exchange_rate'   => $exRate,
         'is_foreign'      => ($exRate !== null),
         'note'            => $p['note'],
         'discount_type'   => $p['discount_type'],
         'cp_discount'     => (float)$p['cp_discount'],
-        'discount_type_id'=> (int)$p['discount_type_discount_type_id'],
+        'discount_type_id' => (int)$p['discount_type_discount_type_id'],
     ];
 
     $grandTotalPaid     += $paidInCourse;
     $grandTotalAmount   += (float)$p['cp_amount'];
     $grandTotalDiscount += $discountInCourse;
-    $grandTotalPenalty  += $penaltyInCourse;
+    $grandTotalPenalty  += $penaltyInCourse;  // Only pre-payment penalties
     $grandTotalTax      += $taxInCourse;
 }
 
@@ -283,14 +316,14 @@ while ($p = $paymentsRow->fetch_assoc()) {
    Response
 ════════════════════════════════════════════════════════════════════════════ */
 $receipt['payments']             = $payments;
-$receipt['course_currency']      = $courseCurrencyCode;   /* "LKR", "GBP", etc. */
+$receipt['course_currency']      = $courseCurrencyCode;
 $receipt['grand_total_paid']     = $grandTotalPaid;
 $receipt['grand_total_amount']   = $grandTotalAmount;
 $receipt['grand_total_discount'] = $grandTotalDiscount;
-$receipt['grand_total_penalty']  = $grandTotalPenalty;
+$receipt['grand_total_penalty']  = $grandTotalPenalty;  // Pre-payment penalties only
 $receipt['grand_total_tax']      = $grandTotalTax;
-$receipt['branch_address'] = "No. 439, Galle Road, Colombo 03";
-$receipt['branch_phone']   = "+94 11 2345678";
-$receipt['branch_email']   = "9Hb4a@example.com";
+$receipt['branch_address']       = "No.154, Havelock Road, Thimbirigasyaya, Colombo 05";
+$receipt['branch_phone']         = "+94 114 325 864";
+$receipt['branch_email']         = "accounts@aicedu.lk";
 
 echo json_encode($receipt);

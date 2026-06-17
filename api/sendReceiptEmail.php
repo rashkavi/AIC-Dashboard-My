@@ -1,4 +1,10 @@
 <?php
+
+/**
+ * api/sendReceiptEmail.php - v9
+ * Logo fix: replaced text-based AIC/CAMPUS block with actual logo image
+ */
+
 require_once('../includes/UserClass.php');
 require_once('../includes/connection.php');
 require_once('../includes/UserPermissionsClass.php');
@@ -77,7 +83,7 @@ $studentRow = Database::search("
         p.programme_id, p.programme,
         f.faculty_id, f.faculty,
         b.branch_id, b.branch
-        
+
     FROM students_has_intakes shi
     INNER JOIN students      s   ON shi.students_student_id          = s.student_id
     INNER JOIN login_details ld  ON s.login_details_login_details_id = ld.login_details_id
@@ -85,7 +91,7 @@ $studentRow = Database::search("
     INNER JOIN intakes       i   ON shi.intakes_intake_id            = i.intake_id
     INNER JOIN programmes    p   ON i.programmes_programme_id        = p.programme_id
     INNER JOIN faculties     f   ON p.faculties_faculty_id           = f.faculty_id
-    INNER JOIN branches      b   ON f.branches_branch_id           = b.branch_id
+    INNER JOIN branches      b   ON f.branches_branch_id             = b.branch_id
     WHERE shi.students_has_intakes_id = '" . $shi_id . "'
     LIMIT 1
 ");
@@ -150,7 +156,12 @@ function fmtN($n, $dp = 2)
     return number_format((float)($n ?? 0), $dp);
 }
 
-// ── Calculate totals ───────────────────────────────────────────────────────
+function esc($s)
+{
+    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+// ── Calculate totals ──────────────────────────────────────────────────────
 $rows            = [];
 $cc              = 'LKR';
 $courseCurrId    = 1;
@@ -171,20 +182,20 @@ if ($paymentsResult && $paymentsResult->num_rows > 0) {
         $discInCourse = toCourse((float)($row['discount_amount'] ?? 0), $rate);
 
         $rows[] = [
-            'reference'      => $row['reference'],
-            'payment_type'   => $row['payment_type'],
-            'date_paid'      => $row['date_paid'] ? substr($row['date_paid'], 0, 10) : '',
-            'payment_method' => $row['payment_method'],
-            'cp_amount'      => (float)$row['cp_amount'],
+            'reference'       => $row['reference'],
+            'payment_type'    => $row['payment_type'],
+            'date_paid'       => $row['date_paid'] ? substr($row['date_paid'], 0, 10) : '',
+            'payment_method'  => $row['payment_method'],
+            'cp_amount'       => (float)$row['cp_amount'],
             'paid_amount_raw' => (float)$row['paid_amount'],
-            'paid_in_course' => $paidInCourse,
-            'paid_currency'  => $row['paid_currency'] ?: $cc,
-            'exchange_rate'  => $rate,
-            'tax_rate'       => (float)($row['tax_rate'] ?? 0),
-            'tax_amount_raw' => (float)($row['tax_amount'] ?? 0),
-            'tax_in_course'  => $taxInCourse,
+            'paid_in_course'  => $paidInCourse,
+            'paid_currency'   => $row['paid_currency'] ?: $cc,
+            'exchange_rate'   => $rate,
+            'tax_rate'        => (float)($row['tax_rate'] ?? 0),
+            'tax_amount_raw'  => (float)($row['tax_amount'] ?? 0),
+            'tax_in_course'   => $taxInCourse,
             'discount_course' => $discInCourse,
-            'penalty_course' => $penInCourse,
+            'penalty_course'  => $penInCourse,
         ];
 
         $grandAmount   += (float)$row['cp_amount'];
@@ -195,11 +206,25 @@ if ($paymentsResult && $paymentsResult->num_rows > 0) {
     }
 }
 
-$balanceDue = max(0, $grandAmount - $grandDiscount + $grandPenalty + $grandTax - $grandPaid);
+$courseFeeActuallyPaid = max(0, $grandPaid - $grandTax);
+$isPaid = ($courseFeeActuallyPaid >= $grandAmount - 0.005);
+
 $paymentDate = substr($receipt['date_added'], 0, 10);
 
-// ── Generate PDF HTML ──────────────────────────────────────────────────────
-$receiptHtml = buildReceiptPdf($receipt, $student, $rows, $cc, $grandAmount, $grandDiscount, $grandPenalty, $grandTax, $grandPaid, $balanceDue);
+// ── Generate PDF HTML ─────────────────────────────────────────────────────
+$receiptHtml = buildReceiptPdf(
+    $receipt,
+    $student,
+    $rows,
+    $cc,
+    $grandAmount,
+    $grandDiscount,
+    $grandPenalty,
+    $grandTax,
+    $grandPaid,
+    $courseFeeActuallyPaid,
+    $isPaid
+);
 
 // ── Generate PDF from HTML ─────────────────────────────────────────────────
 $pdfPath = null;
@@ -229,10 +254,7 @@ if ($usePdf && class_exists('Dompdf\Dompdf')) {
         $pdfPath   = sys_get_temp_dir() . '/receipt_' . $receipt_id . '_' . time() . '.pdf';
         file_put_contents($pdfPath, $pdfOutput);
     } catch (Exception $e) {
-        echo json_encode([
-            'error' => 'PDF Error',
-            'message' => $e->getMessage()
-        ]);
+        echo json_encode(['error' => 'PDF Error', 'message' => $e->getMessage()]);
         exit;
     }
 } else {
@@ -240,7 +262,7 @@ if ($usePdf && class_exists('Dompdf\Dompdf')) {
     exit;
 }
 
-// ── Build email using your template structure ──────────────────────────────
+// ── Build email ────────────────────────────────────────────────────────────
 $studentName = $student['student_title'] . '. ' . $student['first_name'] . ' ' . $student['last_name'];
 $toEmail     = $student['email'];
 
@@ -250,7 +272,7 @@ $emailData = [
     'programme'      => $student['programme'],
     'intake'         => $student['intake'],
     'total_paid'     => $cc . ' ' . fmtN($grandPaid),
-    'balance_due'    => $balanceDue > 0.005 ? $cc . ' ' . fmtN($balanceDue) : 'FULLY PAID',
+    'balance_due'    => $isPaid ? 'FULLY PAID' : $cc . ' ' . fmtN(max(0, $grandAmount - $courseFeeActuallyPaid)),
     'payment_date'   => $paymentDate,
 ];
 
@@ -281,7 +303,6 @@ try {
     $mail->setFrom('no-reply@aiccampuslms.com', Project::getBaseName());
     $mail->addAddress($toEmail, $studentName);
 
-    // ── Attach PDF ─────────────────────────────────────────────────────────
     if ($usePdf && $pdfPath && file_exists($pdfPath)) {
         $mail->addAttachment(
             $pdfPath,
@@ -298,12 +319,8 @@ try {
 
     $mail->send();
 
-    // ── Clean up temp PDF ───────────────────────────────────────────────────
-    if ($pdfPath && file_exists($pdfPath)) {
-        @unlink($pdfPath);
-    }
+    if ($pdfPath && file_exists($pdfPath)) @unlink($pdfPath);
 
-    // ── Log the email send ───────────────────────────────────────────────────
     $timezone = new DateTimeZone("Asia/Colombo");
     $now      = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
     Database::iud("
@@ -327,12 +344,23 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ─ Helper function: build receipt PDF HTML ─
+// BUILD RECEIPT PDF
 // ═══════════════════════════════════════════════════════════════════════════
-function buildReceiptPdf($receipt, $student, $rows, $cc, $grandAmount, $grandDiscount, $grandPenalty, $grandTax, $grandPaid, $balanceDue)
-{
+function buildReceiptPdf(
+    $receipt,
+    $student,
+    $rows,
+    $cc,
+    $grandAmount,
+    $grandDiscount,
+    $grandPenalty,
+    $grandTax,
+    $grandPaid,
+    $courseFeeActuallyPaid,
+    $isPaid
+) {
     $recDate = substr($receipt['date_added'], 0, 10);
-    $baseUrl = Project::getBaseUrl();
+    $recNum  = esc($receipt['receipt_number']);
 
     // ── Build payment rows ─────────────────────────────────────────────────
     $payRows = '';
@@ -343,32 +371,29 @@ function buildReceiptPdf($receipt, $student, $rows, $cc, $grandAmount, $grandDis
         $idx++;
 
         $paidMain = ($p['exchange_rate'] && $p['paid_currency'] !== $cc)
-            ? htmlspecialchars($p['paid_currency']) . ' ' . fmtN($p['paid_amount_raw'])
+            ? esc($p['paid_currency']) . ' ' . fmtN($p['paid_amount_raw'])
             . '<div style="font-size:9px;color:#6b7280;margin-top:2px;">= ' . $cc . ' ' . fmtN($p['paid_in_course']) . '</div>'
             : $cc . ' ' . fmtN($p['paid_in_course']);
 
-        $taxMain = $p['tax_in_course'] > 0
-            ? $cc . ' ' . fmtN($p['tax_in_course'])
-            : '<span style="color:#d1d5db;">—</span>';
+        $taxMain     = $p['tax_in_course']   > 0 ? $cc . ' ' . fmtN($p['tax_in_course'])   : '<span style="color:#d1d5db;">—</span>';
+        $discMain    = $p['discount_course'] > 0 ? $cc . ' ' . fmtN($p['discount_course']) : '<span style="color:#d1d5db;">—</span>';
+        $penMain     = $p['penalty_course']  > 0 ? $cc . ' ' . fmtN($p['penalty_course'])  : '<span style="color:#d1d5db;">—</span>';
+        $taxRateDisp = $p['tax_rate']        > 0 ? fmtN($p['tax_rate']) . '%'              : '<span style="color:#d1d5db;">—</span>';
 
-        $discMain   = $p['discount_course'] > 0 ? $cc . ' ' . fmtN($p['discount_course']) : '<span style="color:#d1d5db;">—</span>';
-        $penMain    = $p['penalty_course'] > 0 ? $cc . ' ' . fmtN($p['penalty_course']) : '<span style="color:#d1d5db;">—</span>';
-        $taxRateDisp = $p['tax_rate'] > 0 ? fmtN($p['tax_rate']) . '%' : '<span style="color:#d1d5db;">—</span>';
-
-        $C = 'padding:7px 8px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
+        $C = 'padding:7px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
 
         $payRows .= '<tr style="background:' . $bg . ';">'
-            . '<td style="' . $C . 'color:#9ca3af;">' . $idx . '</td>'
-            . '<td style="' . $C . 'font-weight:600;">' . htmlspecialchars($p['reference']) . '</td>'
-            . '<td style="' . $C . '">' . htmlspecialchars($p['payment_type']) . '</td>'
-            . '<td style="' . $C . 'white-space:nowrap;">' . $p['date_paid'] . '</td>'
-            . '<td style="' . $C . '">' . htmlspecialchars($p['payment_method']) . '</td>'
-            . '<td style="' . $C . 'text-align:right;">' . $cc . ' ' . fmtN($p['cp_amount']) . '</td>'
-            . '<td style="' . $C . 'text-align:right;">' . $discMain . '</td>'
-            . '<td style="' . $C . 'text-align:right;">' . $penMain . '</td>'
-            . '<td style="' . $C . 'text-align:center;">' . $taxRateDisp . '</td>'
-            . '<td style="' . $C . 'text-align:right;">' . $taxMain . '</td>'
-            . '<td style="' . $C . 'text-align:right;font-weight:700;">' . $paidMain . '</td>'
+            . '<td style="' . $C . 'color:#9ca3af;width:22px;">' . $idx . '</td>'
+            . '<td style="' . $C . 'font-weight:700;color:#1e3a5f;">'     . esc($p['reference'])      . '</td>'
+            . '<td style="' . $C . 'color:#6b7280;">'                     . esc($p['payment_type'])   . '</td>'
+            . '<td style="' . $C . 'white-space:nowrap;color:#6b7280;">'  . $p['date_paid']           . '</td>'
+            . '<td style="' . $C . 'color:#6b7280;">'                     . esc($p['payment_method']) . '</td>'
+            . '<td style="' . $C . 'text-align:right;">'                  . $cc . ' ' . fmtN($p['cp_amount']) . '</td>'
+            . '<td style="' . $C . 'text-align:right;">'                  . $discMain    . '</td>'
+            . '<td style="' . $C . 'text-align:right;">'                  . $penMain     . '</td>'
+            . '<td style="' . $C . 'text-align:center;">'                 . $taxRateDisp . '</td>'
+            . '<td style="' . $C . 'text-align:right;">'                  . $taxMain     . '</td>'
+            . '<td style="' . $C . 'text-align:right;font-weight:700;color:#111827;">' . $paidMain . '</td>'
             . '</tr>';
     }
 
@@ -376,162 +401,176 @@ function buildReceiptPdf($receipt, $student, $rows, $cc, $grandAmount, $grandDis
         $payRows = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
     }
 
-    $balanceRow = $balanceDue > 0.005
-        ? '<tr style="background:#fef2f2;"><td style="padding:8px 14px;font-size:10px;color:#dc2626;border-bottom:1px solid #e5e7eb;">Balance Due</td><td style="padding:8px 14px;font-size:10px;font-weight:700;color:#dc2626;text-align:right;border-bottom:1px solid #e5e7eb;">' . $cc . ' ' . fmtN($balanceDue) . '</td></tr>'
-        : '<tr style="background:#f0fdf4;"><td style="padding:8px 14px;font-size:10px;color:#16a34a;border-bottom:1px solid #e5e7eb;">Status</td><td style="padding:8px 14px;font-size:10px;font-weight:700;color:#16a34a;text-align:right;border-bottom:1px solid #e5e7eb;">FULLY PAID ✓</td></tr>';
+    // ── Summary rows ──────────────────────────────────────────────────────
+    $RS = 'padding:8px 13px;font-size:11px;border-bottom:1px solid #f3f4f6;';
+    $LS = $RS . 'color:#374151;font-weight:500;';
+    $VS = $RS . 'color:#111827;font-weight:600;text-align:right;';
 
-    $TH = 'padding:7px 8px;font-size:9px;font-weight:600;color:rgba(255,255,255,.9);letter-spacing:.04em;';
+    $discDisplay = $grandDiscount > 0.005 ? $cc . ' ' . fmtN($grandDiscount) : '<span style="color:#d1d5db;">—</span>';
+    $penDisplay  = $grandPenalty  > 0.005 ? $cc . ' ' . fmtN($grandPenalty)  : '<span style="color:#d1d5db;">—</span>';
+    $taxDisplay  = $grandTax      > 0.005 ? $cc . ' ' . fmtN($grandTax)      : '<span style="color:#d1d5db;">—</span>';
 
-    $studentName = htmlspecialchars($student['student_title'] . '. ' . $student['first_name'] . ' ' . $student['last_name']);
-    $processedBy = htmlspecialchars($receipt['user_title'] . '. ' . $receipt['user_fname'] . ' ' . $receipt['user_lname']);
+    $summaryRows =
+        // 1 — Total Course Fee
+        '<tr>'
+        . '<td style="' . $LS . '">Total Course Fee</td>'
+        . '<td style="' . $VS . '">' . $cc . ' ' . fmtN($courseFeeActuallyPaid) . '</td>'
+        . '</tr>'
+        // 2 — Discount
+        . '<tr>'
+        . '<td style="' . $LS . '">Total Discount</td>'
+        . '<td style="' . $VS . '">' . $discDisplay . '</td>'
+        . '</tr>'
+        // 3 — Penalty
+        . '<tr>'
+        . '<td style="' . $LS . '">Total Penalty</td>'
+        . '<td style="' . $VS . '">' . $penDisplay . '</td>'
+        . '</tr>'
+        // 4 — Tax
+        . '<tr>'
+        . '<td style="' . $LS . '">Total Tax</td>'
+        . '<td style="' . $VS . '">' . $taxDisplay . '</td>'
+        . '</tr>'
+        // 5 — TOTAL PAID
+        . '<tr style="background:#1e3a5f;">'
+        . '<td style="padding:10px 13px;font-size:12px;font-weight:700;color:#fff;">TOTAL PAID</td>'
+        . '<td style="padding:10px 13px;font-size:13px;font-weight:800;color:#fff;text-align:right;">' . $cc . ' ' . fmtN($grandPaid) . '</td>'
+        . '</tr>';
 
-    $grandAmountFormatted   = $cc . ' ' . fmtN($grandAmount);
-    $grandDiscountFormatted = $cc . ' ' . fmtN($grandDiscount);
-    $grandPenaltyFormatted  = $cc . ' ' . fmtN($grandPenalty);
-    $grandTaxFormatted      = $cc . ' ' . fmtN($grandTax);
-    $grandPaidFormatted     = $cc . ' ' . fmtN($grandPaid);
-    $balanceFormatted       = $cc . ' ' . fmtN($balanceDue);
+    $TH = 'padding:8px 9px;font-size:9px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.04em;';
+
+    $studentName = esc($student['student_title'] . '. ' . $student['first_name'] . ' ' . $student['last_name']);
+    $processedBy = esc($receipt['user_title'] . '. ' . $receipt['user_fname'] . ' ' . $receipt['user_lname']);
 
     return <<<HTML
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Payment Receipt {$receipt['receipt_number']}</title>
+<title>Payment Receipt {$recNum}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; background: #fff; color: #111827; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 11px; line-height: 1.5; color: #111827; background: #fff; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { size: A4 portrait; margin: 8mm 10mm; }
   }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
 </style>
 </head>
-<body style="padding: 28px 32px;">
+<body>
 
-<!-- Header -->
-<table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
-<tr>
-  <td style="vertical-align: top; width: 58%;">
-    <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png" alt="" style="height: 44px; width: auto;">
-    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">No.3 </div>
-    <div style="font-size: 10px; color: #6b7280;">Tel: +94 769 679778</div>
-    <div style="font-size: 10px; color: #6b7280;">Colombo</div>
-  </td>
-  <td style="vertical-align: top; text-align: right;">
-    <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 3px;">OFFICIAL PAYMENT RECEIPT</div>
-    <div style="font-size: 20px; font-weight: 800; color: #111827;">{$receipt['receipt_number']}</div>
-    <div style="font-size: 10px; color: #6b7280; margin-top: 2px;">Date: {$recDate}</div>
-   
-  </td>
-</tr>
-</table>
+<!-- ════ HEADER BAND ════ -->
+<div style="background:#1e3a5f;padding:20px 28px;">
+<table style="width:100%;border-collapse:collapse;"><tr>
 
-<div style="height: 2px; background: #1e3a5f; margin-bottom: 18px; border-radius: 1px;"></div>
+<!-- Left — logo + branch -->
+<td style="vertical-align:top;width:55%;">
+  <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png"
+       alt="AIC Campus"
+       style="height:44px;width:auto;display:block;margin-bottom:8px;">
+  <div style="font-size:8px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;">Learning Management System</div>
+  <div style="font-size:9px;color:rgba(255,255,255,.55);line-height:1.8;">
+    No.154, Havelock Road, Thimbirigasyaya, Colombo 05<br>
+    Tel: +94 114 325 864<br>
+    Email: accounts@aicedu.lk
+  </div>
+</td>
 
-<!-- Student & Programme -->
-<table style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
-<tr>
-  <td style="width: 50%; vertical-align: top; padding-right: 10px;">
-    <div style="border: 1px solid #e5e7eb; border-radius: 3px; padding: 12px 14px;">
-      <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Bill To</div>
-      <div style="font-size: 13px; font-weight: 700; color: #111827;">{$studentName}</div>
-      <div style="font-size: 10px; color: #6b7280; margin-top: 4px; line-height: 1.8;">
-        ID: {$student['student_id']}<br>
-        {$student['email']}<br>
-        {$student['mobile']}
-      </div>
+<!-- Right — receipt ID -->
+<td style="vertical-align:top;text-align:right;">
+  <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Official Payment Receipt</div>
+  <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px;">{$recNum}</div>
+  <div style="font-size:9px;color:rgba(255,255,255,.6);margin-bottom:8px;">Date: {$recDate}</div>
+  <span style="display:inline-block;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.05em;">&#10003; APPROVED</span>
+</td>
+</tr></table>
+</div>
+
+<!-- ════ BODY ════ -->
+<div style="padding:22px 28px;">
+
+<!-- Bill To + Programme -->
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
+<td style="width:50%;vertical-align:top;padding-right:10px;">
+  <div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;background:#fafafa;">
+    <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Bill To</div>
+    <div style="font-size:13px;font-weight:700;color:#111827;">{$studentName}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.9;">
+      ID: {$student['student_id']}<br>{$student['email']}<br>{$student['mobile']}
     </div>
-  </td>
-  <td style="width: 50%; vertical-align: top; padding-left: 10px;">
-    <div style="border: 1px solid #e5e7eb; border-radius: 3px; padding: 12px 14px;">
-      <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Programme Details</div>
-      <div style="font-size: 11px; font-weight: 600; color: #111827;">{$student['faculty']}</div>
-      <div style="font-size: 10px; color: #6b7280; margin-top: 3px; line-height: 1.8;">{$student['programme']}<br>{$student['intake']}</div>
-      <div style="font-size: 9px; color: #9ca3af; margin-top: 6px; padding-top: 6px; border-top: 1px solid #f3f4f6;">Processed by: {$processedBy}</div>
-    </div>
-  </td>
-</tr>
-</table>
+  </div>
+</td>
+<td style="width:50%;vertical-align:top;padding-left:10px;">
+  <div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;background:#fafafa;">
+    <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Programme Details</div>
+    <div style="font-size:11px;font-weight:700;color:#111827;">{$student['faculty']}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.9;">{$student['programme']}<br>{$student['intake']}</div>
+    <div style="font-size:9px;color:#9ca3af;margin-top:7px;padding-top:7px;border-top:1px solid #f3f4f6;">Processed by: {$processedBy}</div>
+  </div>
+</td>
+</tr></table>
 
-<!-- Payment Records -->
-<div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px;">Payment Records</div>
-<div style="border: 1px solid #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 18px;">
-<table style="width: 100%; border-collapse: collapse;">
-<thead>
-<tr style="background: #1e3a5f;">
-  <th style="{$TH} text-align: left;">#</th>
-  <th style="{$TH} text-align: left;">Reference</th>
-  <th style="{$TH} text-align: left;">Type</th>
-  <th style="{$TH} text-align: left;">Date</th>
-  <th style="{$TH} text-align: left;">Method</th>
-  <th style="{$TH} text-align: right;">Invoice Amt</th>
-  <th style="{$TH} text-align: right;">Discount</th>
-  <th style="{$TH} text-align: right;">Penalty</th>
-  <th style="{$TH} text-align: center;">Tax %</th>
-  <th style="{$TH} text-align: right;">Tax Amt</th>
-  <th style="{$TH} text-align: right;">Paid</th>
-</tr>
-</thead>
+<!-- Section label -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+  <span style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;">Payment Records</span>
+  <div style="flex:1;height:1px;background:#f3f4f6;"></div>
+</div>
+
+<!-- Payment table -->
+<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:20px;">
+<table style="width:100%;border-collapse:collapse;min-width:640px;">
+<thead><tr style="background:#1e3a5f;">
+  <th style="{$TH}text-align:left;">#</th>
+  <th style="{$TH}text-align:left;">Reference</th>
+  <th style="{$TH}text-align:left;">Type</th>
+  <th style="{$TH}text-align:left;">Date</th>
+  <th style="{$TH}text-align:left;">Method</th>
+  <th style="{$TH}text-align:right;">Schedule Amt</th>
+  <th style="{$TH}text-align:right;">Discount</th>
+  <th style="{$TH}text-align:right;">Penalty</th>
+  <th style="{$TH}text-align:center;">Tax %</th>
+  <th style="{$TH}text-align:right;">Tax Amt</th>
+  <th style="{$TH}text-align:right;">Paid</th>
+</tr></thead>
 <tbody>{$payRows}</tbody>
 </table>
 </div>
 
-<!-- Summary -->
-<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-<tr>
-  <td style="width: 50%; vertical-align: top; padding-right: 16px;">
-    <div style="font-size: 9px; color: #9ca3af; line-height: 1.7;">
-      Payments made will not be refundable or transferable under any circumstances.<br>
-      This receipt is valid subject to realisation of cheque.<br>
-      Taxes or bank charges may be applied where required.
-    </div>
-  </td>
-  <td style="vertical-align: top;">
-    <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 3px;">
-      <tr>
-        <td style="padding: 6px 12px; font-size: 10px; color: #374151; border-bottom: 1px solid #e5e7eb;">Course Amount</td>
-        <td style="padding: 6px 12px; font-size: 10px; font-weight: 500; text-align: right; border-bottom: 1px solid #e5e7eb;">{$grandAmountFormatted}</td>
-      </tr>
-      <tr>
-        <td style="padding: 6px 12px; font-size: 10px; color: #374151; border-bottom: 1px solid #e5e7eb;">Total Discount</td>
-        <td style="padding: 6px 12px; font-size: 10px; font-weight: 500; text-align: right; border-bottom: 1px solid #e5e7eb;">{$grandDiscountFormatted}</td>
-      </tr>
-      <tr>
-        <td style="padding: 6px 12px; font-size: 10px; color: #374151; border-bottom: 1px solid #e5e7eb;">Total Penalty</td>
-        <td style="padding: 6px 12px; font-size: 10px; font-weight: 500; text-align: right; border-bottom: 1px solid #e5e7eb;">{$grandPenaltyFormatted}</td>
-      </tr>
-      <tr>
-        <td style="padding: 6px 12px; font-size: 10px; color: #374151; border-bottom: 1px solid #e5e7eb;">Total Tax</td>
-        <td style="padding: 6px 12px; font-size: 10px; font-weight: 500; text-align: right; border-bottom: 1px solid #e5e7eb;">{$grandTaxFormatted}</td>
-      </tr>
-      <tr style="background: #1e3a5f;">
-        <td style="padding: 8px 14px; font-size: 11px; font-weight: 700; color: #fff;">TOTAL PAID</td>
-        <td style="padding: 8px 14px; font-size: 12px; font-weight: 800; color: #fff; text-align: right;">{$grandPaidFormatted}</td>
-      </tr>
-      {$balanceRow}
-    </table>
-  </td>
-</tr>
-</table>
+<!-- Summary + Notes -->
+<table style="width:100%;border-collapse:collapse;margin-bottom:22px;"><tr>
 
-<!-- Footer -->
-<div style="
-position: fixed;
-bottom: 20px;
-left: 32px;
-right: 32px;
-border-top: 1px dashed #d1d5db;
-padding-top: 10px;
-">  <div style="font-size: 9px; color: #9ca3af;">This is a computer-generated receipt and does not require a physical signature.</div>
-  <div style="font-size: 9px; color: #6b7280; text-align: right;">Receipt No: <strong>{$receipt['receipt_number']}</strong> | Generated: {$recDate}</div>
+<!-- Left — notes -->
+<td style="width:50%;vertical-align:top;padding-right:16px;">
+  <div style="font-size:9px;color:#9ca3af;line-height:1.95;margin-top:2px;">
+    &#8226; Payments made will not be refundable or transferable under any circumstances.<br>
+    &#8226; This receipt is valid subject to realisation of cheque.<br>
+    &#8226; Taxes or bank charges may be applied where required.<br>
+    &#8226; Only penalties added on or before the payment date are included in this receipt.
+  </div>
+</td>
 
-<div style="text-align: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f3f4f6;">
-  <span style="font-size: 9px; color: #c4c9d4; letter-spacing: .04em;"> &copy;<?php echo date("Y"); ?> ENLIXO Uni. All Rights Reserved | Powered by
-    <a href="https://enviiz.com" target="_blank" class="text-decoration-none footer-link">
-      <img src="'https://dashboard.aiccampuslms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares (PVT) LTD" style="width: 40px;height: auto;" class="enviiz-logo">
-    </a></span>
+<!-- Right — totals -->
+<td style="vertical-align:top;">
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+    {$summaryRows}
+  </table>
+</td>
+</tr></table>
+
+</div><!-- /body -->
+
+<!-- ════ FOOTER ════ -->
+<div style="border-top:1px dashed #e5e7eb;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#fafafa;">
+  <div style="font-size:9px;color:#9ca3af;">This is a computer-generated receipt and does not require a physical signature.</div>
+  <div style="font-size:9px;color:#6b7280;text-align:right;">
+    Receipt No: <strong style="color:#374151;">{$recNum}</strong> &nbsp;|&nbsp; Generated: {$recDate}
+  </div>
 </div>
+
+<div style="text-align:center;padding:8px;border-top:1px solid #f3f4f6;background:#fff;">
+  <span style="font-size:8px;color:#d1d5db;letter-spacing:.06em;">ENLIXO LMS 2026 &copy; — All rights reserved</span>
 </div>
 
 </body>

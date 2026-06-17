@@ -187,8 +187,6 @@ if (!SessionUser::hasValidSession()) {
                                                     return (float)$lkrAmount;
                                                 }
 
-
-
                                                 ?>
                                                 <div class="col-12 px-4 py-3 pe-4 g-0 component-theme mb-10">
                                                     <div class="row p-0 m-0 g-0 align-content-center" id="accordionParent">
@@ -427,14 +425,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="row g-4 d-flex">
                                                                                     <?php
                                                                                     $cards = [
-                                                                                        ['label' => 'Payable Amount',       'val' => $data['payable_amount']],
-                                                                                        ['label' => 'Settled Amount',       'val' => $completed_payments],
-                                                                                        ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts],
-                                                                                        ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties],
-                                                                                        ['label' => 'Total Tax',            'val' => $taxAmounts],
-                                                                                        ['label' => 'Awaiting Payments',    'val' => $awaiting_payments],
-                                                                                        ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments],
-                                                                                        ['label' => 'Rejected Payment',     'val' => $rejected_payments],
+                                                                                        ['label' => 'Payable Amount',       'val' => $data['payable_amount'],'code' => $data['code']],
+                                                                                        ['label' => 'Settled Amount',       'val' => $completed_payments , 'code' => $data['code']],
+                                                                                        ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts , 'code' => $data['code']],
+                                                                                        ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties , 'code' => 'LKR'],
+                                                                                        ['label' => 'Total Paid Tax',            'val' => $taxAmounts , 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Payments',    'val' => $awaiting_payments , 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments , 'code' => $data['code']],
+                                                                                        ['label' => 'Rejected Payment',     'val' => $rejected_payments , 'code' => $data['code']],
                                                                                     ];
                                                                                     foreach ($cards as $card):
                                                                                     ?>
@@ -445,7 +443,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     <iconify-icon icon="mdi:payment-settings" width="25" height="25" class="dark-theme"></iconify-icon>
                                                                                                 </div>
                                                                                                 <div class="mt-2">
-                                                                                                    <span class="text-24 dark-color fw-semibold lh-lg"><?= $data['code'] ?> <?= number_format($card['val'], $data['decimal_places']) ?></span>
+                                                                                                    <span class="text-24 dark-color fw-semibold lh-lg"><?= $card['code'] ?> <?= number_format($card['val'], $data['decimal_places']) ?></span>
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
@@ -468,12 +466,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Due Date</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Discount</th>
-                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Penalty</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Tax</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Payable</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Paid Amount</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Date Paid</th>
-                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Balance</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Course Balance</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Penalty (LKR)</th>
                                                                                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Payment Method</th>
                                                                                                 <th class="py-3 bg-table-header">
                                                                                                     <div class="d-flex flex-row align-items-center">
@@ -545,14 +543,29 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         : $row['discount'];
 
                                                                                                     $totalDiscount  = $discountAmount;
-                                                                                                    // panelty_payments.amount is LKR → convert to course currency
-                                                                                                    $totalPenalty   = convertPaneltyPaymentsAmount($row['panelty_amount'], $row['course_currency_id']);
+                                                                                                    // Keep raw LKR penalty amounts separate for display
+                                                                                                    $totalPenaltyLKR = $row['panelty_amount']; // Store raw LKR amount
                                                                                                     $rowTaxAmounts  = 0; // accumulate tax per receipt below
 
                                                                                                     // Fetch receipts for this payment
                                                                                                     $convertedPaidTotal = 0;
                                                                                                     $receiptRows = [];
                                                                                                     $totalPaidAmount = 0;
+                                                                                                    $totalReceiptPenaltiesLKR = 0; // Track receipt penalties in LKR
+                                                                                                    $paidBeforePenalty = 0; // Amount paid BEFORE penalty was added
+                                                                                                    $paidAfterPenalty = 0;  // Amount paid AFTER penalty was added
+
+                                                                                                    // Get earliest penalty date for this course payment
+                                                                                                    $penaltyDateQuery = Database::search("
+                                                                                                        SELECT MIN(pp.date_added) as earliest_penalty_date
+                                                                                                        FROM panelty_payments pp
+                                                                                                        WHERE pp.course_payments_course_payments_id = '" . (int)$row['course_payments_id'] . "'
+                                                                                                    ");
+                                                                                                    $penaltyDate = null;
+                                                                                                    if ($penaltyDateQuery && $penaltyDateQuery->num_rows > 0) {
+                                                                                                        $penaltyData = $penaltyDateQuery->fetch_assoc();
+                                                                                                        $penaltyDate = $penaltyData['earliest_penalty_date'];
+                                                                                                    }
 
                                                                                                     $receipts = Database::search("
                                                                                                     SELECT
@@ -576,6 +589,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     WHERE cpp.course_payments_course_payments_id = '" . (int)$row['course_payments_id'] . "'
                                                                                                     
                                                                                                     GROUP BY cpp.course_payment_has_payment_id
+                                                                                                    ORDER BY cpp.date_paid ASC
                                                                                                 ");
                                                                                                     if ($receipts && $receipts->num_rows > 0) {
                                                                                                         while ($rec = $receipts->fetch_assoc()) {
@@ -586,22 +600,48 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             $receiptRows[] = $rec;
 
                                                                                                             if (in_array($rec['payment_status_id'], [2, 3])) {
-                                                                                                                                                                                                                            $convertedPaidTotal += $rec['converted_paid'];
-
+                                                                                                                $convertedPaidTotal += $rec['converted_paid'];
                                                                                                                 $totalPaidAmount += $rec['converted_paid'];
                                                                                                                 $totalDiscount  += convertToCourseAmount($rec['discount_amount'], $rate);
-                                                                                                                // receipt-level panelty_amount is in the payment's paid currency
-                                                                                                                $totalPenalty   += convertToCourseAmount($rec['panelty_amount'], $rate);
+                                                                                                                // Track receipt penalties in LKR
+                                                                                                                $totalReceiptPenaltiesLKR += $rec['panelty_amount'];
                                                                                                                 $rowTaxAmounts  += convertToCourseAmount($rec['tax_amount'], $rate);
+
+                                                                                                                // Allocate payment to course balance based on penalty date
+                                                                                                                if ($penaltyDate && $rec['date_paid'] < $penaltyDate) {
+                                                                                                                    // Payment made BEFORE penalty: all goes to course
+                                                                                                                    $paidBeforePenalty += $rec['converted_paid'];
+                                                                                                                } else if ($penaltyDate) {
+                                                                                                                    // Payment made AFTER penalty: deduct penalty from this payment
+                                                                                                                    $paidAfterPenalty += $rec['converted_paid'];
+                                                                                                                } else {
+                                                                                                                    // No penalty at all, all payments count for course
+                                                                                                                    $paidBeforePenalty += $rec['converted_paid'];
+                                                                                                                }
                                                                                                             }
                                                                                                         }
                                                                                                     }
 
-                                                                                                    // payable = amount - discount + penalty + tax
-                                                                                                    $payableAmount = $row['amount'] - $totalDiscount + $totalPenalty + $rowTaxAmounts;
-                                                                                                    // balance = payable - all paid (including pending receipts)
-                                                                                                    $balance       = $payableAmount - $convertedPaidTotal;
-                                                                                                    $paidAmount    = $convertedPaidTotal;
+                                                                                                    // Calculate total penalty in LKR (course_payments + receipt penalties)
+                                                                                                    $totalPenaltyLKRDisplay = $totalPenaltyLKR + $totalReceiptPenaltiesLKR;
+
+                                                                                                    // For balance calculation: payable should EXCLUDE penalties
+                                                                                                    // payable = amount - discount + tax (NO penalties)
+                                                                                                    $payableAmount = $row['amount'] - $totalDiscount + $rowTaxAmounts;
+
+                                                                                                    // Calculate course balance considering penalty dates
+                                                                                                    $totalPenaltyConverted = convertPaneltyPaymentsAmount($totalPenaltyLKR, $row['course_currency_id']);
+
+                                                                                                    // Amount paid towards course fee (excluding penalty portion)
+                                                                                                    $coursePaymentReceived = $paidBeforePenalty; // Payments before penalty
+
+                                                                                                    // For payments after penalty: deduct penalty amount, rest goes to course
+                                                                                                    $penaltyInCourse = convertPaneltyPaymentsAmount($totalPenaltyLKR, $row['course_currency_id']);
+                                                                                                    $coursePaymentReceived += max(0, $paidAfterPenalty - $penaltyInCourse);
+
+                                                                                                    // Course balance = payable - course payment received (NO penalties included)
+                                                                                                    $balance = $payableAmount - $coursePaymentReceived;
+                                                                                                    $paidAmount = $convertedPaidTotal;
 
                                                                                                     $status_classes = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-success", "6" => "table-btn-success", "7" => "table-btn-danger", "9" => "table-btn-success"];
                                                                                                     $sbutton_class  = $status_classes[$row['payment_status_id']] ?? 'table-btn-yellow';
@@ -617,12 +657,15 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['due_date'] ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($row['amount'], $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalDiscount, $row['decimal_places']) ?></span></td>
-                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalPenalty, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($rowTaxAmounts, $row['decimal_places']) ?></span></td>
+                                                                                                        <!-- Payable now shows COURSE FEE ONLY (no penalties) -->
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($payableAmount, $row['decimal_places']) ?></span></td>
-                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($convertedPaidTotal, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($coursePaymentReceived, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
+                                                                                                        <!-- Course Balance now shows COURSE BALANCE ONLY (no penalties) -->
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($balance < 0 ? 0 : $balance, $row['decimal_places']) ?></span></td>
+                                                                                                        <!-- Penalty column displays in LKR -->
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text">LKR <?= number_format($totalPenaltyLKRDisplay, 2) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
                                                                                                         <td class="py-3 align-middle">
                                                                                                             <button class="table-btn <?= $sbutton_class ?> w-100"><?= $row['payment_status'] ?></button>
@@ -694,12 +737,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     <?= ($rec['discount_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['discount_amount'], $row['decimal_places']) ?>
                                                                                                                 </span>
                                                                                                             </td>
-                                                                                                            <!-- Penalty (receipt-level, in paid currency) -->
-                                                                                                            <td class="py-3 align-middle text-end">
-                                                                                                                <span class="text-14 main-text">
-                                                                                                                    <?= (empty($rec['panelty_amount']) || $rec['panelty_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['panelty_amount'], $row['decimal_places']) ?>
-                                                                                                                </span>
-                                                                                                            </td>
                                                                                                             <!-- Tax -->
                                                                                                             <td class="py-3 align-middle text-end">
                                                                                                                 <span class="text-14 main-text">
@@ -725,8 +762,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             </td>
                                                                                                             <!-- Date Paid -->
                                                                                                             <td class="py-3 align-middle"><span class="text-14 main-text"><?= $rec['date_paid'] ?></span></td>
-                                                                                                            <!-- Balance blank -->
+                                                                                                            <!-- Course Balance blank -->
                                                                                                             <td class="py-3 align-middle"></td>
+                                                                                                            <!-- CHANGE: Receipt-level Penalty in LKR -->
+                                                                                                            <td class="py-3 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?= (empty($rec['panelty_amount']) || $rec['panelty_amount'] == 0) ? '' : 'LKR ' . number_format($rec['panelty_amount'], 2) ?>
+                                                                                                                </span>
+                                                                                                            </td>
                                                                                                             <!-- Payment Method -->
                                                                                                             <td class="pe-4 py-2 align-middle">
                                                                                                                 <button class="table-btn <?= $mclass ?> w-100"><?= $rec['payment_method'] ?></button>

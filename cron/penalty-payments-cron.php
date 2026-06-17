@@ -1,6 +1,6 @@
 <?php
 
-// declare(strict_types=1);
+declare(strict_types=1);
 
 date_default_timezone_set('Asia/Colombo');
 
@@ -8,9 +8,9 @@ require_once(__DIR__ . "/../includes/connection.php");
 require_once(__DIR__ . "/../includes/UserClass.php");
 require_once(__DIR__ . "/../includes/Project.php");
 
-// if (php_sapi_name() !== 'cli') {
-//     exit("Access denied");
-// }
+if (php_sapi_name() !== 'cli') {
+    exit("Access denied");
+}
 
 // Optional log file
 $logFile = __DIR__ . '/logs/penalty-payments-cron.txt';

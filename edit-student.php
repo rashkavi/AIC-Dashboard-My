@@ -571,6 +571,82 @@ if (!SessionUser::hasValidSession()) {
 
                                                         <div class="col-12 p-0 g-0 mt-5">
                                                             <div class="row gx-4 gy-3">
+                                                                <span class="sub-topic">Academic Details</span>
+
+                                                                <div class="col-12 d-flex flex-column">
+                                                                    <label class="text-14 main-text">Name Should be in the Certificate</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="certificate-name"
+                                                                        maxlength="100"
+                                                                        value="<?= htmlspecialchars($sdata['certificate_name'] ?? '') ?>">
+                                                                    <span id="certificate-name-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 d-flex flex-column">
+                                                                    <label class="text-14 main-text">School Attended</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="school"
+                                                                        value="<?= htmlspecialchars($sdata['school_attended'] ?? '') ?>">
+                                                                    <span id="school-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 col-md-3 d-flex flex-column">
+                                                                    <label class="text-14 main-text">O/L Results</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="ol-results"
+                                                                        value="<?= htmlspecialchars($sdata['ol_results'] ?? '') ?>">
+                                                                    <span id="ol-results-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 col-md-3 d-flex flex-column">
+                                                                    <label class="text-14 main-text">A/L Results</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="al-results"
+                                                                        value="<?= htmlspecialchars($sdata['al_results'] ?? '') ?>">
+                                                                    <span id="al-results-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 d-flex flex-column">
+                                                                    <label class="text-14 main-text">Work Experience</label>
+                                                                    <textarea class="form-control custom-input mt-2"
+                                                                        rows="5"
+                                                                        id="work-experience"><?= htmlspecialchars($sdata['work_experience'] ?? '') ?></textarea>
+                                                                    <span id="work-experience-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 col-md-3 d-flex flex-column">
+                                                                    <label class="text-14 main-text">MS Team Username</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="team-username"
+                                                                        value="<?= htmlspecialchars($sdata['ms_team_username'] ?? '') ?>">
+                                                                    <span id="team-username-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                                <div class="col-12 col-md-3 d-flex flex-column">
+                                                                    <label class="text-14 main-text">MS Team Password</label>
+                                                                    <input type="text"
+                                                                        class="form-control custom-input mt-2"
+                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                        id="team-password"
+                                                                        value="<?= htmlspecialchars($sdata['ms_team_password'] ?? '') ?>">
+                                                                    <span id="team-password-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-12 p-0 g-0 mt-5">
+                                                            <div class="row gx-4 gy-3">
                                                                 <span class="sub-topic">Gurdian Details</span>
                                                                 <div class="col-12 col-md-6 col-xxl-3 d-flex flex-column">
                                                                     <label class="text-14 main-text" for="">Guardian Relationship</label>
@@ -643,7 +719,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <div class="col-12 p-0 g-0 mt-5">
                                                             <div class="row" id="student-documents-wrapper">
-                                                                  <span class="sub-topic mb-4">Student Required Documents</span>
+                                                                <span class="sub-topic mb-4">Student Required Documents</span>
                                                                 <!-- AIC Application -->
                                                                 <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                                     <div class="student-doc-upload-box" data-doc-key="aic_application">
@@ -1010,7 +1086,7 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                             </div>
                         </div>
-                          <script>
+                        <script>
                             window.EXISTING_STUDENT_DOCUMENTS = <?= $existingDocumentsJson ?>;
                         </script>
                         <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
