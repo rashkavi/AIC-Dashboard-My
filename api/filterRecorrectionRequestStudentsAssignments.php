@@ -201,7 +201,7 @@ if (SessionUser::hasValidSession()) {
                                         ?>
                                             <th class="py-3 bg-table-header text-14 main-text fw-medium">Payment Status</th>
                                             <?php
-                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
                                             ?>
                                                 <th class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                         <?php
@@ -404,7 +404,7 @@ if (SessionUser::hasValidSession()) {
                                                             </td>
                                                             <?php
 
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
 
                                                             ?>
                                                                 <td class="px-4 py-3 align-middle">
@@ -495,7 +495,7 @@ if (SessionUser::hasValidSession()) {
                                                             </td>
                                                             <?php
 
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
 
                                                             ?>
                                                                 <td class="px-4 py-3 align-middle">

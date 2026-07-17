@@ -35,8 +35,8 @@ if (!SessionUser::hasValidSession()) {
                     $haveAnyPermission = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission)) {
-                    header("Location: ./level-details?level-id=" . $subjectData['level_id']);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $haveAnyPermission)) {
+                    header("Location: ./subjects?level-id=" . $subjectData['level_id']);
                 } else {
 
 ?>
@@ -96,7 +96,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./programes?id=<?= $subjectData['faculties_faculty_id'] ?>'><?= $subjectData["faculty"] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./intakes?programme-id=<?= $subjectData['programme_id'] ?>'>...</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./intake-details?intake-id=<?= $subjectData['intake_id'] ?>'><?= $subjectData["intake"] ?></a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./level-details?level-id=<?= $subjectData['level_id'] ?>'><?= $subjectData["level"] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./subjects?level-id=<?= $subjectData['level_id'] ?>'><?= $subjectData["level"] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $subjectData["subject"] ?></a></li>
                                                                     </ol>
                                                                 </nav>
@@ -104,7 +104,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
 
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subjects', 1, $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subjects', 1, $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-4 col-lg-2 mt-3 mt-lg-0">
                                                                 <div class="row gx-3">

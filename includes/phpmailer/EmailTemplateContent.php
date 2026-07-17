@@ -129,40 +129,75 @@ final class EmailTemplateContent
 
                     "Dear " . self::value($data, 'student_name', 'Student') . ",",
 
-                    "We are pleased to officially welcome you to <strong>{$baseName}</strong>.",
+                    "Greetings from <strong>{$baseName}</strong>!",
 
-                    "Your student account has been successfully created, and your academic journey with us is now ready to begin.",
+                    "Congratulations and welcome to <strong>{$baseName}</strong>!",
 
-                    "You can now access the Student Portal and LMS platform using your registered email address and password.",
+                    "We are delighted to welcome you to the <strong>" . self::value($data, 'programme_name') . "</strong> at {$baseName}. We look forward to supporting you throughout your academic journey and wish you every success in your studies.",
 
-                    "<strong>Email Address:</strong> " . self::value($data, 'email'),
+                    "<strong>Activate Your LMS Account</strong>",
 
-                    "Through the student portal, you will be able to access important academic and administrative services including:",
+                    "Please use the LMS Activation Link provided below to activate your Learning Management System (LMS) account.",
+
+                    "When you click the activation link, you will be prompted to create your own LMS password. Please choose a secure password and keep it confidential.",
+
+                    "The LMS is your official student portal, where you can access all important academic and administrative information throughout your studies.",
+
+                    "Through the LMS, you can access:",
 
                     "<ul style='padding-left:18px; margin-top:10px;'>
-                        <li>Programme & Enrollment Information</li>
-                        <li>Payment Plans & Receipts</li>
-                        <li>Lecture Timetables</li>
-                        <li>Assignments & Examinations</li>
-                        <li>Academic Announcements</li>
-                        <li>Student Support Services</li>
+                        <li>Your Microsoft Teams username</li>
+                        <li>Your Microsoft Teams temporary password (Welcome@123)</li>
+                        <li>Your class schedule and academic calendar</li>
+                        <li>Module information and learning materials</li>
+                        <li>Announcements and important notices</li>
+                        <li>Assignment and assessment information</li>
+                        <li>Your payment details and payment history</li>
                     </ul>",
 
-                    "Please ensure that your login credentials remain secure and confidential at all times.",
+                    "<strong>Microsoft Teams</strong>",
 
-                    "If you require any assistance regarding your enrollment or student portal access, our administration team will be happy to assist you.",
+                    "All online lectures will be conducted via Microsoft Teams.",
 
-                    "We wish you success throughout your academic journey and look forward to supporting your future achievements.",
+                    "Please log in to the LMS to obtain your Microsoft Teams username and sign in using the temporary password <strong>Welcome@123</strong>. You will be required to change your Microsoft Teams password upon your first login.",
+
+                    "We recommend downloading the Microsoft Teams desktop or mobile application and signing in before your first class.",
+
+                    "<strong>Payments</strong>",
+
+                    "You can view your outstanding and completed payment details through the LMS.",
+
+                    "After making a payment, please upload your payment receipt to the LMS for verification. This will help us update your payment records promptly.",
+
+                    "<strong>During Your Studies</strong>",
+
+                    "<ul style='padding-left:18px; margin-top:10px;'>
+                        <li>Attendance at scheduled lectures is compulsory.</li>
+                        <li>Lecture materials, assignments, and announcements will be available through Microsoft Teams and the LMS.</li>
+                        <li>Assignments must be submitted before the specified deadlines. Late submissions may be subject to the academic regulations of your programme.</li>
+                        <li>If you miss a lecture, please review the available lecture recordings (where applicable) to stay up to date with the course content.</li>
+                        <li>Please check your LMS and email regularly, as important announcements and timetable updates will be communicated through these platforms.</li>
+                    </ul>",
+
+                    "<strong>WhatsApp Communication</strong>",
+
+                    "An official WhatsApp group will be created for your intake to share important announcements and reminders. Please join the group once the invitation is shared.",
+
+                    "We are excited to have you as part of the {$baseName} community and wish you a rewarding and successful learning experience.",
+
+                    "Welcome to {$baseName}!",
+
+                    "Kind regards,<br>Academic Affairs {$baseName}",
 
                 ]),
 
-                'button_text' => 'Access Student Portal',
+                'button_text' => 'Activate Your LMS Account',
 
                 'button_url' => $data['login_url'] ?? '',
 
                 'params' => [
                     'student_name',
-                    'email',
+                    'programme_name',
                     'login_url'
                 ],
             ],

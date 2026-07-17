@@ -24,7 +24,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $attachmentData = $attachment->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subjects', 11, $attachmentData['subjects_subject_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subjects', 11, $attachmentData['subjects_subject_id']))) {
                                 $status->error = 'You are not authorized to remove subject attachment';
                             } else {
                                 Database::iud("DELETE FROM `subject_has_attachments` WHERE `subject_has_attachment_id`='" . $attachmentId . "'");

@@ -27,7 +27,7 @@ if (SessionUser::hasValidSession()) {
                         $quizData = $quiz->fetch_assoc();
                         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 17,$quizData['subjects_subject_id']))) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 17,$quizData['subjects_subject_id']))) {
                             $status->error = 'You are not authorized to released quiz marks.';
                         } else {
 

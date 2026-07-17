@@ -19,7 +19,7 @@ if (!SessionUser::hasValidSession()) {
             $user_id = $_GET['user-id'];
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
             if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
 
                 $validUser = Database::search("

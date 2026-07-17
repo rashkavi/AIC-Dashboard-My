@@ -10,7 +10,7 @@ if (SessionUser::hasValidSession()) {
 
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 10))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 10))) {
             $status->error = 'You are not authorized to edit scheduled lectures';
         } else {
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {

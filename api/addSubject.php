@@ -28,7 +28,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid level Id";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 2, $level_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 2, $level_id))) {
                         $status->error = "You don't have permission to add subjects";
                     } else {
                         if (empty($subject_name)) {

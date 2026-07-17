@@ -15,7 +15,7 @@ if (SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::hasPermission('payments', 15) || UserPermissions::hasPermission('payments', 1))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15) || UserPermissions::hasPermission('payments', 1))) {
                         $status->error = 'You do not have permission to perform this action!';
                     } else {
                         $search_text = isset($decoded['text']) ? $decoded['text'] : '';
@@ -251,7 +251,7 @@ if (SessionUser::hasValidSession()) {
                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Payment method</th>
                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                     <?php
-                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
+                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
                                     ?>
                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                     <?php

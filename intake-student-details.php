@@ -25,7 +25,7 @@ if (!SessionUser::hasValidSession()) {
                 $studentIntakeData = $studentIntake->fetch_assoc();
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1, $studentIntakeData['intakes_intake_id']) || UserPermissions::hasPermission('intake_students', 10, $studentIntakeData['intakes_intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1, $studentIntakeData['intakes_intake_id']) || UserPermissions::hasPermission('intake_students', 10, $studentIntakeData['intakes_intake_id']))) {
                     header("Location: ./students");
                 } else {
 

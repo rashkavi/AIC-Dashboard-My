@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid Intake";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $intakeId))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $intakeId))) {
                         $status->error = 'You do not have permission to add student to this intake';
                     } else {
                         if (!isset($_FILES["file"])) {

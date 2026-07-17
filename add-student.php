@@ -14,7 +14,7 @@ if (!SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
             header("Location: ./students");
         } else {
 
@@ -394,15 +394,6 @@ if (!SessionUser::hasValidSession()) {
 
                                                                 id="team-username">
                                                             <span id="team-username-feedback" class="text-dark-red text-12"></span>
-                                                        </div>
-
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
-                                                            <label class="text-14 main-text">MS Team Password</label>
-                                                            <input type="text"
-                                                                class="form-control custom-input mt-2"
-
-                                                                id="team-password">
-                                                            <span id="team-password-feedback" class="text-dark-red text-12"></span>
                                                         </div>
 
                                                     </div>

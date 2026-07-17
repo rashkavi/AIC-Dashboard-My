@@ -30,13 +30,17 @@ if (SessionUser::hasValidSession()) {
                     } else {
                         $isValidId = Database::search("SELECT * FROM `payment_plan_has_students_has_intakes`
                         INNER JOIN `students_has_intakes` ON `payment_plan_has_students_has_intakes`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
-                         WHERE `payment_plan_has_students_has_intakes_id` = '" . $planId . "'");
+                        INNER JOIN `students` ON `students_has_intakes`.`students_student_id` = `students`.`student_id`
+                        INNER JOIN `login_details` ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
+                        WHERE `payment_plan_has_students_has_intakes_id` = '" . $planId . "'
+                         AND (`students_has_intakes`.`status_status_id` = 1 OR `students_has_intakes`.`status_status_id` IS NULL)
+                        AND (`login_details`.`status_status_id` = 1 OR `login_details`.`status_status_id` IS NULL)");
                         if ($isValidId->num_rows == 0) {
                             $status->error = 'Invalid planId';
                         } else {
                             $studentIntakeData = $isValidId->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentIntakeData['intakes_intake_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentIntakeData['intakes_intake_id']))) {
                                 $status->error = 'You do not have permission to add payment plan to this intake';
                             } else {
 

@@ -80,7 +80,7 @@ if ($paymentPlan->num_rows == 0) {
 $paymentData = $paymentPlan->fetch_assoc();
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentData['intake_id']))) {
+if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentData['intake_id']))) {
     header("Location: ./faculties");
     exit;
 }
@@ -1015,6 +1015,8 @@ switch ($paymentData['payment_status_id']) {
                                                                 </div>
                                                             <?php endif; ?>
 
+                                                            
+
                                                             <!-- View Receipt button -->
                                                             <?php if ($statusId == 3 && $receiptItemId): ?>
                                                                 <div class="col-12 d-flex justify-content-end">
@@ -1315,7 +1317,7 @@ switch ($paymentData['payment_status_id']) {
     </div>
 
     <!-- Update Payment Status Modal -->
-    <?php if ($paymentData['payment_status_id'] > 1 && (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentData['intake_id']))): ?>
+    <?php if ($paymentData['payment_status_id'] > 1 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentData['intake_id']))): ?>
         <div class="modal fade" id="updatePaymentStatusModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content component-theme">

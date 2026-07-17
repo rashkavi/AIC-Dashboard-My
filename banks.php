@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
             header("Location: ./payments");
         } else {
 
@@ -74,7 +74,7 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 </div>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 22)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 22)) {
                                                 ?>
                                                     <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
                                                         <div class="row gx-3">

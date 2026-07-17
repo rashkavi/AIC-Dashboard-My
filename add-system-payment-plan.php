@@ -13,7 +13,7 @@ if (!SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
 
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
             header("Location: ./payments");
         } else {
 ?>

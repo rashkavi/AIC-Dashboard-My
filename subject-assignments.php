@@ -50,8 +50,8 @@ if (!SessionUser::hasValidSession()) {
                     $validLecturer = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $id) || $validLecturer)) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $id) || $validLecturer)) {
+                    header("Location: ./subjects");
                 } else {
 ?>
                     <!DOCTYPE html>
@@ -107,7 +107,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $subjectData['faculty_id'] ?>"><?= $subjectData['faculty'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $subjectData['programme_id'] ?>"><?= $subjectData['programme'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Assignments</a></li>
                                                                     </ol>
@@ -115,7 +115,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 2, $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 2, $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
                                                                 <div class="row align-items-center">
@@ -225,7 +225,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             }
 
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id) || UserPermissions::hasPermission('assignments', 11, $id)) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id) || UserPermissions::hasPermission('assignments', 11, $id)) {
                                                                             ?>
                                                                                 <th scope="col-3" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                             <?php
@@ -357,7 +357,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                     }
 
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id) || UserPermissions::hasPermission('assignments', 11, $id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id) || UserPermissions::hasPermission('assignments', 11, $id)) {
                                                                                     ?>
 
                                                                                         <td class="py-3 align-middle">
@@ -365,7 +365,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                                 <ul class="dropdown-menu scrolable border-0 shadow w-100 m-2 br-5" aria-labelledby="dropdownMenuButton">
                                                                                                     <?php
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $id)) {
                                                                                                     ?>
                                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
                                                                                                                 <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -378,7 +378,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     }
                                                                                                     ?>
                                                                                                     <?php
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 11, $id)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 11, $id)) {
 
                                                                                                         $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
                                                                                                         if ($studentsSubmit == 0) {

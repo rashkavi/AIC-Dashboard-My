@@ -72,8 +72,8 @@ if (!SessionUser::hasValidSession()) {
                     }
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission)) {
-                    header("Location: ./level-details?level-id=" . $subjectData['level_id']);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $haveAnyPermission)) {
+                    header("Location: ./subjects?level-id=" . $subjectData['level_id']);
                 } else {
 
 ?>
@@ -132,7 +132,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./programes?id=<?= $subjectData['faculties_faculty_id'] ?>'><?= $subjectData["faculty"] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./intakes?programme-id=<?= $subjectData['programme_id'] ?>'>...</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./intake-details?intake-id=<?= $subjectData['intake_id'] ?>'><?= $subjectData["intake"] ?></a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./level-details?level-id=<?= $subjectData['level_id'] ?>'><?= $subjectData["level"] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href='./subjects?level-id=<?= $subjectData['level_id'] ?>'><?= $subjectData["level"] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $subjectData["subject"] ?></a></li>
                                                                     </ol>
                                                                 </nav>
@@ -238,7 +238,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('subject', $id)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('subject', $id)) {
                                                                 ?>
                                                                     <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -263,7 +263,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $id) || $loginLecturer) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $id) || $loginLecturer) {
                                                                 ?>
                                                                     <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -288,7 +288,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $id) || UserPermissions::validPermisisonType('pre_Recorded_lectures', $id) || UserPermissions::validPermisisonType('lecture_recording', $id) || $loginLecturer) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $id) || UserPermissions::validPermisisonType('pre_Recorded_lectures', $id) || UserPermissions::validPermisisonType('lecture_recording', $id) || $loginLecturer) {
                                                                 ?>
                                                                     <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -296,7 +296,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <button class="custom-btn w-100 dropdown-toggle" data-i18n="view" type="button" data-bs-toggle="dropdown" aria-expanded="false">View</button>
                                                                                 <ul class="dropdown-menu dropdown-menu-full mt-2">
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || $loginLecturer) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $loginLecturer) {
                                                                                     ?>
                                                                                         <li><a class="dropdown-item" href="subject-lecture-schedule?subject-id=<?= $id ?>" data-i18n="lecture-schedule">Lecture Schedule</a></li>
                                                                                         <li><a class="dropdown-item" href="subject-pre-recorded-lectures?subject-id=<?= $id ?>" data-i18n="pre-recorded-lectures">Pre-recorded Lectures</a></li>
@@ -341,7 +341,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                     <?php
 
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('subject_students', $id) || $loginLecturer) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('subject_students', $id) || $loginLecturer) {
                                                                     ?>
                                                                         <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                             <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -368,7 +368,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $id) || $loginLecturer) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $id) || $loginLecturer) {
                                                                 ?>
                                                                     <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -393,7 +393,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('exams', $id) || UserPermissions::validPermisisonType('quiz', $id) || $loginLecturer) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('exams', $id) || UserPermissions::validPermisisonType('quiz', $id) || $loginLecturer) {
                                                                 ?>
                                                                     <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
@@ -401,7 +401,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <button class="custom-btn w-100 dropdown-toggle" data-i18n="view" type="button" data-bs-toggle="dropdown" aria-expanded="false">View</button>
                                                                                 <ul class="dropdown-menu mt-2">
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || $loginLecturer) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $loginLecturer) {
                                                                                     ?>
                                                                                         <li><a class="dropdown-item" href="subject-examinations?subject-id=<?= $id ?>" data-i18n="online-physical-exams">Online/Physical Examinations</a></li>
                                                                                         <li><a class="dropdown-item" href="subject-quizes?subject-id=<?= $id ?>" data-i18n="quizes">Quizes</a></li>

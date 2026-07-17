@@ -21,7 +21,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid branch Id";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branch_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branch_id))) {
                         $status->error = "You don't have permission to add faculty";
                     } else {
 

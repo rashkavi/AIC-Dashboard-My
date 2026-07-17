@@ -15,7 +15,7 @@ if (!SessionUser::hasValidSession()) {
         $haveAnyPermission = false;
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
             header("Location: ./dashboard");
         } else {
 ?>
@@ -83,7 +83,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         <?php
                                                         }
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23)) {
                                                         ?>
                                                             <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <div class="dropdown w-100">
@@ -118,7 +118,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="currency-exchange-rates" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -147,7 +147,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="inquiries-registration-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -180,6 +180,31 @@ if (!SessionUser::hasValidSession()) {
 
                                                         <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <a href="students-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100" data-i18n="">View</button>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="cryptocurrency:pay" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
+                                                            Payment Plans
+                                                        </span>
+                                                        <span class="text-14 main-text" data-i18n="">
+                                                            View, manage, and track scheduled payments assigned to students efficiently
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="payment-plans" class="text-decoration-none cursor-pointer col-12 align-content-center">
                                                                 <button class="custom-btn w-100" data-i18n="">View</button>
                                                             </a>
                                                         </div>
@@ -227,7 +252,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="manage-students-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -255,7 +280,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="lecturers-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">

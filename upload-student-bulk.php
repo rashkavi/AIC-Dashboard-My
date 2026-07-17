@@ -13,7 +13,7 @@ if (!SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
 
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
             header("Location: ./students");
         } else {
 ?>

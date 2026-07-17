@@ -29,7 +29,7 @@ if (SessionUser::hasValidSession()) {
 
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject', 29, $id))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject', 29, $id))) {
                                 $status->error = 'You do not have permission to add grade calculation structure to this subject';
                             } else {
 

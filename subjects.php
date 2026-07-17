@@ -74,7 +74,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row p-0 m-0 g-0 align-content-center">
                                                     <div class="col-12 col-md-8 col-lg-8">
                                                         <div class="row">
-                                                            <span class="main-topic lh-lg"><?= $levelData["level"] ?></span>
+                                                            <span class="main-topic lh-lg">Subjects</span>
                                                             <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                                 <ol class="breadcrumb m-0">
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="faculties" href='./faculties'>Faculties</a></li>
@@ -98,7 +98,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             <?php
                                                             }
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id)) {
                                                             ?>
                                                                 <div class="col-12 col-md-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-btn px-5 pe-5 w-100" data-bs-target="#addSubject" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
@@ -171,7 +171,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 col-md-3 p-0 m-0 position-relative">
                                                                 <div class="row h-100 p-0 align-items-center justify-content-end">
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 10, $id)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 10, $id)) {
                                                                     ?>
                                                                         <!-- Edit Button -->
                                                                         <div class="col-6 d-flex justify-content-end align-items-center m-0">
@@ -223,7 +223,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         }
                                                                     }
 
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $haveAnyPermission) {
                                                                     ?>
                                                                         <div class="col-6 d-flex justify-content-end align-items-center m-0">
                                                                             <button class="custom-btn w-100" type="button" data-i18n="view" onclick="location.href='subject-details?subject-id=<?= $subject['subject_id'] ?>'">
@@ -261,7 +261,7 @@ if (!SessionUser::hasValidSession()) {
                     </div>
 
                     <?php
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id)) {
                     ?>
                         <!-- Subject Add Model => Start -->
                         <div class="modal fade br-0" id="addSubject" aria-hidden="true" aria-labelledby="addSubjectLabel" tabindex="-1">
@@ -367,7 +367,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 10, $id)) {
                     ?>
                         <!-- Subject Edit Modal => Start -->
                         <div class="modal fade br-0" id="editSubject" aria-hidden="true" aria-labelledby="editSubjectLabel" tabindex="-1">
@@ -462,7 +462,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id) || UserPermissions::hasPermission('level', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 2, $id) || UserPermissions::hasPermission('level', 10, $id)) {
                     ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

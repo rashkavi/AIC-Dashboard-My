@@ -107,7 +107,7 @@ if (SessionUser::hasValidSession()) {
                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
 
                                         <?php
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject) || UserPermissions::hasPermission('quiz', 11, $subject)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject) || UserPermissions::hasPermission('quiz', 11, $subject)) {
                                         ?>
                                             <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                         <?php
@@ -169,14 +169,14 @@ if (SessionUser::hasValidSession()) {
                                                     <button class="table-btn table-btn-dark-theme active w-100" onclick="window.location.href='quiz-details.php?quiz-id=<?php echo $data['quiz_id']; ?>'">View</button>
                                                 </td>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject) || UserPermissions::hasPermission('quiz', 11, $subject)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject) || UserPermissions::hasPermission('quiz', 11, $subject)) {
                                                 ?>
                                                     <td class="px-4 py-3 align-middle">
                                                         <div class="dropdown">
                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                             <ul class="dropdown-menu border-0 shadow w-100 br-5" aria-labelledby="dropdownMenuButton2">
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $subject)) {
                                                                 ?>
                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="quiz-details?quiz-id=<?php echo $data['quiz_id']; ?>">
                                                                             <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -184,7 +184,7 @@ if (SessionUser::hasValidSession()) {
                                                                     <?php
                                                                 }
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $subject)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $subject)) {
                                                                     if (CheckDateTime::checkTimeStatus($data['exam_date'], $data['start_time'], $data['end_date'], $data['end_time']) == "Upcoming") {
                                                                     ?>
                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">

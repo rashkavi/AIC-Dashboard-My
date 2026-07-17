@@ -21,13 +21,10 @@ class load_side_menu
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('inquirys')) {
+        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
             $menuItems = array_merge($menuItems, [
                 ["Inquiries", "ix:inquiry", "inquiries", "inquiries"],
             ]);
-        }
-
-        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
             $menuItems = array_merge($menuItems, [
                 ["Students", "ph:student", "students", "students"],
             ]);
@@ -37,13 +34,13 @@ class load_side_menu
             ["Course Overview", "hugeicons:course", "branches", "course-overview"],
         ]);
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsLecturer($sessionUserRole) || UserPermissions::validPermisisonType('super_lecture_schedule') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
+        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsLecturer($sessionUserRole) || UserPermissions::validPermisisonType('super_lecture_schedule') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
             $menuItems = array_merge($menuItems, [
                 ["Lecture Schedule", "eos-icons:storage-class-outlined", "lecture-schedule", "lecture-schedule"],
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
+        if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
             $menuItems = array_merge($menuItems, [
                 ["Payments", "f7:wallet", "payments", "payments"],
             ]);

@@ -51,8 +51,8 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $examinationData['subjects_subject_id']))) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $examinationData['subjects_subject_id']))) {
+                    header("Location: ./subjects");
                 } else {
 
                     $scheduleExamination;

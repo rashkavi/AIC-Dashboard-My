@@ -410,7 +410,7 @@ if (!SessionUser::hasValidSession()) {
                     </div>
                 <?php
                 }
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
                 ?>
                     <!-- Add lecturer modal => Start -->
                     <div class="modal fade br-0" id="assignUser" aria-hidden="true" aria-labelledby="assignUserLabel" tabindex="-1">

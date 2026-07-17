@@ -23,7 +23,7 @@ if (SessionUser::hasValidSession()) {
                             $status->error = 'Invalid intake id';
                         } else {
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $decoded['intakeId']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $decoded['intakeId']))) {
                                 $status->error = 'You do not have permission to update students status to this intake';
                             } else {
                                 if (!isset($decoded['update']) && $decoded["update"] != 0) {

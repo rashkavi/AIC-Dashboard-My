@@ -95,7 +95,7 @@ if (!SessionUser::hasValidSession()) {
                                                             ?>
 
                                                             <?php
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 2, $id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 2, $id)) {
                                                             ?> <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-btn col-12" data-bs-target="#addProgramme" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
                                                                 </div>
@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="row gx-3 h-100 align-content-center">
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $id)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $id)) {
                                                                         ?>
                                                                             <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadProgrammeEditModel('<?= $programme['programme_id'] ?>','<?= $programme['programme'] ?>','<?= $programme['programme_cover'] ?>','<?= $programme['programme_duration_programme_duration_id'] ?>')">Edit</button>
                                                                         <?php
@@ -289,7 +289,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $id)) {
                     ?>
                         <!-- Programme Edit Modal => Start -->
                         <div class="modal fade br-0" id="editProgramme" aria-hidden="true" aria-labelledby="editProgrammeLabel" tabindex="-1">
@@ -385,7 +385,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 2, $id) || UserPermissions::hasPermission('faculty', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 2, $id) || UserPermissions::hasPermission('faculty', 10, $id)) {
                     ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

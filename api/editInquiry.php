@@ -338,10 +338,10 @@ if (SessionUser::hasValidSession()) {
                             break; // Exit loop on the first missing property
                         }
                     }
-                      foreach ($studentDocuments["errors"] as $key => $message) {
-                    $allPropertiesExist = false;
-                    break; // Exit loop on the first missing property
-                }
+                    foreach ($studentDocuments["errors"] as $key => $message) {
+                        $allPropertiesExist = false;
+                        break; // Exit loop on the first missing property
+                    }
                     if ($allFieldsPresent) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);
@@ -389,7 +389,7 @@ if (SessionUser::hasValidSession()) {
                             $student_table_update .= ",`nationality`='69'";
                         }
 
-                      
+
                         Database::iud("UPDATE `login_details` SET " . $login_table_update . " WHERE `login_details_id` = '" . $student["login_details_login_details_id"] . "'");
                         Database::iud("UPDATE `students` SET " . $student_table_update . " WHERE `student_id` = '" . $student["student_id"] . "'");
 
@@ -567,6 +567,8 @@ function validateStudentDocuments($id)
     $requiredDocuments = [
         "passport_nic",
         "payment_slip",
+        "discount_approved_document",
+        "signed_fee_structure",
     ];
 
     $removeIds = [];
@@ -738,6 +740,11 @@ function getStudentDocumentTypeConfig()
             "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }

@@ -36,7 +36,7 @@ if (SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 10) || UserPermissions::hasPermission('lecture_schedule', 10, $lectureData['subjects_subject_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 10) || UserPermissions::hasPermission('lecture_schedule', 10, $lectureData['subjects_subject_id']))) {
                         $status->error = 'You are not authorized to edit scheduled lectures';
                     } else {
 
@@ -121,23 +121,23 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        if ($lecturer_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                        // if ($lecturer_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
 
-                            $isAvailableLecturer = Database::search("SELECT COUNT(*) FROM `time_table`
-                                                                                    INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                                                                                    WHERE `lecturers`.`users_user_id` = '" . $lecturerData['users_user_id'] . "'
-                                                                                    AND `time_table`.`date` = '" . $lecture_date . "'
-                                                                                    AND `time_table_id` !='" . $lecture_id . "'
-                                                                                    AND ((`time_table`.`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                                                                                    OR (`time_table`.`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
+                        //     $isAvailableLecturer = Database::search("SELECT COUNT(*) FROM `time_table`
+                        //                                                             INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
+                        //                                                             WHERE `lecturers`.`users_user_id` = '" . $lecturerData['users_user_id'] . "'
+                        //                                                             AND `time_table`.`date` = '" . $lecture_date . "'
+                        //                                                             AND `time_table_id` !='" . $lecture_id . "'
+                        //                                                             AND ((`time_table`.`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
+                        //                                                             OR (`time_table`.`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
                                                                                     
-                                                                                    ");
+                        //                                                             ");
 
-                            $row = $isAvailableLecturer->fetch_assoc();
-                            if ($row['COUNT(*)'] > 0) {
-                                $status->lecturer = 'The selected time is already scheduled for this lecturer.';
-                            }
-                        }
+                        //     $row = $isAvailableLecturer->fetch_assoc();
+                        //     if ($row['COUNT(*)'] > 0) {
+                        //         $status->lecturer = 'The selected time is already scheduled for this lecturer.';
+                        //     }
+                        // }
 
                         if (!empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
                             $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) FROM `time_table`

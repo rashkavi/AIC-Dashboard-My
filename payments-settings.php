@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 22) || UserPermissions::hasPermission('payments', 23))) {
             header("Location: ./payments");
         } else {
 
@@ -151,7 +151,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <!-- Right: Actions -->
                                                             <div class="col-12 col-md-3 mt-2 mt-md-0 d-flex flex-column flex-md-row justify-content-md-end align-items-md-center gap-2">
 
-                                                                <?php if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)): ?>
+                                                                <?php if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1)): ?>
                                                                     <button class="table-btn table-btn-dark-theme h-48 w-50 text-17"
                                                                         onclick="openUpdateTaxModal(<?= $tr['tax_rate_id'] ?>, '<?= htmlspecialchars($tr['tax_rate_name'], ENT_QUOTES) ?>', <?= $tr['tax_rate'] ?>)">
                                                                         <iconify-icon icon="mdi:pencil-outline" width="20" style="vertical-align:-2px;margin-right:4px;"></iconify-icon>
@@ -245,7 +245,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
                                                         ?>
                                                             <div class="col-12 col-md-2 mt-3 mt-lg-0">
                                                                 <div class="row h-100 justify-content-end align-items-center">
@@ -305,7 +305,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
 
                                                                                 <?php
-                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 13)) {
+                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 13)) {
 
                                                                                 ?>
                                                                                     <div class="col-6 col-xl-2 mt-2 mt-xl-0">

@@ -12,6 +12,7 @@ if (SessionUser::hasValidSession()) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             $intake_id = isset($_POST['intake_id']) ? $_POST['intake_id'] : '';
+            $programme_id = isset($_POST['programme_id']) ? $_POST['programme_id'] : '';
 
             if (empty($intake_id)) {
                 $status->error = "Please select an intake to duplicate";
@@ -22,23 +23,23 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $intakeData = $isValidIntake->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $intakeData['programmes_programme_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $intakeData['programmes_programme_id']))) {
                         $status->error = "You don't have permission to duplicate intakes to this programme";
                     } else {
 
                         $intake_name = isset($_POST['intake_name']) ? trim($_POST['intake_name']) : '';
 
-                        $intake_cover;
+                        $intake_cover = null;
                         if (empty($intake_name)) {
-                            $status->name =  "Please enter batch Name";
+                            $status->name =  "Please enter intake Name";
                         } else if (strlen($intake_name) > 100) {
-                            $status->name =  "Batch name should be less than 100 characters";
+                            $status->name =  "Intake name should be less than 100 characters";
                         } else {
 
                             $isValidIntake = Database::search("SELECT COUNT(*) as 'count' FROM `intakes` WHERE `intake`='" . $intake_name . "' AND `intake_id` != '" . $intake_id . "' AND `programmes_programme_id` = '" . $intakeData['programmes_programme_id'] . "'");
                             $row = $isValidIntake->fetch_assoc();
                             if ($row['count'] > 0) {
-                                $status->name =  "Batch name already exists in this intake";
+                                $status->name =  "Intake name already exists in this intake";
                             }
                         }
 
@@ -74,8 +75,6 @@ if (SessionUser::hasValidSession()) {
                                     $status->cover = "There is an error with the selected image";
                                 }
                             }
-                        } else {
-                            $status->cover = "Please select an image";
                         }
 
                         $requiredProperties = [
@@ -108,9 +107,9 @@ if (SessionUser::hasValidSession()) {
                                                     `date_added`
                                                 ) VALUES (
                                                     '" . Database::escape($intake_name) . "',
-                                                    '" . $intakeData['programmes_programme_id'] . "',
+                                                    '" . $programme_id . "',
                                                     '0',
-                                                    '" . $intakeData['intake_cover'] . "',
+                                                    '" .  $intake_cover . "',
                                                     '" . $sessionUserObject['user_id'] . "',
                                                     '" . $date . "'
                                                 )

@@ -462,7 +462,7 @@ function buildReceiptPdf(
 <body>
 
 <!-- ════ HEADER BAND ════ -->
-<div style="background:#1e3a5f;padding:20px 28px;">
+<div style="padding:20px 28px;">
 <table style="width:100%;border-collapse:collapse;"><tr>
 
 <!-- Left — logo + branch -->
@@ -483,18 +483,18 @@ function buildReceiptPdf(
   <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Official Payment Receipt</div>
   <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px;">{$recNum}</div>
   <div style="font-size:9px;color:rgba(255,255,255,.6);margin-bottom:8px;">Date: {$recDate}</div>
-  <span style="display:inline-block;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.05em;">&#10003; APPROVED</span>
+  <span style="display:inline-block;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.05em;">APPROVED</span>
 </td>
 </tr></table>
 </div>
 
 <!-- ════ BODY ════ -->
-<div style="padding:22px 28px;">
+<div>
 
 <!-- Bill To + Programme -->
 <table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
 <td style="width:50%;vertical-align:top;padding-right:10px;">
-  <div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;background:#fafafa;">
+  <div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">
     <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Bill To</div>
     <div style="font-size:13px;font-weight:700;color:#111827;">{$studentName}</div>
     <div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.9;">
@@ -503,7 +503,7 @@ function buildReceiptPdf(
   </div>
 </td>
 <td style="width:50%;vertical-align:top;padding-left:10px;">
-  <div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;background:#fafafa;">
+  <div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">
     <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Programme Details</div>
     <div style="font-size:11px;font-weight:700;color:#111827;">{$student['faculty']}</div>
     <div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.9;">{$student['programme']}<br>{$student['intake']}</div>
@@ -519,7 +519,7 @@ function buildReceiptPdf(
 </div>
 
 <!-- Payment table -->
-<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:20px;">
+<div style="border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px;">
 <table style="width:100%;border-collapse:collapse;min-width:640px;">
 <thead><tr style="background:#1e3a5f;">
   <th style="{$TH}text-align:left;">#</th>
@@ -553,7 +553,7 @@ function buildReceiptPdf(
 
 <!-- Right — totals -->
 <td style="vertical-align:top;">
-  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;overflow:hidden;">
     {$summaryRows}
   </table>
 </td>

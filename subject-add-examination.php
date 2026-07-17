@@ -46,8 +46,8 @@ if (!SessionUser::hasValidSession()) {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 2, $id))) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 2, $id))) {
+                    header("Location: ./subjects");
                 } else {
 ?>
                     <!DOCTYPE html>

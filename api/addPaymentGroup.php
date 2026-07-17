@@ -27,7 +27,7 @@ if (SessionUser::hasValidSession()) {
                             $status->error = 'Invalid intake id';
                         } else {
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intake_id))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intake_id))) {
                                 $status->error = 'You are not authorized to add payment group';
                             } else {
 

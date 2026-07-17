@@ -15,7 +15,7 @@ if (SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
                 $status->error = 'You are not authorized to add student';
             } else {
                 $id = isset($_POST['id']) ? trim($_POST['id']) : '';
@@ -150,19 +150,14 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                $invalid_chars = '/[\'\";\-]/';
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
                         $status->address1 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address)) {
-                        $status->address1 =  "Address lines contain invalid characters.";
                     }
                 }
                 if (!empty($address2)) {
                     if (!strlen($address2) > 100) {
                         $status->address2 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address2)) {
-                        $status->address2 =  "Address lines contain invalid characters.";
                     }
                 }
                 if (!empty($address) || !$city == 0 || !empty($pcode)) {
@@ -420,11 +415,6 @@ if (SessionUser::hasValidSession()) {
                         $student_table_insert_values .= ",'" . $team_username . "'";
                     }
 
-                    if (!empty($team_password)) {
-                        $student_table_insert_columns .= ",`ms_team_password`";
-                        $student_table_insert_values .= ",'" . $team_password . "'";
-                    }
-
                     Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
 
                     $studentId = Database::$connection->insert_id;
@@ -492,8 +482,12 @@ if (SessionUser::hasValidSession()) {
                     $titleName = Database::search("SELECT `title` FROM `title` WHERE `title_id`='" . $title . "'")->fetch_assoc()["title"];
                     $userName = $titleName . "." . $fname . " " . $lname;
 
-                    sendMail($email, $userName, $mail['subject'], $mail['body']);
-                    $status->done =  "Student Added Successfully";
+                    try {
+                        sendMail($email, $userName, $mail['subject'], $mail['body']);
+                        $status->done =  "Student Added Successfully";
+                    } catch (Exception $e) {
+                        $status->done =  "Student Added Successfully. Email could not be sent.";
+                    }
                 }
             }
         } else {

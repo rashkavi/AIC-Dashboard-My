@@ -24,7 +24,7 @@ if (SessionUser::hasValidSession()) {
                             $data = $isValidQuiz->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $data['subjects_subject_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $data['subjects_subject_id']))) {
                                 $status->error = 'You are not authorized to remove quiz.';
                             } else {
                                 if (CheckDateTime::checkTimeStatus($data['exam_date'], $data['start_time'], $data['end_date'], $data['end_time']) != "Upcoming") {

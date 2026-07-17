@@ -71,7 +71,7 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
                                                 <div class="row gx-3 justify-content-end">
                                                     <?php
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 1) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 1) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
                                                     ?><div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <button class="bg-transparent border-0 px-3" onclick="window.location.href='branches-permissions'">
                                                                 <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme"></iconify-icon>
@@ -80,7 +80,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <?php
                                                     }
 
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 2)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 2)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <button class="custom-btn col-12" data-bs-target="#addfaculty" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
@@ -138,7 +138,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                             <?php
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 10)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 10)) {
                                                             ?>
                                                                 <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-danger-btn w-100" onclick="loadBranchEditModel('<?= $branch['branch_id'] ?>','<?= $branch['branch'] ?>','<?= $branch['branch_cover'] ?>')">Edit</button>
@@ -180,7 +180,7 @@ if (!SessionUser::hasValidSession()) {
             </div>
 
             <?php
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 2)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 2)) {
             ?>
                 <div class="modal fade br-0" id="addfaculty" aria-hidden="true" aria-labelledby="addfacultyLabel" tabindex="-1">
                     <div class="modal-dialog modal-xl modal-dialog-centered br-0">
@@ -237,7 +237,7 @@ if (!SessionUser::hasValidSession()) {
             <?php
             }
 
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 10)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 10)) {
             ?>
                 <!-- faculty Edit Modal => Start -->
                 <div class="modal fade br-0" id="editBranch" aria-hidden="true" aria-labelledby="editBranchLabel" tabindex="-1">
@@ -295,7 +295,7 @@ if (!SessionUser::hasValidSession()) {
             <?php
             }
 
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 2) || UserPermissions::hasPermission('branches', 10)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 2) || UserPermissions::hasPermission('branches', 10)) {
             ?>
                 <!-- cover crop modal => Start -->
                 <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

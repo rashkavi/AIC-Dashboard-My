@@ -20,7 +20,7 @@ if (!SessionUser::hasValidSession()) {
         } else {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
                 header("Location: ./dashboard");
             } else {
                 $id = $_GET['payment-id'];
@@ -67,7 +67,9 @@ if (!SessionUser::hasValidSession()) {
                             c.code         AS currency_code,
                             c.decimal_places,
                             c.currency_id,
-                            IFNULL(pp.panelty_amount_lkr, 0) AS panelty_amount_lkr
+                            IFNULL(pp.panelty_amount_lkr, 0) AS panelty_amount_lkr,
+                            shi.status_status_id,
+                            ld.`status_status_id` AS 'status_status_id_login_details'
                         FROM course_payments cp
                         INNER JOIN payment_status ps
                             ON cp.payment_status_payment_status_id = ps.payment_status_id
@@ -99,7 +101,7 @@ if (!SessionUser::hasValidSession()) {
                             ON p.faculties_faculty_id = f.faculty_id
                         LEFT JOIN (
                             SELECT course_payments_course_payments_id,
-                                   SUM(amount) AS panelty_amount_lkr
+                            SUM(amount) AS panelty_amount_lkr
                             FROM panelty_payments
                             GROUP BY course_payments_course_payments_id
                         ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
@@ -107,19 +109,27 @@ if (!SessionUser::hasValidSession()) {
                     ");
 
                     if ($paymentPlan->num_rows == 0) {
-                        header("Location: ./students");
+                        header("Location: ./payments");
                     } else {
                         $paymentData = $paymentPlan->fetch_assoc();
 
                         // ════════════════════════════════════════════════════════════════════════
                         // FETCH LATEST TAX RATE
+                        //
+                        // FIX: aligned with add-receipt.php — no `tax_rate > 0` filter and no
+                        // `tax_rate IS NOT NULL` filter. The previous version of this query on
+                        // this page filtered those rows out, which meant this page and
+                        // add-receipt.php could resolve a DIFFERENT "latest" tax rate row if a
+                        // newer `tax_rates` entry ever had a 0 value, or if NULLs were present.
+                        // Both pages must resolve identically or their payable/balance figures
+                        // will silently diverge. Fallback also aligned to 0 (matches
+                        // add-receipt.php) instead of a hardcoded 2.50 default.
                         // ════════════════════════════════════════════════════════════════════════
                         $taxRateQuery = Database::search("
                             SELECT `tax_rate` AS `rate` FROM `tax_rates`
-                            WHERE `tax_rate` IS NOT NULL AND `tax_rate` > 0
                             ORDER BY `date_added` DESC LIMIT 1
                         ");
-                        $latestTaxRate = 2.50; // DEFAULT fallback
+                        $latestTaxRate = 0; // DEFAULT fallback — matches add-receipt.php
                         if ($taxRateQuery && $taxRateQuery->num_rows > 0) {
                             $taxRateRow    = $taxRateQuery->fetch_assoc();
                             $latestTaxRate = (float)$taxRateRow['rate'];
@@ -230,7 +240,7 @@ if (!SessionUser::hasValidSession()) {
                             INNER JOIN `payment_status` AS ps2 ON cpp.`payment_status_payment_status_id` = ps2.`payment_status_id`
                             LEFT  JOIN `currencies`     AS cur ON cpp.`currencies_currency_id`           = cur.`currency_id`
                             WHERE cpp.`course_payments_course_payments_id` = '" . (int)$paymentData['course_payments_id'] . "'
-                            AND ps2.`payment_status_id` IN (2, 3)
+                            AND ps2.`payment_status_id` = 3
                             GROUP BY cpp.`course_payment_has_payment_id`
                         ");
 
@@ -246,13 +256,21 @@ if (!SessionUser::hasValidSession()) {
                         //                       convertLKRToCourseCurrency()
                         //
                         //   tax_amount        → stored in receipt's currency → convert same way
+                        //
+                        //   paid_lkr          → NEW: this receipt's paid amount expressed in LKR,
+                        //                       at full precision (no intermediate course-currency
+                        //                       rounding). This is the ground-truth figure used for
+                        //                       overpayment detection below — see FIX note further
+                        //                       down. Mirrors the payment-currency-first approach
+                        //                       already used in uploadStudentPaymentReceipt.php.
                         // ════════════════════════════════════════════════════════════════════════
-                        $convertedPaidTotal   = 0;
-                        $receiptRows          = [];
-                        $totalReceiptDisc     = 0;
-                        $totalReceiptPenInCC  = 0; // penalty in course currency
-                        $totalReceiptPenLKR   = 0; // penalty always in LKR (for display)
-                        $totalReceiptTax      = 0;
+                        $convertedPaidTotal    = 0;
+                        $convertedPaidTotalLKR = 0; // NEW — paid total in LKR, full precision, single rounding point at the end
+                        $receiptRows           = [];
+                        $totalReceiptDisc      = 0;
+                        $totalReceiptPenInCC   = 0; // penalty in course currency
+                        $totalReceiptPenLKR    = 0; // penalty always in LKR (for display)
+                        $totalReceiptTax       = 0;
 
                         if ($receipts && $receipts->num_rows > 0) {
                             while ($rec = $receipts->fetch_assoc()) {
@@ -264,7 +282,28 @@ if (!SessionUser::hasValidSession()) {
                                 $rec['currency_exchange_rate'] = $rate;
 
                                 $convertedPaidTotal += $rec['converted_paid'];
-                                $receiptRows[]       = $rec;
+
+                                // ════════════════════════════════════════════════════════════════
+                                // NEW: LKR-precise paid amount for THIS receipt
+                                //
+                                // Assumption (same as the rest of this file's penalty logic):
+                                // every receipt is paid either directly in LKR, or directly in the
+                                // course currency — never a third currency. If that assumption
+                                // ever changes, this needs the receipt's own currency->LKR rate.
+                                // ════════════════════════════════════════════════════════════════
+                                if (!empty($rec['currencies_currency_id']) && $rec['currencies_currency_id'] == $lkrCurrencyId) {
+                                    // Paid directly in LKR — use as-is, no conversion.
+                                    $rec['paid_lkr'] = (float)$rec['paid_amount'];
+                                } elseif (!$isBaseCurrencyLKR && $exchangeRateValue > 0) {
+                                    // Paid in the (foreign) course currency — convert up to LKR.
+                                    $rec['paid_lkr'] = (float)$rec['paid_amount'] * $exchangeRateValue;
+                                } else {
+                                    // Course IS LKR — course-currency amount already IS the LKR amount.
+                                    $rec['paid_lkr'] = (float)$rec['paid_amount'];
+                                }
+                                $convertedPaidTotalLKR += $rec['paid_lkr'];
+
+                                $receiptRows[] = $rec;
 
                                 if ($rec['payment_status_id'] == 2 || $rec['payment_status_id'] == 3) {
                                     $totalReceiptDisc += convertToCourseAmount((float)($rec['discount_amount'] ?? 0), $rate);
@@ -293,29 +332,121 @@ if (!SessionUser::hasValidSession()) {
                         // PAYABLE / BALANCE CALCULATION  (all in course currency)
                         //
                         //   netBase       = amount − totalDiscount + totalPenaltyCC
-                        //   payableAmount = netBase + totalTax
+                        //
+                        //   FIX (overpayment bug): payableAmount MUST be a fixed, tax-inclusive
+                        //   target derived only from netBase and the tax rate — it must NOT
+                        //   depend on how much tax happens to have been extracted from receipts
+                        //   paid so far. The previous version used:
+                        //       payableAmount = netBase + totalTax   (totalTax = sum of tax
+                        //       extracted from whatever was actually paid)
+                        //   which made "Total Payable" / "Current Installment Payable" move
+                        //   every time a paid amount was typed, corrupting the overpayment
+                        //   calculation. This mirrors the correct gross-up formula already used
+                        //   in add-receipt.php:
+                        //       payableAmount = netBase / (1 - taxRate/100)
+                        //
                         //   balance       = payableAmount − convertedPaidTotal
                         // ════════════════════════════════════════════════════════════════════════
-                        $netBase       = max(0, $paymentData['amount'] - $totalDiscount + $totalPenaltyCC);
-                        $taxOnPayable  = $totalTax;
-                        $payableAmount = $netBase + $taxOnPayable;
-                        $balance       = $payableAmount - $convertedPaidTotal;
+                        $netBase        = max(0, $paymentData['amount'] - $totalDiscount + $totalPenaltyCC);
+
+                        $taxRateDecimal = $latestTaxRate / 100;
+                        $basePortion    = 1 - $taxRateDecimal;
+                        $payableAmount  = $basePortion > 0 ? round($netBase / $basePortion, 2) : $netBase;
+
+                        // $taxOnPayable: tax portion of the fixed payable target (for display),
+                        // NOT the sum of tax extracted from receipts paid so far.
+                        $taxOnPayable   = round($payableAmount - $netBase, 2);
+
                         $paidAmount    = $convertedPaidTotal;
 
+                        // ════════════════════════════════════════════════════════════════════════
+                        // LKR-PRECISE OVERPAYMENT CHECK (FIX)
+                        //
+                        // PROBLEM: $payableAmount above is rounded to 2dp in COURSE currency
+                        // (e.g. EUR 307.69) before ever being compared against what was paid.
+                        // When that rounded EUR figure is later multiplied back up by the
+                        // exchange rate for LKR display, the EUR-level rounding (up to roughly
+                        // ±0.005 EUR, i.e. a few LKR at typical rates) compounds on top of any
+                        // genuine LKR-level overpayment/shortfall — a real LKR 0.91 can get
+                        // buried inside that noise, shown as 0.00, or shown as the wrong value.
+                        //
+                        // FIX: recompute the payable target and the balance in LKR — the
+                        // currency the student actually paid in — at full float precision,
+                        // and round ONLY ONCE, at the very end. The course-currency ($payableAmount,
+                        // $balance) versions are used for on-screen course-currency figures as
+                        // before, but the OVERPAYMENT DECISION and the overpayment LKR amount
+                        // are always taken from this LKR-precise figure, never re-derived by
+                        // multiplying an already-rounded course-currency number.
+                        //
+                        // Same fix already applied to $overpayAmount_paymentCcy in
+                        // uploadStudentPaymentReceipt.php (the "payment-currency-first,
+                        // single-rounding-point" pattern).
+                        // ════════════════════════════════════════════════════════════════════════
+                        // ════════════════════════════════════════════════════════════════
+                        // FIX #2 (payable-target mismatch):
+                        //
+                        // The PREVIOUS version of this fix computed the LKR payable target
+                        // via a SEPARATE path: netBase(GBP) -> ×rate -> ÷basePortion. That
+                        // path rounds in a different ORDER than $payableAmount above (which
+                        // is round(netBase/basePortion) in GBP, THEN later ×rate for LKR
+                        // display everywhere else on this page — LKR summary panel, receipt
+                        // card, "Total Payable Amount" line, etc). The two paths land on
+                        // different pennies (in this example: LKR 120,880.00 vs the
+                        // page-wide LKR 120,879.09), which silently cancelled out a real
+                        // LKR 0.91 overpayment instead of surfacing it.
+                        //
+                        // FIX: the LKR-precise target MUST be the exact same figure already
+                        // shown everywhere else — $payableAmount (course currency, rounded
+                        // once) × exchange rate — never an independently re-derived LKR
+                        // number. Only $convertedPaidTotalLKR (the SUM actually paid) stays
+                        // unrounded/precise; the TARGET stays anchored to the single
+                        // canonical $payableAmount used by the rest of the page.
+                        // ════════════════════════════════════════════════════════════════
+                        $payableAmountLKRPrecise = round($payableAmount * $exchangeRateValue, 2);
+                        $balanceLKRPrecise       = round($payableAmountLKRPrecise - $convertedPaidTotalLKR, 2);
+
+                        // Course-currency balance — used for the non-overpay display branch.
+                        $balance = $payableAmount - $convertedPaidTotal;
+
                         // ── Overpayment (next installment credit) ─────────────────────────────
+                        //
+                        // FIX (display bug): this block already correctly detects and computes
+                        // the overpayment (same math as add-receipt.php), but $nextInstallmentData
+                        // was never rendered anywhere on this page — the overpay-panel CSS classes
+                        // only existed inside the "Update Payment Status" modal, which doesn't even
+                        // render for already-accepted (status 3) receipts. The values were computed
+                        // and silently discarded. A static overpayment panel is now rendered on the
+                        // main page below — see "OVERPAYMENT SUMMARY PANEL" further down.
+                        //
+                        // FIX (LKR precision): the detection condition and the overpay amount now
+                        // come from $balanceLKRPrecise / the LKR-precise total, not from the
+                        // course-currency $balance — see note above.
+                        // ────────────────────────────────────────────────────────────────────────
                         $nextInstallmentData = null;
-                        if ($balance < 0) {
-                            $overpayAmount  = abs($balance);
-                            $taxRateDecimal = $latestTaxRate / 100;
-                            $basePortion    = 1 - $taxRateDecimal;
-                            $nextBase       = round($overpayAmount * $basePortion, 2);
-                            $nextTax        = round($overpayAmount * $taxRateDecimal, 2);
+                        if ($balanceLKRPrecise < 0) {
+                            // Primary, precise figure — LKR, single rounding point.
+                            $overpayAmountLKR = abs($balanceLKRPrecise);
+
+                            // Course-currency equivalent DERIVED from the LKR figure (never
+                            // independently rounded), so the two numbers always agree with
+                            // each other and with what was actually paid.
+                            $overpayAmount = $isBaseCurrencyLKR
+                                ? $overpayAmountLKR
+                                : $overpayAmountLKR / $exchangeRateValue;
+
+                            $taxRateDecimalOv = $latestTaxRate / 100;
+                            $basePortionOv    = 1 - $taxRateDecimalOv;
+                            $nextBase       = round($overpayAmount * $basePortionOv, 2);
+                            $nextTax        = round($overpayAmount * $taxRateDecimalOv, 2);
                             $nextInstallmentData = [
-                                'overpay' => $overpayAmount,
-                                'base'    => $nextBase,
-                                'tax'     => $nextTax,
+                                'overpay'    => $overpayAmount,     // course currency
+                                'overpayLKR' => $overpayAmountLKR,  // NEW — precise, ground-truth LKR figure
+                                'base'       => $nextBase,
+                                'tax'        => $nextTax,
                             ];
                             $balance = 0;
+                        } else {
+                            $balance = max(0, $balance);
                         }
 
                         // ── LKR equivalents for display ───────────────────────────────────────
@@ -370,6 +501,182 @@ if (!SessionUser::hasValidSession()) {
                             }
                             return null;
                         }
+
+                        // ============================================================
+                        // FETCH LATEST TAX RATE FROM DATABASE
+                        // ============================================================
+                        $latestTaxRateQuery = Database::search("
+                            SELECT `tax_rate` AS `rate` FROM `tax_rates`
+                            ORDER BY `date_added` DESC LIMIT 1
+                        ");
+                        $latestTaxRate = 0;
+                        if ($latestTaxRateQuery && $latestTaxRateQuery->num_rows > 0) {
+                            $taxRateRow    = $latestTaxRateQuery->fetch_assoc();
+                            $latestTaxRate = (float)$taxRateRow['rate'];
+                        }
+                        $taxFactor = 1 + ($latestTaxRate / 100);
+
+
+
+
+                        function convertLkrPenaltyToCourseCurrency($lkrAmount, $courseCurrencyId)
+                        {
+                            static $lkrCurrencyId = null;
+                            if ($lkrCurrencyId === null) {
+                                $res = Database::search("SELECT `currency_id` FROM `currencies` WHERE `code` = 'LKR' LIMIT 1");
+                                $lkrCurrencyId = ($res && $res->num_rows > 0) ? (int)$res->fetch_assoc()['currency_id'] : 0;
+                            }
+                            if ($lkrCurrencyId === 0 || $courseCurrencyId == $lkrCurrencyId) {
+                                return (float)$lkrAmount;
+                            }
+                            $rateRow = Database::search(
+                                "SELECT `rate` FROM `currency_exchange_rates`
+                                 WHERE `base_currency_id` = '" . (int)$courseCurrencyId . "'
+                                 ORDER BY `currency_exchange_rate_id` DESC LIMIT 1"
+                            );
+                            if ($rateRow && $rateRow->num_rows > 0) {
+                                $rate = (float)$rateRow->fetch_assoc()['rate'];
+                                if ($rate > 0) return (float)$lkrAmount / $rate;
+                            }
+                            return (float)$lkrAmount;
+                        }
+
+                        // ============================================================
+                        // CP-level discount
+                        // ============================================================
+                        $discountAmount = ($paymentData['discount_type_id'] == 3)
+                            ? $paymentData['amount'] / 100 * $paymentData['discount']
+                            : (float)$paymentData['discount'];
+
+                        $paneltyPaymentsConverted = convertLkrPenaltyToCourseCurrency(
+                            $paymentData['panelty_amount_lkr'],
+                            $paymentData['currency_id']
+                        );
+
+                        $totalDiscount = $discountAmount;
+                        $totalPenalty  = $paneltyPaymentsConverted;
+                        $totalTax      = 0;
+
+                        // ============================================================
+                        // Fetch receipts
+                        // ============================================================
+                        $receipts = Database::search("
+                            SELECT
+                                cpp.*,
+                                pm.payment_method,
+                                pm.payment_method_id,
+                                ps2.payment_status,
+                                ps2.payment_status_id,
+                                cur.code AS paid_currency_code,
+                                cur.decimal_places AS paid_decimal_places,
+                                cpp.currency_exchange_rate,
+                                cpp.tax_rate,
+                                cpp.tax_amount
+                            FROM course_payment_has_payments AS cpp
+                            INNER JOIN payment_method AS pm  ON cpp.payment_method_payment_method_id = pm.payment_method_id
+                            INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
+                            LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
+                            WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
+                            AND ps2.payment_status_id = 3
+                            GROUP BY cpp.course_payment_has_payment_id
+                        ");
+
+                        $convertedPaidTotal = 0;
+                        $receiptRows        = [];
+                        $totalPaidAmount    = 0;
+
+                        if ($receipts && $receipts->num_rows > 0) {
+                            while ($rec = $receipts->fetch_assoc()) {
+                                $rate = resolveExchangeRate(null, $rec, $paymentData['currency_id']);
+                                $rec['converted_paid']         = convertToCourseAmount($rec['paid_amount'], $rate);
+                                $rec['is_foreign_currency']    = ($rate !== null);
+                                $rec['currency_exchange_rate'] = $rate;
+                                $convertedPaidTotal += $rec['converted_paid'];
+                                $receiptRows[]       = $rec;
+
+                                if ($rec['payment_status_id'] == 3) {
+                                    $totalPaidAmount += $rec['converted_paid'];
+                                }
+                                if (in_array($rec['payment_status_id'], [2, 3])) {
+                                    $totalDiscount += convertToCourseAmount($rec['discount_amount'] ?? 0, $rate);
+                                    $totalPenalty  += convertToCourseAmount($rec['panelty_amount']  ?? 0, $rate);
+                                    $totalTax      += convertToCourseAmount($rec['tax_amount']       ?? 0, $rate);
+                                }
+                            }
+                        }
+
+                        // ============================================================
+                        // BALANCE CALCULATION - CORRECTED FOR NEW TAX MODEL
+                        // ============================================================
+                        $basePayable    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
+
+                        // NEW TAX MODEL: tax is calculated on final amount
+                        // base = final * (1 - taxRate/100)
+                        // tax = final * (taxRate/100)
+                        $taxRateDecimal = $latestTaxRate / 100;
+                        $basePortion = 1 - $taxRateDecimal;
+
+                        if ($basePortion > 0) {
+                            $paidBaseTotal = $convertedPaidTotal * $basePortion;
+                        } else {
+                            $paidBaseTotal = 0;
+                        }
+
+                        $remainingBase  = max(0, $basePayable - $paidBaseTotal);
+
+                        // Calculate remaining tax: remainingBase * (taxRate / (100 - taxRate))
+                        if ($basePortion > 0) {
+                            $remainingTax = $remainingBase * ($latestTaxRate / (100 - $latestTaxRate));
+                        } else {
+                            $remainingTax = 0;
+                        }
+
+                        $balance        = $remainingBase + $remainingTax;
+                        $paidAmount     = $convertedPaidTotal;
+
+                        // ============================================================
+                        // Exchange rate: course_currency → LKR
+                        // ============================================================
+                        $lkrCurrencyId     = 1;
+                        $exchangeRate      = null;
+                        $exchangeRateValue = 1;
+                        $exchangeRateId    = 0;
+
+                        if ($paymentData['currency_id'] != $lkrCurrencyId) {
+                            $rateResult = Database::search("
+                                SELECT
+                                    cer.`rate`,
+                                    cer.`effective_date`,
+                                    cer.`effective_time`,
+                                    c_base.`code`   AS base_code,
+                                    c_base.`symbol` AS base_symbol,
+                                    c_target.`code` AS target_code,
+                                    cer.`currency_exchange_rate_id`
+                                FROM `currency_exchange_rates` cer
+                                INNER JOIN `currencies` c_base   ON cer.`base_currency_id`   = c_base.`currency_id`
+                                INNER JOIN `currencies` c_target ON cer.`target_currency_id` = c_target.`currency_id`
+                                WHERE cer.`base_currency_id`   = '" . $paymentData['currency_id'] . "'
+                                  AND cer.`target_currency_id` = '" . $lkrCurrencyId . "'
+                                ORDER BY cer.`effective_date` DESC, cer.`effective_time` DESC
+                                LIMIT 1
+                            ");
+                            if ($rateResult->num_rows > 0) {
+                                $exchangeRate      = $rateResult->fetch_assoc();
+                                $exchangeRateValue = (float)$exchangeRate['rate'];
+                                $exchangeRateId    = $exchangeRate['currency_exchange_rate_id'] ?? null;
+                            }
+                        }
+
+                        // LKR equivalents for the summary panel
+                        $balanceLKR     = $balance        * $exchangeRateValue;
+                        $payableAmtLKR  = ($basePayable + ($basePayable * ($latestTaxRate / (100 - $latestTaxRate)))) * $exchangeRateValue;
+                        $paidAmountLKR  = $paidAmount     * $exchangeRateValue;
+                        $discountAmtLKR = $totalDiscount  * $exchangeRateValue;
+                        $taxAmtLKR      = $totalTax       * $exchangeRateValue;
+                        $penaltyAmtLKR  = $paymentData['panelty_amount_lkr']
+                            + ($totalPenalty - $paneltyPaymentsConverted) * $exchangeRateValue;
+
+                        $isBaseCurrencyLKR = ($paymentData['currency_id'] == $lkrCurrencyId);
 ?>
                         <!DOCTYPE html>
                         <html lang="en">
@@ -617,6 +924,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 INNER JOIN course_payment_receipts cpr
                                                                     ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
                                                                 WHERE cpp.course_payment_has_payment_id = '" . $coursepaymentData['course_payment_has_payment_id'] . "'
+                                                                AND cpr.is_enable = 1
                                                                 LIMIT 1
                                                             ");
                                                             if ($receiptCheck && $receiptCheck->num_rows > 0):
@@ -629,7 +937,8 @@ if (!SessionUser::hasValidSession()) {
                                                                     </button>
                                                                 </div>
                                                             <?php endif; ?>
-                                                            <?php if ((SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) && $coursepaymentData['payment_status_payment_status_id'] == 2): ?>
+                                                            <?php
+                                                            if ((SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) && $coursepaymentData['payment_status_payment_status_id'] == 2): ?>
                                                                 <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-btn w-100" type="button" data-bs-target="#updatePaymentStatus" data-bs-toggle="modal">
                                                                         Update Payment Status
@@ -774,6 +1083,57 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             <?php endif; ?>
 
+                                                            <!-- ════════════════════════════════════════════════════════
+                                                                 OVERPAYMENT SUMMARY PANEL (FIX)
+                                                                 Previously $nextInstallmentData was computed correctly
+                                                                 but never rendered on this page — the .overpay-panel
+                                                                 markup only existed inside the "Update Payment Status"
+                                                                 modal, which doesn't render for already-accepted
+                                                                 (status 3) receipts. This static panel now surfaces it
+                                                                 directly on the page, matching what add-receipt.php
+                                                                 already showed.
+
+                                                                 LKR FIX: 'overpayLKR' is the precise, ground-truth LKR
+                                                                 figure (see PHP block above) — used here instead of
+                                                                 re-deriving LKR by multiplying the already-rounded
+                                                                 course-currency 'overpay' figure by the exchange rate,
+                                                                 which is what was silently hiding/mangling small
+                                                                 amounts like LKR 0.91.
+                                                            ════════════════════════════════════════════════════════ -->
+                                                            <?php if ($nextInstallmentData): ?>
+                                                                <div class="col-12 mt-3">
+                                                                    <div class="overpay-panel">
+                                                                        <div class="overpay-panel-title">
+                                                                            <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
+                                                                            Overpayment — Applied to Next Installment
+                                                                        </div>
+                                                                        <div class="overpay-grid">
+                                                                            <div class="overpay-item">
+                                                                                <span class="overpay-label">Total Payable (This Installment)</span>
+                                                                                <span class="overpay-value"><?= $currencyCode ?> <?= number_format($payableAmount, 2) ?></span>
+                                                                                <span class="overpay-sub">Fully settled</span>
+                                                                            </div>
+                                                                            <div class="overpay-item">
+                                                                                <span class="overpay-label">Overpayment Amount</span>
+                                                                                <span class="overpay-value"><?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?></span>
+                                                                                <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                                                    <span class="overpay-sub">= LKR <?= number_format($nextInstallmentData['overpayLKR'] ?? ($nextInstallmentData['overpay'] * $exchangeRateValue), 2) ?></span>
+                                                                                <?php elseif ($isBaseCurrencyLKR): ?>
+                                                                                    <span class="overpay-sub">Credited to next installment</span>
+                                                                                <?php endif; ?>
+                                                                            </div>
+                                                                            <div class="overpay-item">
+                                                                                <span class="overpay-label">Next Installment Breakdown</span>
+                                                                                <span class="overpay-value" style="font-size:14px;">
+                                                                                    <?= $currencyCode ?> <?= number_format($nextInstallmentData['base'], 2) ?> fee + <?= $currencyCode ?> <?= number_format($nextInstallmentData['tax'], 2) ?> tax
+                                                                                </span>
+                                                                                <span class="overpay-sub">Total: <?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            <?php endif; ?>
+
                                                             <!-- ── Payment summary card ───────────────────────────────── -->
                                                             <div class="payment-card-container mt-4">
                                                                 <div class="payment-card">
@@ -791,6 +1151,11 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="amount-value"><?= $currencyCode ?> <?= $balance > 0 ? number_format($balance, 2) : '0.00' ?></span>
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate && $balance > 0): ?>
                                                                                         <small class="amount-label" style="font-size:12px;opacity:.7;">≈ LKR <?= number_format($balanceLKR, 2) ?></small>
+                                                                                    <?php endif; ?>
+                                                                                    <?php if ($nextInstallmentData): ?>
+                                                                                        <small class="amount-label" style="font-size:12px;color:#2563eb;">
+                                                                                            Overpaid <?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?> — credited to next installment
+                                                                                        </small>
                                                                                     <?php endif; ?>
                                                                                 </div>
                                                                             </div>
@@ -901,7 +1266,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <span class="currency-label-badge tax-badge"><?= number_format($latestTaxRate, 2) ?>%</span>
                                                                                     </span>
                                                                                     <span class="detail-value"><?= $currencyCode ?> <?= number_format($taxOnPayable, 2) ?></span>
-                                                                                    <span class="detail-lkr-hint">Accumulated from receipts</span>
+                                                                                    <span class="detail-lkr-hint">Tax on total payable amount</span>
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
                                                                                         <span class="detail-lkr-hint">≈ LKR <?= number_format($taxAmtLKR, 2) ?></span>
                                                                                     <?php endif; ?>
@@ -926,6 +1291,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
                                                                                         <span class="detail-lkr-hint">≈ LKR <?= number_format($paidAmountLKR, 2) ?></span>
                                                                                     <?php endif; ?>
+                                                                                    <?php if (!$isBaseCurrencyLKR): ?>
+                                                                                        <span class="detail-lkr-hint">Exact: LKR <?= number_format($convertedPaidTotalLKR, 2) ?></span>
+                                                                                    <?php endif; ?>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="detail-item">
@@ -938,6 +1306,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <?php endif; ?>
                                                                                     <?php else: ?>
                                                                                         <span class="detail-value"><?= $currencyCode ?> 0.00</span>
+                                                                                        <?php if ($nextInstallmentData): ?>
+                                                                                            <span class="detail-lkr-hint" style="color:#2563eb;">
+                                                                                                Overpaid <?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?>
+                                                                                                <?php if (!$isBaseCurrencyLKR): ?>
+                                                                                                    (LKR <?= number_format($nextInstallmentData['overpayLKR'], 2) ?>)
+                                                                                                <?php endif; ?>
+                                                                                            </span>
+                                                                                        <?php endif; ?>
                                                                                     <?php endif; ?>
                                                                                 </div>
                                                                             </div>
@@ -1368,245 +1744,194 @@ if (!SessionUser::hasValidSession()) {
                             <div class="modal fade" id="updatePaymentStatus" tabindex="-1" role="dialog" aria-hidden="true">
                                 <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
                                     <div class="modal-content component-theme">
+
                                         <div class="modal-header" style="border-bottom:1px solid var(--line-color);">
                                             <div class="d-flex align-items-center gap-3 flex-wrap w-100">
                                                 <span class="text-16 main-text fw-semibold flex-grow-1">Update Payment Status</span>
-
                                                 <?php if (!$isBaseCurrencyLKR): ?>
-                                                    <span class="text-14 main-text fw-medium">Payment Currency:</span>
-                                                    <div class="currency-toggle">
-                                                        <button type="button" class="currency-toggle-btn active" id="modal-btn-base-currency" onclick="modalSwitchCurrency('base')"><?= $currencyCode ?></button>
-                                                        <button type="button" class="currency-toggle-btn" id="modal-btn-lkr-currency" onclick="modalSwitchCurrency('lkr')">LKR</button>
+                                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                                        <span class="text-14 main-text fw-medium">Payment Currency:</span>
+                                                        <div class="currency-toggle">
+                                                            <button type="button" class="currency-toggle-btn active" id="btn-base-currency" onclick="switchCurrency('base')"><?= htmlspecialchars($paymentData['currency_code']) ?></button>
+                                                            <button type="button" class="currency-toggle-btn" id="btn-lkr-currency" onclick="switchCurrency('lkr')">LKR</button>
+                                                        </div>
+                                                        <?php if ($exchangeRate): ?>
+                                                            <div class="exchange-rate-badge">
+                                                                <iconify-icon icon="mdi:swap-horizontal" width="14" height="14"></iconify-icon>
+                                                                <span id="live-rate-text">1 <?= htmlspecialchars($paymentData['currency_code']) ?> = LKR <?= number_format($exchangeRateValue, 2) ?> (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)</span>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <div class="exchange-rate-badge rate-unavailable">
+                                                                <iconify-icon icon="mdi:alert-outline" width="14" height="14"></iconify-icon>
+                                                                <span>No exchange rate available</span>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     </div>
-                                                    <?php if ($exchangeRate): ?>
-                                                        <div class="exchange-rate-badge" id="modal-rate-badge">
-                                                            <iconify-icon icon="mdi:swap-horizontal" width="14" height="14"></iconify-icon>
-                                                            <span id="modal-live-rate-text">1 <?= $currencyCode ?> = LKR <?= number_format($exchangeRateValue, 2) ?> (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)</span>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <div class="exchange-rate-badge rate-unavailable" id="modal-rate-badge">
-                                                            <iconify-icon icon="mdi:alert-outline" width="14" height="14"></iconify-icon>
-                                                            <span id="modal-live-rate-text">No exchange rate available</span>
-                                                        </div>
-                                                    <?php endif; ?>
                                                 <?php endif; ?>
                                             </div>
                                             <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
 
                                         <div class="modal-body">
-                                            <div class="row gx-4 gy-3">
+                                            <div class="col-12">
+                                                <div class="row g-4">
 
-                                                <!-- LKR Summary Panel -->
-                                                <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                    <div class="col-12" id="modal-lkr-summary-panel" style="display:none;">
-                                                        <div class="lkr-panel">
-                                                            <div class="lkr-panel-top">
-                                                                <div class="lkr-panel-top-left"><iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon> LKR equivalent summary</div>
-                                                                <span class="lkr-panel-rate-note">@ <span id="modal-panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span> per <?= $currencyCode ?></span>
-                                                            </div>
-                                                            <div class="lkr-panel-grid">
-                                                                <div class="lkr-panel-item"><span class="lkr-item-label">Total Amount</span><span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paymentData['amount'], 2) ?></span></div>
-                                                                <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="modal-lkr-discount-val">LKR <?= number_format($totalDiscount * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalDiscount, 2) ?></span></div>
-                                                                <div class="lkr-panel-item">
-                                                                    <span class="lkr-item-label">Total Penalty <span class="penalty-lkr-badge">LKR</span></span>
-                                                                    <span class="lkr-item-value" id="modal-lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span>
-                                                                    <span class="lkr-item-sub" id="modal-lkr-penalty-sub"><?= $currencyCode ?> <?= number_format($penaltyAmtCC, 2) ?></span>
+                                                    <!-- LKR Summary Panel (shown when mode = lkr) -->
+                                                    <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
+                                                        <div class="col-12" id="lkr-summary-panel" style="display:none;">
+                                                            <div class="lkr-panel">
+                                                                <div class="lkr-panel-top">
+                                                                    <div class="lkr-panel-top-left"><iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon> LKR equivalent summary</div>
+                                                                    <span class="lkr-panel-rate-note">@ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span> per <?= htmlspecialchars($paymentData['currency_code']) ?></span>
                                                                 </div>
-                                                                <div class="lkr-panel-item"><span class="lkr-item-label">Tax Amount</span><span class="lkr-item-value" id="modal-lkr-tax-val">LKR <?= number_format($taxOnPayable * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub" id="modal-lkr-tax-sub"><?= $currencyCode ?> <?= number_format($taxOnPayable, 2) ?></span></div>
-                                                                <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value">LKR <?= number_format($payableAmount * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($payableAmount, 2) ?></span></div>
-                                                                <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value">LKR <?= number_format($paidAmount * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paidAmount, 2) ?></span></div>
-                                                                <div class="lkr-panel-item balance-item"><span class="lkr-item-label">Balance Due</span><span class="lkr-item-value" id="modal-lkr-balance-val">LKR <?= number_format($balance * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub" id="modal-lkr-balance-sub"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span></div>
+                                                                <div class="lkr-panel-grid">
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Amount</span><span class="lkr-item-value" id="lkr-amount-val">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub" id="lkr-amount-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span></div>
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-discount-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span></div>
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Penalty</span><span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-penalty-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span></div>
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Tax</span><span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-tax-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span></div>
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value" id="lkr-payable-val">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-payable-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmtLKR / $exchangeRateValue, 2) ?></span></div>
+                                                                    <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value" id="lkr-paid-val">LKR <?= number_format($paidAmountLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-paid-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span></div>
+                                                                    <div class="lkr-panel-item balance-item"><span class="lkr-item-label">Balance Due</span><span class="lkr-item-value" id="lkr-balance-display">LKR <?= number_format($balanceLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-balance-sub"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span></div>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                <?php endif; ?>
-
-                                                <!-- Row 1: Status | Method | Paid Date -->
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text required">Payment Status</label>
-                                                    <select class="form-select custom-select mt-2" id="status-selector">
-                                                        <?php
-                                                        $statusQ = Database::search("SELECT * FROM `payment_status` WHERE `payment_status_id` IN (3,4)");
-                                                        while ($sd = $statusQ->fetch_assoc()): ?>
-                                                            <option value="<?= $sd['payment_status_id'] ?>" <?= $sd['payment_status_id'] == $coursepaymentData['payment_status_payment_status_id'] ? 'selected' : '' ?>><?= $sd['payment_status'] ?></option>
-                                                        <?php endwhile; ?>
-                                                    </select>
-                                                    <span id="status-selector-feedback" class="text-dark-red text-12"></span>
-                                                </div>
-
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">Payment Method</label>
-                                                    <select class="form-select custom-select mt-2" id="payment-method"
-                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
-                                                        <option value="0">- Select -</option>
-                                                        <?php
-                                                        $methodsQ = Database::search("SELECT * FROM `payment_method` WHERE `payment_method_id` != 5");
-                                                        while ($method = $methodsQ->fetch_assoc()): ?>
-                                                            <option value="<?= $method['payment_method_id'] ?>" <?= $method['payment_method_id'] == $coursepaymentData['payment_method_payment_method_id'] ? 'selected' : '' ?>><?= $method['payment_method'] ?></option>
-                                                        <?php endwhile; ?>
-                                                    </select>
-                                                    <div class="text-12 text-danger" id="payment-method-feedback"></div>
-                                                </div>
-
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">Paid Date</label>
-                                                    <input type="date" class="form-control custom-input mt-2" id="modal-paid-date"
-                                                        value="<?= substr($coursepaymentData['date_paid'], 0, 10) ?>"
-                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
-                                                    <div class="text-12 text-danger" id="paid-date-feedback"></div>
-                                                    <?php if (!$isBaseCurrencyLKR): ?>
-                                                        <span class="text-12 sub-text mt-1" id="modal-rate-status">Rate loaded</span>
                                                     <?php endif; ?>
-                                                </div>
 
-                                                <!-- Row 2: Discount | Penalty (LKR) | Tax (read-only) -->
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Discount Given
-                                                        <span class="currency-label-badge" id="modal-discount-currency-label"><?= $currencyCode ?></span>
-                                                    </label>
-                                                    <input type="number" class="form-control custom-input mt-2" id="modal-discount-amount"
-                                                        value="<?= $jsCurrentReceiptDiscount ?>"
-                                                        step="0.01" min="0"
-                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
-                                                    <div class="text-12 text-danger" id="modal-discount-feedback"></div>
-                                                    <span class="convert-hint" id="modal-discount-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptDiscount * $exchangeRateValue, 2) ?></span>
-                                                    <span class="convert-hint d-none" id="modal-discount-base-hint">= <?= $currencyCode ?> 0.00</span>
-                                                </div>
-
-                                                <!-- Penalty: ALWAYS entered in LKR -->
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Penalty Added
-                                                        <span class="penalty-lkr-badge">Always LKR</span>
-                                                    </label>
-                                                    <input type="number" class="form-control custom-input penalty-lkr-input mt-2" id="modal-penalty-amount-lkr"
-                                                        value="<?= $jsCurrentReceiptPenaltyLKR ?>"
-                                                        step="0.01" min="0"
-                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
-                                                    <div class="text-12 text-danger" id="modal-penalty-feedback"></div>
-                                                    <!-- Always show LKR as primary, converted CC as hint -->
-                                                    <?php if (!$isBaseCurrencyLKR): ?>
-                                                        <span class="convert-hint" id="modal-penalty-cc-hint">
-                                                            = <?= $currencyCode ?> <?= number_format($jsCurrentReceiptPenaltyCC, 2) ?>
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Tax Amount
-                                                        <span class="currency-label-badge tax-badge" id="modal-tax-rate-badge"><?= number_format($latestTaxRate, 2) ?>%</span>
-                                                        <span class="currency-label-badge" id="modal-tax-currency-label"><?= $currencyCode ?></span>
-                                                    </label>
-                                                    <input type="text" class="form-control custom-input tax-readonly mt-2" id="modal-tax-amount-display"
-                                                        value="<?= number_format($jsCurrentReceiptTax, 2) ?>"
-                                                        readonly tabindex="-1">
-                                                    <span class="convert-hint mt-1" style="color:#d97706;" id="modal-tax-formula-hint">
-                                                        Extracted from paid (tax-inclusive model)
-                                                    </span>
-                                                    <span class="convert-hint" id="modal-tax-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptTax * $exchangeRateValue, 2) ?></span>
-                                                    <span class="convert-hint d-none" id="modal-tax-base-hint">= <?= $currencyCode ?> 0.00</span>
-                                                </div>
-
-                                                <!-- Row 3: Paid Amount | Net Base (display) | Custom Rate -->
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Total Paid Amount (incl. tax)
-                                                        <span class="currency-label-badge" id="modal-paid-currency-label"><?= $currencyCode ?></span>
-                                                    </label>
-                                                    <input type="number" class="form-control custom-input mt-2" id="modal-paid-amount"
-                                                        value="<?= $jsCurrentReceiptPaid ?>"
-                                                        step="0.01" min="0"
-                                                        <?= SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0) ? '' : 'disabled' ?>>
-                                                    <div class="text-12 text-danger" id="paid-amount-feedback"></div>
-                                                    <span class="convert-hint" id="modal-paid-lkr-hint">≈ LKR <?= number_format($jsCurrentReceiptPaid * $exchangeRateValue, 2) ?></span>
-                                                    <span class="convert-hint d-none" id="modal-paid-base-hint">= <?= $currencyCode ?> 0.00</span>
-                                                    <span class="convert-hint mt-1" style="color:#0ea5e9;" id="modal-paid-auto-hint">
-                                                        Suggested: <?= $currencyCode ?> <?= number_format($payableAmount, 2) ?>
-                                                    </span>
-                                                </div>
-
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Net Base (Course Fee − Discount + Penalty)
-                                                        <span class="currency-label-badge" id="modal-base-currency-label"><?= $currencyCode ?></span>
-                                                    </label>
-                                                    <input type="text" class="form-control custom-input mt-2" id="modal-base-payable-display"
-                                                        value="<?= number_format($netBase, 2) ?>" disabled>
-                                                    <span class="convert-hint mt-1" id="modal-base-formula-hint">
-                                                        <?= $currencyCode ?> amount − discount + penalty (converted)
-                                                    </span>
-                                                </div>
-
-                                                <?php if (!$isBaseCurrencyLKR): ?>
                                                     <div class="col-12 col-lg-4 d-flex flex-column">
-                                                        <label class="text-14 main-text d-flex align-items-center gap-2">
-                                                            Custom Exchange Rate
-                                                            <span class="currency-label-badge">1 <?= $currencyCode ?> = ? LKR</span>
-                                                        </label>
-                                                        <input type="number" class="form-control custom-input mt-2" id="modal-custom-rate"
-                                                            value="<?= number_format($exchangeRateValue, 2, '.', '') ?>"
-                                                            step="0.0001" min="0.0001">
-                                                        <span class="text-12 sub-text mt-1">Override auto-fetched rate if needed</span>
+                                                        <label class="text-14 main-text required">Payment Status</label>
+                                                        <select class="form-select custom-select mt-2" id="status-selector">
+                                                            <?php
+                                                            $statusQ = Database::search("SELECT * FROM `payment_status` WHERE `payment_status_id` IN (3,4)");
+                                                            while ($sd = $statusQ->fetch_assoc()): ?>
+                                                                <option value="<?= $sd['payment_status_id'] ?>" <?= $sd['payment_status_id'] == $coursepaymentData['payment_status_payment_status_id'] ? 'selected' : '' ?>><?= $sd['payment_status'] ?></option>
+                                                            <?php endwhile; ?>
+                                                        </select>
+                                                        <span id="status-selector-feedback" class="text-dark-red text-12"></span>
                                                     </div>
-                                                <?php else: ?>
-                                                    <div class="col-12 col-lg-4"></div>
-                                                <?php endif; ?>
 
-                                                <!-- Balance -->
-                                                <div class="col-12 col-lg-4 d-flex flex-column">
-                                                    <label class="text-14 main-text">
-                                                        Calculated Balance
-                                                        <span class="currency-label-badge" id="modal-balance-currency-label"><?= $currencyCode ?></span>
-                                                    </label>
-                                                    <input type="text" class="form-control custom-input mt-2" id="modal-balance-display"
-                                                        value="<?= number_format(max(0, $balance), 2) ?>" disabled>
-                                                    <span class="convert-hint" id="modal-balance-lkr-hint">≈ LKR <?= number_format(max(0, $balance) * $exchangeRateValue, 2) ?></span>
-                                                    <span class="convert-hint d-none" id="modal-balance-base-hint">= <?= $currencyCode ?> 0.00</span>
-                                                </div>
+                                                    <div class="col-12"></div>
 
-                                                <!-- OVERPAYMENT PANEL -->
-                                                <div class="col-12" id="modal-overpay-panel" style="display:none;">
-                                                    <div class="overpay-panel">
-                                                        <div class="overpay-panel-title">
-                                                            <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
-                                                            Overpayment — Will Be Applied to Next Installment
+                                                    <!-- Row 1: Discount | Penalty | Balance | Method -->
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Discount Given Amount <span class="currency-label-badge" id="discount-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="discount-amount" value="0" step="0.01" min="0">
+                                                        <div class="text-12 text-danger" id="discount-amount-feedback"></div>
+                                                        <span class="convert-hint" id="discount-lkr-hint">≈ LKR 0.00</span>
+                                                        <span class="convert-hint d-none" id="discount-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Penalty Added Amount <span class="currency-label-badge" id="penalty-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="penalty-amount" value="0" step="0.01" min="0">
+                                                        <div class="text-12 text-danger" id="penalty-amount-feedback"></div>
+                                                        <span class="convert-hint" id="penalty-lkr-hint">≈ LKR 0.00</span>
+                                                        <span class="convert-hint d-none" id="penalty-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Balance (Next Installment) <span class="currency-label-badge" id="balance-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                        <input type="text" class="form-control custom-input mt-2" id="balance-amount" disabled value="<?= number_format($balance, 2) ?>">
+                                                        <div class="text-12 text-danger" id="balance-amount-feedback"></div>
+                                                        <span class="convert-hint" id="balance-lkr-hint">≈ LKR <?= number_format($balanceLKR, 2) ?></span>
+                                                        <span class="convert-hint d-none" id="balance-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($balance, 2) ?></span>
+                                                        <span class="text-12 sub-text mt-1" id="balance-breakdown-hint">Base <?= number_format($remainingBase, 2) ?> + Tax <?= number_format($remainingTax, 2) ?></span>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Payment Method</label>
+                                                        <select name="payment_method" class="form-select custom-select mt-2" id="payment-method">
+                                                            <option value="0">- Select -</option>
+                                                            <?php
+                                                            $methods = Database::search("SELECT * FROM `payment_method`");
+                                                            while ($method = $methods->fetch_assoc()) { ?>
+                                                                <option value="<?= $method["payment_method_id"] ?>" <?= $method["payment_method_id"] == $coursepaymentData['payment_method_payment_method_id'] ? 'selected' : '' ?>><?= $method["payment_method"] ?></option>
+                                                            <?php } ?>
+                                                        </select>
+                                                        <div class="text-12 text-danger" id="payment-method-feedback"></div>
+                                                    </div>
+
+                                                    <!-- Row 2: Paid Amount | Date | Tax | Rate -->
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Paid Amount (Tax-Inclusive) <span class="currency-label-badge" id="paid-currency-label"><?= htmlspecialchars($paymentData['currency_code']) ?></span></label>
+                                                        <input type="number" class="form-control custom-input mt-2" id="paid-amount" step="0.01" min="0" placeholder="Amount including tax" value="<?= $coursepaymentData['paid_amount'] ?>">
+                                                        <div class="text-12 text-danger" id="paid-amount-feedback"></div>
+                                                        <span class="convert-hint" id="paid-lkr-hint">≈ LKR 0.00</span>
+                                                        <span class="convert-hint d-none" id="paid-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                        <span class="text-12 sub-text mt-1" style="color:#d97706;">Includes tax automatically</span>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Paid Date</label>
+                                                        <input type="date" class="form-control custom-input mt-2" id="paid-date" value="<?= date("Y-m-d") ?>" <?= $coursepaymentData['date_paid'] ?>>
+                                                        <div class="text-12 text-danger" id="paid-date-feedback"></div>
+                                                        <?php if (!$isBaseCurrencyLKR): ?>
+                                                            <span class="text-12 sub-text mt-1" id="rate-status">Rate loaded for today</span>
+                                                        <?php endif; ?>
+                                                    </div>
+
+                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                        <label class="text-14 main-text">Tax Amount <span class="currency-label-badge" style="background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.3);">Auto-Calculated</span></label>
+                                                        <input type="text" class="form-control custom-input mt-2" id="tax-amount-display-input" value="0.00" disabled tabindex="-1" style="background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.3);color:#d97706;">
+                                                        <div class="text-12 text-danger" id="tax-amount-feedback"></div>
+                                                        <span class="convert-hint" id="tax-amount-lkr-hint">≈ LKR 0.00</span>
+                                                        <span class="convert-hint d-none" id="tax-amount-base-hint">= <?= htmlspecialchars($paymentData['currency_code']) ?> 0.00</span>
+                                                        <span class="text-12 sub-text mt-1" style="color:#d97706;">Latest: <?= number_format($latestTaxRate, 2) ?>%</span>
+                                                    </div>
+
+                                                    <?php if (!$isBaseCurrencyLKR): ?>
+                                                        <div class="col-12 col-lg-3 d-flex flex-column">
+                                                            <label class="text-14 main-text d-flex align-items-center gap-2">Custom Exchange Rate <span class="currency-label-badge">1 <?= htmlspecialchars($paymentData['currency_code']) ?> = ? LKR</span></label>
+                                                            <input type="number" class="form-control custom-input mt-2" id="custom-exchange-rate" value="<?= number_format($exchangeRateValue, 2, '.', '') ?>" step="0.0001" min="0.0001" placeholder="e.g. 300.0000">
+                                                            <span class="text-12 sub-text mt-1">Override auto-fetched rate if needed</span>
                                                         </div>
-                                                        <div class="overpay-grid">
-                                                            <div class="overpay-item">
-                                                                <span class="overpay-label">Current Installment Payable</span>
-                                                                <span class="overpay-value" id="modal-overpay-current">—</span>
-                                                                <span class="overpay-sub">Will be fully settled</span>
+                                                    <?php else: ?>
+                                                        <div class="col-lg-3"></div>
+                                                    <?php endif; ?>
+
+                                                    <!-- ── Overpayment Panel (shown/hidden by JS) ── -->
+                                                    <div class="col-12" id="overpay-panel-wrapper" style="display:none;">
+                                                        <div class="overpay-panel">
+                                                            <div class="overpay-panel-title">
+                                                                <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
+                                                                Overpayment — Will Be Applied to Next Installment
                                                             </div>
-                                                            <div class="overpay-item">
-                                                                <span class="overpay-label">Overpayment Amount</span>
-                                                                <span class="overpay-value" id="modal-overpay-amount">—</span>
-                                                                <span class="overpay-sub">Credited to next installment</span>
+                                                            <div class="overpay-explain">
+                                                                The paid amount covers this installment in full. The extra amount shown below is automatically carried forward as credit and will reduce the student's next installment balance.
                                                             </div>
-                                                            <div class="overpay-item">
-                                                                <span class="overpay-label">Next Installment Breakdown</span>
-                                                                <span class="overpay-value" id="modal-overpay-next-breakdown" style="font-size:13px;">—</span>
-                                                                <span class="overpay-sub" id="modal-overpay-next-total">—</span>
+                                                            <div class="overpay-grid">
+                                                                <div class="overpay-item">
+                                                                    <span class="overpay-label">Current Installment Payable</span>
+                                                                    <span class="overpay-value" id="overpay-current">—</span>
+                                                                    <span class="overpay-sub">Will be fully settled</span>
+                                                                </div>
+                                                                <div class="overpay-item">
+                                                                    <span class="overpay-label">Overpayment Amount</span>
+                                                                    <span class="overpay-value" id="overpay-amount">—</span>
+                                                                    <span class="overpay-sub">Credited to next installment</span>
+                                                                </div>
+                                                                <div class="overpay-item">
+                                                                    <span class="overpay-label">Next Installment Breakdown</span>
+                                                                    <span class="overpay-value" id="overpay-next-breakdown">—</span>
+                                                                    <span class="overpay-sub" id="overpay-next-sub">—</span>
+                                                                    <span class="overpay-total" id="overpay-next-total">—</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <!-- Note -->
-                                                <div class="col-12 d-flex flex-column">
+                                                      <div class="col-12 d-flex flex-column">
                                                     <label class="text-14 main-text">Note</label>
                                                     <textarea class="form-control custom-input mt-2" id="note" rows="4"></textarea>
                                                     <span id="note-feedback" class="text-dark-red text-12"></span>
                                                 </div>
-
+                                                </div>
                                             </div>
                                         </div>
 
+
                                         <div class="modal-footer" style="border-top:1px solid var(--line-color);">
                                             <button type="button" class="col-12 col-md-4 custom-btn"
-                                                onclick="submitUpdatePaymentStatus(this, <?= $coursepaymentData['course_payment_has_payment_id'] ?>)">
+                                                onclick="submitUpdatePaymentStatus(this, <?= $coursepaymentData['course_payments_course_payments_id'] ?>,<?= $coursepaymentData['course_payment_has_payment_id'] ?>,getCurrentCurrencyData())">
                                                 Update Payment Status
                                             </button>
                                         </div>
@@ -1651,253 +1976,40 @@ if (!SessionUser::hasValidSession()) {
                             <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
 
                             <script>
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   PHP-INJECTED CONSTANTS
-                                   
-                                   PENALTY NOTE:
-                                   - All penalty values are stored in LKR in the database.
-                                   - EXISTING_TOTAL_PEN_LKR  = total penalty across all receipts, in LKR
-                                   - EXISTING_TOTAL_PEN_CC   = EXISTING_TOTAL_PEN_LKR / exchangeRate (course currency)
-                                   - CURRENT_RECEIPT_PENALTY_LKR = this receipt's penalty in LKR
-                                   - CURRENT_RECEIPT_PENALTY_CC  = this receipt's penalty in course currency
-                                   
-                                   The modal's penalty input always collects LKR from the admin.
-                                   JS converts to course currency (÷ rate) before balance math.
-                                ════════════════════════════════════════════════════════════════════════ */
-                                var COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
-                                var FIXED_TAX_RATE = <?= (float)$latestTaxRate ?>;
+                                // ════════════════════════════════════════════════════════════════════════════
+                                // TAX CALCULATION CORRECTED v8 - Tax as % of final (tax-inclusive) amount
+                                // ════════════════════════════════════════════════════════════════════════════
 
-                                // Total accumulated values from ALL receipts (course currency)
-                                var EXISTING_TOTAL_PAID    = <?= (float)$convertedPaidTotal ?>;
-                                var EXISTING_TOTAL_DISC    = <?= (float)$totalDiscount ?>;
-                                var EXISTING_TOTAL_PEN_CC  = <?= (float)$totalPenaltyCC ?>;   // course currency
-                                var EXISTING_TOTAL_PEN_LKR = <?= (float)$totalPenaltyLKR ?>;  // LKR
-                                var EXISTING_TOTAL_TAX     = <?= (float)$totalReceiptTax ?>;
+                                const LATEST_TAX_RATE = <?= (float)$latestTaxRate ?>;
+                                const COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
+                                const EXISTING_TOTAL_DISCOUNT = <?= (float)$totalDiscount ?>;
+                                const EXISTING_TOTAL_PENALTY = <?= (float)$totalPenalty ?>;
+                                const EXISTING_TOTAL_TAX = <?= (float)$totalTax ?>;
+                                const EXISTING_PAID_TOTAL = <?= (float)$convertedPaidTotal ?>;
+                                const baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
+                                const lkrCurrencyId = <?= (int)$lkrCurrencyId ?>;
+                                const currencyCode = "<?= htmlspecialchars($paymentData['currency_code']) ?>";
+                                const isBaseCurrencyLKR = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
 
-                                // This receipt's currently stored values
-                                var CURRENT_RECEIPT_PAID         = <?= (float)$jsCurrentReceiptPaid ?>;
-                                var CURRENT_RECEIPT_DISCOUNT     = <?= (float)$jsCurrentReceiptDiscount ?>;
-                                var CURRENT_RECEIPT_PENALTY_LKR  = <?= (float)$jsCurrentReceiptPenaltyLKR ?>;  // LKR
-                                var CURRENT_RECEIPT_PENALTY_CC   = <?= (float)$jsCurrentReceiptPenaltyCC ?>;   // course currency
-                                var CURRENT_RECEIPT_TAX          = <?= (float)$jsCurrentReceiptTax ?>;
+                                // Epsilon: prevents display-rounding false-positive overpay
+                                const OVERPAY_EPSILON = 0.005;
 
-                                var currencyCode        = "<?= $currencyCode ?>";
-                                var isBaseCurrencyLKR   = <?= $isBaseCurrencyLKR ? 'true' : 'false' ?>;
-                                var baseCurrencyId      = <?= (int)$paymentData['currency_id'] ?>;
-                                var lkrCurrencyId       = 1;
-                                var modalExchangeRateValue = <?= (float)$exchangeRateValue ?>;
-                                var modalExchangeRate   = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
-                                var modalExchangeRateId = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
-                                var modalCurrentMode    = 'base'; // 'base' = course currency, 'lkr' = LKR
+                                let exchangeRate = <?= $isBaseCurrencyLKR ? 'null' : (float)$exchangeRateValue ?>;
+                                let exchangeRateId = <?= $exchangeRateId ? (int)$exchangeRateId : 'null' ?>;
+                                let modalCurrentMode = 'base';
 
-                                var mGet = function(id) { return document.getElementById(id); };
+                                // DOM refs
+                                const discountInput = document.getElementById('discount-amount');
+                                const penaltyInput = document.getElementById('penalty-amount');
+                                const balanceInput = document.getElementById('balance-amount');
+                                const paidInput = document.getElementById('paid-amount');
+                                const taxAmountDisplay = document.getElementById('tax-amount-display-input');
+                                const paidDateInput = document.getElementById('paid-date');
+                                const customRateInput = document.getElementById('custom-exchange-rate');
+                                const rateStatusEl = document.getElementById('rate-status');
+                                const balBreakdownEl = document.getElementById('balance-breakdown-hint');
 
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   HELPER: Extract tax from a tax-inclusive paid amount
-                                   Formula: tax = paid × (rate / 100)   [where paid already includes tax]
-                                            base = paid × (1 − rate/100)
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function extractTaxFromPaid(paid, rate) {
-                                    if (rate <= 0 || paid <= 0) return { base: paid, tax: 0 };
-                                    var taxRateDecimal = rate / 100;
-                                    return {
-                                        base: paid * (1 - taxRateDecimal),
-                                        tax:  paid * taxRateDecimal
-                                    };
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   CONVERT LKR PENALTY → COURSE CURRENCY
-                                   
-                                   penaltyLKR / exchangeRate  (1 GBP = X LKR  →  LKR/X = GBP)
-                                   If course IS LKR, no conversion needed.
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function penaltyLKRtoCC(lkrAmount) {
-                                    var rate = modalExchangeRate || modalExchangeRateValue || 1;
-                                    if (isBaseCurrencyLKR || rate <= 0) return lkrAmount;
-                                    return lkrAmount / rate;
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   MODAL RECALCULATE
-                                   
-                                   Penalty input is ALWAYS in LKR.
-                                   Paid / Discount inputs are in whichever currency mode is selected.
-                                   
-                                   Steps:
-                                   1. Read raw inputs
-                                   2. Convert paid/discount to base course currency if in LKR mode
-                                   3. Convert penalty LKR → course currency
-                                   4. Rebuild totals, replacing this receipt's stored values
-                                   5. netBase = COURSE_AMOUNT - newTotalDisc + newTotalPenCC
-                                   6. payableAmount = netBase + newTotalTax
-                                   7. balance = payableAmount - newTotalPaid
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function modalRecalculate() {
-                                    var rate = modalExchangeRate || modalExchangeRateValue || 1;
-
-                                    // Convert paid/discount input → course currency (base)
-                                    function toBase(v) {
-                                        return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
-                                    }
-                                    // Convert course-currency value → display currency
-                                    function toDisplay(v) {
-                                        return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v * rate : v;
-                                    }
-
-                                    var label = modalCurrentMode === 'lkr' ? 'LKR' : currencyCode;
-
-                                    // ── Raw inputs ─────────────────────────────────────────────────
-                                    var rawDisc  = Math.max(0, parseFloat((mGet('modal-discount-amount') || {}).value) || 0);
-                                    var rawPenLKR = Math.max(0, parseFloat((mGet('modal-penalty-amount-lkr') || {}).value) || 0);
-                                    var rawPaid  = Math.max(0, parseFloat((mGet('modal-paid-amount') || {}).value) || 0);
-
-                                    // ── Convert to course currency ──────────────────────────────
-                                    var discBase  = toBase(rawDisc);      // discount is in current mode currency
-                                    var paidBase  = toBase(rawPaid);      // paid is in current mode currency
-                                    var penBase   = penaltyLKRtoCC(rawPenLKR); // penalty ALWAYS from LKR
-
-                                    // ── Extract tax from new paid amount (tax-inclusive model) ───
-                                    var taxCalc   = extractTaxFromPaid(paidBase, FIXED_TAX_RATE);
-                                    var newTaxBase = taxCalc.tax;
-                                    var newFeeBase = taxCalc.base;
-
-                                    // ── Rebuild accumulated totals replacing this receipt ─────────
-                                    var newTotalDisc  = EXISTING_TOTAL_DISC   - CURRENT_RECEIPT_DISCOUNT    + discBase;
-                                    var newTotalPenCC = EXISTING_TOTAL_PEN_CC - CURRENT_RECEIPT_PENALTY_CC  + penBase;
-                                    var newTotalPaid  = EXISTING_TOTAL_PAID   - CURRENT_RECEIPT_PAID        + paidBase;
-                                    var newTotalTax   = EXISTING_TOTAL_TAX    - CURRENT_RECEIPT_TAX         + newTaxBase;
-
-                                    // ── Payable / balance ─────────────────────────────────────────
-                                    var netBase       = Math.max(0, COURSE_AMOUNT - newTotalDisc + newTotalPenCC);
-                                    var payableAmount = netBase + newTotalTax;
-                                    var balBase       = payableAmount - newTotalPaid;
-
-                                    // ── Display values ────────────────────────────────────────────
-                                    var taxDisplay  = toDisplay(newTaxBase);
-                                    var feeDisplay  = toDisplay(newFeeBase);
-                                    var balDisplay  = toDisplay(balBase);
-                                    var payDisplay  = toDisplay(payableAmount);
-                                    var netDisplay  = toDisplay(netBase);
-
-                                    // Tax field (course currency or LKR mode)
-                                    var taxEl = mGet('modal-tax-amount-display');
-                                    if (taxEl) taxEl.value = taxDisplay.toFixed(2);
-
-                                    // Net base field
-                                    var baseEl = mGet('modal-base-payable-display');
-                                    if (baseEl) baseEl.value = netDisplay.toFixed(2);
-
-                                    // Tax formula hint
-                                    setText('modal-tax-formula-hint',
-                                        label + ' ' + fmt(toDisplay(paidBase)) +
-                                        ' ÷ ' + (1 + FIXED_TAX_RATE / 100).toFixed(4) +
-                                        ' → fee ' + fmt(feeDisplay) + ' + tax ' + fmt(taxDisplay));
-
-                                    // Penalty conversion hint (always shown when non-LKR course)
-                                    if (!isBaseCurrencyLKR && mGet('modal-penalty-cc-hint')) {
-                                        mGet('modal-penalty-cc-hint').textContent =
-                                            '= ' + currencyCode + ' ' + fmt(penBase) +
-                                            ' (LKR ' + fmt(rawPenLKR) + ' ÷ ' + fmt(rate) + ')';
-                                    }
-
-                                    // Suggested paid amount hint
-                                    setText('modal-paid-auto-hint',
-                                        'Suggested: ' + label + ' ' + fmt(payDisplay) +
-                                        ' (' + fmt(netDisplay) + ' base + ' + fmt(toDisplay(newTotalTax)) + ' tax)');
-
-                                    // Balance field
-                                    var balEl = mGet('modal-balance-display');
-                                    if (balEl) balEl.value = Math.max(0, balDisplay).toFixed(2);
-
-                                    // Net base formula hint
-                                    setText('modal-base-formula-hint',
-                                        label + ' ' + fmt(toDisplay(COURSE_AMOUNT)) +
-                                        ' − ' + fmt(toDisplay(newTotalDisc)) + ' disc' +
-                                        ' + ' + fmt(toDisplay(newTotalPenCC)) + ' pen (' + currencyCode + ')' +
-                                        ' = ' + fmt(netDisplay));
-
-                                    // ── Overpayment detection ─────────────────────────────────────
-                                    if (paidBase > payableAmount && paidBase > 0) {
-                                        var overpayBase  = paidBase - payableAmount;
-                                        var ovCalc       = extractTaxFromPaid(overpayBase, FIXED_TAX_RATE);
-                                        showModalOverpayPanel(
-                                            payDisplay,
-                                            toDisplay(overpayBase),
-                                            toDisplay(ovCalc.base),
-                                            toDisplay(ovCalc.tax),
-                                            toDisplay(overpayBase),
-                                            label
-                                        );
-                                    } else {
-                                        hideModalOverpayPanel();
-                                    }
-
-                                    // ── LKR hints for paid/discount/tax/balance (non-LKR courses) ──
-                                    if (!isBaseCurrencyLKR && rate) {
-                                        if (modalCurrentMode === 'lkr') {
-                                            // Mode is LKR: show course-currency equivalents
-                                            setHint('modal-discount-base-hint', currencyCode, discBase, false);
-                                            setHint('modal-tax-base-hint',      currencyCode, newTaxBase, false);
-                                            setHint('modal-balance-base-hint',  currencyCode, Math.max(0, balBase), false);
-                                            setHint('modal-paid-base-hint',     currencyCode, paidBase, false);
-                                        } else {
-                                            // Mode is course currency: show LKR equivalents
-                                            setHint('modal-discount-lkr-hint', 'LKR', rawDisc * rate);
-                                            setHint('modal-tax-lkr-hint',      'LKR', newTaxBase * rate);
-                                            setHint('modal-balance-lkr-hint',  'LKR', Math.max(0, balBase) * rate);
-                                            setHint('modal-paid-lkr-hint',     'LKR', rawPaid * rate);
-                                        }
-
-                                        // LKR summary panel updates
-                                        var newTotalPenLKR = rawPenLKR + (EXISTING_TOTAL_PEN_LKR - CURRENT_RECEIPT_PENALTY_LKR);
-                                        setText('modal-lkr-balance-val',  'LKR ' + fmt(Math.max(0, balBase) * rate));
-                                        setText('modal-lkr-balance-sub',  currencyCode + ' ' + fmt(Math.max(0, balBase)));
-                                        setText('modal-lkr-discount-val', 'LKR ' + fmt(newTotalDisc * rate));
-                                        setText('modal-lkr-penalty-val',  'LKR ' + fmt(newTotalPenLKR));
-                                        setText('modal-lkr-penalty-sub',  currencyCode + ' ' + fmt(newTotalPenCC));
-                                        setText('modal-lkr-tax-val',      'LKR ' + fmt(newTotalTax * rate));
-                                        setText('modal-lkr-tax-sub',      currencyCode + ' ' + fmt(newTotalTax));
-                                    } else {
-                                        // LKR course: clear hints
-                                        ['modal-discount-lkr-hint','modal-tax-lkr-hint',
-                                         'modal-balance-lkr-hint','modal-paid-lkr-hint'].forEach(function(id) {
-                                            var el = mGet(id);
-                                            if (el) el.textContent = '';
-                                        });
-                                    }
-                                }
-
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   HELPER FUNCTIONS
-                                ════════════════════════════════════════════════════════════════════════ */
-                                function showModalOverpayPanel(currentPayable, overpay, nextFee, nextTax, nextTotal, label) {
-                                    var panel = mGet('modal-overpay-panel');
-                                    if (!panel) return;
-                                    panel.style.display = 'block';
-                                    setText('modal-overpay-current',        label + ' ' + fmt(currentPayable));
-                                    setText('modal-overpay-amount',         label + ' ' + fmt(overpay));
-                                    setText('modal-overpay-next-breakdown',
-                                        label + ' ' + fmt(nextFee) + ' course fee + ' +
-                                        label + ' ' + fmt(nextTax) + ' tax (' + FIXED_TAX_RATE.toFixed(2) + '%)');
-                                    setText('modal-overpay-next-total',     'Total: ' + label + ' ' + fmt(nextTotal));
-                                }
-
-                                function hideModalOverpayPanel() {
-                                    var panel = mGet('modal-overpay-panel');
-                                    if (panel) panel.style.display = 'none';
-                                }
-
-                                function setHint(id, label, value, isApprox) {
-                                    if (isApprox === undefined) isApprox = true;
-                                    var el = mGet(id);
-                                    if (el) el.textContent = (isApprox ? '≈ ' : '= ') + label + ' ' + fmt(value);
-                                }
-
-                                function setText(id, text) {
-                                    var el = mGet(id);
-                                    if (el) el.textContent = text;
-                                }
+                                // ── Helpers ──────────────────────────────────────────────────────────────
 
                                 function fmt(n) {
                                     return parseFloat(n || 0).toLocaleString('en-US', {
@@ -1906,135 +2018,498 @@ if (!SessionUser::hasValidSession()) {
                                     });
                                 }
 
-                                function setModalRateStatus(type, msg) {
-                                    var el = mGet('modal-rate-status');
+                                /**
+                                 * ✅ FIX: matches PHP's round($n, 2) behaviour.
+                                 * The backend rounds to 2 decimals INSIDE extractTaxFromInclusive(),
+                                 * calculateTaxInclusiveAmount() and calculateTaxFromBase() before any
+                                 * further math is done with the result. Previously the JS versions of
+                                 * these functions did not round at all until the very end (fmt() for
+                                 * display only), so intermediate values stayed at full float precision
+                                 * on screen while the backend was rounding at each step. After a
+                                 * currency conversion (×391.52 etc.) that tiny difference becomes
+                                 * several rupees, which is why the on-screen "Current Installment
+                                 * Payable" (and everything derived from it, like the overpayment
+                                 * amount) didn't match what actually got saved.
+                                 */
+                                function round2(n) {
+                                    return Math.round((n + Number.EPSILON) * 100) / 100;
+                                }
+
+                                /**
+                                 * NEW TAX MODEL: Extract base and tax from tax-inclusive amount
+                                 * base = final * (1 - taxRate/100)
+                                 * tax = final * (taxRate/100)
+                                 */
+                                function extractBaseAndTax(taxInclusiveAmount, taxRate) {
+                                    if (taxRate <= 0 || taxInclusiveAmount <= 0) {
+                                        return {
+                                            base: taxInclusiveAmount,
+                                            tax: 0
+                                        };
+                                    }
+
+                                    const taxRateDecimal = taxRate / 100;
+                                    const basePortion = 1 - taxRateDecimal;
+
+                                    if (basePortion <= 0) {
+                                        return {
+                                            base: 0,
+                                            tax: taxInclusiveAmount
+                                        };
+                                    }
+
+                                    // Rounded to 2dp here — mirrors PHP's extractTaxFromInclusive()
+                                    const base = round2(taxInclusiveAmount * basePortion);
+                                    const tax = round2(taxInclusiveAmount * taxRateDecimal);
+
+                                    return {
+                                        base: base,
+                                        tax: tax
+                                    };
+                                }
+
+                                /**
+                                 * NEW TAX MODEL: Calculate tax-inclusive amount from base
+                                 * final = base / (1 - taxRate/100)
+                                 */
+                                function calculateTaxInclusiveAmount(baseAmount, taxRate) {
+                                    if (taxRate <= 0 || baseAmount <= 0) {
+                                        return baseAmount;
+                                    }
+
+                                    const taxRateDecimal = taxRate / 100;
+                                    const divisor = 1 - taxRateDecimal;
+
+                                    if (divisor <= 0) {
+                                        console.error('Invalid tax rate - would be >= 100%');
+                                        return baseAmount;
+                                    }
+
+                                    // Rounded to 2dp here — mirrors PHP's calculateTaxInclusiveAmount()
+                                    return round2(baseAmount / divisor);
+                                }
+
+                                /**
+                                 * NEW TAX MODEL: Calculate tax amount from base
+                                 * tax = base * (taxRate / (100 - taxRate))
+                                 */
+                                function calculateTaxAmount(baseAmount, taxRate) {
+                                    if (taxRate <= 0 || baseAmount <= 0) {
+                                        return 0;
+                                    }
+
+                                    if (taxRate >= 100) {
+                                        console.error('Invalid tax rate - must be less than 100%');
+                                        return 0;
+                                    }
+
+                                    // Rounded to 2dp here — mirrors PHP's calculateTaxFromBase()
+                                    return round2(baseAmount * (taxRate / (100 - taxRate)));
+                                }
+
+                                function setHint(id, label, value, isApprox = true) {
+                                    const el = document.getElementById(id);
                                     if (!el) return;
-                                    var cls = { loading:'sub-text', success:'text-dark-green', warning:'text-warning', error:'text-dark-red', info:'sub-text' };
-                                    el.className = 'text-12 mt-1 ' + (cls[type] || 'sub-text');
-                                    el.textContent = msg;
+                                    el.textContent = (isApprox ? '≈ ' : '= ') + label + ' ' + fmt(value);
                                 }
 
-                                function modalSwitchCurrency(mode) {
-                                    if (isBaseCurrencyLKR) return;
-                                    var rate = modalExchangeRate || modalExchangeRateValue || 1;
-                                    modalCurrentMode = mode;
+                                function setRateStatus(type, msg) {
+                                    if (!rateStatusEl) return;
+                                    const cls = {
+                                        loading: 'sub-text',
+                                        success: 'text-dark-green',
+                                        warning: 'text-warning',
+                                        error: 'text-dark-red',
+                                        info: 'text-primary'
+                                    };
+                                    rateStatusEl.className = 'text-12 mt-1 ' + (cls[type] || 'sub-text');
+                                    rateStatusEl.textContent = msg;
+                                }
 
-                                    var btnBase = mGet('modal-btn-base-currency');
-                                    var btnLkr  = mGet('modal-btn-lkr-currency');
-                                    if (btnBase) btnBase.classList.toggle('active', mode === 'base');
-                                    if (btnLkr)  btnLkr.classList.toggle('active',  mode === 'lkr');
+                                // ── LKR equivalent summary panel (recomputed on rate change) ────────────────
 
-                                    var panel = mGet('modal-lkr-summary-panel');
-                                    if (panel) panel.style.display = mode === 'lkr' ? 'block' : 'none';
+                                function updateLkrSummaryPanel() {
+                                    if (isBaseCurrencyLKR || !exchangeRate) return;
 
-                                    var label = mode === 'lkr' ? 'LKR' : currencyCode;
-                                    ['modal-discount-currency-label','modal-balance-currency-label',
-                                     'modal-paid-currency-label','modal-base-currency-label',
-                                     'modal-tax-currency-label'].forEach(function(id) {
-                                        var el = mGet(id);
-                                        if (el && !el.classList.contains('tax-badge') && !el.classList.contains('penalty-lkr-badge')) {
-                                            el.textContent = label;
+                                    const basePayable = Math.max(0, COURSE_AMOUNT - EXISTING_TOTAL_DISCOUNT + EXISTING_TOTAL_PENALTY);
+                                    const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                    const basePortion = 1 - taxRateDecimal;
+                                    const paidBaseTotal = EXISTING_PAID_TOTAL * basePortion;
+                                    const remainingBase = Math.max(0, basePayable - paidBaseTotal);
+                                    const remainingTax = basePortion > 0 ? remainingBase * (LATEST_TAX_RATE / (100 - LATEST_TAX_RATE)) : 0;
+                                    const balance = remainingBase + remainingTax;
+                                    const payableAmt = basePayable + (basePayable * (LATEST_TAX_RATE / (100 - LATEST_TAX_RATE)));
+
+                                    const setVal = (idPrefix, baseCurrencyValue) => {
+                                        const valEl = document.getElementById(idPrefix + '-val');
+                                        if (valEl) valEl.textContent = 'LKR ' + fmt(baseCurrencyValue * exchangeRate);
+                                        const subEl = document.getElementById(idPrefix + '-sub');
+                                        if (subEl) subEl.textContent = currencyCode + ' ' + fmt(baseCurrencyValue);
+                                    };
+
+                                    setVal('lkr-amount', COURSE_AMOUNT);
+                                    setVal('lkr-discount', EXISTING_TOTAL_DISCOUNT);
+                                    setVal('lkr-penalty', EXISTING_TOTAL_PENALTY);
+                                    setVal('lkr-tax', EXISTING_TOTAL_TAX);
+                                    setVal('lkr-payable', payableAmt);
+                                    setVal('lkr-paid', EXISTING_PAID_TOTAL);
+
+                                    const balLkrEl = document.getElementById('lkr-balance-display');
+                                    if (balLkrEl) balLkrEl.textContent = 'LKR ' + fmt(balance * exchangeRate);
+                                    const balSubEl = document.getElementById('lkr-balance-sub');
+                                    if (balSubEl) balSubEl.textContent = currencyCode + ' ' + fmt(balance);
+                                }
+
+                                // ── Overpayment panel ────────────────────────────────────────────────────
+
+                                function showOverpaymentMessage(currentPayable, paidAmount, overpayTotal, overpayBase, overpayTax) {
+                                    const displayLabel = (!isBaseCurrencyLKR && modalCurrentMode === 'lkr') ? 'LKR' : currencyCode;
+                                    const wrapper = document.getElementById('overpay-panel-wrapper');
+                                    if (!wrapper) return;
+
+                                    document.getElementById('overpay-current').textContent =
+                                        fmt(currentPayable) + ' ' + displayLabel;
+
+                                    document.getElementById('overpay-amount').textContent =
+                                        fmt(overpayTotal) + ' ' + displayLabel;
+
+                                    document.getElementById('overpay-next-breakdown').textContent =
+                                        fmt(overpayTotal) + ' ' + displayLabel;
+
+                                    document.getElementById('overpay-next-sub').textContent =
+                                        displayLabel + ' ' + fmt(overpayBase) + ' course fee' +
+                                        ' + ' + displayLabel + ' ' + fmt(overpayTax) +
+                                        ' tax (' + LATEST_TAX_RATE.toFixed(2) + '%)';
+
+                                    const totalEl = document.getElementById('overpay-next-total');
+                                    if (totalEl) {
+                                        totalEl.textContent = 'Total: ' + displayLabel + ' ' + fmt(overpayBase + overpayTax);
+                                    }
+
+                                    wrapper.style.display = 'block';
+                                }
+
+                                function removeOverpaymentMessage() {
+                                    const wrapper = document.getElementById('overpay-panel-wrapper');
+                                    if (wrapper) wrapper.style.display = 'none';
+                                }
+
+                                // ── Main recalculate ─────────────────────────────────────────────────────
+
+                                function recalculate() {
+                                    const rawDiscount = parseFloat(discountInput.value) || 0;
+                                    const rawPenalty = parseFloat(penaltyInput.value) || 0;
+                                    const rawPaid = parseFloat(paidInput?.value) || 0;
+
+                                    if (isBaseCurrencyLKR || !exchangeRate) {
+                                        return recalculateSingleCurrency(rawDiscount, rawPenalty, rawPaid);
+                                    }
+
+                                    return recalculateMultiCurrency(rawDiscount, rawPenalty, rawPaid);
+                                }
+
+                                function recalculateSingleCurrency(rawDiscount, rawPenalty, rawPaid) {
+                                    const totalDiscount = EXISTING_TOTAL_DISCOUNT + rawDiscount;
+                                    const totalPenalty = EXISTING_TOTAL_PENALTY + rawPenalty;
+                                    const basePayable = Math.max(0, COURSE_AMOUNT - totalDiscount + totalPenalty);
+
+                                    // What's owed BEFORE this payment (base amount, excluding tax)
+                                    const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                    const basePortion = 1 - taxRateDecimal;
+                                    const paidBaseBeforeThis = EXISTING_PAID_TOTAL * basePortion;
+                                    const balBeforeBase = Math.max(0, basePayable - paidBaseBeforeThis);
+
+                                    // Balance BEFORE this payment (with tax)
+                                    const balBeforeWithTax = calculateTaxInclusiveAmount(balBeforeBase, LATEST_TAX_RATE);
+
+                                    // Extract tax from paid amount
+                                    const paidCalc = extractBaseAndTax(rawPaid, LATEST_TAX_RATE);
+
+                                    // Total paid so far (in base terms)
+                                    const totalPaidBaseSoFar = paidBaseBeforeThis + paidCalc.base;
+                                    const remainBase = Math.max(0, basePayable - totalPaidBaseSoFar);
+                                    const remainTotal = calculateTaxInclusiveAmount(remainBase, LATEST_TAX_RATE);
+
+                                    // Update tax display
+                                    if (taxAmountDisplay) taxAmountDisplay.value = fmt(paidCalc.tax);
+
+                                    // Check for overpayment
+                                    if (rawPaid > 0 && rawPaid > balBeforeWithTax + OVERPAY_EPSILON) {
+                                        const overpayAmt = rawPaid - balBeforeWithTax;
+                                        const overpayCalc = extractBaseAndTax(overpayAmt, LATEST_TAX_RATE);
+
+                                        balanceInput.value = '0.00';
+                                        if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
+                                        showOverpaymentMessage(balBeforeWithTax, rawPaid, overpayAmt, overpayCalc.base, overpayCalc.tax);
+                                        setHint('balance-lkr-hint', 'LKR', 0);
+                                        setHint('balance-base-hint', currencyCode, 0, false);
+
+                                    } else if (rawPaid > 0) {
+                                        balanceInput.value = fmt(remainTotal);
+                                        if (balBreakdownEl) {
+                                            const remainTaxAmount = calculateTaxAmount(remainBase, LATEST_TAX_RATE);
+                                            balBreakdownEl.textContent =
+                                                'Paid: base ' + fmt(paidCalc.base) + ' + tax ' + fmt(paidCalc.tax) +
+                                                ' | Remaining: base ' + fmt(remainBase) + ' + tax ' + fmt(remainTaxAmount) +
+                                                ' = ' + fmt(remainTotal);
                                         }
-                                    });
-                                    // NOTE: Penalty currency label always stays "Always LKR" — do NOT switch it
+                                        removeOverpaymentMessage();
+                                        setHint('balance-lkr-hint', 'LKR', remainTotal);
+                                        setHint('balance-base-hint', currencyCode, remainTotal, false);
 
-                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(function(el) {
-                                        if (el.id.startsWith('modal-') && el.id !== 'modal-penalty-cc-hint') {
-                                            el.classList.toggle('d-none', mode === 'lkr');
+                                    } else {
+                                        // No paid amount entered
+                                        const balTaxAmount = calculateTaxAmount(balBeforeBase, LATEST_TAX_RATE);
+                                        balanceInput.value = fmt(balBeforeWithTax);
+                                        if (balBreakdownEl) {
+                                            balBreakdownEl.textContent = 'Base ' + fmt(balBeforeBase) + ' + Tax ' + fmt(balTaxAmount);
                                         }
-                                    });
-                                    document.querySelectorAll('[id$="-base-hint"]').forEach(function(el) {
-                                        if (el.id.startsWith('modal-')) el.classList.toggle('d-none', mode === 'base');
-                                    });
-
-                                    // Only convert paid and discount inputs on mode switch — NOT penalty (always LKR)
-                                    ['modal-discount-amount','modal-paid-amount'].forEach(function(id) {
-                                        var el = mGet(id);
-                                        if (!el || el.disabled) return;
-                                        var v = parseFloat(el.value) || 0;
-                                        if (!v) return;
-                                        el.value = mode === 'lkr' ? (v * rate).toFixed(2) : (v / rate).toFixed(2);
-                                    });
-                                    // Penalty field stays in LKR regardless of mode switch
-
-                                    modalRecalculate();
-                                }
-
-                                function modalOnPaidDateChange() {
-                                    if (isBaseCurrencyLKR) return;
-                                    var dateEl = mGet('modal-paid-date');
-                                    if (!dateEl || !dateEl.value) return;
-                                    setModalRateStatus('loading', 'Fetching exchange rate for selected date…');
-
-                                    fetch('api/getExchangeRate.php?base=' + baseCurrencyId + '&target=' + lkrCurrencyId + '&date=' + dateEl.value)
-                                        .then(function(r) { return r.json(); })
-                                        .then(function(data) {
-                                            if (data.rate) {
-                                                modalExchangeRate    = parseFloat(data.rate);
-                                                modalExchangeRateId  = data.currency_exchange_rate_id;
-                                                var cr = mGet('modal-custom-rate');
-                                                if (cr) cr.value = modalExchangeRate.toFixed(2);
-                                                setText('modal-live-rate-text',
-                                                    '1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2) + ' (' + data.effective_date + ')');
-                                                var pr = mGet('modal-panel-rate-display');
-                                                if (pr) pr.textContent = modalExchangeRate.toFixed(2);
-                                                setModalRateStatus('success', 'Rate updated: 1 ' + currencyCode + ' = LKR ' + modalExchangeRate.toFixed(2));
-                                            } else {
-                                                setModalRateStatus('warning', 'No rate found. Using last known (' + (modalExchangeRate || modalExchangeRateValue).toFixed(2) + ').');
-                                            }
-                                            modalRecalculate();
-                                        })
-                                        .catch(function() {
-                                            setModalRateStatus('error', 'Could not fetch rate.');
-                                            modalRecalculate();
-                                        });
-                                }
-
-                                function modalOnCustomRateChange() {
-                                    var el  = mGet('modal-custom-rate');
-                                    var val = el ? parseFloat(el.value) : NaN;
-                                    if (!isNaN(val) && val > 0) {
-                                        modalExchangeRate   = val;
-                                        modalExchangeRateId = null;
-                                        var pr = mGet('modal-panel-rate-display');
-                                        if (pr) pr.textContent = val.toFixed(2);
-                                        setText('modal-live-rate-text', '1 ' + currencyCode + ' = LKR ' + val.toFixed(2) + ' (custom)');
-                                        setModalRateStatus('info', 'Custom rate applied: 1 ' + currencyCode + ' = LKR ' + val.toFixed(2));
-                                        modalRecalculate();
+                                        removeOverpaymentMessage();
+                                        setHint('balance-lkr-hint', 'LKR', balBeforeWithTax);
+                                        setHint('balance-base-hint', currencyCode, balBeforeWithTax, false);
                                     }
                                 }
 
-                                /* ════════════════════════════════════════════════════════════════════════
-                                   EVENT LISTENER SETUP
-                                ════════════════════════════════════════════════════════════════════════ */
-                                document.addEventListener('DOMContentLoaded', function() {
+                                function recalculateMultiCurrency(rawDiscount, rawPenalty, rawPaid) {
+                                    const toBase = v => modalCurrentMode === 'lkr' ? v / exchangeRate : v;
+                                    const toDisplay = v => modalCurrentMode === 'lkr' ? v * exchangeRate : v;
 
-                                    var progressBar = document.querySelector('.progress-bar');
-                                    if (progressBar) setTimeout(function() {
-                                        progressBar.style.width = '<?= $progress ?>%';
-                                    }, 300);
+                                    const discountBase = toBase(rawDiscount);
+                                    const penaltyBase = toBase(rawPenalty);
+                                    const paidBase = toBase(rawPaid);
 
-                                    document.querySelectorAll('.timeline-bubble').forEach(function(bubble) {
-                                        bubble.addEventListener('mouseenter', function() { this.style.transform = 'scale(1.15)'; });
-                                        bubble.addEventListener('mouseleave', function() { this.style.transform = 'scale(1)'; });
+                                    const totalDiscountBase = EXISTING_TOTAL_DISCOUNT + discountBase;
+                                    const totalPenaltyBase = EXISTING_TOTAL_PENALTY + penaltyBase;
+                                    const basePayableBase = Math.max(0, COURSE_AMOUNT - totalDiscountBase + totalPenaltyBase);
+
+                                    // What's owed BEFORE this payment
+                                    const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                    const basePortion = 1 - taxRateDecimal;
+                                    const paidBaseBeforeThis = EXISTING_PAID_TOTAL * basePortion;
+                                    const balBeforeBase = Math.max(0, basePayableBase - paidBaseBeforeThis);
+
+                                    // Balance BEFORE this payment with tax (in base currency)
+                                    const balBeforeWithTax_baseCcy = calculateTaxInclusiveAmount(balBeforeBase, LATEST_TAX_RATE);
+
+                                    // Convert to display currency
+                                    const balBeforeDisplayWithTax = toDisplay(balBeforeWithTax_baseCcy);
+
+                                    // Extract tax using corrected formula
+                                    const paidCalc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
+                                    const taxDisplay = toDisplay(paidCalc.tax);
+
+                                    if (taxAmountDisplay) taxAmountDisplay.value = fmt(taxDisplay);
+
+                                    // Total paid so far in base terms
+                                    const totalPaidBaseSoFar = paidBaseBeforeThis + paidCalc.base;
+                                    const remainBase = Math.max(0, basePayableBase - totalPaidBaseSoFar);
+                                    const remainTotal = calculateTaxInclusiveAmount(remainBase, LATEST_TAX_RATE);
+
+                                    // Check for overpayment
+                                    if (rawPaid > 0 && rawPaid > balBeforeDisplayWithTax + OVERPAY_EPSILON) {
+                                        // FIX: overpayDisplay is already tax-inclusive in the display currency.
+                                        // Splitting it into base/tax must use extractBaseAndTax directly on that
+                                        // tax-inclusive figure (currency conversion doesn't change the tax split
+                                        // proportions), NOT convert-then-gross-up-again — that double counted tax
+                                        // and inflated the overpayment total (previous bug).
+                                        const overpayDisplay = rawPaid - balBeforeDisplayWithTax;
+                                        const overpayCalc = extractBaseAndTax(overpayDisplay, LATEST_TAX_RATE);
+
+                                        balanceInput.value = '0.00';
+                                        if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
+
+                                        showOverpaymentMessage(
+                                            balBeforeDisplayWithTax,
+                                            rawPaid,
+                                            overpayDisplay,
+                                            overpayCalc.base,
+                                            overpayCalc.tax
+                                        );
+                                        setHint('balance-base-hint', currencyCode, 0, false);
+                                        setHint('balance-lkr-hint', 'LKR', 0, false);
+
+                                    } else if (rawPaid > 0) {
+                                        const balDisplay = toDisplay(remainTotal);
+                                        balanceInput.value = fmt(balDisplay);
+                                        if (balBreakdownEl) {
+                                            const remainTaxBase = calculateTaxAmount(remainBase, LATEST_TAX_RATE);
+                                            balBreakdownEl.textContent =
+                                                'Paid: base ' + fmt(toDisplay(paidCalc.base)) + ' + tax ' + fmt(taxDisplay) +
+                                                ' | Remaining: base ' + fmt(toDisplay(remainBase)) + ' + tax ' + fmt(toDisplay(remainTaxBase)) +
+                                                ' = ' + fmt(balDisplay);
+                                        }
+                                        removeOverpaymentMessage();
+                                        if (modalCurrentMode === 'lkr') {
+                                            setHint('balance-base-hint', currencyCode, remainTotal, false);
+                                            setHint('balance-lkr-hint', 'LKR', toDisplay(remainTotal), false);
+                                        } else {
+                                            setHint('balance-lkr-hint', 'LKR', toDisplay(remainTotal));
+                                            setHint('balance-base-hint', currencyCode, remainTotal, false);
+                                        }
+
+                                    } else {
+                                        // No paid amount
+                                        const balDisplay = toDisplay(balBeforeWithTax_baseCcy);
+                                        balanceInput.value = fmt(balDisplay);
+                                        if (balBreakdownEl) {
+                                            const balTaxBase = calculateTaxAmount(balBeforeBase, LATEST_TAX_RATE);
+                                            balBreakdownEl.textContent = 'Base ' + fmt(toDisplay(balBeforeBase)) + ' + Tax ' + fmt(toDisplay(balTaxBase));
+                                        }
+                                        removeOverpaymentMessage();
+                                        if (modalCurrentMode === 'lkr') {
+                                            setHint('balance-base-hint', currencyCode, balBeforeWithTax_baseCcy, false);
+                                            setHint('balance-lkr-hint', 'LKR', toDisplay(balBeforeWithTax_baseCcy), false);
+                                        } else {
+                                            setHint('balance-lkr-hint', 'LKR', toDisplay(balBeforeWithTax_baseCcy));
+                                            setHint('balance-base-hint', currencyCode, balBeforeWithTax_baseCcy, false);
+                                        }
+                                    }
+
+                                    // Update other hints based on currency mode
+                                    if (modalCurrentMode === 'lkr') {
+                                        setHint('discount-base-hint', currencyCode, discountBase, false);
+                                        setHint('penalty-base-hint', currencyCode, penaltyBase, false);
+                                        setHint('paid-base-hint', currencyCode, paidBase, false);
+                                        setHint('tax-amount-base-hint', currencyCode, paidCalc.tax, false);
+                                        setHint('discount-lkr-hint', 'LKR', rawDiscount, false);
+                                        setHint('penalty-lkr-hint', 'LKR', rawPenalty, false);
+                                        setHint('paid-lkr-hint', 'LKR', rawPaid, false);
+                                        setHint('tax-amount-lkr-hint', 'LKR', taxDisplay, false);
+                                    } else {
+                                        setHint('discount-lkr-hint', 'LKR', toDisplay(rawDiscount));
+                                        setHint('penalty-lkr-hint', 'LKR', toDisplay(rawPenalty));
+                                        setHint('paid-lkr-hint', 'LKR', toDisplay(rawPaid));
+                                        setHint('tax-amount-lkr-hint', 'LKR', toDisplay(paidCalc.tax));
+                                        setHint('discount-base-hint', currencyCode, rawDiscount, false);
+                                        setHint('penalty-base-hint', currencyCode, rawPenalty, false);
+                                        setHint('paid-base-hint', currencyCode, paidBase, false);
+                                        setHint('tax-amount-base-hint', currencyCode, paidCalc.tax, false);
+                                    }
+                                }
+
+                                // ── Currency switch ──────────────────────────────────────────────────────
+
+                                function switchCurrency(mode) {
+                                    if (isBaseCurrencyLKR) return;
+                                    modalCurrentMode = mode;
+
+                                    document.getElementById('btn-base-currency').classList.toggle('active', mode === 'base');
+                                    document.getElementById('btn-lkr-currency').classList.toggle('active', mode === 'lkr');
+
+                                    const lkrPanel = document.getElementById('lkr-summary-panel');
+                                    if (lkrPanel) lkrPanel.style.display = mode === 'lkr' ? 'block' : 'none';
+
+                                    // Update field currency-label badges
+                                    const label = mode === 'lkr' ? 'LKR' : currencyCode;
+                                    ['discount', 'penalty', 'balance', 'paid', 'tax-amount'].forEach(id => {
+                                        const el = document.getElementById(id + '-currency-label');
+                                        if (el) el.textContent = label;
                                     });
 
-                                    // Listen on paid, discount, AND penalty LKR input
-                                    ['modal-discount-amount','modal-penalty-amount-lkr','modal-paid-amount'].forEach(function(id) {
-                                        var el = mGet(id);
-                                        if (el) el.addEventListener('input', modalRecalculate);
-                                    });
+                                    // Toggle hint visibility
+                                    document.querySelectorAll('[id$="-lkr-hint"]').forEach(el => el.classList.toggle('d-none', mode === 'lkr'));
+                                    document.querySelectorAll('[id$="-base-hint"]').forEach(el => el.classList.toggle('d-none', mode === 'base'));
 
-                                    var paidDateEl   = mGet('modal-paid-date');
-                                    var customRateEl = mGet('modal-custom-rate');
-                                    if (paidDateEl)   paidDateEl.addEventListener('change', modalOnPaidDateChange);
-                                    if (customRateEl) customRateEl.addEventListener('input', modalOnCustomRateChange);
+                                    // Convert existing input values to new currency
+                                    if (exchangeRate && !isBaseCurrencyLKR) {
+                                        [discountInput, penaltyInput, paidInput].forEach(el => {
+                                            if (!el) return;
+                                            const v = parseFloat(el.value) || 0;
+                                            if (!v) return;
+                                            el.value = mode === 'lkr' ?
+                                                (v * exchangeRate).toFixed(2) :
+                                                (v / exchangeRate).toFixed(2);
+                                        });
+                                    }
+                                    recalculate();
+                                }
 
-                                    var modal = document.getElementById('updatePaymentStatus');
-                                    if (modal) modal.addEventListener('shown.bs.modal', function() {
-                                        modalRecalculate();
-                                    });
-                                });
+                                // ── Date change: fetch rate for selected date ────────────────────────────
+
+                                function onPaidDateChange() {
+                                    if (isBaseCurrencyLKR || !paidDateInput.value) return;
+                                    setRateStatus('loading', 'Fetching exchange rate for selected date...');
+                                    fetch(`api/getExchangeRate.php?base=${baseCurrencyId}&target=${lkrCurrencyId}&date=${paidDateInput.value}`)
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (data.rate) {
+                                                exchangeRate = parseFloat(data.rate);
+                                                exchangeRateId = data.currency_exchange_rate_id;
+                                                if (customRateInput) customRateInput.value = exchangeRate.toFixed(2);
+                                                const rb = document.getElementById('live-rate-text');
+                                                if (rb) rb.textContent = `1 ${currencyCode} = LKR ${exchangeRate.toFixed(2)} (${data.effective_date})`;
+                                                const pr = document.getElementById('panel-rate-display');
+                                                if (pr) pr.textContent = exchangeRate.toFixed(2);
+                                                setRateStatus('success', `Rate updated: 1 ${currencyCode} = LKR ${exchangeRate.toFixed(2)}`);
+                                            } else {
+                                                setRateStatus('warning', `No rate found. Using last known (${exchangeRate?.toFixed(2)}).`);
+                                            }
+                                            updateLkrSummaryPanel();
+                                            recalculate();
+                                        })
+                                        .catch(() => {
+                                            setRateStatus('error', 'Could not fetch rate.');
+                                            updateLkrSummaryPanel();
+                                            recalculate();
+                                        });
+                                }
+
+                                // ── Custom rate override ─────────────────────────────────────────────────
+
+                                function onCustomRateChange() {
+                                    const val = parseFloat(customRateInput.value);
+                                    if (!isNaN(val) && val > 0) {
+                                        exchangeRate = val;
+                                        exchangeRateId = null;
+                                        const pr = document.getElementById('panel-rate-display');
+                                        if (pr) pr.textContent = val.toFixed(2);
+                                        const rb = document.getElementById('live-rate-text');
+                                        if (rb) rb.textContent = `1 ${currencyCode} = LKR ${val.toFixed(2)} (custom)`;
+                                        setRateStatus('info', `Custom rate: 1 ${currencyCode} = LKR ${val.toFixed(2)}`);
+                                        updateLkrSummaryPanel();
+                                        recalculate();
+                                    }
+                                }
+
+                                // ── Build currency data object for form submission ───────────────────────
+
+                                function getCurrentCurrencyData() {
+                                    const customRateEl = document.getElementById('custom-exchange-rate');
+                                    const customRateVal = customRateEl ? parseFloat(customRateEl.value) : NaN;
+                                    const isCustomRate = !isNaN(customRateVal) && customRateVal > 0 && customRateVal !== exchangeRate;
+                                    const finalRate = (customRateEl && !isNaN(customRateVal) && customRateVal > 0) ? customRateVal : exchangeRate;
+                                    const finalRateId = isCustomRate ? null : exchangeRateId;
+
+                                    const rawPaid = parseFloat(paidInput?.value) || 0;
+                                    const toBase = v => (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && finalRate) ? v / finalRate : v;
+                                    const paidBase = toBase(rawPaid);
+                                    const calc = extractBaseAndTax(paidBase, LATEST_TAX_RATE);
+
+                                    return {
+                                        mode: modalCurrentMode,
+                                        baseCurrencyId: baseCurrencyId,
+                                        exchangeRate: finalRate,
+                                        isLKR: isBaseCurrencyLKR || modalCurrentMode === 'lkr',
+                                        selectedCurrencyId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? baseCurrencyId : lkrCurrencyId,
+                                        exchangeRateId: (isBaseCurrencyLKR || modalCurrentMode === 'base') ? null : finalRateId,
+                                        isCustomRate: isCustomRate,
+                                        customRateValue: isCustomRate ? customRateVal : null,
+                                        taxRate: LATEST_TAX_RATE,
+                                        taxAmount: calc.tax,
+                                    };
+                                }
+
+                                // ── Event listeners ──────────────────────────────────────────────────────
+
+                                discountInput.addEventListener('input', recalculate);
+                                penaltyInput.addEventListener('input', recalculate);
+                                if (paidInput) paidInput.addEventListener('input', recalculate);
+                                if (paidDateInput) paidDateInput.addEventListener('change', onPaidDateChange);
+                                if (customRateInput) customRateInput.addEventListener('input', onCustomRateChange);
+
+                                // Initial calculation
+                                recalculate();
+                                console.log('✓ Payment Tax Calculation v9 CORRECTED | Tax:', LATEST_TAX_RATE + '% | Model: Tax as % of final amount | Overpayment double-tax bug fixed | LKR summary panel now reacts to rate changes');
                             </script>
 
                             <script src="./assets/js/paymentReceiptRenderer.js?v=<?= Project::getVersion() ?>"></script>

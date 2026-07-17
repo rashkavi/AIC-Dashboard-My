@@ -28,7 +28,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject', 29, $id))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject', 29, $id))) {
                     header("Location: ./subject-details?subject-id=" . $id);
                 } else {
 
@@ -87,7 +87,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <ol class="breadcrumb m-0">
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $subjectData['faculty_id'] ?>"><?= $subjectData['faculty'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" data-i18n="add-grade-calculation-structure">Add Grade Calculation Structure</a></li>
                                                                     </ol>

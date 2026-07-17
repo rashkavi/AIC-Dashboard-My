@@ -19,7 +19,8 @@ if (!SessionUser::hasValidSession()) {
 
             $studentHasIntake = Database::search("SELECT
                 `faculty`, `faculty_id`, `programme`, `programme_id`, `intake`, `intake_id`,
-                `students_has_intakes`.`student_id`, `first_name`, `last_name`, `title`, `students_has_intakes_id`
+                `students_has_intakes`.`student_id`, `first_name`, `last_name`, `title`, `students_has_intakes_id`,
+                `students_has_intakes`.`status_status_id`,`login_details`.`status_status_id` AS 'status_status_id_login_details'
             FROM `students_has_intakes`
             INNER JOIN `students`       ON `students_has_intakes`.`students_student_id` = `students`.`student_id`
             INNER JOIN `login_details`  ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
@@ -36,12 +37,20 @@ if (!SessionUser::hasValidSession()) {
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                 if (!(SessionUser::ifUserIsPro($sessionUserRole)
+                    || SessionUser::ifUserIsAcademic($sessionUserRole)
+                    || SessionUser::ifUserIsAccounts($sessionUserRole)
                     || UserPermissions::hasPermission('intake_payments', 10, $studentHasIntakeData['intake_id'])
                     || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])
                     || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])
                     || UserPermissions::hasPermission('intake_payments', 15, $studentHasIntakeData['intake_id']))) {
                     header("Location: ./faculties");
                 } else {
+
+                    $latestTaxRate = 2.5;
+                    $rate = Database::search("SELECT * FROM tax_rates ORDER BY tax_rate_id DESC LIMIT 1");
+                    if ($rate && $rate->num_rows > 0) {
+                        $latestTaxRate = (float)$rate->fetch_assoc()['tax_rate'];
+                    }
 ?>
                     <!DOCTYPE html>
                     <html lang="en">
@@ -98,10 +107,13 @@ if (!SessionUser::hasValidSession()) {
                                                                 </nav>
                                                             </div>
                                                         </div>
-                                                        <?php if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])): ?>
-                                                            <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <button class="custom-btn w-100" type="button" onclick="location.href='add-payment-plan?student-id=<?= $id ?>'">Add Payment Plan</button>
-                                                            </div>
+                                                        <?php
+                                                        if (($studentHasIntakeData['status_status_id_login_details'] == 1 || $studentHasIntakeData['status_status_id_login_details'] == null) && ($studentHasIntakeData['status_status_id'] == 1 || $studentHasIntakeData['status_status_id'] == null)) :
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])): ?>
+                                                                <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn w-100" type="button" onclick="location.href='add-payment-plan?student-id=<?= $id ?>'">Add Payment Plan</button>
+                                                                </div>
+                                                            <?php endif; ?>
                                                         <?php endif; ?>
                                                     </div>
                                                 </div>
@@ -185,6 +197,28 @@ if (!SessionUser::hasValidSession()) {
 
                                                     // Fallback: cannot convert, return as-is
                                                     return (float)$lkrAmount;
+                                                }
+
+                                                // ============================================================
+                                                // HELPER: gross a tax-EXCLUSIVE amount up to a tax-INCLUSIVE amount
+                                                // inclusive = base / (1 - taxRate/100)
+                                                // Matches the tax-inclusive model used on the payment receipt pages
+                                                // (add-receipt-to-student-payment / uploadStudentPaymentReceipt),
+                                                // so "Payable Amount" here reflects what the student actually owes
+                                                // including tax, not just the raw course fee minus discount/penalty.
+                                                // ============================================================
+                                                function calculateTaxInclusiveAmount($base, $taxRate)
+                                                {
+                                                    $base = (float)$base;
+                                                    $taxRate = (float)$taxRate;
+                                                    if ($taxRate <= 0 || $base <= 0) {
+                                                        return $base;
+                                                    }
+                                                    $basePortion = 1 - ($taxRate / 100);
+                                                    if ($basePortion <= 0) {
+                                                        return $base;
+                                                    }
+                                                    return round($base / $basePortion, 2);
                                                 }
 
                                                 ?>
@@ -385,9 +419,15 @@ if (!SessionUser::hasValidSession()) {
                                                                 // total penalties = LKR-source penalties (converted) + receipt-level penalties (converted)
                                                                 $total_given_penalties = $paneltyPaymentsConverted + $given_penalties;
 
+                                                                // ✅ FIX: "Payable Amount" should reflect what's actually owed
+                                                                // INCLUDING tax, not just amount - discount + penalty. Gross the
+                                                                // tax-exclusive payable up to a tax-inclusive figure using the
+                                                                // same formula as the payment receipt pages.
+                                                                $payableAmountWithTax = calculateTaxInclusiveAmount($data['payable_amount'], $latestTaxRate);
+
                                                                 // awaiting = payable - settled - discounts + penalties + tax
                                                                 // (tax increases what's owed, so unpaid tax increases the awaiting amount)
-                                                                $awaiting_payments = $data['payable_amount'] - $completed_payments - $given_discounts + $total_given_penalties + $taxAmounts;
+                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts + $total_given_penalties ;
                                                         ?>
                                                                 <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
                                                                     <div class="row p-0 g-0 m-0">
@@ -402,17 +442,20 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="text-14 sub-text p-0 mt-1 g-0">Payment Plan : </span>
                                                                                     <span class="text-14 sub-text mt-1 fw-medium"><?= $data['payment_plan'] ?></span>
                                                                                 </div>
-                                                                                <?php if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])): ?>
-                                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                                            <button class="custom-danger-btn w-100" onclick="window.location.href='update-student-payment-plan?payment-paln-id=<?= $data['pphsiId'] ?>'">Update Payment Plan</button>
+                                                                                <?php
+                                                                                if (($studentHasIntakeData['status_status_id_login_details'] == 1 || $studentHasIntakeData['status_status_id_login_details'] == null) && ($studentHasIntakeData['status_status_id'] == 1 || $studentHasIntakeData['status_status_id'] == null)) :
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])): ?>
+                                                                                        <div class="col-6 col-xl-2 mt-2 mt-xl-0">
+                                                                                            <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
+                                                                                                <button class="custom-danger-btn w-100" onclick="window.location.href='update-student-payment-plan?payment-paln-id=<?= $data['pphsiId'] ?>'">Update Payment Plan</button>
+                                                                                            </div>
                                                                                         </div>
-                                                                                    </div>
-                                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                                            <button class="custom-btn w-100" onclick="window.location.href='add-payment-intake-student?student-id=<?= $id ?>&payment-plan-id=<?= $data['pphsiId'] ?>'">Add Payment</button>
+                                                                                        <div class="col-6 col-xl-2 mt-2 mt-xl-0">
+                                                                                            <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
+                                                                                                <button class="custom-btn w-100" onclick="window.location.href='add-payment-intake-student?student-id=<?= $id ?>&payment-plan-id=<?= $data['pphsiId'] ?>'">Add Payment</button>
+                                                                                            </div>
                                                                                         </div>
-                                                                                    </div>
+                                                                                    <?php endif; ?>
                                                                                 <?php endif; ?>
                                                                             </div>
                                                                         </div>
@@ -425,14 +468,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="row g-4 d-flex">
                                                                                     <?php
                                                                                     $cards = [
-                                                                                        ['label' => 'Payable Amount',       'val' => $data['payable_amount'],'code' => $data['code']],
-                                                                                        ['label' => 'Settled Amount',       'val' => $completed_payments , 'code' => $data['code']],
-                                                                                        ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts , 'code' => $data['code']],
-                                                                                        ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties , 'code' => 'LKR'],
-                                                                                        ['label' => 'Total Paid Tax',            'val' => $taxAmounts , 'code' => $data['code']],
-                                                                                        ['label' => 'Awaiting Payments',    'val' => $awaiting_payments , 'code' => $data['code']],
-                                                                                        ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments , 'code' => $data['code']],
-                                                                                        ['label' => 'Rejected Payment',     'val' => $rejected_payments , 'code' => $data['code']],
+                                                                                        ['label' => 'Payable Amount',       'val' => $payableAmountWithTax, 'code' => $data['code']],
+                                                                                        ['label' => 'Settled Amount',       'val' => $completed_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts, 'code' => $data['code']],
+                                                                                        ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties, 'code' => 'LKR'],
+                                                                                        ['label' => 'Total Paid Tax',            'val' => $taxAmounts, 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Payments',    'val' => $awaiting_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Rejected Payment',     'val' => $rejected_payments, 'code' => $data['code']],
                                                                                     ];
                                                                                     foreach ($cards as $card):
                                                                                     ?>
@@ -643,6 +686,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     $balance = $payableAmount - $coursePaymentReceived;
                                                                                                     $paidAmount = $convertedPaidTotal;
 
+                                                                                                    $balnceWithTax = $balance / (100 - $latestTaxRate) * 100;
+                                                                                                    $rowTaxAmounts += $balnceWithTax - $balance;
+
                                                                                                     $status_classes = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-success", "6" => "table-btn-success", "7" => "table-btn-danger", "9" => "table-btn-success"];
                                                                                                     $sbutton_class  = $status_classes[$row['payment_status_id']] ?? 'table-btn-yellow';
                                                                                             ?>
@@ -663,13 +709,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($coursePaymentReceived, $row['decimal_places']) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
                                                                                                         <!-- Course Balance now shows COURSE BALANCE ONLY (no penalties) -->
-                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($balance < 0 ? 0 : $balance, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($balnceWithTax < 0 ? 0 : $balnceWithTax, $row['decimal_places']) ?></span></td>
                                                                                                         <!-- Penalty column displays in LKR -->
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text">LKR <?= number_format($totalPenaltyLKRDisplay, 2) ?></span></td>
                                                                                                         <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
                                                                                                         <td class="py-3 align-middle">
                                                                                                             <button class="table-btn <?= $sbutton_class ?> w-100"><?= $row['payment_status'] ?></button>
                                                                                                         </td>
+
                                                                                                         <td class="px-4 py-3 align-middle">
                                                                                                             <div class="dropdown dropup position-relative">
                                                                                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
@@ -677,20 +724,24 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
                                                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
                                                                                                                     <?php
-                                                                                                                    if (
-                                                                                                                        SessionUser::ifUserIsPro($sessionUserRole)
-                                                                                                                        || UserPermissions::validPermisisonType('payments', 0)
-                                                                                                                        || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
-                                                                                                                    ):
-                                                                                                                        if ($balance > 0): ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                    <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
-                                                                                                                        <?php endif; ?>
-                                                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon> Edit</a></li>
-                                                                                                                        <?php if (count($receiptRows) === 0): ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
-                                                                                                                                    <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon> Remove</a></li>
+                                                                                                                    if (($studentHasIntakeData['status_status_id_login_details'] == 1 || $studentHasIntakeData['status_status_id_login_details'] == null) && ($studentHasIntakeData['status_status_id'] == 1 || $studentHasIntakeData['status_status_id'] == null)) :
+
+                                                                                                                        if (
+                                                                                                                            SessionUser::ifUserIsPro($sessionUserRole)
+                                                                                                                            || SessionUser::ifUserIsAccounts($sessionUserRole)
+                                                                                                                            || UserPermissions::validPermisisonType('payments', 0)
+                                                                                                                            || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
+                                                                                                                        ):
+                                                                                                                            if ($balance > 0): ?>
+                                                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                        <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
+                                                                                                                            <?php endif; ?>
+                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                    <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon> Edit</a></li>
+                                                                                                                            <?php if (count($receiptRows) === 0): ?>
+                                                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
+                                                                                                                                        <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon> Remove</a></li>
+                                                                                                                            <?php endif; ?>
                                                                                                                         <?php endif; ?>
                                                                                                                     <?php endif; ?>
                                                                                                                 </ul>

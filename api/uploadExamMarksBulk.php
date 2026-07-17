@@ -25,7 +25,7 @@ if (SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 20,$examinationData['subjects_subject_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 20,$examinationData['subjects_subject_id']))) {
                         $status->error = 'You are not authorized to filter student exams.';
                     } else {
 

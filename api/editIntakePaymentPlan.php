@@ -42,7 +42,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $intake = $intake->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intake['intakes_intake_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intake['intakes_intake_id']))) {
                                 $status->error = 'You are not authorized to edit payments';
                             } else {
 

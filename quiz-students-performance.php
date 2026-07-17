@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['quiz-id']) && !empty($_GET['quiz-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
 
             $id = $_GET['quiz-id'];
@@ -46,7 +46,7 @@ if (!SessionUser::hasValidSession()) {
         ");
 
             if ($quiz->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $quizData = $quiz->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
@@ -58,7 +58,7 @@ if (!SessionUser::hasValidSession()) {
                     $validLecturer = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id']) || $validLecturer)) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id']) || $validLecturer)) {
                     header("Location: ./subject-quizes?subject-id=" . $quizData['subject_id']);
                 } else {
 
@@ -133,8 +133,8 @@ if (!SessionUser::hasValidSession()) {
                                                                     <ol class="breadcrumb m-0">
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="programes?faculty-id=<?= $quizData['faculty_id'] ?>"><?= $quizData['faculty'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="level-details?level-id=<?= $quizData['level_id'] ?>"><?= $quizData['subject'] ?></a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="level-details?level-id=<?= $quizData['level_id'] ?>">Quizes</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="subjects?level-id=<?= $quizData['level_id'] ?>"><?= $quizData['subject'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="subjects?level-id=<?= $quizData['level_id'] ?>">Quizes</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $quizData['exam_name'] ?> - Students Performance</a></li>
                                                                     </ol>
@@ -400,7 +400,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id'])) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id'])) {
                         ?>
                             <!-- Mark Released Model => Start -->
                             <div class="modal fade" id="markReleasedModal" tabindex="-1" role="dialog" aria-labelledby="markReleasedModalTitle" aria-hidden="true">

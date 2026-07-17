@@ -26,7 +26,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = 'Invalid Subject ID';
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 2, $subject_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 2, $subject_id))) {
                         $status->error = 'You are not authorized to add examination.';
                     } else {
 

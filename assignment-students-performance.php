@@ -48,7 +48,7 @@ if (!SessionUser::hasValidSession()) {
                 }
 
                 if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission || $validLecturer)) {
-                    header("Location: ./level-details");
+                    header("Location: ./subjects");
                 } else {
 
                     $cardData = Database::search("
@@ -381,17 +381,17 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </button>
                                                                                             <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
                                                                                                 <?php
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" href="#" data-bs-toggle="collapse" data-bs-target="#assignFilter" aria-expanded="false" aria-controls="assignFilter">Assign Lecturer</a></li>
                                                                                                 <?php
                                                                                                 }
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" href="./upload-assignment-mark-bulk?assignment-id=<?= $id ?>&status-id=1">Upload Marks CSV</a></li>
                                                                                                 <?php
                                                                                                 }
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 17, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 17, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" onclick="openMarksReleasedModal(<?= $id; ?>);">Release Marks</a></li>
                                                                                                 <?php
@@ -410,7 +410,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <div class="row gy-3 justify-content-end">
                                                                                             <?php
                                                                                             if ($submit_assignments_count > 0) {
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
                                                                                             ?>
                                                                                                     <div class="col-12 col-md-6 d-flex align-items-center justify-content-end">
                                                                                                         <select class="form-select custom-select" id="lecturer-selector" onchange="handleStudentsAssignmentsPagination('<?= $id; ?>','filter')">
@@ -893,17 +893,17 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </button>
                                                                                             <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
                                                                                                 <?php
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" href="#" data-bs-toggle="collapse" data-bs-target="#assignFilter2" aria-expanded="false" aria-controls="assignFilter2">Assign Lecturer</a></li>
                                                                                                 <?php
                                                                                                 }
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" href="./upload-assignment-mark-bulk?assignment-id=<?= $id ?>&status-id=2">Upload Marks CSV</a></li>
                                                                                                 <?php
                                                                                                 }
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 17, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 17, $assignmentData['subjects_subject_id'])) {
                                                                                                 ?>
                                                                                                     <li><a class="dropdown-item" onclick="openRecorrectionMarksReleasedModal(<?= $id; ?>);">Release Marks</a></li>
                                                                                                 <?php
@@ -921,7 +921,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <div class="row gy-3 justify-content-end">
                                                                                             <?php
                                                                                             if ($recorrection_applied > 0) {
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 16, $assignmentData['subjects_subject_id'])) {
                                                                                             ?>
                                                                                                     <div class="col-6 col-md-6 d-flex align-items-center justify-content-end">
                                                                                                         <select class="form-select custom-select" id="recorrection-lecturer-selector" onchange="handleStudentsRecorrectionAssignmentsPagination('<?= $id; ?>','filter')">
@@ -1039,7 +1039,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ?>
                                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium">Payment Status</th>
                                                                                             <?php
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
                                                                                             ?>
                                                                                                 <th class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
                                                                                         <?php
@@ -1242,7 +1242,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             </td>
                                                                                                             <?php
 
-                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
                                                                                                             ?>
                                                                                                                 <td class="px-4 py-3 align-middle">
                                                                                                                     <div class="dropdown">
@@ -1334,7 +1334,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             </td>
                                                                                                             <?php
 
-                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
+                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 15, $assignmentData['subjects_subject_id'])) {
 
                                                                                                             ?>
                                                                                                                 <td class="px-4 py-3 align-middle">
@@ -1439,7 +1439,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                         ?>
                             <!-- Student Mark Bulk Upload Model => Start -->
                             <div class="modal fade br-0" id="marksBulkUpload" aria-hidden="true" aria-labelledby="marksBulkUploadLabel" tabindex="-1">
@@ -1495,7 +1495,7 @@ if (!SessionUser::hasValidSession()) {
                         }
 
                         if ($submit_assignments_count > 0) {
-                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                             ?>
                                 <!-- Mark Released Model => Start -->
                                 <div class="modal fade" id="markReleasedModal" tabindex="-1" role="dialog" aria-labelledby="markReleasedModalTitle" aria-hidden="true">

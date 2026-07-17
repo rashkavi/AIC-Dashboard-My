@@ -67,7 +67,7 @@ if (!SessionUser::hasValidSession()) {
                     }
 
                     if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission || $validLecturer)) {
-                        header("Location: ./level-details");
+                        header("Location: ./subjects");
                     } else {
 ?>
                         <!DOCTYPE html>
@@ -120,7 +120,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="faculties.php">Faculties</a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="programes?faculty-id=<?= $examinationData['faculty_id'] ?>"><?= $examinationData['faculty'] ?></a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="level-details?level-id=<?= $examinationData['level_id'] ?>"><?= $examinationData['subject'] ?></a></li>
+                                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="subjects?level-id=<?= $examinationData['level_id'] ?>"><?= $examinationData['subject'] ?></a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Examinations</a></li>
                                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $examinationData['exam_name'] ?></a></li>
                                                                 </ol>
@@ -309,7 +309,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <?php
                                                                     if ($submit_student_count > 0 && $examinationData['exam_date'] < $formatedDateTime) {
 
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']) || $validLecturer) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']) || $validLecturer) {
                                                                     ?>
                                                                             <div class="col-6 col-md-3 col-lg-2 d-flex flex-column justify-content-end">
                                                                                 <button class="custom-btn" data-bs-toggle="modal" data-bs-target="#marksBulkUpload">Upload Marks CSV File</button>
@@ -317,7 +317,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <?php
                                                                         }
 
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 17, $examinationData['subject_id'])) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 17, $examinationData['subject_id'])) {
                                                                         ?>
                                                                             <div class="col-12 col-md-3 col-lg-2 d-flex flex-column justify-content-end">
                                                                                 <button class="custom-btn d-flex align-content-center align-items-center justify-content-center" onclick="openExamMarksReleasedModal(<?= $id; ?>);">
@@ -331,7 +331,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <?php
                                                                         }
 
-                                                                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']) || $validLecturer)) {
+                                                                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']) || $validLecturer)) {
                                                                         ?>
                                                                             <div class="col-6 col-md-3 col-lg-2 d-flex flex-column justify-content-end">
                                                                             </div>
@@ -339,7 +339,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <?php
                                                                         }
 
-                                                                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']))) {
+                                                                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 20, $examinationData['subject_id']))) {
                                                                         ?>
                                                                             <div class="col-6 col-md-3 col-lg-2 d-flex flex-column justify-content-end">
                                                                             </div>

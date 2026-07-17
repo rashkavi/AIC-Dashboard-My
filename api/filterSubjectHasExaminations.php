@@ -87,7 +87,7 @@ if (SessionUser::hasValidSession()) {
                                         </th>
                                         <th scope="col-3" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
                                         <?php
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $subject)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $subject)) {
                                         ?>
                                             <th scope="col-2" class="px-4 py-3 bg-table-header"></th>
                                         <?php
@@ -169,7 +169,7 @@ if (SessionUser::hasValidSession()) {
 
                                                 </td>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $subject)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 10, $subject)) {
                                                 ?>
 
                                                     <td class="px-4 py-3 align-middle">

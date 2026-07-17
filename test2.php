@@ -19,7 +19,7 @@ if (!SessionUser::hasValidSession()) {
         } else {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
                 header("Location: ./dashboard");
             } else {
                 $id = $_GET['payment-id'];

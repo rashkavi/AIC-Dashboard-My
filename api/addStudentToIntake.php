@@ -52,7 +52,6 @@ if (SessionUser::hasValidSession()) {
             $al_results = isset($_POST['al_results']) ? trim($_POST['al_results']) : '';
             $work_experience = isset($_POST['work_experience']) ? trim($_POST['work_experience']) : '';
             $team_username = isset($_POST['team_username']) ? trim($_POST['team_username']) : '';
-            $team_password = isset($_POST['team_password']) ? trim($_POST['team_password']) : '';
             $image;
 
             if (empty($intake_id)) {
@@ -64,7 +63,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error =  "Intake does not exist";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $intake_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $intake_id))) {
                         $status->error = 'You do not have permission to add student to this intake';
                     } else {
                         if (!Limitation::availableStudents()) {
@@ -172,19 +171,14 @@ if (SessionUser::hasValidSession()) {
                                 }
                             }
 
-                            $invalid_chars = '/[\'\";\-]/';
                             if (!empty($address)) {
                                 if (!strlen($address) > 100) {
                                     $status->address1 =  "Address should be less than 100 characters";
-                                } else if (preg_match($invalid_chars, $address)) {
-                                    $status->address1 =  "Address lines contain invalid characters.";
                                 }
                             }
                             if (!empty($address2)) {
                                 if (!strlen($address2) > 100) {
                                     $status->address2 =  "Address should be less than 100 characters";
-                                } else if (preg_match($invalid_chars, $address2)) {
-                                    $status->address2 =  "Address lines contain invalid characters.";
                                 }
                             }
                             if (!empty($address) || !$city == 0 || !empty($pcode)) {
@@ -302,10 +296,6 @@ if (SessionUser::hasValidSession()) {
                                 $status->team_username = "Team username too long";
                             }
 
-                            if (!empty($team_password) && strlen($team_password) > 100) {
-                                $status->team_password = "Team password too long";
-                            }
-
                             $studentDocuments = validateStudentDocuments();
 
                             foreach ($studentDocuments["errors"] as $key => $message) {
@@ -418,11 +408,6 @@ if (SessionUser::hasValidSession()) {
                                 if (!empty($team_username)) {
                                     $student_table_insert_columns .= ",`ms_team_username`";
                                     $student_table_insert_values .= ",'" . $team_username . "'";
-                                }
-
-                                if (!empty($team_password)) {
-                                    $student_table_insert_columns .= ",`ms_team_password`";
-                                    $student_table_insert_values .= ",'" . $team_password . "'";
                                 }
 
                                 Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");

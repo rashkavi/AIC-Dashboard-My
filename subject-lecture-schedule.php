@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject-id']) && !empty($_GET['subject-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
 
             $id = $_GET['subject-id'];
@@ -24,7 +24,7 @@ if (!SessionUser::hasValidSession()) {
             WHERE `subject_id` = '" . $id . "'");
 
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
@@ -36,8 +36,8 @@ if (!SessionUser::hasValidSession()) {
                     $validLecturer = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $id) || $validLecturer)) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $id) || $validLecturer)) {
+                    header("Location: ./subjects");
                 } else {
 ?>
                     <!DOCTYPE html>
@@ -94,7 +94,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <ol class="breadcrumb m-0">
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $subjectData['programme_id'] ?>"><?= $subjectData['programme'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Lecture Schedule</a></li>
                                                                     </ol>
@@ -102,7 +102,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 2, $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 2, $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
                                                                 <div class="row align-items-center">

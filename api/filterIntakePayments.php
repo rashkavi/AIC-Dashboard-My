@@ -29,7 +29,7 @@ if (SessionUser::hasValidSession()) {
                         $status->error = 'Invalid Intake ID';
                     } else {
                         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id))) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id))) {
                             $status->error = 'You do not have permission to view this page';
                         } else {
 
@@ -251,7 +251,7 @@ if (SessionUser::hasValidSession()) {
 
                                         <?php
 
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $intake_id)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $intake_id)) {
                                         ?>
                                             <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                         <?php
@@ -315,7 +315,7 @@ if (SessionUser::hasValidSession()) {
                                                 </td>
                                                 <?php
 
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $intake_id)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $intake_id)) {
                                                 ?>
                                                     <td class="py-3 align-middle">
                                                         <div class="dropdown">

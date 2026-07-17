@@ -38,7 +38,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 28))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 28))) {
                     header("Location: ./lecture-schedule");
                 } else {
 ?>

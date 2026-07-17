@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::hasPermission('payments', 22))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) ||  UserPermissions::hasPermission('payments', 22))) {
             header("Location: ./banks");
         } else {
 ?>
@@ -97,6 +97,23 @@ if (!SessionUser::hasValidSession()) {
                                                             <label class="text-14 main-text required" for="">Branch</label>
                                                             <input type="text" class="form-control custom-input mt-2" id="branch">
                                                             <span id="branch-feedback" class="text-dark-red text-12"></span>
+                                                        </div>
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
+                                                            <label class="text-14 main-text required" for="">Select Bank Account Connected Branch</label>
+                                                            <select name="" id="branch-selector" class="form-select custom-select mt-2">
+                                                                <option value="0" selected>- Select -</option>
+                                                                <?php
+                                                                $query = "SELECT * FROM `branches`";
+
+                                                                $branches = Database::search($query);
+                                                                while ($data = $branches->fetch_assoc()) {
+                                                                ?>
+                                                                    <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                <?php
+                                                                }
+                                                                ?>
+                                                            </select>
+                                                            <span id="branch-selector-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                         <div class="col-12 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Bank Logo</label>

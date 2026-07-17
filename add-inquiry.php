@@ -267,12 +267,12 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <div class="col-12 col-md-3 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Mobile</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="mobile" maxlength="10" onkeypress="checkDigit(event)">
+                                                            <input type="text" class="form-control custom-input mt-2" id="mobile">
                                                             <span id="mobile-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                         <div class="col-12 col-md-3 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Whatsapp</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="whatsapp" maxlength="10" onkeypress="checkDigit(event)">
+                                                            <input type="text" class="form-control custom-input mt-2" id="whatsapp">
                                                             <span id="whatsapp-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                         <div class="col-12 col-md-6 d-flex flex-column">
@@ -766,12 +766,42 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
 
+                                                        <!--Signed fee structure  -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Signed fee structure</span>
+                                                                    <span class="doc-required">Required</span>
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-signed-fee-structure"
+                                                                        data-doc-key="discount_approved_document"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+
                                                         <!-- Discount Approved Document -->
                                                         <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                             <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">Discount Approved Document</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">

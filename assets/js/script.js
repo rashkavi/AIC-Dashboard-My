@@ -5760,7 +5760,8 @@ const REQUIRED_STUDENT_DOCUMENTS = [
     "payment_slip",
     "manager_checklist",
     "passport_size_photo",
-    "discount_approved_document"
+    "discount_approved_document",
+    "signed_fee_structure"
 ];
 
 const studentDocumentFiles = {};
@@ -6805,4 +6806,195 @@ function switchPaymentGroup(type) {
         radioCustom.innerHTML = '<iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;"></iconify-icon>';
         radioIntake.innerHTML = '';
     }
+}
+
+const handlePaymentPlansPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+
+    }
+
+    filterPaymentPlans();
+}
+
+function switchLectureScheduleType(type) {
+    var intakeBtn = document.getElementById('btn-intake-group');
+    var customBtn = document.getElementById('btn-custom-group');
+    var intakeSec = document.getElementById('schedule-single-branch');
+    var customSec = document.getElementById('schedule-multiple-branch');
+    var singleBtn = document.getElementById('save-single-lecture');
+    var multipleBtn = document.getElementById('save-multiple-lectures');
+    var radioIntake = document.getElementById('radio-intake');
+    var radioCustom = document.getElementById('radio-custom');
+    var iconCustom = document.getElementById('icon-custom');
+
+    if (type === 'single') {
+        intakeBtn.classList.add('active');
+        customBtn.classList.remove('active');
+        intakeSec.classList.remove('d-none');
+        customSec.classList.add('d-none');
+        singleBtn.classList.remove('d-none');
+        multipleBtn.classList.add('d-none');
+        if (iconCustom) iconCustom.style.color = 'var(--sub-text)';
+        radioIntake.innerHTML = '<iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;"></iconify-icon>';
+        radioCustom.innerHTML = '';
+    } else {
+        customBtn.classList.add('active');
+        intakeBtn.classList.remove('active');
+        customSec.classList.remove('d-none');
+        intakeSec.classList.add('d-none');
+        singleBtn.classList.add('d-none');
+        multipleBtn.classList.remove('d-none');
+        if (iconCustom) iconCustom.style.color = '#fff';
+        radioCustom.innerHTML = '<iconify-icon icon="mdi:check" width="10" height="10" style="color:#fff;"></iconify-icon>';
+        radioIntake.innerHTML = '';
+    }
+}
+const removeLectureOpenModal = (id) => {
+    $("#confirmRemoveLecture").off("click");
+    $("#confirmRemoveLecture").on("click", function () {
+        removeLecture(id);
+    });
+
+    $("#removeLectureConfirmModal").modal("show");
+}
+
+const enableDateSelector = (select) => {
+    if ($(select).val() == 3) {
+        $('#from-date-container, #to-date-container').removeClass('d-none');
+        // optional focus
+        $('#from-date').focus();
+
+    } else {
+        $('#from-date-container, #to-date-container').addClass('d-none');
+
+        $('#from-date').val('');
+        $('#to-date').val('');
+    }
+};
+
+const handleStudentsPaymentsSumamryReportPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByAmount':
+            sortCondition2 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition1 = toggleSort(sortCondition1);
+            break;
+        case 'sortByDate':
+            sortCondition1 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition2 = toggleSort(sortCondition2);
+            break;
+        case 'sortById':
+            sortCondition1 = sortCondition2 = sortCondition4 = SORT_NONE;
+            sortCondition3 = toggleSort(sortCondition3);
+            break;
+        case 'sortByName':
+            sortCondition1 = sortCondition2 = sortCondition3 = SORT_NONE;
+            sortCondition4 = toggleSort(sortCondition4);
+            break;
+    }
+
+    filterStudentsPaymentsSummaryReport();
+}
+
+
+const handleStudentsOutstandingBalancesReportPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByAmount':
+            sortCondition2 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition1 = toggleSort(sortCondition1);
+            break;
+        case 'sortByDate':
+            sortCondition1 = sortCondition3 = sortCondition4 = SORT_NONE;
+            sortCondition2 = toggleSort(sortCondition2);
+            break;
+        case 'sortById':
+            sortCondition1 = sortCondition2 = sortCondition4 = SORT_NONE;
+            sortCondition3 = toggleSort(sortCondition3);
+            break;
+        case 'sortByName':
+            sortCondition1 = sortCondition2 = sortCondition3 = SORT_NONE;
+            sortCondition4 = toggleSort(sortCondition4);
+            break;
+    }
+
+    filterStudentsOutstandingBalancesReport();
+}
+
+
+const handleInquiryRegistrationPaymentsPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByName':
+            sortCondition2 = 0;
+            sortCondition1 = sortCondition1 === 1 ? 2 : 1;
+            break;
+        case 'sortByDate':
+            sortCondition1 = 0;
+            sortCondition2 = sortCondition2 == 1 ? 2 : 1;
+            break;
+    }
+
+    filterInquiryRegistrationPayments();
 }

@@ -16,6 +16,7 @@ if (!SessionUser::hasValidSession()) {
         } else {
 
             $id = $_GET['inquiry-id'];
+            $path = isset($_GET['path']) ? $_GET['path'] : 'payments';
 
             $studentHasIntake = Database::search("SELECT
                 `faculty`,
@@ -28,7 +29,9 @@ if (!SessionUser::hasValidSession()) {
                 `first_name`,
                 `last_name`,
                 `title`,
-                `students_has_intakes_id`
+                `students_has_intakes_id`,
+                `students_has_intakes`.`status_status_id`,
+                `login_details`.`status_status_id` AS 'status_status_id_login_details'
             FROM `students_has_intakes`
             INNER JOIN `students` 
                 ON `students_has_intakes`.`students_student_id` = `students`.`student_id`
@@ -55,6 +58,11 @@ if (!SessionUser::hasValidSession()) {
                 if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) || UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments'))) {
                     header("Location: ./faculties");
                 } else {
+                    $latestTaxRate = 2.5;
+                    $rate = Database::search("SELECT * FROM tax_rates ORDER BY tax_rate_id DESC LIMIT 1");
+                    if ($rate && $rate->num_rows > 0) {
+                        $latestTaxRate = (float)$rate->fetch_assoc()['tax_rate'];
+                    }
 ?>
                     <!DOCTYPE html>
                     <html lang="en">
@@ -82,7 +90,7 @@ if (!SessionUser::hasValidSession()) {
                                 <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                     <?php
                                     include "includes/side-menu.php";
-                                    load_side_menu::load("Payments");
+                                    $path == 'payments' ? load_side_menu::load("Payments") : load_side_menu::load("Inquiries");
                                     ?>
                                 </div>
                                 <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -90,7 +98,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0 m-0 g-0">
                                             <?php
                                             include "./includes/header.php";
-                                            selectItem::setSelected("Payments");
+                                            $path == 'payments' ? selectItem::setSelected("Payments") : selectItem::setSelected("Inquiries");
                                             ?>
                                         </div>
                                         <div class="container p-4 m-0" id="skeleton-list">
@@ -116,11 +124,8 @@ if (!SessionUser::hasValidSession()) {
                                                                 </nav>
                                                             </div>
                                                         </div>
-
                                                     </div>
                                                 </div>
-
-
 
                                                 <?php
 
@@ -201,6 +206,20 @@ if (!SessionUser::hasValidSession()) {
 
                                                     // Fallback: cannot convert, return as-is
                                                     return (float)$lkrAmount;
+                                                }
+
+                                                function calculateTaxInclusiveAmount($base, $taxRate)
+                                                {
+                                                    $base = (float)$base;
+                                                    $taxRate = (float)$taxRate;
+                                                    if ($taxRate <= 0 || $base <= 0) {
+                                                        return $base;
+                                                    }
+                                                    $basePortion = 1 - ($taxRate / 100);
+                                                    if ($basePortion <= 0) {
+                                                        return $base;
+                                                    }
+                                                    return round($base / $basePortion, 2);
                                                 }
 
                                                 ?>
@@ -401,9 +420,15 @@ if (!SessionUser::hasValidSession()) {
                                                                 // total penalties = LKR-source penalties (converted) + receipt-level penalties (converted)
                                                                 $total_given_penalties = $paneltyPaymentsConverted + $given_penalties;
 
+                                                                // ✅ FIX: "Payable Amount" should reflect what's actually owed
+                                                                // INCLUDING tax, not just amount - discount + penalty. Gross the
+                                                                // tax-exclusive payable up to a tax-inclusive figure using the
+                                                                // same formula as the payment receipt pages.
+                                                                $payableAmountWithTax = calculateTaxInclusiveAmount($data['payable_amount'], $latestTaxRate);
+
                                                                 // awaiting = payable - settled - discounts + penalties + tax
                                                                 // (tax increases what's owed, so unpaid tax increases the awaiting amount)
-                                                                $awaiting_payments = $data['payable_amount'] - $completed_payments - $given_discounts + $total_given_penalties + $taxAmounts;
+                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts + $total_given_penalties;
                                                         ?>
                                                                 <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
                                                                     <div class="row p-0 g-0 m-0">
@@ -430,7 +455,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="row g-4 d-flex">
                                                                                     <?php
                                                                                     $cards = [
-                                                                                        ['label' => 'Payable Amount',       'val' => $data['payable_amount'], 'code' => $data['code']],
+                                                                                        ['label' => 'Payable Amount',       'val' => $payableAmountWithTax, 'code' => $data['code']],
                                                                                         ['label' => 'Settled Amount',       'val' => $completed_payments, 'code' => $data['code']],
                                                                                         ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts, 'code' => $data['code']],
                                                                                         ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties, 'code' => 'LKR'],
@@ -682,16 +707,19 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
                                                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
                                                                                                                     <?php
-                                                                                                                    if (
-                                                                                                                        SessionUser::ifUserIsPro($sessionUserRole)
-                                                                                                                        || UserPermissions::validPermisisonType('payments', 0)
-                                                                                                                        || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
-                                                                                                                    ):
-                                                                                                                        if ($balance > 0): ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-inquiry-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                    <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
-                                                                                                                        <?php endif; ?>
+                                                                                                                    if (($studentHasIntakeData['status_status_id_login_details'] == 1 || $studentHasIntakeData['status_status_id_login_details'] == null) && ($studentHasIntakeData['status_status_id'] == 1 || $studentHasIntakeData['status_status_id'] == null)) :
+                                                                                                                        if (
+                                                                                                                            SessionUser::ifUserIsPro($sessionUserRole)
+                                                                                                                            || SessionUser::ifUserIsCounsiler($sessionUserRole)
+                                                                                                                            || UserPermissions::validPermisisonType('payments', 0)
+                                                                                                                            || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
+                                                                                                                        ):
+                                                                                                                            if ($balance > 0): ?>
+                                                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-inquiry-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                        <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
+                                                                                                                            <?php endif; ?>
 
+                                                                                                                        <?php endif; ?>
                                                                                                                     <?php endif; ?>
                                                                                                                 </ul>
                                                                                                             </div>

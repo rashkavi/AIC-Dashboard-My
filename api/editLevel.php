@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $levelData = $validLevel->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $levelData['intakes_intake_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $levelData['intakes_intake_id']))) {
                         $status->error = 'You do not have permission to add level to this intake';
                     } else {
                         $level_name = isset($_POST['level_name']) ? trim($_POST['level_name']) : '';

@@ -28,7 +28,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $assignmentData = $assignment->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('assignments', 10, $id))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments', 10, $id))) {
                     header("Location: ./subject-assignments?subject-id=" . $assignmentData['subjects_subject_id']);
                 } else {
 
@@ -92,7 +92,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <ol class="breadcrumb m-0">
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $assignmentData['faculty_id'] ?>"><?= $assignmentData['faculty'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $assignmentData['level_id'] ?>"><?= $assignmentData['level'] ?></a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $assignmentData['level_id'] ?>"><?= $assignmentData['level'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $assignmentData['subject_id'] ?>"><?= $assignmentData['subject'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-assignments?subject-id=<?= $assignmentData['subject_id'] ?>">Assignments</a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Update Assignments</a></li>

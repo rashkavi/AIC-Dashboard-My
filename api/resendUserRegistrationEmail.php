@@ -1,6 +1,9 @@
 <?php
-
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 $status = new stdClass();
+require_once '../includes/connection.php';
+
 require_once '../includes/UserClass.php';
 require_once '../includes/Project.php';
 require_once("../includes/phpmailer/mail-process.php");
@@ -17,9 +20,7 @@ if (SessionUser::hasValidSession()) {
                 $decoded = json_decode($content, true);
                 if (json_last_error() == JSON_ERROR_NONE) {
 
-                    require_once "../includes/connection.php";
-                    require_once "../includes/UserPermissionsClass.php";
-
+                 
                     $user = $decoded['user'];
 
                     if (empty($user) || $user == 0 || !is_numeric($user)) {

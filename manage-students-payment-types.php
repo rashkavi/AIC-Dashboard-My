@@ -431,7 +431,7 @@ if (!SessionUser::hasValidSession()) {
             </div>
 
             <?php
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
             ?>
                 <div class="modal fade br-0" id="addPaymentType" aria-hidden="true" aria-labelledby="addPaymentTypeLabel" tabindex="-1">
                     <div class="modal-dialog modal modal-dialog-centered br-0">
@@ -464,7 +464,7 @@ if (!SessionUser::hasValidSession()) {
             <?php
             }
 
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
             ?>
                 <div class="modal fade br-0" id="editPaymentType" aria-hidden="true" aria-labelledby="editPaymentTypeLabel" tabindex="-1">
                     <div class="modal-dialog modal modal-dialog-centered br-0">

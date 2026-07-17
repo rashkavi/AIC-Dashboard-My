@@ -15,7 +15,7 @@ if (SessionUser::hasValidSession()) {
                 if (json_last_error() == JSON_ERROR_NONE) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2))) {
                         $status->error = 'You are not authorized to add payment category';
                     } else {
                         $id = isset($decoded['id']) ? $decoded['id'] : 0;

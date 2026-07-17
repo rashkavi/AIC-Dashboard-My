@@ -141,7 +141,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <ol class="breadcrumb m-0">
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="faculties" href="./faculties">Faculties</a></li>
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer">...</a></li>
-                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $level_id ?>"><?= $userData["level"] ?></a></li>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $level_id ?>"><?= $userData["level"] ?></a></li>
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none" data-i18n="level-permissions" href="./level-permissions?level-id=<?= $level_id ?>">level Permissions</a></li>
                                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $userData["title"] . "." . $userData["user_fname"] . " " . $userData["user_lname"] ?></a></li>
                                                                         </ol>

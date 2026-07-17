@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject-id']) && !empty($_GET['subject-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
             $id = $_GET['subject-id'];
 
@@ -24,13 +24,13 @@ if (!SessionUser::hasValidSession()) {
             WHERE `subject_id` = '" . $id . "'");
 
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                 if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('pre_Recorded_lectures', 2, $id))) {
-                    header("Location: ./level-details");
+                    header("Location: ./subjects");
                 } else {
 ?>
                     <!DOCTYPE html>
@@ -86,7 +86,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $subjectData['faculty_id'] ?>"><?= $subjectData['faculty'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $subjectData['programme_id'] ?>"><?= $subjectData['programme'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-pre-recorded-lectures?subject-id=<?= $subjectData['subject_id'] ?>">Pre Recorded Lectures</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Add Pre Recorded Lecture</a></li>

@@ -79,11 +79,11 @@ if (!SessionUser::hasValidSession()) {
 
                 $ifHasPermissions = false;
 
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
                     $ifHasPermissions = true;
                 }
 
-                if ($inquiry_id != 0 && (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15))) {
+                if ($inquiry_id != 0 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15))) {
                     $ifHasPermissions = true;
                 }
 
@@ -199,6 +199,7 @@ if (!SessionUser::hasValidSession()) {
                             INNER JOIN payment_status AS ps2 ON cpp.payment_status_payment_status_id = ps2.payment_status_id
                             LEFT JOIN currencies AS cur      ON cpp.currencies_currency_id = cur.currency_id
                             WHERE cpp.course_payments_course_payments_id = '" . (int)$paymentData['course_payments_id'] . "'
+                            AND ps2.payment_status_id = 3
                             GROUP BY cpp.course_payment_has_payment_id
                         ");
 
@@ -461,6 +462,7 @@ if (!SessionUser::hasValidSession()) {
                             .overpay-panel {
                                 background: var(--color-background-secondary, #f0f4f8);
                                 border: 1px solid var(--border-color);
+                                border-left: 4px solid var(--dark-theme);
                                 border-radius: 10px;
                                 overflow: hidden;
                             }
@@ -477,6 +479,19 @@ if (!SessionUser::hasValidSession()) {
                                 color: var(--sub-text-color);
                                 border-bottom: 1px solid var(--border-color);
                                 background: var(--color-background-secondary, #f0f4f8);
+                            }
+
+                            .overpay-panel-title iconify-icon {
+                                color: var(--dark-theme);
+                            }
+
+                            .overpay-explain {
+                                padding: 10px 16px;
+                                font-size: 12px;
+                                line-height: 1.5;
+                                color: var(--sub-text-color);
+                                background: var(--color-background-secondary, #f0f4f8);
+                                border-bottom: 1px solid var(--border-color);
                             }
 
                             .overpay-grid {
@@ -507,7 +522,7 @@ if (!SessionUser::hasValidSession()) {
                             .overpay-value {
                                 font-size: 18px;
                                 font-weight: 700;
-                                color: var(--main-text-color, #1f2937);
+                                color: var(--dark-theme);
                                 margin-top: 2px;
                             }
 
@@ -521,7 +536,7 @@ if (!SessionUser::hasValidSession()) {
                             .overpay-total {
                                 font-size: 12px;
                                 font-weight: 600;
-                                color: var(--main-text-color, #1f2937);
+                                color: var(--dark-theme);
                                 margin-top: 6px;
                                 padding-top: 6px;
                                 border-top: 1px dashed var(--border-color);
@@ -848,12 +863,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <span class="lkr-panel-rate-note">@ <span id="panel-rate-display"><?= number_format($exchangeRateValue, 2) ?></span> per <?= htmlspecialchars($paymentData['currency_code']) ?></span>
                                                                                         </div>
                                                                                         <div class="lkr-panel-grid">
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Amount</span><span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Penalty</span><span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Tax</span><span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmtLKR / $exchangeRateValue, 2) ?></span></div>
-                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value">LKR <?= number_format($paidAmountLKR, 2) ?></span><span class="lkr-item-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Amount</span><span class="lkr-item-value" id="lkr-amount-val">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span><span class="lkr-item-sub" id="lkr-amount-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paymentData['amount'], 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Discount</span><span class="lkr-item-value" id="lkr-discount-val">LKR <?= number_format($discountAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-discount-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalDiscount, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Penalty</span><span class="lkr-item-value" id="lkr-penalty-val">LKR <?= number_format($penaltyAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-penalty-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalPenalty, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Tax</span><span class="lkr-item-value" id="lkr-tax-val">LKR <?= number_format($taxAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-tax-sub"><?= $paymentData['currency_code'] ?> <?= number_format($totalTax, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Payable</span><span class="lkr-item-value" id="lkr-payable-val">LKR <?= number_format($payableAmtLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-payable-sub"><?= $paymentData['currency_code'] ?> <?= number_format($payableAmtLKR / $exchangeRateValue, 2) ?></span></div>
+                                                                                            <div class="lkr-panel-item"><span class="lkr-item-label">Total Paid</span><span class="lkr-item-value" id="lkr-paid-val">LKR <?= number_format($paidAmountLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-paid-sub"><?= $paymentData['currency_code'] ?> <?= number_format($paidAmount, 2) ?></span></div>
                                                                                             <div class="lkr-panel-item balance-item"><span class="lkr-item-label">Balance Due</span><span class="lkr-item-value" id="lkr-balance-display">LKR <?= number_format($balanceLKR, 2) ?></span><span class="lkr-item-sub" id="lkr-balance-sub"><?= $paymentData['currency_code'] ?> <?= number_format($balance, 2) ?></span></div>
                                                                                         </div>
                                                                                     </div>
@@ -943,6 +958,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <div class="overpay-panel-title">
                                                                                         <iconify-icon icon="mdi:arrow-right-circle-outline" width="16" height="16"></iconify-icon>
                                                                                         Overpayment — Will Be Applied to Next Installment
+                                                                                    </div>
+                                                                                    <div class="overpay-explain">
+                                                                                        The paid amount covers this installment in full. The extra amount shown below is automatically carried forward as credit and will reduce the student's next installment balance.
                                                                                     </div>
                                                                                     <div class="overpay-grid">
                                                                                         <div class="overpay-item">
@@ -1054,6 +1072,7 @@ if (!SessionUser::hasValidSession()) {
                                     const COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
                                     const EXISTING_TOTAL_DISCOUNT = <?= (float)$totalDiscount ?>;
                                     const EXISTING_TOTAL_PENALTY = <?= (float)$totalPenalty ?>;
+                                    const EXISTING_TOTAL_TAX = <?= (float)$totalTax ?>;
                                     const EXISTING_PAID_TOTAL = <?= (float)$convertedPaidTotal ?>;
                                     const baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
                                     const lkrCurrencyId = <?= (int)$lkrCurrencyId ?>;
@@ -1088,6 +1107,23 @@ if (!SessionUser::hasValidSession()) {
                                     }
 
                                     /**
+                                     * ✅ FIX: matches PHP's round($n, 2) behaviour.
+                                     * The backend rounds to 2 decimals INSIDE extractTaxFromInclusive(),
+                                     * calculateTaxInclusiveAmount() and calculateTaxFromBase() before any
+                                     * further math is done with the result. Previously the JS versions of
+                                     * these functions did not round at all until the very end (fmt() for
+                                     * display only), so intermediate values stayed at full float precision
+                                     * on screen while the backend was rounding at each step. After a
+                                     * currency conversion (×391.52 etc.) that tiny difference becomes
+                                     * several rupees, which is why the on-screen "Current Installment
+                                     * Payable" (and everything derived from it, like the overpayment
+                                     * amount) didn't match what actually got saved.
+                                     */
+                                    function round2(n) {
+                                        return Math.round((n + Number.EPSILON) * 100) / 100;
+                                    }
+
+                                    /**
                                      * NEW TAX MODEL: Extract base and tax from tax-inclusive amount
                                      * base = final * (1 - taxRate/100)
                                      * tax = final * (taxRate/100)
@@ -1110,8 +1146,9 @@ if (!SessionUser::hasValidSession()) {
                                             };
                                         }
 
-                                        const base = taxInclusiveAmount * basePortion;
-                                        const tax = taxInclusiveAmount * taxRateDecimal;
+                                        // Rounded to 2dp here — mirrors PHP's extractTaxFromInclusive()
+                                        const base = round2(taxInclusiveAmount * basePortion);
+                                        const tax = round2(taxInclusiveAmount * taxRateDecimal);
 
                                         return {
                                             base: base,
@@ -1136,7 +1173,8 @@ if (!SessionUser::hasValidSession()) {
                                             return baseAmount;
                                         }
 
-                                        return baseAmount / divisor;
+                                        // Rounded to 2dp here — mirrors PHP's calculateTaxInclusiveAmount()
+                                        return round2(baseAmount / divisor);
                                     }
 
                                     /**
@@ -1153,7 +1191,8 @@ if (!SessionUser::hasValidSession()) {
                                             return 0;
                                         }
 
-                                        return baseAmount * (taxRate / (100 - taxRate));
+                                        // Rounded to 2dp here — mirrors PHP's calculateTaxFromBase()
+                                        return round2(baseAmount * (taxRate / (100 - taxRate)));
                                     }
 
                                     function setHint(id, label, value, isApprox = true) {
@@ -1175,6 +1214,40 @@ if (!SessionUser::hasValidSession()) {
                                         rateStatusEl.textContent = msg;
                                     }
 
+                                    // ── LKR equivalent summary panel (recomputed on rate change) ────────────────
+
+                                    function updateLkrSummaryPanel() {
+                                        if (isBaseCurrencyLKR || !exchangeRate) return;
+
+                                        const basePayable = Math.max(0, COURSE_AMOUNT - EXISTING_TOTAL_DISCOUNT + EXISTING_TOTAL_PENALTY);
+                                        const taxRateDecimal = LATEST_TAX_RATE / 100;
+                                        const basePortion = 1 - taxRateDecimal;
+                                        const paidBaseTotal = EXISTING_PAID_TOTAL * basePortion;
+                                        const remainingBase = Math.max(0, basePayable - paidBaseTotal);
+                                        const remainingTax = basePortion > 0 ? remainingBase * (LATEST_TAX_RATE / (100 - LATEST_TAX_RATE)) : 0;
+                                        const balance = remainingBase + remainingTax;
+                                        const payableAmt = basePayable + (basePayable * (LATEST_TAX_RATE / (100 - LATEST_TAX_RATE)));
+
+                                        const setVal = (idPrefix, baseCurrencyValue) => {
+                                            const valEl = document.getElementById(idPrefix + '-val');
+                                            if (valEl) valEl.textContent = 'LKR ' + fmt(baseCurrencyValue * exchangeRate);
+                                            const subEl = document.getElementById(idPrefix + '-sub');
+                                            if (subEl) subEl.textContent = currencyCode + ' ' + fmt(baseCurrencyValue);
+                                        };
+
+                                        setVal('lkr-amount', COURSE_AMOUNT);
+                                        setVal('lkr-discount', EXISTING_TOTAL_DISCOUNT);
+                                        setVal('lkr-penalty', EXISTING_TOTAL_PENALTY);
+                                        setVal('lkr-tax', EXISTING_TOTAL_TAX);
+                                        setVal('lkr-payable', payableAmt);
+                                        setVal('lkr-paid', EXISTING_PAID_TOTAL);
+
+                                        const balLkrEl = document.getElementById('lkr-balance-display');
+                                        if (balLkrEl) balLkrEl.textContent = 'LKR ' + fmt(balance * exchangeRate);
+                                        const balSubEl = document.getElementById('lkr-balance-sub');
+                                        if (balSubEl) balSubEl.textContent = currencyCode + ' ' + fmt(balance);
+                                    }
+
                                     // ── Overpayment panel ────────────────────────────────────────────────────
 
                                     function showOverpaymentMessage(currentPayable, paidAmount, overpayTotal, overpayBase, overpayTax) {
@@ -1189,7 +1262,7 @@ if (!SessionUser::hasValidSession()) {
                                             fmt(overpayTotal) + ' ' + displayLabel;
 
                                         document.getElementById('overpay-next-breakdown').textContent =
-                                            fmt(overpayBase) + ' ' + displayLabel;
+                                            fmt(overpayTotal) + ' ' + displayLabel;
 
                                         document.getElementById('overpay-next-sub').textContent =
                                             displayLabel + ' ' + fmt(overpayBase) + ' course fee' +
@@ -1322,9 +1395,13 @@ if (!SessionUser::hasValidSession()) {
 
                                         // Check for overpayment
                                         if (rawPaid > 0 && rawPaid > balBeforeDisplayWithTax + OVERPAY_EPSILON) {
+                                            // FIX: overpayDisplay is already tax-inclusive in the display currency.
+                                            // Splitting it into base/tax must use extractBaseAndTax directly on that
+                                            // tax-inclusive figure (currency conversion doesn't change the tax split
+                                            // proportions), NOT convert-then-gross-up-again — that double counted tax
+                                            // and inflated the overpayment total (previous bug).
                                             const overpayDisplay = rawPaid - balBeforeDisplayWithTax;
-                                            const overpayBase_v = toBase(overpayDisplay);
-                                            const overpayTax_v = calculateTaxAmount(overpayBase_v, LATEST_TAX_RATE);
+                                            const overpayCalc = extractBaseAndTax(overpayDisplay, LATEST_TAX_RATE);
 
                                             balanceInput.value = '0.00';
                                             if (balBreakdownEl) balBreakdownEl.textContent = 'Fully paid — overpayment credited to next installment';
@@ -1332,9 +1409,9 @@ if (!SessionUser::hasValidSession()) {
                                             showOverpaymentMessage(
                                                 balBeforeDisplayWithTax,
                                                 rawPaid,
-                                                toDisplay(overpayBase_v + overpayTax_v),
-                                                toDisplay(overpayBase_v),
-                                                toDisplay(overpayTax_v)
+                                                overpayDisplay,
+                                                overpayCalc.base,
+                                                overpayCalc.tax
                                             );
                                             setHint('balance-base-hint', currencyCode, 0, false);
                                             setHint('balance-lkr-hint', 'LKR', 0, false);
@@ -1455,10 +1532,12 @@ if (!SessionUser::hasValidSession()) {
                                                 } else {
                                                     setRateStatus('warning', `No rate found. Using last known (${exchangeRate?.toFixed(2)}).`);
                                                 }
+                                                updateLkrSummaryPanel();
                                                 recalculate();
                                             })
                                             .catch(() => {
                                                 setRateStatus('error', 'Could not fetch rate.');
+                                                updateLkrSummaryPanel();
                                                 recalculate();
                                             });
                                     }
@@ -1475,6 +1554,7 @@ if (!SessionUser::hasValidSession()) {
                                             const rb = document.getElementById('live-rate-text');
                                             if (rb) rb.textContent = `1 ${currencyCode} = LKR ${val.toFixed(2)} (custom)`;
                                             setRateStatus('info', `Custom rate: 1 ${currencyCode} = LKR ${val.toFixed(2)}`);
+                                            updateLkrSummaryPanel();
                                             recalculate();
                                         }
                                     }
@@ -1517,7 +1597,7 @@ if (!SessionUser::hasValidSession()) {
 
                                     // Initial calculation
                                     recalculate();
-                                    console.log('✓ Payment Tax Calculation v8 CORRECTED | Tax:', LATEST_TAX_RATE + '% | Model: Tax as % of final amount');
+                                    console.log('✓ Payment Tax Calculation v9 CORRECTED | Tax:', LATEST_TAX_RATE + '% | Model: Tax as % of final amount | Overpayment double-tax bug fixed | LKR summary panel now reacts to rate changes');
                                 </script>
                         </body>
 

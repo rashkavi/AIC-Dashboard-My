@@ -34,7 +34,7 @@ if (SessionUser::hasValidSession()) {
                             $validLecturer = true;
                         }
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $subject) || $validLecturer)) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $subject) || $validLecturer)) {
                             $status->error = 'You are not authorized to filter lectures.';
                         } else {
 
@@ -166,12 +166,12 @@ if (SessionUser::hasValidSession()) {
                                             </div>
                                         </th>
                                         <?php
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $subject) || $validLecturer) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $subject) || $validLecturer) {
                                         ?>
                                             <th scope="col" class="pe-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center">Action</th>
                                         <?php
                                         }
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $subject)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $subject)) {
                                         ?>
                                             <th scope="col" class="pe-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                         <?php
@@ -286,7 +286,7 @@ if (SessionUser::hasValidSession()) {
                                                     <button class="table-btn <?= $sbutton_class; ?> w-100"> <?= $data["status"]; ?></button>
                                                 </td>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $subject)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $subject)) {
                                                 ?>
                                                     <td class="py-2 align-middle">
                                                         <button class="table-btn table-btn-dark-theme text-white w-100" onclick="window.location.href='lecturer-subject-activity.php?lecturer-id=<?= $data['lecturers_id']; ?>' ">View</button>
@@ -305,7 +305,7 @@ if (SessionUser::hasValidSession()) {
                                                     <?php
                                                     }
                                                 }
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
                                                     ?>
                                                     <td class="py-3 align-middle">
                                                         <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>

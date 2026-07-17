@@ -27,7 +27,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $intakeData = $intake->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeData['intake_id']))) {
                     header("Location: ./intakes");
                 } else {
 ?>
@@ -120,7 +120,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-2 mt-3 mt-lg-0">
                                                                 <div class="row h-100 justify-content-end align-items-center">

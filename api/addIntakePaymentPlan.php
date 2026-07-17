@@ -39,7 +39,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $intake = $intake->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeId))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeId))) {
                                 $status->error = 'You are not authorized to add payments';
                             } else {
 

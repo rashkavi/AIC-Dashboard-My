@@ -12,10 +12,11 @@ if (SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 2))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 2))) {
                 $status->error = "You do not have permission to schedule a lecture";
             } else {
 
+                $branch = isset($_POST['branch']) ? trim($_POST['branch']) : 0;
                 $faculty = isset($_POST['faculty']) ? trim($_POST['faculty']) : 0;
                 $programme_id = isset($_POST['programme_id']) ? trim($_POST['programme_id']) : 0;
                 $intake_id = isset($_POST['intake_id']) ? trim($_POST['intake_id']) : 0;
@@ -37,6 +38,9 @@ if (SessionUser::hasValidSession()) {
                 $skip_poya_days = isset($_POST['skip_poya_days']) && $_POST['skip_poya_days'] === 'true' ? true : false;
                 $skip_holidays = isset($_POST['skip_holidays']) && $_POST['skip_holidays'] === 'true' ? true : false;
 
+                if ($branch == 0) {
+                    $status->branch = 'Please select a branch';
+                }
                 if ($faculty == 0) {
                     $status->faculty = 'Please select a faculty';
                 }
@@ -114,7 +118,7 @@ if (SessionUser::hasValidSession()) {
 
                         if (!in_array($tute_ex, $allowed_tute_extensions)) {
                             $status->tute[] = "File '$tute_name' is not a valid type. Only PDF, DOC, and DOCX files are allowed.";
-                        }else if (strlen($tute_name) > 45) {
+                        } else if (strlen($tute_name) > 45) {
                             $status->tute[] = "File '$tute_name' exceeds the maximum allowed character limit of 45.";
                         } else {
                             $new_tute_extension = '';

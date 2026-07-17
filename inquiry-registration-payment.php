@@ -188,7 +188,6 @@ if (!SessionUser::hasValidSession()) {
                                                         <?php
                                                         }
                                                         ?>
-
                                                     </div>
                                                 </div>
                                             </div>
@@ -288,7 +287,7 @@ if (!SessionUser::hasValidSession()) {
                                                 ?>
                                                     <div class="col-12">
                                                         <div class="row p-4 m-0 g-0 align-content-center bl-solid mt-4">
-                                                            <span class="main-topic lh-lg">Payment Slips</span>
+                                                            <span class="sub-topic lh-lg">Payment Slips</span>
                                                             <div class="accordion accordion-flush" id="accordionParent">
                                                                 <?php
                                                                 while ($paymentSlip = $paymnetSlips->fetch_assoc()) {
@@ -448,6 +447,99 @@ if (!SessionUser::hasValidSession()) {
                                                 }
 
                                                 ?>
+
+                                                <div class="col-12 p-0 g-0 mt-5">
+                                                    <div class="row p-4 m-0 bl-solid">
+                                                        <span class="sub-topic p-0">Other Documents</span>
+
+                                                        <?php
+
+                                                        $studentIdentityDocuments = Database::search("SELECT * FROM `students_identity_documents` 
+                                                        WHERE `students_student_id` = '" . $lead['sId'] . "' AND `students_identity_documents_type_id` IN (11,12)");
+                                                        if ($studentIdentityDocuments->num_rows > 0) {
+                                                        ?>
+                                                            <div class="col-12 mt-2">
+                                                                <div class="row gx-3 p-0">
+                                                                    <?php
+                                                                    $isHasAnyDocument = false;
+
+                                                                    while ($document = $studentIdentityDocuments->fetch_assoc()) {
+                                                                        if (!empty($document['document'])) {
+                                                                            $folder = $document['students_identity_documents_type_id'] == 11 ? "discount-approved-documents" : "signed-fee-structure";
+                                                                            $documentPath = Project::getBaseUrl() . "/assets/uploads/student-identity-documents/" . $folder . "/" . $document['document'];
+                                                                            $headers = @get_headers($documentPath);
+
+                                                                            $hasDocument = false;
+
+                                                                            if ($headers && strpos($headers[0], '200') !== false) {
+                                                                                $hasDocument = true;
+                                                                            }
+                                                                            if ($hasDocument) {
+                                                                                $isHasAnyDocument = true;
+                                                                    ?>
+                                                                                <div class="col-12 col-md-6 my-3 p-0 file-item cursor-pointer">
+                                                                                    <div class="p-3 bl-solid">
+                                                                                        <div class="row">
+                                                                                            <div class="col-2">
+                                                                                                <img src="assets/imgs/icons/image.png" alt="">
+                                                                                            </div>
+
+                                                                                            <div class="col-8">
+                                                                                                <div class="file-name d-flex flex-column">
+
+                                                                                                    <div class="name">
+                                                                                                        <?= $document['document'] ?>
+                                                                                                    </div>
+
+                                                                                                    <a
+                                                                                                        href="<?= $documentPath ?>"
+                                                                                                        target="_blank"
+                                                                                                        onclick="event.stopPropagation();">
+                                                                                                        View
+                                                                                                    </a>
+
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                </div>
+                                                                        <?php
+                                                                            }
+                                                                        }
+                                                                    }
+
+                                                                    if (!$isHasAnyDocument) {
+                                                                        ?>
+                                                                        <div class="col-12 col-md-4 my-3 file-item cursor-pointer">
+                                                                            <div class="p-3 bl-solid">
+                                                                                <span>No document uploaded</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    <?php
+                                                                    }
+                                                                    ?>
+                                                                </div>
+                                                            </div>
+
+                                                        <?php
+                                                        } else {
+                                                        ?>
+                                                            <div class="col-12 col-md-4 my-3 file-item cursor-pointer">
+                                                                <div class="p-3 bl-solid">
+                                                                    <span>No document uploaded</span>
+                                                                </div>
+                                                            </div>
+                                                        <?php
+                                                        }
+                                                        ?>
+
+                                                    </div>
+                                                </div>
+
+
+
                                                 <div class="col-12 mt-4">
                                                     <div class="row p-0 m-0 g-0">
                                                         <div class="col-12 mb-4">

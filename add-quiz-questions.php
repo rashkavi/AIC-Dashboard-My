@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['quiz-id']) && !empty($_GET['quiz-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
             $id = $_GET['quiz-id'];
 
@@ -41,12 +41,12 @@ if (!SessionUser::hasValidSession()) {
         ");
 
             if ($quiz->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $quizData = $quiz->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $quizData['subjects_subject_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $quizData['subjects_subject_id']))) {
                     header("Location: ./subject-quizes?subject-id=" . $quizData['subjects_subject_id']);
                 } else {
 ?>

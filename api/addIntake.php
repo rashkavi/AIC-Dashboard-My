@@ -23,7 +23,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid programme Id";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $programme_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2,  $programme_id))) {
                         $status->error = "You don't have permission to add intakes to this programme";
                     } else {
                         if (empty($intake_name)) {

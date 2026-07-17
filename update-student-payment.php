@@ -78,7 +78,7 @@ if (!SessionUser::hasValidSession()) {
                 $paymentPlanData = $paymentPlan->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentPlanData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentPlanData['intake_id']))) {
                     header("Location: ./faculties");
                 } else {
 ?>

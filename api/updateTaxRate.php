@@ -30,7 +30,7 @@ if (SessionUser::hasValidSession()) {
 
                     // ── Permission check ──
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1))) {
                         $status->error = "You don't have permission to update tax rates.";
                     } else {
 

@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $intakeData = $isValidIntake->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 10,  $intakeData['programmes_programme_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10,  $intakeData['programmes_programme_id']))) {
                         $status->error = "You don't have permission to update intakes to this programme";
                     } else {
                         $intake_name = isset($_POST['intake_name']) ? trim($_POST['intake_name']) : '';

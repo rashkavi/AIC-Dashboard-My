@@ -30,7 +30,7 @@ if (SessionUser::hasValidSession()) {
                             $validLecturer = true;
                         }
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $subject) || $validLecturer)) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments', $subject) || $validLecturer)) {
                             $status->error = 'You are not authorized to filter lectures.';
                         } else {
 
@@ -135,7 +135,7 @@ if (SessionUser::hasValidSession()) {
                                         <?php
                                         }
 
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject) || UserPermissions::hasPermission('assignments', 11, $subject)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject) || UserPermissions::hasPermission('assignments', 11, $subject)) {
                                         ?>
                                             <th scope="col-3" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
                                         <?php
@@ -249,7 +249,7 @@ if (SessionUser::hasValidSession()) {
 
                                                 }
 
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject) || UserPermissions::hasPermission('assignments', 11, $subject)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject) || UserPermissions::hasPermission('assignments', 11, $subject)) {
                                                 ?>
 
                                                     <td class="py-3 align-middle">
@@ -257,7 +257,7 @@ if (SessionUser::hasValidSession()) {
                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                             <ul class="dropdown-menu scrolable border-0 shadow w-100 m-2 br-5" aria-labelledby="dropdownMenuButton">
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 10, $subject)) {
                                                                 ?>
                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
                                                                             <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -270,7 +270,7 @@ if (SessionUser::hasValidSession()) {
                                                                 }
                                                                 ?>
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 11, $subject)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 11, $subject)) {
 
                                                                     $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
                                                                     if ($studentsSubmit == 0) {

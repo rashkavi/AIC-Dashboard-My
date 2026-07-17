@@ -53,7 +53,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $lead = $lead->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2))) {
                                 $status->error = 'You are not authorized to add payments';
                             } else {
 

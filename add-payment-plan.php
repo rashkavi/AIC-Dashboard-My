@@ -48,7 +48,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $studentHasIntakeData = $studentHasIntake->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id']))) {
                     header("Location: ./intake-details?intake-id=" . $studentHasIntakeData['intake_id']);
                 } else {
 ?>

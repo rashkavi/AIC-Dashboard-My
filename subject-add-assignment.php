@@ -28,7 +28,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 2, $id))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 2, $id))) {
                     header("Location: ./subject-assignments?subject-id=" . $id);
                 } else {
 
@@ -82,7 +82,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <ol class="breadcrumb m-0">
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $subjectData['faculty_id'] ?>"><?= $subjectData['faculty'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-assignments?subject-id=<?= $subjectData['subject_id'] ?>">Assignments</a></li>
                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Add Assignments</a></li>

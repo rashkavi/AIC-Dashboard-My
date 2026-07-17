@@ -51,6 +51,8 @@ if (!SessionUser::hasValidSession()) {
                             ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`    
                         WHERE 
                             `pshi`.`payment_plan_has_students_has_intakes_id` = '" . $id . "'    
+                        AND (`shi`.`status_status_id` = 1 OR `shi`.`status_status_id` IS NULL)
+                        AND (`login_details`.`status_status_id` = 1 OR `login_details`.`status_status_id` IS NULL)
                         GROUP BY 
                             `pshi`.`payment_plan_has_students_has_intakes_id`
                         ORDER BY 
@@ -63,7 +65,7 @@ if (!SessionUser::hasValidSession()) {
                 $studentPaymentPlanData = $studentPaymentPlan->fetch_assoc();
                 require_once "./includes/UserPermissionsClass.php";
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentPaymentPlanData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentPaymentPlanData['intake_id']))) {
                     header("Location: ./intake-details?intake-id=" . $studentPaymentPlanData['intake_id']);
                 } else {
 ?>
@@ -186,12 +188,12 @@ if (!SessionUser::hasValidSession()) {
                                                                     </select>
                                                                     <span id="discount-type-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
-                                                                <div class="col-12 col-md-4 d-flex flex-column <?=$studentPaymentPlanData['discount_type_discount_type_id'] == 1 ? "d-none" : ""  ?>" id="discount-container">
+                                                                <div class="col-12 col-md-4 d-flex flex-column <?= $studentPaymentPlanData['discount_type_discount_type_id'] == 1 ? "d-none" : ""  ?>" id="discount-container">
                                                                     <label class="text-14 main-text required" for="">Discount</label>
                                                                     <input type="number" class="form-control custom-input mt-2" id="discount" min="0" value="<?= $studentPaymentPlanData['discount'] ?>">
                                                                     <span id="discount-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
-                                                                <div class="col-12 d-flex flex-column <?=$studentPaymentPlanData['discount_type_discount_type_id'] == 1 ? "d-none" : ""  ?>" id="discount-note-container">
+                                                                <div class="col-12 d-flex flex-column <?= $studentPaymentPlanData['discount_type_discount_type_id'] == 1 ? "d-none" : ""  ?>" id="discount-note-container">
                                                                     <label class="text-14 main-text" for="">Discount Note</label>
                                                                     <textarea id="discount-note" class="form-control custom-input mt-2" rows="5"><?= $studentPaymentPlanData['discount_note'] ?></textarea>
                                                                     <span id="discount-note-feedback" class="text-dark-red text-12"></span>

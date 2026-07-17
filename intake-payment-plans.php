@@ -109,7 +109,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                     </div>
                                                     <?php
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                     ?>
                                                         <div class="col-12 col-md-2 mt-3 mt-lg-0">
                                                             <div class="row h-100 justify-content-end align-items-center">
@@ -168,7 +168,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             </div>
 
                                                                             <?php
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $id)) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $id)) {
                                                                                 $isValidPlan = Database::search("SELECT * FROM `payment_plan_has_students_has_intakes` WHERE `intake_has_payment_plan_id` = '" . $data['intake_has_payment_plan_id'] . "'");
                                                                                 if ($isValidPlan->num_rows == 0) {
                                                                             ?>

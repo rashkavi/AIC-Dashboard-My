@@ -21,7 +21,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $programmeData = $isValidProgramme->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_id']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $programmeData['faculties_faculty_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 10, $programmeData['faculties_faculty_id']))) {
                         $status->error = "You don't have permission to add programmes";
                     } else {
                         $programme_name = isset($_POST['programme_name']) ? trim($_POST['programme_name']) : '';

@@ -14,7 +14,7 @@ if (SessionUser::hasValidSession()) {
                 if (json_last_error() == JSON_ERROR_NONE) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 4))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4))) {
                         $status->error = 'You are not authorized to update student status';
                     } else {
 

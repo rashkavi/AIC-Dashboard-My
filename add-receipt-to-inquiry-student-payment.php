@@ -76,10 +76,10 @@ if (!SessionUser::hasValidSession()) {
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                 $ifHasPermissions = false;
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])) {
                     $ifHasPermissions = true;
                 }
-                if ($inquiry_id != 0 && (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15))) {
+                if ($inquiry_id != 0 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15))) {
                     $ifHasPermissions = true;
                 }
                 if (!$ifHasPermissions) {

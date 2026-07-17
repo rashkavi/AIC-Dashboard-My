@@ -58,7 +58,7 @@ if (!SessionUser::hasValidSession()) {
                     $validLecturer = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id']) || $validLecturer)) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id']) || $validLecturer)) {
                     header("Location: ./unit-quizes?unit-id=" . $quizData['subject_id']);
                 } else {
 
@@ -403,7 +403,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id'])) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 17, $quizData['subject_id'])) {
                         ?>
                             <!-- Mark Released Model => Start -->
                             <div class="modal fade" id="markReleasedModal" tabindex="-1" role="dialog" aria-labelledby="markReleasedModalTitle" aria-hidden="true">

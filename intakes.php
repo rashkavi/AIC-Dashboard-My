@@ -106,7 +106,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <?php
                                                             }
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
                                                                 if ($intakes->num_rows > 0) {
                                                                 ?>
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
@@ -171,7 +171,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="row gx-3 h-100 align-content-center">
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
                                                                         ?>
                                                                             <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">Edit</button>
                                                                         <?php
@@ -211,7 +211,7 @@ if (!SessionUser::hasValidSession()) {
                     </div>
 
                     <?php
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
                     ?>
                         <!-- intake Add Model => Start -->
                         <div class="modal fade br-0" id="addIntake" aria-hidden="true" aria-labelledby="addIntakeLabel" tabindex="-1">
@@ -277,24 +277,46 @@ if (!SessionUser::hasValidSession()) {
                                     <div class="modal-body p-0 mt-3">
                                         <div class="col-12 p-0">
                                             <div class="row p-0 gy-3 gx-3 align-content-center">
-                                                <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text required">Select Intake</label>
-                                                    <select class="form-select custom-select mt-2" id="duplicate-intake">
-                                                        <option value="0">- Select -</option>
+                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                    <label class="text-16 main-text required" for="">Select Branch</label>
+                                                    <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties();">
+                                                        <option value="0" selected>- Select -</option>
                                                         <?php
-                                                        $batches = Database::search($query);
-                                                        for ($x = 0; $x < $batches->num_rows; $x++) {
-                                                            $batch = $batches->fetch_assoc();
+                                                        $query = "SELECT * FROM `branches`";
 
+                                                        $branches = Database::search($query);
+                                                        while ($data = $branches->fetch_assoc()) {
                                                         ?>
-                                                            <option value="<?= $batch["intake_id"]; ?>"><?php echo $batch["intake"]; ?></option>
+                                                            <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
                                                         <?php
                                                         }
                                                         ?>
                                                     </select>
-                                                    <span class="text-12 text-dark-red" id="duplicate-intake-feedback"></span>
+                                                    <span id="branch-feedback" class="text-dark-red text-12"></span>
                                                 </div>
+                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                    <label class="text-16 main-text required" for="">Select Faculty</label>
+                                                    <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes();">
+                                                        <option value="0" selected>- Select -</option>
 
+                                                    </select>
+                                                    <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                </div>
+                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                    <label class="text-16 main-text required" for="">Select Programmes</label>
+                                                    <select name="" id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                        <option value="0" selected>- Select -</option>
+                                                    </select>
+                                                    <span id="programme-feedback" class="text-dark-red text-12"></span>
+                                                </div>
+                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                    <label class="text-16 main-text required" for="">Select Intake</label>
+                                                    <select name="" id="intake-selector" disabled class="form-select custom-select mt-2">
+                                                        <option value="0" selected>- Select -</option>
+                                                    </select>
+                                                    <span id="intake-feedback" class="text-dark-red text-12"></span>
+                                                </div>
+                                                
                                                 <div class="col-12 d-flex flex-column">
                                                     <label for="" class="text-14 main-text required">Intake Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="duplicate-name">
@@ -302,7 +324,7 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
 
                                                 <div class="col-12 d-flex flex-column">
-                                                    <label for="" class="text-14 main-text required">Intake Cover</label>
+                                                    <label for="" class="text-14 main-text">Intake Cover</label>
                                                     <div class="row gx-4 mt-2 d-flex align-items-stretch">
                                                         <div class="col-12 col-lg-3 d-flex flex-column justify-content-end">
                                                             <img src="./assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="intake cover" id="duplicate-cover">
@@ -326,7 +348,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <div class="col-12 col-lg-6 mt-3 mt-lg-0 d-flex align-items-md-end justify-content-end">
-                                                            <button class="col-12 col-lg-8 custom-btn m-0" onclick="duplicateIntake(this)">Duplicate batch</button>
+                                                            <button class="col-12 col-lg-8 custom-btn m-0" onclick="duplicateIntake(this,<?= $id ?>)">Duplicate batch</button>
                                                         </div>
                                                     </div>
                                                     <span class="text-12 text-dark-red" id="duplicate-cover-feedback"></span>
@@ -340,7 +362,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
                     ?>
                         <!-- intake Edit Modal => Start -->
                         <div class="modal fade br-0" id="editIntake" aria-hidden="true" aria-labelledby="editIntakeLabel" tabindex="-1">
@@ -398,7 +420,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id) || UserPermissions::hasPermission('programme', 2, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id) || UserPermissions::hasPermission('programme', 2, $id)) {
                     ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

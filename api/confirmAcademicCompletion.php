@@ -19,6 +19,8 @@ if (SessionUser::hasValidSession()) {
                 if (json_last_error() == JSON_ERROR_NONE) {
 
                     $student_id = isset($decoded['student_id']) ? $decoded['student_id'] : '';
+                    $ms_teams_username = isset($decoded['ms_teams_username']) ? $decoded['ms_teams_username'] : '';
+
                     if ($student_id == '') {
                         http_response_code(400);
                         $status->error = 'Please select a student';
@@ -34,23 +36,31 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $studentData = $student->fetch_assoc();
 
-                            $timezone = new DateTimeZone("Asia/Colombo");
-                            $dateTime = new DateTime("now", $timezone);
-                            $now = $dateTime->format('Y-m-d H:i:s');
+                            if (empty($ms_teams_username)) {
+                                $status->ms_uname = 'Please enter student Microsoft Teams username';
+                            } else {
+                                $isValidUserName = Database::search("SELECT * FROM `students` WHERE `ms_team_username` = '" . $ms_teams_username . "' 
+                                AND `student_id` != '" . $student_id . "'");
 
-                            $bytes = random_bytes(75);
-                            $token = substr(str_replace(['+', '/', '='], '', base64_encode($bytes)), 0, 100);
+                                if ($isValidUserName->num_rows > 0) {
+                                    $status->ms_uname = 'Microsoft Teams username already exists';
+                                }
+                            }
 
-                            Database::iud("UPDATE `login_details` SET `status_status_id` = '1',`verification`='" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
-                            Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '1' WHERE `students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'");
+                            if (empty(get_object_vars($status))) {
 
-                            Database::iud("
-                            UPDATE `students`
-                            SET `lead_student_status_lead_student_status_id` = '14'
-                            WHERE `student_id` = '" . $studentData['students_student_id'] . "'
-                        ");
+                                $timezone = new DateTimeZone("Asia/Colombo");
+                                $dateTime = new DateTime("now", $timezone);
+                                $now = $dateTime->format('Y-m-d H:i:s');
 
-                            Database::iud("
+                                Database::iud("
+                                    UPDATE `students`
+                                    SET `lead_student_status_lead_student_status_id` = '14',
+                                    `ms_team_username` = '" . $ms_teams_username . "'
+                                    WHERE `student_id` = '" . $studentData['students_student_id'] . "'
+                                ");
+
+                                Database::iud("
                             INSERT INTO `students_logs`
                             (`students_student_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
                             VALUES
@@ -60,28 +70,11 @@ if (SessionUser::hasValidSession()) {
                                 '" . $sessionUserObject['user_id'] . "',
                                 'Confirm Academic Completion',
                                 '13'
-                               
                             )
                                 ");
 
-                            $mail = EmailNotificationService::build(
-                                EmailTemplateContent::PASSWORD_SETUP,
-                                [
-                                    'action_url' => Project::getBasePortalUrl() . "/setup-password?token=" . $token
-                                ]
-                            );
-
-                            $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
-
-                            try {
-                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
-                            } catch (Exception $e) {
-                                $status->error = 'Academic confirmed, but failed to send email notification';
-                                echo (json_encode($status));
-                                return;
+                                $status->done = 'Academic confirmed successfully';
                             }
-
-                            $status->done = 'Academic confirmed successfully';
                         }
                     }
                 } else {

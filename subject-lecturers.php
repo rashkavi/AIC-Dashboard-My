@@ -50,8 +50,8 @@ if (!SessionUser::hasValidSession()) {
                     $validLecturer = true;
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $id) || $validLecturer)) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('subject_lecturers', $id) || $validLecturer)) {
+                    header("Location: ./subjects");
                 } else {
 ?>
                     <!DOCTYPE html>
@@ -106,7 +106,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./programes?faculty-id=<?= $subjectData['faculty_id'] ?>"><?= $subjectData['faculty'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $subjectData['programme_id'] ?>"><?= $subjectData['programme'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id="><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id="><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Lecturers</a></li>
                                                                     </ol>
@@ -114,7 +114,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
                                                                 <div class="row align-items-center">
@@ -158,7 +158,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="card card-body border-0 p-0">
                                                                         <div class="row gy-3 justify-content-end">
                                                                             <?php
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 4, $id)) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 4, $id)) {
                                                                             ?>
                                                                                 <div class="col-6 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
                                                                                     <select class="form-select custom-select" aria-label="Default select example" id="lecturers-update-selector" onchange="filterSubjectHasLecturers('<?= $id ?>')">
@@ -228,12 +228,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                             </th>
                                                                             <?php
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $id) || $validLecturer) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $id) || $validLecturer) {
                                                                             ?>
                                                                                 <th scope="col" class="pe-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
                                                                             <?php
                                                                             }
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id) || $validLecturer) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id) || $validLecturer) {
                                                                             ?>
                                                                                 <th scope="col" class="pe-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                             <?php
@@ -363,7 +363,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <button class="table-btn <?= $sbutton_class; ?> w-100"> <?= $data["status"]; ?></button>
                                                                                     </td>
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 1, $id)) {
                                                                                     ?>
                                                                                         <td class="py-2 align-middle">
                                                                                             <button class="table-btn table-btn-dark-theme text-white w-100" onclick="window.location.href='lecturer-subject-activity.php?lecturer-id=<?= $data['lecturers_id']; ?>' ">View</button>
@@ -382,7 +382,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <?php
                                                                                         }
                                                                                     }
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
                                                                                         ?>
                                                                                         <td class="py-3 align-middle">
                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
@@ -475,7 +475,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 2, $id)) {
                         ?>
                             <!-- Add lecturer modal => Start -->
                             <div class="modal fade br-0" id="addLecturer" aria-hidden="true" aria-labelledby="addlecturerLabel" tabindex="-1">
@@ -536,7 +536,7 @@ if (!SessionUser::hasValidSession()) {
                         <?php
                         }
 
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('subject_lecturers', 10, $id)) {
                         ?>
                             <!-- Edit lecturer modal => Start -->
                             <div class="modal fade br-0" id="editLecturer" aria-hidden="true" aria-labelledby="editlecturerLabel" tabindex="-1">

@@ -13,7 +13,8 @@ if (SessionUser::hasValidSession()) {
             $acc_no = isset($_POST['acc_no']) ? $_POST['acc_no'] : '';
             $acc_name = isset($_POST['acc_name']) ? $_POST['acc_name'] : '';
             $branch = isset($_POST['branch']) ? $_POST['branch'] : '';
-            $bank_logo;
+            $branch_select = isset($_POST['branch_selector']) ? $_POST['branch_selector'] : '';
+            $bank_logo = '';
 
             if (empty($bank)) {
                 $status->bank = "Bank name is required";
@@ -34,6 +35,10 @@ if (SessionUser::hasValidSession()) {
 
             if (empty($branch)) {
                 $status->branch = "Branch is required";
+            }
+
+            if (empty($branch_select)) {
+                $status->branch_selector = "Branch is required";
             }
 
             if (isset($_FILES["image"])) {
@@ -75,7 +80,8 @@ if (SessionUser::hasValidSession()) {
                 'acc_no',
                 'acc_name',
                 'branch',
-                'cover'
+                'cover',
+                'branch_selector'
             ];
             $allPropertiesExist = true;
             foreach ($requiredProperties as $property) {
@@ -91,8 +97,8 @@ if (SessionUser::hasValidSession()) {
                 $dateTime = new DateTime("now", $timezone);
                 $addDateTime = $dateTime->format('Y-m-d H:i:s');
 
-                $bank_insert_columns = "`bank_name`, `acc_no`, `acc_name`, `branch`,`logo`,`users_user_id`,`date_added`";
-                $bank_insert_values = "'" . $bank . "', '" . $acc_no . "', '" . $acc_name . "', '" . $branch . "', '" . $bank_logo . "', '" . $sessionUserObject['user_id'] . "', '" . $addDateTime . "'";
+                $bank_insert_columns = "`bank_name`, `acc_no`, `acc_name`, `branch`,`logo`,`branches_branch_id`,`users_user_id`,`date_added`";
+                $bank_insert_values = "'" . $bank . "', '" . $acc_no . "', '" . $acc_name . "', '" . $branch . "', '" . $bank_logo . "', '" . $branch_select . "', '" . $sessionUserObject['user_id'] . "', '" . $addDateTime . "'";
 
                 Database::iud("INSERT INTO `bank` (" . $bank_insert_columns . ") VALUES (" . $bank_insert_values . ")");
 

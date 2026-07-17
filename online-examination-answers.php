@@ -47,7 +47,7 @@ if (!SessionUser::hasValidSession()) {
                 }
 
                 if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission || $validLecturer)) {
-                    header("Location: ./level-details");
+                    header("Location: ./subjects");
                 } else {
 
 ?>

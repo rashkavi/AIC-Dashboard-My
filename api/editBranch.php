@@ -9,7 +9,7 @@ if (SessionUser::hasValidSession()) {
     if ($sessionUserRole != null) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 2))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 2))) {
                 $status->error = "You don't have permission to update branch";
             } else {
                 $branch_id = isset($_POST['branch_id']) ? $_POST['branch_id'] : '';

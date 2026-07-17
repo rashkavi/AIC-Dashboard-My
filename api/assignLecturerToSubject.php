@@ -47,18 +47,7 @@ if (SessionUser::hasValidSession()) {
                             } else if (!is_numeric($hourly_rate)) {
                                 $status->hourly_rate = "Invalid hourly rate";
                             }
-
-                            if (empty($assignment_fee)) {
-                                $status->assignment_fee = "Please enter assignment fee";
-                            } else if (!is_numeric($assignment_fee)) {
-                                $status->assignment_fee = "Invalid assignment fee";
-                            }
-
-                            if (empty($examination_fee)) {
-                                $status->examination_fee = "Please enter examination fee";
-                            } else if (!is_numeric($examination_fee)) {
-                                $status->examination_fee = "Invalid examination fee";
-                            }
+                          
 
                             $requiredProperties = [
                                 'level',

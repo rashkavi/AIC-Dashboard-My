@@ -23,7 +23,7 @@ if (SessionUser::hasValidSession()) {
                     $lectureData = $isValidLectureId->fetch_assoc();
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 28)) || UserPermissions::hasPermission('lecture_schedule', 28, $lectureData['subjects_subject_id'])) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 28)) || UserPermissions::hasPermission('lecture_schedule', 28, $lectureData['subjects_subject_id'])) {
                         $status->lecture = "You don't have permission to upload recordings";
                     } else {
                         $isHasRecording = Database::search("SELECT COUNT(`lecture_recording_id`) FROM `lecture_recording` WHERE `time_table_time_table_id`='" . $id . "'");

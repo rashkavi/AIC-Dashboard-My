@@ -70,7 +70,7 @@ if ($newStatus == 3 && empty($paidDate)) {
 }
 
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0))) {
+if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0))) {
     echo json_encode(['error' => 'You do not have permission to update payment status.']);
     exit;
 }
@@ -134,7 +134,7 @@ $paymentRow = Database::search("
     INNER JOIN payment_type pt
         ON cp.payment_type_payment_type_id = pt.payment_type_id
     WHERE cpp.course_payment_has_payment_id = '$paymentId'
-
+  
     LIMIT 1
 ");
 
@@ -256,8 +256,11 @@ function extractTaxFromPaid(float $paid, float $taxRate): array
     return ['base' => round($base, 4), 'tax' => round($tax, 4)];
 }
 
+/* Is this approval being paid in a currency other than the course's base currency? */
+$isPayingInForeignCurrency = ($currencyId && $currencyId != $courseCurrencyId && $resolvedRate);
+
 /* ── paidBase: what the admin entered, in base/course currency ── */
-$paidBase = round($paidAmount, 4);
+$paidBase = $paidAmount;
 
 /* ════════════════════════════════════════════════════════════════════════════
    CURRENT INSTALLMENT PAYABLE CALCULATION
@@ -335,29 +338,147 @@ $totalPenaltyBase  = $receiptPenalty_base + $penaltyAmount;
 
 $basePayable      = max(0.0, $pay['cp_amount'] - $totalDiscountBase + $totalPenaltyBase);
 
-/* Calculate Tax-Inclusive Total from Base Amount using structural Divisor */
+/* Calculate Tax-Inclusive Total from Base Amount using structural Divisor
+ *
+ * ✅ FIX: round to 2dp HERE, unlike the base-currency intermediates further
+ * down (which are deliberately kept unrounded). Reason: $paidAmount arrives
+ * from the frontend already capped at 2dp GBP precision (it's the admin's
+ * on-screen entry, not a native-precision source like the LKR amount in the
+ * upload flow). If $installmentTotal is left unrounded (e.g. 205.128205...),
+ * a plain "full payment" of GBP 205.13 looks LARGER than the unrounded total
+ * by a fraction of a cent, gets misdetected as a genuine overpayment, and a
+ * few cents get shaved off the current installment and misrouted to the
+ * next one — even though nothing was actually overpaid. Rounding the total
+ * to the same 2dp precision the frontend itself works in eliminates that
+ * false positive while still catching real overpayments (which are always
+ * much larger than rounding noise).
+ */
 if ($latestTaxRate > 0 && $latestTaxRate < 100) {
     $divisor = 1.0 - ($latestTaxRate / 100.0);
-    $installmentTotal = round($basePayable / $divisor, 4);
+    $installmentTotal = round($basePayable / $divisor, 2);
 } else {
-    $installmentTotal = round($basePayable, 4);
+    $installmentTotal = round($basePayable, 2);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   OVERPAYMENT DETECTION  (all in base currency)
-════════════════════════════════════════════════════════════════════════════ */
-$remainingBefore_base = round(max(0.0, $installmentTotal - $existingPaid_base), 4);
-$amountForCurrent     = round(min($paidBase, $remainingBefore_base), 4);
-$overpayAmount        = round($paidBase - $amountForCurrent, 4);
+   OVERPAYMENT DETECTION
 
-/* Tax extracted from the portion applied to this installment only */
+   ✅ FIX (mirrors uploadStudentPaymentReceipt.php v9 fix):
+   Previously this block computed remainingBefore / amountForCurrent /
+   overpayAmount in BASE currency, rounding to 4dp at every step, and only
+   converted to the payment currency at the point of storage (multiply by
+   the exchange rate, then round to 2dp again). That reproduces the exact
+   double-rounding drift the upload flow fixed: a 1-cent base-currency
+   rounding error turns into several rupees of error once multiplied back
+   by an exchange rate of ~390, and the amount actually stored no longer
+   matches the balance shown on screen.
+
+   FIX: keep base-currency intermediates UNROUNDED. Compute the overpayment
+   directly in the PAYMENT currency first (exactly like the balance shown
+   on screen), with a SINGLE rounding point, then derive the base-currency
+   equivalent FROM that figure — not the other way around.
+════════════════════════════════════════════════════════════════════════════ */
+$remainingBefore_base = max(0.0, $installmentTotal - $existingPaid_base);
+
+/*
+ * ✅ FIX (precision loss on the overpayment / carry-forward portion):
+ * $paidAmount is the admin's approval-form figure, capped at 2dp in the
+ * BASE currency. For a payment that only covers this installment, that's
+ * fine — the frontend can send the exact 2dp figure matching the rounded
+ * installment total. But when a payment also overflows into the NEXT
+ * installment, $paidAmount represents the WHOLE combined amount (current +
+ * overflow) as a single rounded GBP figure. Rounding that combined amount
+ * to 2dp GBP can lose up to roughly half an exchange-rate's worth of LKR
+ * precision (e.g. LKR 1+ at a ~450 rate) — and that lost precision always
+ * lands entirely on the overflow/next-installment portion, because the
+ * current-installment portion is pinned to the exact (already-rounded)
+ * $installmentTotal.
+ *
+ * This pending record already stores the amount exactly as it was
+ * originally submitted, in its native payment currency — e.g. the precise
+ * LKR 100,000.00 the student actually paid. If the admin approved without
+ * changing that figure, we use THAT full-precision original value as the
+ * payment-currency source of truth (same "never overwrite the original
+ * amount" principle as uploadStudentPaymentReceipt.php), instead of
+ * reconstructing a lossy value from the rounded base-currency form field.
+ * If the admin DID change the amount during approval, we honor their
+ * explicit new figure instead — that becomes the new source of truth and
+ * is only as precise as what they typed.
+ */
+$originalPaidNative     = (float)($pay['paid_amount'] ?? 0);
+$originalPaidCurrencyId = (int)($pay['currencies_currency_id'] ?? $courseCurrencyId);
+
+$impliedBaseFromOriginal = ($originalPaidCurrencyId != $courseCurrencyId && $resolvedRate)
+    ? $originalPaidNative / $resolvedRate
+    : $originalPaidNative;
+
+$adminKeptOriginalAmount = (
+    $originalPaidNative > 0
+    && $originalPaidCurrencyId == $currencyId
+    && round($paidAmount, 2) === round($impliedBaseFromOriginal, 2)
+);
+
+if ($adminKeptOriginalAmount) {
+    // Original submission, full native-currency precision — no round-trip.
+    $paidInPaymentCcy = $originalPaidNative;
+} else {
+    // Admin explicitly entered/changed the amount — this base-currency
+    // figure IS the new source of truth, so convert it (single point).
+    $paidInPaymentCcy = $isPayingInForeignCurrency
+        ? $paidBase * $resolvedRate
+        : $paidBase;
+}
+
+$remainingBeforeInPaymentCcy = $isPayingInForeignCurrency
+    ? $remainingBefore_base * $resolvedRate
+    : $remainingBefore_base;
+
+// Single rounding point, in the payment currency
+$overpayAmount_paymentCcy = max(0.0, round($paidInPaymentCcy - $remainingBeforeInPaymentCcy, 2));
+
+// Base-currency equivalent, DERIVED from the payment-currency figure so the
+// two values always agree with each other and with what's shown on screen
+$overpayAmount = $isPayingInForeignCurrency
+    ? $overpayAmount_paymentCcy / $resolvedRate
+    : $overpayAmount_paymentCcy;
+
+$amountForCurrent = min($paidBase, $remainingBefore_base); // base currency, unrounded — kept for the "settle installment" / reporting checks below
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ✅ FIX (current-installment tax/paid_amount mismatch):
+   Previously the tax for THIS installment was extracted from
+   $amountForCurrent — a BASE-currency figure derived from $paidBase, which
+   is the admin's approval-form entry already rounded to 2dp GBP on the
+   frontend. Meanwhile $amountForCurrent_stored (below) is derived from
+   $paidInPaymentCcy, which preserves the ORIGINAL full-precision LKR amount
+   whenever the admin didn't change it. That meant paid_amount and tax_amount
+   were being built from two DIFFERENT source numbers — paid_amount traced
+   back to the precise original LKR figure, but tax_amount traced back
+   through a lossy GBP round-trip — so paid_amount + tax_amount no longer
+   summed to the amount actually paid (e.g. 46156.10 + 3843.34 ≠ 50000.00).
+
+   This is exactly the double-rounding-through-a-currency-round-trip problem
+   the v9/v10 fixes above already solved for the NEXT-installment overflow;
+   it just hadn't been applied to the CURRENT installment's own tax split.
+
+   FIX: extract tax from the amount applied to this installment IN THE
+   PAYMENT CURRENCY ($amountForCurrent_paymentCcy, built from
+   $paidInPaymentCcy) — the same source paid_amount is stored from — so both
+   numbers always agree and sum back exactly to what was paid.
+════════════════════════════════════════════════════════════════════════════ */
+$amountForCurrent_paymentCcy = min($paidInPaymentCcy, $remainingBeforeInPaymentCcy);
+$taxExtractedForCurrent_paymentCcy = extractTaxFromPaid($amountForCurrent_paymentCcy, $latestTaxRate);
+$taxForCurrentReceipt_paymentCcy   = $taxExtractedForCurrent_paymentCcy['tax']; // already in payment currency, no further conversion needed
+
+/* Base-currency version — kept only for base-currency reporting
+   (e.g. $overpaymentInfo['current_tax'] below); NOT used for storage. */
 $taxExtractedForCurrent = extractTaxFromPaid($amountForCurrent, $latestTaxRate);
 $taxForCurrentReceipt   = $taxExtractedForCurrent['tax'];
 
 $nextInstallmentPayments = [];
 $overpaymentInfo         = null;
 
-if ($overpayAmount > 0.01) {
+if ($overpayAmount_paymentCcy > 0.01) {
 
     /* ── Check if a next installment exists ── */
     $nextPaymentsCheck = Database::search("
@@ -394,7 +515,24 @@ if ($overpayAmount > 0.01) {
         'overpay_amount'  => $overpayAmount,
     ];
 
-    /* ── Distribute overpay to next installments ── */
+    /* ── Distribute overpay to next installments ──
+     *
+     * ✅ FIX (mirrors uploadStudentPaymentReceipt.php v10 fix):
+     * Previously this loop tracked the remaining overpayment in BASE
+     * currency, rounding to 4dp at every step (payable calc + storage
+     * conversion), so the amounts actually saved across installments no
+     * longer summed to the original overpayment once converted to the
+     * payment currency and rounded a second time at storage.
+     *
+     * FIX: track and distribute the overpayment directly in the PAYMENT
+     * currency throughout the loop, starting from the same
+     * single-rounding-point figure used above ($overpayAmount_paymentCcy).
+     * Each installment's total-owed/existing-paid is converted to the
+     * payment currency ONCE, unrounded, and rounding only happens when the
+     * final "amount applied to this installment" is stored — so the sum of
+     * every stored amount always reconciles exactly with the original
+     * overpayment.
+     */
     $nextPayments = Database::search("
         SELECT
             cp.`course_payments_id`,
@@ -412,10 +550,10 @@ if ($overpayAmount > 0.01) {
     ");
 
     if ($nextPayments && $nextPayments->num_rows > 0) {
-        $remainingOverpay = $overpayAmount;
+        $remainingOverpay_paymentCcy = $overpayAmount_paymentCcy;
 
         while ($nextPayment = $nextPayments->fetch_assoc()) {
-            if ($remainingOverpay <= 0.001) break;
+            if ($remainingOverpay_paymentCcy <= 0.01) break;
 
             $nextPaymentId = (int)$nextPayment['course_payments_id'];
 
@@ -426,12 +564,27 @@ if ($overpayAmount > 0.01) {
 
             $nextBasePayable = max(0.0, $nextPayment['amount'] - $nextDiscount);
 
-            /* Structural inclusive formula logic applied for cascading assignments */
+            /* Structural inclusive formula logic applied for cascading assignments
+             * ✅ FIX (overpayment shortfall on next installment): this used to be
+             * rounded to 2dp here for the same reason as $installmentTotal above —
+             * but that precaution only makes sense when the figure is compared
+             * against the admin's own 2dp-GBP frontend entry (which is what
+             * $installmentTotal is compared against for the CURRENT installment).
+             * Here, $nextTotalOwed_base is instead compared against
+             * $remainingOverpay_paymentCcy, which is already an EXACT
+             * payment-currency figure derived from the precise original amount
+             * paid — not a rounded GBP entry. Rounding this to 2dp in GBP and
+             * then multiplying by the exchange rate (~390-450) manufactured
+             * several rupees of drift, which is exactly why the amount applied
+             * to the next installment came out short (e.g. 4603.91 instead of
+             * the correct 4604.69). Keeping this unrounded until the final
+             * applied/stored amount is rounded once (further below) fixes it.
+             */
             if ($latestTaxRate > 0 && $latestTaxRate < 100) {
                 $nextDivisor = 1.0 - ($latestTaxRate / 100.0);
-                $nextTotalOwed = round($nextBasePayable / $nextDivisor, 4);
+                $nextTotalOwed_base = $nextBasePayable / $nextDivisor;
             } else {
-                $nextTotalOwed = round($nextBasePayable, 4);
+                $nextTotalOwed_base = $nextBasePayable;
             }
 
             $nextExistingQ = Database::search("
@@ -447,24 +600,46 @@ if ($overpayAmount > 0.01) {
                 WHERE course_payments_course_payments_id = '$nextPaymentId'
                   AND payment_status_payment_status_id IN (2, 3)
             ");
-            $nextExistingPaid = (float)(($nextExistingQ && $nextExistingQ->num_rows > 0)
+            $nextExistingPaid_base = (float)(($nextExistingQ && $nextExistingQ->num_rows > 0)
                 ? $nextExistingQ->fetch_assoc()['paid_base']
                 : 0);
 
-            $nextRemaining    = round(max(0.0, $nextTotalOwed - $nextExistingPaid), 4);
-            $applyToNext      = round(min($remainingOverpay, $nextRemaining), 4);
-            $remainingOverpay = round($remainingOverpay - $applyToNext, 4);
+            // Convert this installment's payable/paid to the PAYMENT currency
+            // once, unrounded — keeps the comparison against
+            // $remainingOverpay_paymentCcy apples-to-apples without a second
+            // base→payment round-trip.
+            $nextTotalOwed_paymentCcy = $isPayingInForeignCurrency
+                ? $nextTotalOwed_base * $resolvedRate
+                : $nextTotalOwed_base;
+            $nextExistingPaid_paymentCcy = $isPayingInForeignCurrency
+                ? $nextExistingPaid_base * $resolvedRate
+                : $nextExistingPaid_base;
 
-            /* Extract tax from the portion applied to this next installment */
-            $nextExtracted = extractTaxFromPaid($applyToNext, $latestTaxRate);
-            $nextTaxStored = $nextExtracted['tax'];
+            $nextRemaining_paymentCcy = max(0.0, $nextTotalOwed_paymentCcy - $nextExistingPaid_paymentCcy);
+            $applyToNext_paymentCcy   = min($remainingOverpay_paymentCcy, $nextRemaining_paymentCcy);
+            $remainingOverpay_paymentCcy = round($remainingOverpay_paymentCcy - $applyToNext_paymentCcy, 2);
+
+            // Tax split directly in the payment currency — extractTaxFromPaid()
+            // only splits proportionally, so calling it on a payment-currency
+            // amount gives the correctly-rounded stored tax directly, with no
+            // separate base→payment conversion/rounding step needed.
+            $nextExtracted = extractTaxFromPaid($applyToNext_paymentCcy, $latestTaxRate);
+
+            $applyToNext_stored = round($applyToNext_paymentCcy, 2);
+            $nextTaxStored       = round($nextExtracted['tax'], 2);
+
+            // Base-currency equivalent, kept only for the "mark as settled"
+            // comparison below.
+            $applyToNext_base = $isPayingInForeignCurrency
+                ? $applyToNext_paymentCcy / $resolvedRate
+                : $applyToNext_paymentCcy;
 
             $nextInstallmentPayments[] = [
                 'payment_id'      => $nextPaymentId,
-                'paid_amount'     => $applyToNext,
-                'tax_amount'      => $nextTaxStored,
-                'next_total_owed' => $nextTotalOwed,
-                'next_remaining'  => $nextRemaining,
+                'paid_amount'     => $applyToNext_stored,   // already in PAYMENT currency
+                'tax_amount'      => $nextTaxStored,        // already in PAYMENT currency
+                'next_total_owed' => $nextTotalOwed_base,   // base currency, for settle check
+                'apply_base'      => $applyToNext_base,     // base currency, for settle check
             ];
         }
 
@@ -502,19 +677,32 @@ $receiptId = Database::$connection->insert_id;
 
 /* ════════════════════════════════════════════════════════════════════════════
    CONVERT AMOUNTS TO PAYMENT CURRENCY FOR STORAGE
+
+   ✅ FIX: the current-installment stored amount is derived directly from the
+   original entered amount minus the overpayment — both already expressed in
+   the payment currency with a single rounding point above
+   ($paidInPaymentCcy, $overpayAmount_paymentCcy) — instead of independently
+   re-rounding round($amountForCurrent * $resolvedRate, 2). The tax amount is
+   now derived from that SAME payment-currency source
+   ($taxForCurrentReceipt_paymentCcy), instead of being re-converted from a
+   base-currency figure. Together this guarantees:
+
+       paid_amount_stored + tax_amount_stored == paidInPaymentCcy (minus any
+       amount routed to next installments)
+
+   with no drift, for both the current installment AND every downstream one.
 ════════════════════════════════════════════════════════════════════════════ */
-$isPayingInForeignCurrency = ($currencyId && $currencyId != $courseCurrencyId && $resolvedRate);
+$amountForCurrent_stored = round($paidInPaymentCcy - $overpayAmount_paymentCcy, 2);
+
+// ✅ FIX: already computed in the payment currency above — round once, don't re-convert.
+$taxForCurrent_stored = round($taxForCurrentReceipt_paymentCcy, 2);
 
 if ($isPayingInForeignCurrency) {
-    $amountForCurrent_stored = round($amountForCurrent * $resolvedRate, 2);
-    $discountAmount_stored   = round($discountAmount * $resolvedRate, 2);
-    $penaltyAmount_stored    = round($penaltyAmount * $resolvedRate, 2);
-    $taxForCurrent_stored    = round($taxForCurrentReceipt * $resolvedRate, 2);
+    $discountAmount_stored = round($discountAmount * $resolvedRate, 2);
+    $penaltyAmount_stored  = round($penaltyAmount * $resolvedRate, 2);
 } else {
-    $amountForCurrent_stored = round($amountForCurrent, 2);
-    $discountAmount_stored   = round($discountAmount, 2);
-    $penaltyAmount_stored    = round($penaltyAmount, 2);
-    $taxForCurrent_stored    = round($taxForCurrentReceipt, 2);
+    $discountAmount_stored = round($discountAmount, 2);
+    $penaltyAmount_stored  = round($penaltyAmount, 2);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -555,7 +743,7 @@ Database::iud("
 /* ════════════════════════════════════════════════════════════════════════════
    MARK CURRENT INSTALLMENT AS FULLY PAID IF NOW COVERED
 ════════════════════════════════════════════════════════════════════════════ */
-$newTotalPaidOnCurrent = round($existingPaid_base + $amountForCurrent, 4);
+$newTotalPaidOnCurrent = $existingPaid_base + $amountForCurrent;
 if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
     Database::iud("
         UPDATE `course_payments`
@@ -566,20 +754,18 @@ if ($newTotalPaidOnCurrent >= $installmentTotal - 0.001) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT OVERPAYMENT RECORDS FOR NEXT INSTALLMENTS
+
+   ✅ FIX: $nextPmt['paid_amount'] and $nextPmt['tax_amount'] are already
+   fully-resolved, single-rounding-point amounts in the PAYMENT currency
+   (computed in the distribution loop above). The old code re-multiplied
+   them by $resolvedRate here, which double-converted them whenever paying
+   in a foreign currency — a genuine bug, not just a rounding-drift issue.
 ════════════════════════════════════════════════════════════════════════════ */
 if (!empty($nextInstallmentPayments)) {
     foreach ($nextInstallmentPayments as $nextPmt) {
-        $nextPaymentId  = $nextPmt['payment_id'];
-        $nextPaidAmount = $nextPmt['paid_amount'];
-        $nextTaxStored  = $nextPmt['tax_amount'];
-
-        if ($isPayingInForeignCurrency) {
-            $nextPaidAmount_stored = round($nextPaidAmount * $resolvedRate, 2);
-            $nextTaxStored_amount  = round($nextTaxStored * $resolvedRate, 2);
-        } else {
-            $nextPaidAmount_stored = round($nextPaidAmount, 2);
-            $nextTaxStored_amount  = round($nextTaxStored, 2);
-        }
+        $nextPaymentId         = $nextPmt['payment_id'];
+        $nextPaidAmount_stored = $nextPmt['paid_amount'];  // already in PAYMENT currency
+        $nextTaxStored_amount  = $nextPmt['tax_amount'];   // already in PAYMENT currency
 
         $next_col = "
             `course_payments_course_payments_id`,
@@ -620,7 +806,8 @@ if (!empty($nextInstallmentPayments)) {
         ");
         $nextPaymentReceiptId = Database::$connection->insert_id;
 
-        if ($nextPaidAmount >= $nextPmt['next_remaining'] - 0.001) {
+        // Settled check done in BASE currency, matching next_total_owed's unit
+        if ($nextPmt['apply_base'] >= $nextPmt['next_total_owed'] - 0.001) {
             Database::iud("
                 UPDATE `course_payments`
                 SET `payment_status_payment_status_id` = '5'

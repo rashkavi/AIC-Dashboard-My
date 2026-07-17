@@ -55,7 +55,6 @@ if (SessionUser::hasValidSession()) {
                     $al_results = isset($_POST['al_results']) ? trim($_POST['al_results']) : '';
                     $work_experience = isset($_POST['work_experience']) ? trim($_POST['work_experience']) : '';
                     $team_username = isset($_POST['team_username']) ? trim($_POST['team_username']) : '';
-                    $team_password = isset($_POST['team_password']) ? trim($_POST['team_password']) : '';
                     $image = '';
 
                     if (empty($fname)) {
@@ -166,7 +165,6 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
-                    $invalid_chars = '/[\'\";\-]/';
                     if (!empty($address) || !empty($address2) || !$city == 0 || !empty($pcode)) {
                         if (empty($address)) {
                             $status->address =  "Please enter user address";
@@ -175,15 +173,11 @@ if (SessionUser::hasValidSession()) {
                         if (!empty($address)) {
                             if (!strlen($address) > 100) {
                                 $status->address1 =  "Address should be less than 100 characters";
-                            } else if (preg_match($invalid_chars, $address)) {
-                                $status->address1 =  "Address lines contain invalid characters.";
                             }
                         }
                         if (!empty($address2)) {
                             if (!strlen($address2) > 100) {
                                 $status->address2 =  "Address should be less than 100 characters";
-                            } else if (preg_match($invalid_chars, $address2)) {
-                                $status->address2 =  "Address lines contain invalid characters.";
                             }
                         }
 
@@ -293,10 +287,6 @@ if (SessionUser::hasValidSession()) {
                         $status->team_username = "Team username too long";
                     }
 
-                    if (!empty($team_password) && strlen($team_password) > 100) {
-                        $status->team_password = "Team password too long";
-                    }
-
                     $studentDocuments = validateStudentDocuments($id);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
@@ -356,7 +346,6 @@ if (SessionUser::hasValidSession()) {
                             ,`al_results`='" . Database::escape($al_results) . "'
                             ,`work_experience`='" . Database::escape($work_experience) . "'
                             ,`ms_team_username`='" . Database::escape($team_username) . "'
-                            ,`ms_team_password`='" . Database::escape($team_password) . "'
                             ";
 
                         Database::iud("UPDATE `login_details` SET " . $login_table_update . " WHERE `login_details_id` = '" . $student["login_details_login_details_id"] . "'");

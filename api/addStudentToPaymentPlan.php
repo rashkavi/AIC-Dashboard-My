@@ -34,7 +34,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $studentIntakeData = $isValidId->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentIntakeData['intakes_intake_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentIntakeData['intakes_intake_id']))) {
                                 $status->error = 'You do not have permission to add payment plan to this intake';
                             } else {
 

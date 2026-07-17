@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject-id']) && !empty($_GET['subject-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
 
             $id = $_GET['subject-id'];
@@ -41,7 +41,7 @@ if (!SessionUser::hasValidSession()) {
         ");
 
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
 

@@ -48,7 +48,9 @@ if (!SessionUser::hasValidSession()) {
                             ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`    
                         WHERE 
                             `shi`.`students_has_intakes_id` = '" . $studentId . "'
-                            AND `pshi`.`payment_plan_has_students_has_intakes_id` = '" . $paymentPlanId . "'    
+                            AND `pshi`.`payment_plan_has_students_has_intakes_id` = '" . $paymentPlanId . "'  
+                            AND (`shi`.`status_status_id` = 1 OR `shi`.`status_status_id` IS NULL)
+                        AND (`login_details`.`status_status_id` = 1 OR `login_details`.`status_status_id` IS NULL) 
                         GROUP BY 
                             `pshi`.`payment_plan_has_students_has_intakes_id`
                         ORDER BY 
@@ -57,12 +59,12 @@ if (!SessionUser::hasValidSession()) {
 
 
             if ($studentPaymentPlan->num_rows == 0) {
-                header("Location: ./selected-inatke-student-payments?student-id=" . $studentId);
+                header("Location: ./intake-student-payments?student-id=" . $studentId);
             } else {
                 $studentPaymentPlanData = $studentPaymentPlan->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentPaymentPlanData['intake_id']))) {
-                    header("Location: ./selected-inatke-student-payments?student-id=" . $studentId);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentPaymentPlanData['intake_id']))) {
+                    header("Location: ./intake-student-payments?student-id=" . $studentId);
                 } else {
 
 ?>

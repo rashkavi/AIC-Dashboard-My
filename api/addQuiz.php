@@ -33,7 +33,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $subjectId))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $subjectId))) {
                                 $status->error = 'You are not authorized to add quiz.';
                             } else {
                                 if (empty($quizTitle)) {

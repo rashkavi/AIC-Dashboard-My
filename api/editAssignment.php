@@ -39,7 +39,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $assignmentData = $isValidAssiId->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('assignments', 10, $assignementData['subjects_subject_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments', 10, $assignementData['subjects_subject_id']))) {
                         $status->error = 'You are not authorized to edit this assignment.';
                     } else {
 

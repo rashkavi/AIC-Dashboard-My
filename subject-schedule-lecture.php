@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject-id']) && !empty($_GET['subject-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
             $id = $_GET['subject-id'];
             $subject = Database::search("SELECT `subject_id`,`faculty`,`faculty_id`,`programme`,`programme_id`,`intake`,`intake_id`,`level`,`level_id`,`subject` FROM `subjects`
@@ -22,13 +22,13 @@ if (!SessionUser::hasValidSession()) {
             INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`  
             WHERE `subject_id` = '" . $id . "'");
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 2, $id))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 2, $id))) {
                     header("Location: ./subject-lecture-schedule?subejct-id=" . $subjectData['subject_id']);
                 } else {
                     $selectedDate = '';

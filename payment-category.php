@@ -318,7 +318,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Payment method</th>
                                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
                                                                                     ?>
                                                                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                                     <?php
@@ -478,7 +478,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <button class="table-btn <?= $sbutton_class; ?> w-100"> <?= $data["payment_status"]; ?></button>
                                                                                             </td>
                                                                                             <?php
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15)) {
                                                                                             ?>
                                                                                                 <td class="py-3 align-middle">
                                                                                                     <div class="dropdown">

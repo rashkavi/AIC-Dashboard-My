@@ -120,7 +120,7 @@ if (SessionUser::hasValidSession()) {
                                                 </div>
                                             </th>
                                             <?php
-                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 27) || UserPermissions::hasPermission("lecture_schedule", 27, $lectureData['subejcts_subject_id'])) {
+                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 27) || UserPermissions::hasPermission("lecture_schedule", 27, $lectureData['subejcts_subject_id'])) {
                                                 if ($lectureData['lecture_type_id'] != 3 && $dateTime > $lectureDateTime && $dateTime < $lectureEndDateTime) {
                                             ?>
                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center">Action</th>

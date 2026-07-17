@@ -26,7 +26,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid faculty Id";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_id']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculty', 2,  $faculty_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculty', 2,  $faculty_id))) {
                         $status->error = "You don't have permission to add programmes";
                     } else {
                         if (empty($programme_name)) {

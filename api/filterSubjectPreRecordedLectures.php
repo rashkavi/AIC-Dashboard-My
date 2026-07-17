@@ -29,7 +29,7 @@ if (SessionUser::hasValidSession()) {
                             $validLecturer = true;
                         }
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $subject) || $validLecturer)) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $subject) || $validLecturer)) {
                             $status->error = 'You are not authorized to filter lectures.';
                         } else {
 
@@ -107,7 +107,7 @@ if (SessionUser::hasValidSession()) {
                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Duration</th>
                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Satus</th>
                                         <?php
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 10, $subject)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 10, $subject)) {
                                         ?>
                                             <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                         <?php
@@ -178,7 +178,7 @@ if (SessionUser::hasValidSession()) {
                                                 </td>
 
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 10, $subject)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('lecture_schedule', 10, $subject)) {
                                                 ?>
                                                     <td class="px-4 py-3 align-middle">
                                                         <div class="dropdown">

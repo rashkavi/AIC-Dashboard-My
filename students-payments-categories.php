@@ -13,7 +13,7 @@ if (!SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         $haveAnyPermission = false;
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
             header("Location: ./dashboard");
         } else {
 ?>
@@ -76,7 +76,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 col-md-2 mt-3 mt-lg-0">
                                                     <div class="row gx-3 justify-content-end">
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <button class="custom-btn col-12" data-bs-target="#addPayment" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
@@ -140,14 +140,14 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                             <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
                                                                 ?>
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-danger-btn w-100" data-i18n="edit" onclick="openPaymentCategoryEditModal(<?= $paymentCategory['payment_category_id'] ?>,'<?= $paymentCategory['payment_category'] ?>','<?= $paymentCategory['currencies_currency_id'] ?>')">Edit</button>
                                                                     </div>
                                                                 <?php
                                                                 }
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
                                                                 ?>
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-btn w-100" data-i18n="view" type="button" onclick="window.location.href = 'payment-category?category-id=<?= $paymentCategory['payment_category_id'] ?>'">View</button>
@@ -254,7 +254,7 @@ if (!SessionUser::hasValidSession()) {
                 </div>
 
                 <?php
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
                 ?>
                     <!-- Payment Add Model => Start -->
                     <div class="modal fade br-0" id="addPayment" aria-hidden="true" aria-labelledby="addPaymentLabel" tabindex="-1">
@@ -300,7 +300,7 @@ if (!SessionUser::hasValidSession()) {
                 <?php
                 }
 
-                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
                 ?>
                     <!-- Payment Edit Modal => Start -->
                     <div class="modal fade br-0" id="editPayment" aria-hidden="true" aria-labelledby="editPaymentLabel" tabindex="-1">

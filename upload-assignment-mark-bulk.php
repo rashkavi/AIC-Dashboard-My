@@ -28,7 +28,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $assignmentData = $assignment->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id']))) {
                     header("Location: ./assignment");
                 } else {
 ?>

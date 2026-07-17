@@ -291,7 +291,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             if (!empty($data["old_rate"])) {
                                                                                             ?>
                                                                                                 <span class="text-14 sub-text">
-                                                                                                    <?php echo $data["target_currency_symbol"]; ?>
+                                                                                                    <?php echo $data["target_currency_code"]; ?>
                                                                                                     <?php echo number_format($data["old_rate"], 2); ?>
                                                                                                 </span>
                                                                                             <?php
@@ -307,7 +307,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                         <td class="py-2 align-middle">
                                                                                             <span class="text-14 main-text fw-semibold">
-                                                                                                <?php echo $data["target_currency_symbol"]; ?>
+                                                                                                <?php echo $data["target_currency_code"]; ?>
                                                                                                 <?php echo number_format($data["new_rate"], 2); ?>
                                                                                             </span>
                                                                                         </td>

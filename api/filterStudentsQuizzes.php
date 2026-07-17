@@ -34,7 +34,7 @@ if (SessionUser::hasValidSession()) {
                             $validLecturer = true;
                         }
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subjects_subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subjects_subject_id']) || $validLecturer)) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 1, $quizData['subjects_subject_id']) || UserPermissions::hasPermission('quiz', 17, $quizData['subjects_subject_id']) || $validLecturer)) {
                             $status->error = 'You are not authorized to filter students quizzes.';
                         } else {
 

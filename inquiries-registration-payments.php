@@ -91,7 +91,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
                                                         <div class="h-100 d-flex align-items-center p-1 bl-solid">
                                                             <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 pt-2 pb-2"></iconify-icon>
-                                                            <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." data-i18n="[placeholder]search-placeholder" id="search-text" onkeyup="handleStudentsPagination('filter')">
+                                                            <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." data-i18n="[placeholder]search-placeholder" id="search-text" onkeyup="handleInquiryRegistrationPaymentsPagination('filter')">
                                                         </div>
                                                     </div>
                                                     <div class="col-12 col-md-2 col-lg-1 d-flex flex-column justify-content-end">
@@ -111,7 +111,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-6 d-none d-lg-block"></div>
                                                     <div class="col-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-end">
                                                         <label for="" class="pe-2 sub-text" data-i18n="results-per-page">Results Per Page</label>
-                                                        <select class="form-select custom-select w-25" aria-label="Default select example" id="show-result-selector" onchange="handleStudentsPagination('filter')">
+                                                        <select class="form-select custom-select w-25" aria-label="Default select example" id="show-result-selector" onchange="handleInquiryRegistrationPaymentsPagination('filter')">
                                                             <option selected value="10">10</option>
                                                             <option value="25">25</option>
                                                             <option value="50">50</option>
@@ -130,20 +130,20 @@ if (!SessionUser::hasValidSession()) {
                                                                 <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium align-content-center w-25">
                                                                     <div class="d-flex flex-row align-items-center cursor-pointer">
                                                                         <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
-                                                                        <div class="d-flex justify-content-between align-items-center w-100" onclick="handleStudentsPagination('sortByName')">
+                                                                        <div class="d-flex justify-content-between align-items-center w-100" onclick="handleInquiryRegistrationPaymentsPagination('sortByName')">
                                                                             <span class="text-14 main-text fw-medium mx-2">Student Name</span>
                                                                             <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                         </div>
                                                                     </div>
                                                                 </th>
-                                                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleStudentsPagination('sortByDate')">
+                                                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryRegistrationPaymentsPagination('sortByDate')">
                                                                     <div class="d-flex justify-content-between align-items-center w-100">
                                                                         <span class="text-14 main-text fw-medium">Date Added</span>
                                                                         <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                     </div>
                                                                 </th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Added By</th>
-                                                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleStudentsPagination('sortByDate')">
+                                                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryRegistrationPaymentsPagination('sortByDate')">
                                                                     <div class="d-flex justify-content-between align-items-center w-100">
                                                                         <span class="text-14 main-text fw-medium">Date Updated</span>
                                                                         <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole)) {
                                                                 ?>
                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                 <?php
@@ -306,7 +306,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </td>
 
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsAccounts($sessionUserRole)) {
                                                                         ?>
                                                                             <td class="py-3 align-middle">
                                                                                 <div class="dropdown">
@@ -370,7 +370,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <nav aria-label="..." class="col-12 px-2 pe-2 m-0 container-fluid">
                                                             <div class="row p-4 align-items-center">
                                                                 <!-- Previous Button (col-1) -->
-                                                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleStudentsPagination('previousPage');">
+                                                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleInquiryRegistrationPaymentsPagination('previousPage');">
                                                                     <iconify-icon icon="tabler:arrow-left" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                                                     <span class="text-14 main-text fw-semibold">Previous</span>
                                                                 </button>
@@ -384,7 +384,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         function renderPageButton($i, $isActive = false)
                                                                         {
                                                                             $activeClass = $isActive ? 'active' : '';
-                                                                            $action = $isActive ? '' : "onclick=\"handleStudentsPagination('goToPage', '{$i}')\"";
+                                                                            $action = $isActive ? '' : "onclick=\"handleInquiryRegistrationPaymentsPagination('goToPage', '{$i}')\"";
                                                                             echo "<li class='page-item {$activeClass}' id='page-{$i}'><button class='py-2 px-3' {$action}>{$i}</button></li>";
                                                                         }
 
@@ -404,7 +404,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     </ul>
                                                                 </div>
                                                                 <!-- Next Button (col-1) -->
-                                                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleStudentsPagination('nextPage',<?= $number_of_pages ?>);">
+                                                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleInquiryRegistrationPaymentsPagination('nextPage',<?= $number_of_pages ?>);">
                                                                     <span class="text-14 main-text fw-semibold">Next</span>
                                                                     <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                                                 </button>
@@ -473,7 +473,7 @@ if (!SessionUser::hasValidSession()) {
             </div>
             <?php
 
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
             ?>
                 <div class="modal fade br-0" id="csvDownload" aria-hidden="true" aria-labelledby="csvDownloadLabel" tabindex="-1">
                     <div class="modal-dialog modal-lg modal-dialog-centered br-0">

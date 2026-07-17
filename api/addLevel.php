@@ -22,7 +22,7 @@ if (SessionUser::hasValidSession()) {
                     $status->error = "Invalid intake Id";
                 } else {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $intake_id))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $intake_id))) {
                         $status->error = 'You do not have permission to add level to this intake';
                     } else {
                         if (empty($level_name)) {

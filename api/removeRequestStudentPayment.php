@@ -31,7 +31,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $paymentPlanData = $paymentPlan->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 11, $paymentPlan['intakes_intake_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 11, $paymentPlan['intakes_intake_id']))) {
                                 $status->error = 'You do not have permission to delete payment';
                             } else {
                                 if (!($paymentPlanData['payment_status_payment_status_id'] == 1)) {

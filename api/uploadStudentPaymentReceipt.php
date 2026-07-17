@@ -20,6 +20,34 @@
  * - NEW (CORRECT): base = taxInclusive × (1 - taxRate/100)
  * - Tax is now calculated as a percentage of the FINAL (tax-inclusive) amount
  *
+ * ✅ v9 FIX (overpayment double-rounding bug):
+ * - Previously, the paid amount was converted LKR → GBP and ROUNDED to 2dp before
+ *   any overpayment math. Rounding a GBP value to 2dp and then multiplying it back
+ *   by an exchange rate of ~390 turns a 1-cent GBP rounding error into ~LKR 3-4 of
+ *   error. The overpay amount was then rounded a SECOND time in GBP, and the
+ *   resulting "amount stored for the current installment" was rounded a THIRD time
+ *   after converting back to LKR — three compounding rounding points.
+ * - The frontend never had this problem because it subtracts the balance directly
+ *   in the payment currency (LKR - LKR), with no intermediate currency round-trip.
+ * - FIX: base-currency amounts used for INTERNAL math are no longer rounded to 2dp
+ *   (they keep full float precision). The overpayment amount is now computed
+ *   directly in the PAYMENT currency first (exactly like the frontend), and the
+ *   base-currency equivalent is derived FROM that figure — not the other way
+ *   around. Rounding now happens exactly once, at the point of storage.
+ *
+ * ✅ v10 FIX (multi-installment overpayment drift):
+ * - When an overpayment spans MORE THAN ONE future installment, the
+ *   distribution loop previously tracked the remaining overpay in base
+ *   currency and rounded at every step (payable calc + storage conversion),
+ *   so the amounts actually saved across installments no longer summed to
+ *   the original amount paid (e.g. 79,666.34 + 95,597.28 + 34.95 = 175,298.57
+ *   instead of the 175,300.00 actually paid).
+ * - FIX: the loop now tracks and distributes the overpayment directly in the
+ *   payment currency throughout, starting from the same single-rounding-point
+ *   figure used for the current installment. Rounding only happens once per
+ *   installment, at the point of storage, so every stored amount always
+ *   sums back to the original paid amount.
+ *
  * Example:
  *   Course in GBP, student pays LKR 5000, exchange rate = 400
  *   → paid_amount = 5000, currency_id = 1 (LKR), exchange_rate = 400
@@ -60,17 +88,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 /**
  * Extract tax component from a tax-inclusive amount using CORRECT formula.
- * 
+ *
  * Tax is calculated as a percentage of the FINAL (tax-inclusive) amount.
- * 
+ *
  * Formula:
  *   base = taxInclusiveAmount × (1 - taxRate/100)
  *   tax = taxInclusiveAmount × (taxRate/100)
- * 
+ *
  * Example (200 GBP with 2.5% tax):
  *   base = 200 × 0.975 = 195 GBP
  *   tax = 200 × 0.025 = 5 GBP
- * 
+ *
  * Returns ['base' => float, 'tax' => float]
  */
 function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
@@ -89,13 +117,13 @@ function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
 
 /**
  * Calculate tax-inclusive amount from base amount using CORRECT formula.
- * 
+ *
  * When you have a base amount and need to calculate the tax-inclusive amount:
  * inclusive = base / (1 - taxRate/100)
- * 
+ *
  * Example (base 195 GBP with 2.5% tax):
  *   inclusive = 195 / 0.975 = 200 GBP
- * 
+ *
  * Returns float
  */
 function calculateTaxInclusiveAmount(float $base, float $taxRate): float
@@ -116,12 +144,12 @@ function calculateTaxInclusiveAmount(float $base, float $taxRate): float
 
 /**
  * Calculate tax amount from base using CORRECT formula.
- * 
+ *
  * tax = base × (taxRate / (100 - taxRate))
- * 
+ *
  * Example (base 200 GBP with 2.5% tax):
  *   tax = 200 × (2.5 / 97.5) = 5.128 GBP
- * 
+ *
  * Returns float
  */
 function calculateTaxFromBase(float $base, float $taxRate): float
@@ -244,6 +272,8 @@ $paymentPlan = Database::search("
     INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
     INNER JOIN title      t   ON s.title_title_id            = t.title_id
     WHERE cp.course_payments_id = '" . $payment_id . "'
+    AND (shi.status_status_id = '1' OR shi.status_status_id IS NULL)
+    AND (ld.status_status_id = '1' OR ld.status_status_id IS NULL)
 ");
 
 if (!$paymentPlan || $paymentPlan->num_rows == 0) {
@@ -255,6 +285,7 @@ $paymentData = $paymentPlan->fetch_assoc();
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 if (!(
     SessionUser::ifUserIsPro($sessionUserRole)          ||
+    SessionUser::ifUserIsAccounts($sessionUserRole)     ||
     UserPermissions::validPermisisonType('leads')        ||
     UserPermissions::validPermisisonType('payments')     ||
     UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])
@@ -324,15 +355,20 @@ foreach (['error', 'amount', 'slip', 'paid_date', 'method', 'discount', 'panelty
 
    LKR → GBP : divide by exchange rate
    GBP → GBP : use as-is
+
+   ✅ FIX: these are INTERMEDIATE values used only for internal math — do NOT
+   round them to 2dp here. Rounding a GBP value to 2dp and then multiplying it
+   back by an exchange rate of ~390 turns a 1-cent GBP error into several
+   rupees of error. Rounding happens once, at the point of storage.
 ════════════════════════════════════════════════════════════════════════════ */
 if ($isLkrPaymentForForeignCourse) {
-    $paid_base     = round($paid_amount_original / $exchangeRate, 2);
-    $discount_base = round($discount_original    / $exchangeRate, 2);
-    $penalty_base  = round($penalty_original     / $exchangeRate, 2);
+    $paid_base     = $paid_amount_original / $exchangeRate;
+    $discount_base = $discount_original    / $exchangeRate;
+    $penalty_base  = $penalty_original     / $exchangeRate;
 } else {
-    $paid_base     = round($paid_amount_original, 2);
-    $discount_base = round($discount_original,    2);
-    $penalty_base  = round($penalty_original,     2);
+    $paid_base     = $paid_amount_original;
+    $discount_base = $discount_original;
+    $penalty_base  = $penalty_original;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -418,10 +454,32 @@ $remainingBase = max(0.0, $basePayable - $paidNetSoFar);
 $balanceAfter_base = calculateTaxInclusiveAmount($remainingBase, $latestTaxRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
-   OVERPAYMENT DETECTION (base currency)
+   OVERPAYMENT DETECTION
+
+   ✅ FIX: Compute the overpayment amount directly in the PAYMENT currency first
+   (exactly what the frontend does: rawPaid - balBeforeDisplayWithTax), THEN
+   derive the base-currency equivalent FROM that figure. Previously this was
+   backwards — the overpay was computed (and rounded) in base currency first,
+   then converted to LKR and rounded again, which is what caused the stored
+   "current installment" amount to drift away from the balance shown on screen.
 ════════════════════════════════════════════════════════════════════════════ */
 $remainingBefore_base = max(0.0, $totalPayable - $existingPaid_base);
-$overpayAmount_base   = max(0.0, round($paid_base - $remainingBefore_base, 2));
+
+// Balance due BEFORE this payment, expressed in the currency the student paid in
+// (unrounded — matches the frontend's balBeforeDisplayWithTax calculation)
+$remainingBeforeInPaymentCcy = $isLkrPaymentForForeignCourse
+    ? $remainingBefore_base * $exchangeRate
+    : $remainingBefore_base;
+
+// Overpayment amount, computed directly in the payment currency (single rounding point)
+$overpayAmount_paymentCcy = max(0.0, round($paid_amount_original - $remainingBeforeInPaymentCcy, 2));
+
+// Base-currency equivalent, DERIVED from the payment-currency figure so the two
+// values always agree with each other and with what's shown on screen
+$overpayAmount_base = $isLkrPaymentForForeignCourse
+    ? $overpayAmount_paymentCcy / $exchangeRate
+    : $overpayAmount_paymentCcy;
+
 $amountForCurrent_base = min($paid_base, $remainingBefore_base); // portion for this installment
 
 // Tax for just the current installment portion (base currency)
@@ -432,14 +490,14 @@ $remaingBaseFor_Conversion = $remainingBefore_base;
 
 /* ════════════════════════════════════════════════════════════════════════════
    ✅ CRITICAL FIX: ALWAYS store the ORIGINAL paid amount as entered
-   
+
    DO NOT OVERWRITE with amountForCurrent!
-   
-   paid_amount = what student actually paid (LKR 50,000) 
+
+   paid_amount = what student actually paid (LKR 50,000)
    tax_amount  = tax extracted from that amount (LKR ~436)
    discount_amount = discount given (original currency)
    penalty_amount = penalty added (original currency)
-   
+
    Overpayment will be calculated and distributed to next installments separately.
 ════════════════════════════════════════════════════════════════════════════ */
 $paidAmountForCurrent_stored = round($paid_amount_original, 2);  // ✅ ALWAYS original
@@ -452,9 +510,6 @@ if ($isLkrPaymentForForeignCourse) {
 } else {
     $taxForCurrent_stored = round($taxForCurrent_base, 2);  // base currency
 }
-
-// ✅ NOTE: We do NOT modify $paidAmountForCurrent_stored even if there's overpayment
-// The original amount stays as what was paid. Overpayment is handled separately below.
 
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT → distribute to next installments
@@ -506,9 +561,29 @@ if ($overpayAmount_base > 0.001) {
         ORDER BY cp.due_date ASC, cp.course_payments_id ASC
     ");
 
-    $remainingOverpay_base = $overpayAmount_base;
+    /**
+     * ✅ FIX (multi-installment overpayment drift):
+     * Previously this loop tracked the remaining overpayment in BASE currency
+     * ($remainingOverpay_base) and, for every next installment, rounded the
+     * payable amount to 2dp in base currency (inside calculateTaxInclusiveAmount),
+     * then rounded AGAIN when converting the applied portion back to the
+     * payment currency for storage. Each installment in the chain added
+     * another rounding hop, so the amounts actually saved
+     * (79,666.34 + 95,597.28 + 34.95 = 175,298.57) drifted away from the
+     * original amount paid (175,300.00) — a shortfall of LKR 1.43.
+     *
+     * FIX: track and distribute the overpayment directly in the PAYMENT
+     * currency throughout the loop (starting from $overpayAmount_paymentCcy,
+     * the same single-rounding-point figure used for the current
+     * installment above). Each installment's payable/paid is converted to
+     * payment currency ONCE, unrounded, and rounding only happens when the
+     * final "amount applied to this installment" is stored — so the sum of
+     * every stored amount (current + all next installments) always
+     * reconciles exactly with the original amount paid.
+     */
+    $remainingOverpay_paymentCcy = $overpayAmount_paymentCcy;
 
-    while ($remainingOverpay_base > 0.001 && ($nextRow = $nextPayments->fetch_assoc())) {
+    while ($remainingOverpay_paymentCcy > 0.01 && ($nextRow = $nextPayments->fetch_assoc())) {
         $nextId = (int)$nextRow['course_payments_id'];
         $nextDisc = ($nextRow['discount_type_discount_type_id'] == 3)
             ? $nextRow['amount'] / 100.0 * $nextRow['discount']
@@ -531,25 +606,36 @@ if ($overpayAmount_base > 0.001) {
 
         $nextBasePayable = max(0.0, $nextRow['amount'] - $nextDisc);
 
-        // Calculate total payable including tax using CORRECT formula
+        // Calculate total payable including tax using CORRECT formula (base currency)
         $nextTotalPayable_base = calculateTaxInclusiveAmount($nextBasePayable, $latestTaxRate);
 
-        $nextRemaining_base  = max(0.0, $nextTotalPayable_base - $nextExistingPaid_base);
-        $applyToNext_base    = min($remainingOverpay_base, $nextRemaining_base);
-        $remainingOverpay_base = round($remainingOverpay_base - $applyToNext_base, 2);
+        // Convert this installment's payable/paid to the PAYMENT currency once,
+        // unrounded — keeps the comparison against $remainingOverpay_paymentCcy
+        // apples-to-apples without a second base→payment round-trip.
+        $nextTotalPayable_paymentCcy = $isLkrPaymentForForeignCourse
+            ? $nextTotalPayable_base * $exchangeRate
+            : $nextTotalPayable_base;
+        $nextExistingPaid_paymentCcy = $isLkrPaymentForForeignCourse
+            ? $nextExistingPaid_base * $exchangeRate
+            : $nextExistingPaid_base;
 
-        // Tax in base currency
-        $nextExtracted    = extractTaxFromInclusive($applyToNext_base, $latestTaxRate);
-        $nextTax_base     = $nextExtracted['tax'];
+        $nextRemaining_paymentCcy = max(0.0, $nextTotalPayable_paymentCcy - $nextExistingPaid_paymentCcy);
+        $applyToNext_paymentCcy   = min($remainingOverpay_paymentCcy, $nextRemaining_paymentCcy);
+        $remainingOverpay_paymentCcy = round($remainingOverpay_paymentCcy - $applyToNext_paymentCcy, 2);
 
-        // ✅ Convert to payment currency for storage
-        if ($isLkrPaymentForForeignCourse) {
-            $applyToNext_stored = round($applyToNext_base * $exchangeRate, 2); // LKR
-            $nextTax_stored     = round($nextTax_base     * $exchangeRate, 2); // LKR
-        } else {
-            $applyToNext_stored = round($applyToNext_base, 2);
-            $nextTax_stored     = round($nextTax_base,     2);
-        }
+        // Tax split directly in the payment currency — extractTaxFromInclusive()
+        // only splits proportionally, so calling it on a payment-currency
+        // amount gives the correctly-rounded stored tax directly, with no
+        // separate base→payment conversion/rounding step needed.
+        $nextExtracted = extractTaxFromInclusive($applyToNext_paymentCcy, $latestTaxRate);
+
+        $applyToNext_stored = round($applyToNext_paymentCcy, 2);
+        $nextTax_stored      = $nextExtracted['tax'];
+
+        // Base-currency equivalent, kept only for the "mark as settled" comparison below
+        $applyToNext_base = $isLkrPaymentForForeignCourse
+            ? $applyToNext_paymentCcy / $exchangeRate
+            : $applyToNext_paymentCcy;
 
         $nextInstallmentPayments[] = [
             'payment_id'            => $nextId,
@@ -586,7 +672,10 @@ $receiptId = (int)Database::$connection->insert_id;
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT PAYMENT RECORD
-   - paid_amount    → original amount in payment currency (e.g. LKR 50,000) ✅ ALWAYS ORIGINAL
+   - paid_amount    → original amount in payment currency (e.g. LKR 50,000), MINUS
+                       any overpayment that was carried forward to the next
+                       installment(s) — this is what "settles" the current
+                       installment and MUST match the on-screen balance exactly
    - discount_amount→ original discount in payment currency
    - panelty_amount → original penalty in payment currency
    - tax_amount     → tax converted BACK to payment currency (e.g. LKR ~436)
@@ -595,20 +684,19 @@ $receiptId = (int)Database::$connection->insert_id;
 ════════════════════════════════════════════════════════════════════════════ */
 $qn = fn($v) => $v !== null ? "'" . addslashes((string)$v) . "'" : 'NULL';
 
-$paidAmountForCurrent_stored = $paidAmountForCurrent_stored;
-if ($overpayAmount_base > 0.001) {
-    if ($isLkrPaymentForForeignCourse) {
-        $paidAmountForCurrent_stored = $paidAmountForCurrent_stored - (round($overpayAmount_base * $exchangeRate, 2));
-    } else {
-        $paidAmountForCurrent_stored = $paidAmountForCurrent_stored - round($overpayAmount_base, 2);
-    }
+// ✅ FIX: subtract the overpayment directly in the PAYMENT currency — the exact
+// same figure ($overpayAmount_paymentCcy) that was used to detect the
+// overpayment in the first place, so this always reconciles with the balance
+// shown on screen (no separate GBP→LKR round-trip / re-rounding here).
+if ($overpayAmount_paymentCcy > 0.001) {
+    $paidAmountForCurrent_stored = round($paid_amount_original - $overpayAmount_paymentCcy, 2);
 }
 
 $cols = "`course_payments_course_payments_id`, `payment_method_payment_method_id`,
          `date_paid`, `paid_amount`, `discount_amount`, `panelty_amount`,
          `payment_status_payment_status_id`, `currencies_currency_id`,
          `note`, `tax_rate`, `tax_amount`,
-         `course_payment_receipts_course_payment_receipt_id`";
+         `course_payment_receipts_course_payment_receipt_id`,`date_added`";
 
 $vals = "'{$payment_id}', '{$method}',
          '{$paid_date}',
@@ -618,7 +706,7 @@ $vals = "'{$payment_id}', '{$method}',
          '3', '{$selectedCurrencyId}',
          " . ($note !== '' ? "'" . addslashes($note) . "'" : 'NULL') . ",
          '{$latestTaxRate}', '{$taxForCurrent_stored}',
-         '{$receiptId}'";
+         '{$receiptId}', '{$now}'";
 
 // Only store exchange rate when currencies differ
 if ($selectedCurrencyId != $baseCurrencyId) {
@@ -650,14 +738,14 @@ foreach ($nextInstallmentPayments as $nxt) {
                 `date_paid`, `paid_amount`, `discount_amount`, `panelty_amount`,
                 `payment_status_payment_status_id`, `currencies_currency_id`,
                 `note`, `tax_rate`, `tax_amount`,
-                `course_payment_receipts_course_payment_receipt_id`";
+                `course_payment_receipts_course_payment_receipt_id`,`date_added`";
 
     $nxtVals = "'{$nxtId}', '{$method}',
                 '{$paid_date}', '{$nxtPaid}', '0', '0',
                 '3', '{$selectedCurrencyId}',
                 'Auto-applied overpayment from {$receiptNumber}',
                 '{$latestTaxRate}', '{$nxtTax}',
-                '{$receiptId}'";
+                '{$receiptId}', '{$now}'";
 
     if ($selectedCurrencyId != $baseCurrencyId) {
         $nxtCols .= ", `currency_exchange_rate_id`, `currency_exchange_rate`";
@@ -791,6 +879,7 @@ if ($overpayAmount_base > 0.001) {
     $status->overpayment = [
         'detected'         => true,
         'overpayAmountBase' => round($overpayAmount_base, 2),
+        'overpayAmountPaymentCurrency' => round($overpayAmount_paymentCcy, 2),
         'nextInstallments' => count($nextInstallmentPayments),
     ];
 }

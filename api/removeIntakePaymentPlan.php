@@ -26,7 +26,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $plan = $plan->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 11, $plan['intakes_intake_id']))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 11, $plan['intakes_intake_id']))) {
                                 $status->error = 'You are not authorized to delete payment plan';
                             } else {
                                 $planAssignedStudents = Database::search("SELECT * FROM `payment_plan_has_students_has_intakes` WHERE `intake_has_payment_plan_id`='" . $planId . "'");

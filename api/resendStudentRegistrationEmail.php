@@ -1,6 +1,7 @@
 <?php
 
 $status = new stdClass();
+require_once '../includes/connection.php';
 require_once '../includes/UserClass.php';
 require_once '../includes/Project.php';
 require_once("../includes/UserPermissionsClass.php");
@@ -19,9 +20,7 @@ if (SessionUser::hasValidSession()) {
                 $decoded = json_decode($content, true);
                 if (json_last_error() == JSON_ERROR_NONE) {
 
-                    require_once "../includes/connection.php";
-                    require_once "../includes/UserPermissionsClass.php";
-
+             
                     $student = $decoded['student'];
 
                     if (empty($student) || $student == 0 || !is_numeric($student)) {

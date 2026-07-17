@@ -28,7 +28,7 @@ if (SessionUser::hasValidSession()) {
                     } else {
                         $assignmentData = $assignment->fetch_assoc();
                         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 17))) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 17))) {
                             $status->error = "You are not authorized to release assignments marks.";
                         } else {
 

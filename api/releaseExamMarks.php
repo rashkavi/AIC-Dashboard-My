@@ -28,7 +28,7 @@ if (SessionUser::hasValidSession()) {
                         } else {
                             $examinationData = $exam->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('exams', 17, $examinationData['subjects_subject_id'])) {
+                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('exams', 17, $examinationData['subjects_subject_id'])) {
 
                                 $examType = $examinationData["exam_types_exam_type_id"];
                                 if ($examType == 1) {

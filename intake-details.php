@@ -76,8 +76,8 @@ if (!SessionUser::hasValidSession()) {
 
                 $cardData = $cardData->fetch_assoc();
 
-                $isHasStudentActionsPermissions = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id) || UserPermissions::hasPermission('intake_students', 1, $id);
-                $isHasPaymentsActionsPermissions = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 1, $id) || UserPermissions::hasPermission('intake_payments', 2, $id);
+                $isHasStudentActionsPermissions = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id) || UserPermissions::hasPermission('intake_students', 1, $id);
+                $isHasPaymentsActionsPermissions = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 1, $id) || UserPermissions::hasPermission('intake_payments', 2, $id);
 ?>
                 <!DOCTYPE html>
                 <html lang="en">
@@ -245,7 +245,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <span class="sub-topic">Levels</span>
                                                         </button>
 
-                                                        <?php if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission("intake", 2, $id)) { ?>
+                                                        <?php if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission("intake", 2, $id)) { ?>
                                                             <div class="d-flex align-items-center w-15">
                                                                 <button class="custom-btn w-100" data-bs-target="#addLevel" data-bs-toggle="modal">
                                                                     Add New
@@ -299,7 +299,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                                                         <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                                                             <?php
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 10)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 10)) {
                                                                                             ?>
                                                                                                 <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                                                     <button class="custom-danger-btn w-100" onclick="loadLevelEditModel('<?= $level['level_id'] ?>','<?= $level['level'] ?>','<?= $level['level_cover'] ?>')">Edit</button>
@@ -309,7 +309,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ?>
 
                                                                                             <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                                                <button class="custom-btn w-100" onclick="window.location.href='level-details?level-id=<?= $level['level_id']; ?>'">View</button>
+                                                                                                <button class="custom-btn w-100" onclick="window.location.href='subjects?level-id=<?= $level['level_id']; ?>'">View</button>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>
@@ -334,7 +334,7 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 </div>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_students', $id)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_students', $id)) {
                                                 ?>
                                                     <div class="accordion-item mb-3 border-0">
                                                         <h2 class="accordion-header d-flex justify-content-between align-items-center border-0 p-4 table-btn-yellow">
@@ -342,7 +342,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <span class="sub-topic">Students</span>
                                                             </button>
                                                             <?php
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id)) {
                                                             ?> <div class="d-flex align-items-center w-15">
                                                                     <div class="dropdown w-100">
                                                                         <div class="d-flex align-items-center justify-content-center custom-btn fw-normal w-100 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -398,7 +398,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <div class="col-12">
                                                                                             <div class="row">
                                                                                                 <?php
-                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission("intake_students", 4)) {
+                                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission("intake_students", 4)) {
                                                                                                 ?>
                                                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
                                                                                                         <select class="form-select custom-select" aria-label="Default select example" id="update-selector" onchange="filterIntakeHasStudents('<?= $id ?>')">
@@ -470,12 +470,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
                                                                                             <?php
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1)) {
                                                                                             ?>
                                                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Action</th>
                                                                                             <?php
                                                                                             }
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
                                                                                             ?>
                                                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                                             <?php
@@ -572,14 +572,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     </td>
 
                                                                                                     <?php
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1)) {
                                                                                                     ?>
                                                                                                         <td class="pt-3 pb-3 align-middle">
                                                                                                             <button class="table-btn table-btn-dark-theme active w-100" onclick="window.location.href='edit-intake-student?student-id=<?= $data['shiId']; ?>'">View</button>
                                                                                                         </td>
                                                                                                     <?php
                                                                                                     }
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
                                                                                                     ?>
                                                                                                         <td class="py-3 align-middle">
                                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
@@ -602,7 +602,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                                     <?php
                                                                                                                     }
-                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $id)) {
+                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $id)) {
                                                                                                                     ?>
                                                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="edit-intake-student?student-id=<?= $data['shiId']; ?>">
                                                                                                                                 <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -610,7 +610,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                                     <?php
                                                                                                                     }
-                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                                                                                     ?>
                                                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payments?student-id=<?= $data['shiId']; ?>">
                                                                                                                                 <iconify-icon icon="iconoir:wallet" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -618,7 +618,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                                         <?php
                                                                                                                     }
-                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $id)) {
+                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $id)) {
 
                                                                                                                         if ($data["status"] == "Active") {
                                                                                                                         ?>
@@ -713,7 +713,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <?php
                                                 }
 
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                 ?>
                                                     <div class="accordion-item mb-3 border-0">
                                                         <h2 class="accordion-header d-flex justify-content-between align-items-center border-0 p-4 table-btn-pink">
@@ -721,7 +721,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <span class="sub-topic flex-grow-1">Payments</span>
                                                             </button>
                                                             <?php
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $id)) {
                                                             ?>
 
                                                                 <div class="d-flex align-items-center w-15">
@@ -887,7 +887,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                                     <?php
 
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $id)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $id)) {
                                                                                                     ?>
                                                                                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                                                     <?php
@@ -1024,7 +1024,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             </td>
                                                                                                             <?php
 
-                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $id)) {
+                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $id)) {
                                                                                                             ?>
                                                                                                                 <td class="py-3 align-middle">
                                                                                                                     <div class="dropdown">
@@ -1125,7 +1125,7 @@ if (!SessionUser::hasValidSession()) {
                     </div>
 
                     <?php
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $id)) {
                     ?>
                         <!-- level Add Model => Start -->
                         <div class="modal fade br-0" id="addLevel" aria-hidden="true" aria-labelledby="addLevelLabel" tabindex="-1">
@@ -1185,7 +1185,7 @@ if (!SessionUser::hasValidSession()) {
                         <!-- Level Add Model => End -->
                     <?php
                     }
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 10, $id)) {
                     ?>
                         <!-- Level Edit Modal => Start -->
                         <div class="modal fade br-0" id="editLevel" aria-hidden="true" aria-labelledby="editLevelLabel" tabindex="-1">
@@ -1246,7 +1246,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 1, $id)) {
                     ?>
                         <div class="modal fade br-0" id="csvDownload" aria-hidden="true" aria-labelledby="csvDownloadLabel" tabindex="-1">
                             <div class="modal-dialog modal-lg modal-dialog-centered br-0">
@@ -1281,7 +1281,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $id) || UserPermissions::hasPermission('intake', 10, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake', 2, $id) || UserPermissions::hasPermission('intake', 10, $id)) {
                     ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

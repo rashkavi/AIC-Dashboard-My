@@ -108,7 +108,7 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="col-12 col-md-12 col-xxl-4 mt-3 mt-xxl-0">
                                                 <div class="row gx-3 justify-content-end">
                                                     <?php
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <button class="custom-btn w-100" onclick="window.location.href='./message-center-history.php'">

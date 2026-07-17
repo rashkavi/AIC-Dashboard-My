@@ -1,8 +1,12 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   paymentReceiptRenderer.js  — v6 FINAL FIX
+   paymentReceiptRenderer.js  — v7 FIXED LOGO BACKGROUND
    
    FORMAT CHANGE:
    Instead of showing what was OWED, now shows what was ACTUALLY PAID
+   
+   LOGO AREA FIX:
+   Changed header background from dark blue (#1e3a5f) to white (#ffffff)
+   for better logo visibility
    
    Old Format:
    ├─ Total Course Fee (owed): 30,000
@@ -247,7 +251,7 @@ function renderReceiptHTML(data) {
             '<tr style="background:#f0fdf4;border-top:2px solid #86efac;">' +
             '<td style="padding:10px 13px;font-size:11px;color:#16a34a;font-weight:700;letter-spacing:.05em;">' +
             '<span style="display:inline-flex;align-items:center;gap:6px;">' +
-            '<span style="width:18px;height:18px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">✓</span>' +
+            '<span style="width:18px;height:18px;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">✓</span>' +
             'FULLY PAID' +
             '</span>' +
             '</td>' +
@@ -283,38 +287,32 @@ function renderReceiptHTML(data) {
         '<div id="rcpt-scroll">' +
         '<div id="receipt-print-area" style="font-family:\'Segoe UI\',system-ui,-apple-system,sans-serif;font-size:11px;line-height:1.5;color:#111827;background:#fff;max-width:880px;margin:0 auto;">' +
 
-        /* ════ HEADER BAND ════ */
-        '<div style="background:#1e3a5f;padding:22px 28px 0;position:relative;overflow:hidden;">' +
+        /* ════ HEADER BAND - NOW WITH WHITE BACKGROUND ════ */
+        '<div style="background:#ffffff;padding:22px 28px 0;position:relative;overflow:hidden;border-bottom:2px solid #1e3a5f;">' +
         '<table style="width:100%;border-collapse:collapse;padding-bottom:28px;"><tr>' +
 
         /* Left — logo + branch */
         '<td style="vertical-align:top;width:55%;">' +
         '<div>' +
         '<img src="./assets/imgs/common/logo.png" alt="" style="height:40px;width:auto;" onerror="this.style.display=\'none\'">' +
-        '<div style="font-size:8px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.12em;margin-top:5px;">Learning Management System</div>' +
-        (data.branch_address ? '<div style="font-size:9px;color:rgba(255,255,255,.55);margin-top:6px;line-height:1.8;">' + esc(data.branch_address) + '</div>' : '') +
-        (data.branch_phone ? '<div style="font-size:9px;color:rgba(255,255,255,.55);">Tel: ' + esc(data.branch_phone) + '</div>' : '') +
-        (data.branch_email ? '<div style="font-size:9px;color:rgba(255,255,255,.55);">' + esc(data.branch_email) + '</div>' : '') +
+        '<div style="font-size:8px;color:#6b7280;text-transform:uppercase;letter-spacing:.12em;margin-top:5px;">Learning Management System</div>' +
+        (data.branch_address ? '<div style="font-size:9px;color:#6b7280;margin-top:6px;line-height:1.8;">' + esc(data.branch_address) + '</div>' : '') +
+        (data.branch_phone ? '<div style="font-size:9px;color:#6b7280;">Tel: ' + esc(data.branch_phone) + '</div>' : '') +
+        (data.branch_email ? '<div style="font-size:9px;color:#6b7280;">' + esc(data.branch_email) + '</div>' : '') +
         '</div></td>' +
 
         /* Right — receipt ID */
         '<td style="vertical-align:top;text-align:right;padding-bottom:32px;">' +
-        '<div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px;">Official Payment Receipt</div>' +
-        '<div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;">' + recNum + '</div>' +
-        '<div style="font-size:9px;color:rgba(255,255,255,.55);margin-top:3px;">Date: ' + recDate + '</div>' +
+        '<div style="font-size:8px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px;">Official Payment Receipt</div>' +
+        '<div style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:-.5px;">' + recNum + '</div>' +
+        '<div style="font-size:9px;color:#6b7280;margin-top:3px;">Date: ' + recDate + '</div>' +
         '<div style="margin-top:7px;">' +
-        '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:3px 11px;font-size:9px;font-weight:700;color:#6ee7b7;letter-spacing:.06em;">&#10003; APPROVED</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;background:#e6f5ed;border:1px solid #86efac;border-radius:20px;padding:3px 11px;font-size:9px;font-weight:700;color:#16a34a;letter-spacing:.06em;">&#10003; APPROVED</span>' +
         '</div></td>' +
         '</tr></table>' +
-
-        /* Wave divider */
-        '<svg viewBox="0 0 880 36" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="display:block;width:100%;height:28px;margin-bottom:-1px;">' +
-        '<path d="M0,18 C200,38 450,0 650,18 C760,30 830,10 880,18 L880,36 L0,36 Z" fill="#ffffff"/>' +
-        '</svg>' +
-        '</div>' + /* /header band */
-
+    
         /* ════ BODY ════ */
-        '<div style="padding:22px 28px;">' +
+        '<div >' +
 
         /* Bill To + Programme */
         '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>' +
@@ -342,7 +340,7 @@ function renderReceiptHTML(data) {
         sectionLabel('Payment Records') +
 
         /* Payment table */
-        '<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:20px;">' +
+        '<div style="border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px;">' +
         '<div style="overflow-x:auto;">' +
         '<table style="width:100%;border-collapse:collapse;min-width:640px;">' +
         '<thead><tr style="background:#1e3a5f;">' +
@@ -370,7 +368,7 @@ function renderReceiptHTML(data) {
 
         /* Right — totals summary (NEW FORMAT) */
         '<td style="vertical-align:top;">' +
-        '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">' +
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;overflow:hidden;">' +
         summaryRows +
         totalRow +
         statusRow +
@@ -416,7 +414,7 @@ function buildExchangeNote(data, cc) {
         }
     });
     if (!lines.length) return '';
-    return '<div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;font-size:10px;color:#6b7280;line-height:2;">' +
+    return '<div style="border:1px solid #e5e7eb;padding:10px 12px;font-size:10px;color:#6b7280;line-height:2;">' +
         '<div style="font-size:8px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Exchange Rates Used</div>' +
         lines.map(function (l) { return '&#8226; ' + l; }).join('<br>') +
         '</div>' +
@@ -445,7 +443,7 @@ function noDataRow() {
 }
 
 function infoBox(labelText, content) {
-    return '<div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;background:#fafafa;">' +
+    return '<div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">' +
         '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">' + labelText + '</div>' +
         content +
         '</div>';

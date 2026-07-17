@@ -1,0 +1,869 @@
+/* Modal Container */
+#lectureDetailsModal .modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+#lectureDetailsModal .modal-header {
+    border-bottom: 1px solid var(--line-color);
+    padding: 20px;
+}
+
+#lectureDetailsModal .modal-title {
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+#lectureDetailsModal .modal-body {
+    padding: 20px;
+}
+
+/* Lecture Cards */
+.lecture-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.lecture-card {
+    background: var(--custom-white);
+    border-radius: 10px;
+    border: 1px solid var(--line-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.lecture-card:hover {
+    transform: translateY(-2px);
+}
+
+.lecture-card-header {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+}
+
+.lecture-card-header.completed {
+    background: var(--light-green);
+    border-bottom: 1px solid var(--dark-green);
+}
+
+.lecture-card-header.ongoing {
+    background: var(--light-yellow);
+    border-bottom: 1px solid var(--dark-yellow);
+}
+
+
+.lecturer-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 15px;
+    border: 3px solid var(--custom-white);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.lecturer-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lecturer-meta {
+    flex: 1;
+}
+
+.lecturer-meta h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--dark-color);
+}
+
+.subject-badge {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--dark-color);
+    padding: 2px;
+}
+
+.lecture-time {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.lecture-card-body {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-dot.ongoing {
+    background: var(--dark-yellow);
+}
+
+.status-dot.upcoming {
+    background: #186ddd;
+}
+
+.status-dot.completed {
+    background: var(--dark-green);
+}
+
+.status-dot.cancelled {
+    background: var(--dark-red);
+}
+
+.status-dot.study {
+    background: var(--dark-pink);
+}
+
+.status-dot.postpond {
+    background: var(--dark-purple);
+}
+
+.lecture-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* No Lectures State */
+.no-lectures {
+    text-align: center;
+    padding: 30px 20px;
+}
+
+.no-lectures-icon {
+    margin-bottom: 15px;
+}
+
+.no-lectures h5 {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.no-lectures p {
+    color: #6c757d;
+    margin: 0;
+}
+
+/* Calendar Grid Layout */
+.calendar-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.calendar-grid th {
+    padding: 12px 0;
+    text-align: center;
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--line-color);
+}
+
+.calendar-grid td {
+    vertical-align: top;
+    border: 1px solid var(--line-color);
+    padding: 0;
+    position: relative;
+}
+
+.empty-day {
+    background-color: var(--line-color);
+}
+
+/* Calendar Cell Styling */
+.calendar-cell {
+    transition: all 0.2s ease;
+    background-color: var(--custom-white);
+}
+
+.calendar-cell:hover {
+    background-color: var(--line-color);
+}
+
+.day-header {
+    padding: 6px 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--dark-color);
+    border-bottom: 1px solid var(--line-color);
+    position: sticky;
+    top: 0;
+    background: var(--custom-white);
+    z-index: 2;
+}
+
+/* Lectures Container */
+.lectures-container {
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lecture-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--custom-white);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.lecture-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Lecture Avatar */
+.lecture-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 10px;
+    flex-shrink: 0;
+    border: 2px solid #e2e8f0;
+}
+
+.lecture-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* subject cover */
+.subject-cover {
+    width: 50px;
+    height: auto !important;
+    overflow: hidden;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.subject-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Lecture Details */
+.lecture-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.lecture-subject {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--dark-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lecture-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2px;
+}
+
+.lecturer-name {
+    font-size: 0.7rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.attendance-status {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Status Colors */
+.lecture-item.ongoing .attendance-status {
+    background: #fdfaec;
+    color: #dd9f18;
+    border: 1px solid #f3dfa7;
+}
+
+.lecture-item.upcoming .attendance-status {
+    background: #eceffd;
+    color: #1846dd;
+    border: 1px solid #1846dd;
+}
+
+.lecture-item.completed .attendance-status {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.lecture-item.cancelled .attendance-status {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.lecture-item.study .attendance-status {
+    background: #fffbeb;
+    color: var(--dark-pink);
+    border: 1px solid var(--dark-pink);
+}
+
+.lecture-item.postponed .attendance-status {
+    background: #fffbeb;
+    color: var(--dark-purple);
+    border: 1px solid var(--dark-purple);
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-online {
+    background-color: var(--light-yellow);
+    color: var(--dark-yellow);
+}
+
+.status-physical {
+    background-color: var(--light-blue);
+    color: var(--dark-blue);
+}
+
+.status-upcoming {
+    background-color: var(--light-blue);
+    color: var(--dark-blue);
+}
+
+.pro-pop-pill.present,
+.status-completed,
+.status-present {
+    background-color: var(--light-green);
+    color: var(--dark-green);
+}
+
+.pro-pop-pill.absent,
+.status-cancelled,
+.status-absent {
+    background-color: var(--light-red);
+    color: var(--dark-red);
+}
+
+.pro-pop-pill.pending,
+.status-ongoing,
+.status-pending {
+    background-color: var(--light-yellow);
+    color: var(--dark-yellow);
+}
+
+.pro-pop-pill.watched,
+.status-postponed,
+.status-watched {
+    background-color: var(--light-pink);
+    color: var(--dark-pink);
+}
+
+.status-study {
+    background-color: var(--light-purple);
+    color: var(--dark-purple);
+}
+
+.pro-pop-pill.physical {
+    border-radius: 0px !important;
+    background-color: var(--light-blue);
+    color: var(--dark-blue);
+}
+
+.pro-pop-pill.online {
+    background-color: var(--light-yellow);
+    color: var(--dark-yellow);
+}
+
+.pro-pop-pill.ongoing {
+    background: #fdfaec;
+    color: #dd9f18;
+    border: 1px solid #f3dfa7;
+}
+
+.pro-pop-pill.upcoming {
+    background: #eceffd;
+    color: #1846dd;
+    border: 1px solid #1846dd;
+}
+
+.pro-pop-pill.completed {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.pro-pop-pill.cancelled {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.pro-pop-pill.study {
+    background: #fffbeb;
+    color: var(--dark-pink);
+    border: 1px solid var(--dark-pink);
+}
+
+.pro-pop-pill.postponed {
+    background: #fffbeb;
+    color: var(--dark-purple);
+    border: 1px solid var(--dark-purple);
+}
+
+
+/* stack inside day cell */
+.events-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px;
+
+}
+
+/* exact mini card */
+.tt-mini {
+    padding: 8px 10px 8px 10px;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+
+}
+
+.tt-mini:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .10);
+}
+
+/* icon square top-left */
+.tt-mini-top {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-bottom: 6px;
+}
+
+.tt-mini-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* text */
+.tt-mini-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dark-color);
+    line-height: 1.15;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: start;
+}
+
+.tt-mini-time {
+    font-size: 10.8px;
+    font-weight: 700;
+    color: var(--sub-text);
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    margin-top: 5px;
+}
+
+
+.tt-mini.completed,
+.tt-mini.present {
+    background: var(--light-green);
+}
+
+.tt-mini.completed .tt-mini-icon,
+.tt-mini.present .tt-mini-icon {
+    background: var(--dark-green);
+    color: #fff;
+}
+
+/* UPCOMING (soft blue) */
+.tt-mini.upcoming {
+    background: var(--light-theme);
+}
+
+.tt-mini.upcoming .tt-mini-icon {
+    background: var(--dark-theme);
+    color: white;
+}
+
+/* CANCELLED (soft red) */
+.tt-mini.cancelled,
+.tt-mini.absent {
+    background: var(--light-red);
+}
+
+.tt-mini.cancelled .tt-mini-icon,
+.tt-mini.absent .tt-mini-icon {
+    background: var(--dark-red);
+    color: #fff;
+}
+
+.tt-mini.postpond,
+.tt-mini.watched {
+    background: var(--light-pink);
+}
+
+.tt-mini.postpond .tt-mini-icon,
+.tt-mini.watched .tt-mini-icon {
+    background: var(--dark-pink);
+    color: #fff;
+}
+
+/* ONGOING (soft yellow) */
+.tt-mini.ongoing,
+.tt-mini.pending {
+    background: var(--light-yellow);
+}
+
+.tt-mini.ongoing .tt-mini-icon,
+.tt-mini.pending .tt-mini-icon {
+    background: var(--dark-yellow);
+    color: #111827;
+}
+
+.tt-mini.ongoing {
+    animation: ongoing-lift 2.5s ease-in-out infinite;
+}
+
+@keyframes ongoing-lift {
+
+    0%,
+    100% {
+        transform: translateY(0);
+        box-shadow: 0 6px 18px rgba(197, 186, 34, 0.18);
+    }
+
+    50% {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(197, 194, 34, 0.28);
+    }
+}
+
+.live-dot {
+    width: 10px;
+    height: 10px;
+    background: #c2c522;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    animation: live-dot-pulse 1.6s infinite;
+    position: absolute;
+    right: 10px;
+}
+
+@keyframes live-dot-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: .6;
+    }
+}
+
+/* base badge */
+.tt-mini-exam-type {
+    display: inline-flex;
+    align-self: flex-start;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, .08);
+    color: var(--sub-text);
+
+    margin-bottom: 4px;
+}
+
+.tt-mini-exam-type.online {
+    background: var(--light-purple);
+    color: var(--dark-purple);
+    border-color: #af52de85;
+}
+
+.tt-mini-exam-type.physical {
+    background: var(--light-green);
+    color: var(--dark-green);
+    border-color: #48cd5cbe;
+}
+
+/* Bootstrap popover customization */
+.pro-pop {
+    display: inline-block;
+    width: max-content;
+    min-width: 350px !important;
+    max-width: min-content !important;
+    box-shadow: none;
+    background-color: var(--custom-white);
+}
+
+.pro-popover .popover {
+    background-color: var(--custom-white);
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .18);
+    overflow: hidden;
+}
+
+.pro-popover .popover-body {
+    padding: 14px;
+}
+
+/* inner layout */
+.pro-pop-head {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.pro-pop-icon {
+    width: auto;
+    height: 60px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, .08);
+    background: #f8f9fa;
+    flex: 0 0 auto;
+}
+
+.pro-pop-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pro-pop-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--dark-color);
+    line-height: 1.2;
+}
+
+.pro-pop-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.pro-pop-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: 11px;
+    background: #fff;
+    color: var(--sub-text);
+}
+
+.pro-pop-pill.soft {
+    background: rgba(13, 110, 253, .06);
+    border-color: rgba(13, 110, 253, .14);
+    color: #0d6efd;
+}
+
+.pro-pop-pill.status {
+    background: rgba(108, 117, 125, .08);
+    border-color: rgba(108, 117, 125, .18);
+    color: var(--sub-text);
+}
+
+
+.pro-pop-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px dashed rgba(0, 0, 0, .10);
+}
+
+.pro-pop-label {
+    font-size: 12px;
+    color: var(--sub-text);
+    font-weight: 700;
+}
+
+.pro-pop-value {
+    font-size: 12px;
+    color: var(--dark-color);
+    font-weight: 650;
+    text-align: right;
+}
+
+.pro-pop-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+    .lecture-card-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .lecturer-avatar {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    .lecture-card-body {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .calendar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: none;
+    }
+
+    .calendar-grid {
+        min-width: 900px;
+        /* swipe left/right */
+    }
+
+    .events-stack {
+        width: 200px !important;
+    }
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .calendar-grid th {
+        font-size: 0.7rem;
+        padding: 8px 0;
+    }
+
+    .day-header {
+        font-size: 0.8rem;
+    }
+
+    .lecture-item {
+        padding: 6px;
+    }
+
+    .lecture-avatar {
+        width: 28px;
+        height: 28px;
+        margin-right: 8px;
+    }
+
+    .lecture-subject {
+        font-size: 0.7rem;
+    }
+
+    .lecturer-name,
+    .attendance-status {
+        font-size: 0.6rem;
+    }
+
+    .calendar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: none;
+    }
+
+    .calendar-grid {
+        min-width: 900px;
+        /* swipe left/right */
+    }
+
+    .events-stack {
+        width: 200px !important;
+    }
+}
+
+@media (max-width: 992px) {
+    #calendar.calendar::after {
+        content: "← Swipe →";
+        position: sticky;
+        left: 100%;
+        transform: translateX(-110%);
+        top: 8px;
+        display: inline-block;
+        font-size: 12px;
+        color: #94a3b8;
+        background: rgba(255, 255, 255, .9);
+        padding: 4px 10px;
+        border-radius: 999px;
+        pointer-events: none;
+        margin: 8px;
+    }
+
+    .calendar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: none;
+    }
+
+    .calendar-grid {
+        min-width: 900px;
+        /* swipe left/right */
+    }
+
+    .events-stack {
+        width: 200px !important;
+    }
+}

@@ -36,7 +36,7 @@ if (SessionUser::hasValidSession()) {
                             $validLecturer = true;
                         }
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $subject) || $validLecturer)) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', $subject) || $validLecturer)) {
                             $status->error = 'You are not authorized to filter lectures.';
                         } else {
 

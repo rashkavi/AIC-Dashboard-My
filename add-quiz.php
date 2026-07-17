@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject_id']) && !empty($_GET['subject_id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
             $id = $_GET['subject_id'];
             $subject = Database::search("
@@ -36,13 +36,13 @@ if (!SessionUser::hasValidSession()) {
         ");
 
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $id))) {
-                    header("Location: ./level-details?level-id=" . $subjectData['level_id']);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $id))) {
+                    header("Location: ./subjects?level-id=" . $subjectData['level_id']);
                 } else {
 ?>
                     <!DOCTYPE html>

@@ -21,7 +21,7 @@ if (SessionUser::hasValidSession()) {
                     $unselectedPermissions = isset($decoded['unselectedPermissions']) ? $decoded['unselectedPermissions'] : [];
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 26, $branchId) || UserPermissions::hasPermission('branch', 4, $branchId))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 26, $branchId) || UserPermissions::hasPermission('branch', 4, $branchId))) {
                         $status->error = 'You are not authorized to add permissions';
                     } else {
                         if ($userId == 0) {

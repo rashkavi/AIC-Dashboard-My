@@ -18,7 +18,7 @@ if (SessionUser::hasValidSession()) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
             if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 2))) {
-                $status->error = 'You are not authorized to add student';
+                $status->error = 'You are not authorized to add inquiry';
             } else {
                 $fname = isset($_POST['fname']) ? trim($_POST['fname']) : '';
                 $lname = isset($_POST['lname']) ? trim($_POST['lname']) : '';
@@ -126,7 +126,7 @@ if (SessionUser::hasValidSession()) {
                 }
                 if (empty($mobile)) {
                     $status->mobile =  "Please enter student mobile";
-                } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $mobile)) {
+                } else if (!normalizePhoneNumber($mobile)) {
                     $status->mobile =  "Please enter a valid contact number";
                 } else {
                     $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE `mobile` = '" . $mobile . "'");
@@ -137,7 +137,7 @@ if (SessionUser::hasValidSession()) {
                 }
                 if (empty($whatsapp)) {
                     $status->whatsapp =  "Please enter student whatsapp number";
-                } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $whatsapp)) {
+                } else if (!normalizePhoneNumber($whatsapp)) {
                     $status->whatsapp =  "Please enter a valid whatsapp number";
                 } else {
                     $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE `whatsapp` = '" . $whatsapp . "'");
@@ -151,15 +151,11 @@ if (SessionUser::hasValidSession()) {
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
                         $status->address1 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address)) {
-                        $status->address1 =  "Address lines contain invalid characters.";
                     }
                 }
                 if (!empty($address2)) {
                     if (!strlen($address2) > 100) {
                         $status->address2 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address2)) {
-                        $status->address2 =  "Address lines contain invalid characters.";
                     }
                 }
 
@@ -282,55 +278,8 @@ if (SessionUser::hasValidSession()) {
                     $status->$key = $message;
                 }
 
-                $requiredProperties = [
-                    'id',
-                    'fname',
-                    'lname',
-                    'fullname',
-                    'nwi',
-                    'title',
-                    'gender',
-                    'marital_status',
-                    'nationality',
-                    'nic',
-                    'cob',
-                    'cor',
-                    'dob',
-                    'email',
-                    'mobile',
-                    'whatsapp',
-                    'address',
-                    'address2',
-                    'city',
-                    'pcode',
-                    'image',
-                    'branch',
-                    'faculty',
-                    'programme',
-                    'intake',
-                    'gtitle',
-                    'grelationship',
-                    'gfname',
-                    'glname',
-                    'gemail',
-                    'gmobile',
-                    'gwhatsapp',
-                    'entry_type',
-                    'payment_option'
-                ];
 
-                $allPropertiesExist = true;
-                foreach ($requiredProperties as $property) {
-                    if (property_exists($status, $property)) {
-                        $allPropertiesExist = false;
-                        break; // Exit loop on the first missing property
-                    }
-                }
-                foreach ($studentDocuments["errors"] as $key => $message) {
-                    $allPropertiesExist = false;
-                    break; // Exit loop on the first missing property
-                }
-                if ($allPropertiesExist) {
+                if (empty(get_object_vars($status))) {
                     $timezone = new DateTimeZone("Asia/Colombo");
                     $dateTime = new DateTime("now", $timezone);
                     $registerTime = $dateTime->format('Y-m-d H:i:s');
@@ -344,14 +293,17 @@ if (SessionUser::hasValidSession()) {
                     $password = rand(1000, 9999);
                     $hashPassword = password_hash($password, PASSWORD_BCRYPT);
 
+                    $normalizeMobile = normalizePhoneNumber($mobile);
+                    $normalzeWhatsapp = normalizePhoneNumber($whatsapp);
+
                     $login_details_columns = " `first_name`, `last_name`, `email`, `whatsapp`, `password`, `date_registered`,`verification`";
-                    $login_details_values = "'" . $fname . "','" . $lname . "','" . $email . "','" . $whatsapp . "','" . $hashPassword . "','" . $registerTime . "','" . $token . "'";
+                    $login_details_values = "'" . $fname . "','" . $lname . "','" . $email . "','" . $normalzeWhatsapp . "','" . $hashPassword . "','" . $registerTime . "','" . $token . "'";
 
                     Database::iud("INSERT INTO `login_details` (" . $login_details_columns . ") VALUES (" . $login_details_values . ")");
                     $login_details_id = Database::$connection->insert_id;
 
                     $student_table_insert_columns = "`full_name`,`name_with_initials`,`title_title_id`,`mobile`,`date_added`,`gender_gender_id`,`users_user_id`,`login_details_login_details_id`,`lead_student_status_lead_student_status_id`";
-                    $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $mobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "','1'";
+                    $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $normalizeMobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "','1'";
 
                     if (isset($_FILES["image"])) {
                         $student_table_insert_columns .= ", `profile_img`";
@@ -421,11 +373,11 @@ if (SessionUser::hasValidSession()) {
 
                     if (!empty($address)) {
                         $address_table_insert_columns = "`address_line_1`,`city_city_id`,`postal_code`,`students_student_id`";
-                        $address_table_insert_values = "'" . $address . "','" . $city . "','" . $pcode . "','" . $studentId . "'";
+                        $address_table_insert_values = "'" . Database::escape($address) . "','" . $city . "','" . $pcode . "','" . $studentId . "'";
 
                         if (!empty($address2)) {
                             $address_table_insert_columns .= ", `address_line_2`";
-                            $address_table_insert_values .= ",'" . $address2 . "'";
+                            $address_table_insert_values .= ",'" . Database::escape($address2) . "'";
                         }
 
                         Database::iud("INSERT INTO `student_has_address` (" . $address_table_insert_columns . ") VALUES (" . $address_table_insert_values . ")");
@@ -499,6 +451,8 @@ function validateStudentDocuments()
     $requiredDocuments = [
         "passport_nic",
         "payment_slip",
+        "signed_fee_structure",
+        "discount_approved_document"
     ];
 
     $documentTypes = getStudentDocumentTypeConfig();
@@ -619,6 +573,11 @@ function getStudentDocumentTypeConfig()
             "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }

@@ -136,7 +136,7 @@ permission_to_id=16, permission_id=11, permission=Delete             (Type: Stud
 
 Example from `inquiries.php`:
 ```php
-if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2)) {
+if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2)) {
     // Show "Add New Inquiry" button
 }
 ```

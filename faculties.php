@@ -95,7 +95,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <?php
                                                             }
 
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id'])) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id'])) {
                                                             ?>
                                                                 <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                     <button class="custom-btn col-12" data-bs-target="#addfaculty" data-bs-toggle="modal" data-i18n="add-new">Add New</button>
@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                                 <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('faculties', 10)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculties', 10)) {
                                                                     ?>
                                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                             <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadFacultyEditModel('<?= $faculty['faculty_id'] ?>','<?= $faculty['faculty'] ?>','<?= $faculty['faculty_cover'] ?>')">Edit</button>
@@ -195,7 +195,7 @@ if (!SessionUser::hasValidSession()) {
                     </div>
 
                     <?php
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id'])) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id'])) {
                     ?>
                         <!-- faculty Add Model => Start -->
                         <div class="modal fade br-0" id="addfaculty" aria-hidden="true" aria-labelledby="addfacultyLabel" tabindex="-1">
@@ -259,7 +259,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 10, $branchData['branch_id'])) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 10, $branchData['branch_id'])) {
                     ?>
                         <!-- faculty Edit Modal => Start -->
                         <div class="modal fade br-0" id="editFaculty" aria-hidden="true" aria-labelledby="editFacultyLabel" tabindex="-1">
@@ -317,7 +317,7 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id']) || UserPermissions::hasPermission('branch', 10, $branchData['branch_id'])) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branch', 2, $branchData['branch_id']) || UserPermissions::hasPermission('branch', 10, $branchData['branch_id'])) {
                     ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">

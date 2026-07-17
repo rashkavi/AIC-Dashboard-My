@@ -86,7 +86,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <ol class="breadcrumb m-0">
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="faculties" href="./faculties">Faculties</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./faculties">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $levelData['level_id'] ?>"><?= $levelData["level"] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $levelData['level_id'] ?>"><?= $levelData["level"] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-permissions?level-id=<?= $levelData['level_id'] ?>">Level Permissions</a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" data-i18n="assign-permissions">Assign Permissions</a></li>
                                                                     </ol>

@@ -28,7 +28,7 @@ if (SessionUser::hasValidSession()) {
                             $status->intake = 'Invalid Intake Id';
                         } else {
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $intakeId))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $intakeId))) {
                                 $status->error = 'You do not have permission to add payment plan to this intake';
                             } else {
 
@@ -75,24 +75,7 @@ if (SessionUser::hasValidSession()) {
                                     }
                                 }
 
-
-                                $requiredProperties = [
-                                    'error',
-                                    'paymentCategory',
-                                    'paymentPlan',
-                                    'paymentAmount',
-                                    'discountType',
-                                    'discountAmount'
-                                ];
-                                $allPropertiesExist = true;
-                                foreach ($requiredProperties as $property) {
-                                    if (property_exists($status, $property)) {
-                                        $allPropertiesExist = false;
-                                        break;
-                                    }
-                                }
-
-                                if ($allPropertiesExist) {
+                                if (empty(get_object_vars($status))) {
                                     $timezone = new DateTimeZone("Asia/Colombo");
                                     $dateTime = new DateTime("now", $timezone);
                                     $addTime = $dateTime->format('Y-m-d H:i:s');
@@ -108,8 +91,11 @@ if (SessionUser::hasValidSession()) {
 
                                         $query = " SELECT `students_has_intakes_id` 
                                             FROM `students_has_intakes`
+                                            INNER JOIN students ON `students_has_intakes`.`students_student_id` = `students`.`student_id`
+                                            INNER JOIN login_details ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
                                             WHERE `intakes_intake_id` = '" . $intakeId . "' 
                                             AND `students_has_intakes`.`status_status_id` = 1
+                                            AND `login_details`.`status_status_id` = 1
                                            ";
 
                                         if (count($checkedStudents) > 0) {

@@ -209,7 +209,6 @@ if (SessionUser::hasValidSession()) {
                                             </button>
                                         </td>
 
-
                                         <td class="py-3 align-middle">
                                             <div class="dropdown">
                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>

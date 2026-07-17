@@ -102,6 +102,16 @@ class SessionUser
         return $userRole === "Lecturer";
     }
 
+    public static function ifUserIsAccounts(?string $userRole): bool
+    {
+        return $userRole === "Accounts";
+    }
+
+    public static function ifUserIsAcademic(?string $userRole): bool
+    {
+        return $userRole === "Academic";
+    }
+
     public static function ifUserIsAcdemicAdministration(?string $userRole): bool
     {
         return $userRole === "Head of Admission";

@@ -287,7 +287,7 @@ if (SessionUser::hasValidSession()) {
                         <?php
                         while ($level = $levels_rs->fetch_assoc()) {
                         ?>
-                            <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 bl-solid rounded-0 hover-bg" onclick="moveOnSearchResult('<?= $level['level'] ?>','./level-details?level-id=<?= $level['level_id']; ?>')">
+                            <div class="list-group-item list-group-item-action d-flex align-items-center gap-3 bl-solid rounded-0 hover-bg" onclick="moveOnSearchResult('<?= $level['level'] ?>','./subjects?level-id=<?= $level['level_id']; ?>')">
                                 <div class="icon-container d-flex align-items-center justify-content-center">
                                     <?php
                                     if (!empty($level["level_cover"]) && file_exists('../assets/imgs/levels-covers/' . $level["level_cover"])) {

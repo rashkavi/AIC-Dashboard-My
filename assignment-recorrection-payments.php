@@ -30,8 +30,8 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 24, $assignmentData['subjects_subject_id']))) {
-                    header("Location: ./level-details");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 24, $assignmentData['subjects_subject_id']))) {
+                    header("Location: ./subjects");
                 } else {
 
                     $query = "
@@ -351,7 +351,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                         ?>
                             <!-- Student Mark Bulk Upload Model => Start -->
                             <div class="modal fade br-0" id="marksBulkUpload" aria-hidden="true" aria-labelledby="marksBulkUploadLabel" tabindex="-1">
@@ -404,7 +404,7 @@ if (!SessionUser::hasValidSession()) {
                         }
 
                         if ($submit_assignments_count > 0) {
-                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
+                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
                             ?>
                                 <!-- Mark Released Model => Start -->
                                 <div class="modal fade" id="markReleasedModal" tabindex="-1" role="dialog" aria-labelledby="markReleasedModalTitle" aria-hidden="true">

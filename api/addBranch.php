@@ -9,7 +9,7 @@ if (SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('branches', 2))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('branches', 2))) {
                 $status->error = "You don't have permission to add branch";
             } else {
                 $branch_name = isset($_POST['branch_name']) ? $_POST['branch_name'] : '';

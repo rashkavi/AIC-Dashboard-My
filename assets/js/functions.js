@@ -416,7 +416,6 @@ const addStudent = (btn) => {
     form.append("al_results", $("#al-results").val());
     form.append("work_experience", $("#work-experience").val());
     form.append("team_username", $("#team-username").val());
-    form.append("team_password", $("#team-password").val());
 
     appendStudentDocumentsToFormData(form);
 
@@ -475,8 +474,9 @@ const addStudent = (btn) => {
         method: "POST",
         body: form,
     })
-        .then((res) => res.json())
+        .then((res) => res.text())
         .then((response) => {
+            console.log(response);
             applyValidation(response, validationMap, false);
             toggleBtnLoader(btn, false);
             if (response.done) {
@@ -1615,6 +1615,7 @@ const loadLecturers = () => {
 const scheduleLecture = (btn) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
+    form.append("branch", $("#branch-selector").val());
     form.append("faculty", $("#faculty-selector").val());
     form.append("programme_id", $("#programme-selector").val());
     form.append("intake_id", $("#intake-selector").val());
@@ -4215,7 +4216,6 @@ const addStudentToIntake = (btn, id) => {
     form.append("al_results", $("#al-results").val());
     form.append("work_experience", $("#work-experience").val());
     form.append("team_username", $("#team-username").val());
-    form.append("team_password", $("#team-password").val());
 
     appendStudentDocumentsToFormData(form);
 
@@ -5185,7 +5185,16 @@ const saveBank = () => {
     form.append("acc_no", $("#acc-number").val());
     form.append("acc_name", $("#acc-name").val());
     form.append("branch", $("#branch").val());
+    form.append("branch_selector", $("#branch-selector").val());
     form.append("image", $("#file-input").prop("files")[0]);
+
+    const validationMap = {
+        bank: ["#bank-name", "#bank-feedback"],
+        acc_no: ["#acc-number", "#acc-number-feedback"],
+        acc_name: ["#acc-name", "#acc-name-feedback"],
+        branch: ["#branch", "#branch-feedback"],
+        branch_selector: ["#branch-selector", "#branch-selector-feedback"],
+    }
 
     fetch('api/addBank.php', {
         method: 'POST',
@@ -5201,30 +5210,7 @@ const saveBank = () => {
                 showToast("success", response.done);
                 setTimeout(() => { window.location.reload(); }, 4000);
             } else {
-                setTimeout(() => { showToast("error", "Something went wrong.Check data fields and try again"); }, 1000);
-                if (response.hasOwnProperty('bank')) {
-                    $("#bank-feedback").text(response.bank);
-                } else {
-                    $("#bank-feedback").text("");
-                }
-
-                if (response.hasOwnProperty('acc_no')) {
-                    $("#acc-number-feedback").text(response.acc_no);
-                } else {
-                    $("#acc-number-feedback").text("");
-                }
-
-                if (response.hasOwnProperty('acc_name')) {
-                    $("#acc-name-feedback").text(response.acc_name);
-                } else {
-                    $("#acc-name-feedback").text("");
-                }
-
-                if (response.hasOwnProperty('barnch')) {
-                    $("#branch-feedback").text(response.barnch);
-                } else {
-                    $("#branch-feedback").text("");
-                }
+                applyValidation(response, validationMap);
 
             }
         })
@@ -10174,6 +10160,7 @@ const resendUserRegistrationEmail = (user) => {
     })
         .then((response) => response.text())
         .then((data) => {
+            console.log(data);
             toggleLoader(false);
             const response = JSON.parse(data);
             if (response.hasOwnProperty('error')) {
@@ -10687,6 +10674,7 @@ const uploadStudentPaymentReceipt = (btn, id, currency_data = null) => {
     if (currency_data != null) {
         form.append("currency", JSON.stringify(currency_data));
     }
+
 
     // Validation mapping
     const validationMap = {
@@ -11603,6 +11591,7 @@ const addLead = (btn) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        signed_fee_structure: ["#doc-signed-fee-structure", "#doc-signed-fee-structure-feedback"],
         payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
@@ -12159,7 +12148,8 @@ const confirmAcademicCompletion = (btn) => {
 
     toggleBtnLoader(btn, true);
     const data = {
-        student_id: studentId
+        student_id: studentId,
+        ms_teams_username: $("#academicAdministrationTeamsUsername").val()
     }
 
     fetch("api/confirmAcademicCompletion.php", {
@@ -12693,16 +12683,16 @@ const removeSystemPaymentPlan = (id) => {
 }
 
 
-const duplicateIntake = (btn) => {
+const duplicateIntake = (btn, programme) => {
     toggleBtnLoader(btn, true);
-    console.log($("#duplicate-intake").val());
     const form = new FormData();
-    form.append("intake_id", $("#duplicate-intake").val());
+    form.append("intake_id", $("#intake-selector").val());
+    form.append("programme_id", programme);
     form.append("intake_name", $("#duplicate-name").val());
     form.append("intake_cover", $("#duplicate-cover-input").prop("files")[0]);
 
     const validationMap = {
-        intake: ["#duplicate-intake", "#duplicate-intake-feedback"],
+        intake: ["#intake-selector", "#intake-selector-feedback"],
         name: ["#intake_name", "#intake_name-feedback"],
         start: ["#duplicate-start-date", "#duplicate-start-date-feedback"],
         end: ["#duplicate-end-date", "#duplicate-end-date-feedback"],
@@ -12795,86 +12785,618 @@ const uploadInquiryStudentPaymentReceipt = (btn, id) => {
         });
 }
 
-function submitUpdatePaymentStatus(btn, paymentId) {
-    var rate = (modalExchangeRate || modalExchangeRateValue) || 1;
 
-    // ✅ Determine which currency the payment was ACTUALLY made in
-    var paymentCurrencyId = baseCurrencyId;  // Default to course currency
-    if (!isBaseCurrencyLKR && modalCurrentMode === 'lkr') {
-        paymentCurrencyId = 1;  // LKR
+// const addNewPaymentPlan = (btn, confirmation = null) => {
+//     const data = {
+//         branch: $("#branch-selector").val(),
+//         faculty: $("#faculty-selector").val(),
+//         programmeId: $("#programme-selector").val(),
+//         intakeId: $("#intake-selector").val(),
+//         planName: $("#plan-name").val(),
+//         category: $("#payment-category").val(),
+//         plan: $("#payment-plan").val(),
+//         isDefault: $("#is-default").is(":checked"),
+//         paymentAmount: $("#payment-amount").val(),
+//         discountType: $("#plan-discount-type").val(),
+//         discountAmount: $("#plan-discount").val(),
+//         discountNote: $("#plan-discount-note").val(),
+//         payments: collectInstallmentData(),
+//         confirmation: confirmation
+//     }
+
+//     const validationMap = {
+//         branch: ["#branch-selector", "#branch-feedback"],
+//         faculty: ["#faculty-selector", "#faculty-feedback"],
+//         programme: ["#programme-selector", "#programme-feedback"],
+//         intake: ["#intake-selector", "#intake-feedback"],
+//         name: ["#plan-name", "#plan-name-feedback"],
+//         discountNote: ['#plan-discount-note', "#plan-discount-note-feedback"],
+//         paymentAmount: ["#payment-amount", "#payment-amount-feedback"],
+//         discountType: ["#plan-discount-type", "#plan-discount-type-feedback"],
+//         discountAmount: ["#plan-discount", "#plan-discount-feedback"],
+//         category: ["#payment-category", "#payment-category-feedback"],
+//         plan: ["#payment-plan", "#payment-plan-feedback"],
+//     }
+
+//     fetch('api/addNewPaymentPlan.php', {
+//         method: "POST",
+//         headers: {
+//             "Content-Type": "application/json",
+//         },
+//         body: JSON.stringify(data),
+//     })
+//         .then((res) => res.json())
+//         .then((response) => {
+//             console.log(response);
+//             toggleBtnLoader(btn, false);
+//             applyValidation('', validationMap, false);
+//             $("#scheduleConfirmModal").modal('hide');
+//             if (response.done) {
+//                 showToast("success", response.done);
+//                 setTimeout(() => { window.history.back(); }, 4000);
+//             } else if (response.error) {
+//                 showToast("error", response.error);
+//             } else if (response.warning) {
+//                 showToast("warning", response.warning);
+//             } else if (response.confirm_required) {
+
+//                 const confirmModal = new bootstrap.Modal(document.getElementById("scheduleConfirmModal"));
+
+//                 $("#confirmScheduleSave").off("click");
+//                 $("#confirmScheduleSave").on("click", function () {
+//                     addIntakePaymentPlan(btn, id, true);
+//                 });
+
+//                 $("#scheduleConfirmModalCancel").off("click");
+//                 $("#scheduleConfirmModalCancel").on("click", function () {
+//                     addIntakePaymentPlan(btn, id, false);
+//                 });
+//                 confirmModal.show();
+//                 return;
+//             } else {
+//                 applyValidation(response, validationMap);
+
+//                 if (response.installments) {
+//                     generatePaymentErrorPDF(response);
+//                 }
+//             }
+//         }).catch((error) => {
+//             console.error('Error:', error);
+//             showToast("error", "Something went wrong");
+//         });
+// }
+
+const filterPaymentPlans = () => {
+    const data = {
+        text: $("#user-search-text").val() || "",
+        faculty: $("#faculty-selector").val(),
+        programmeId: $("#programme-selector").val(),
+        intakeId: $("#intake-selector").val(),
+        resultPerPage: $("#show-result-selector").val() || 10,
+        page: selectedPage || 1,
     }
 
-    var toBase = function (v) {
-        return (!isBaseCurrencyLKR && modalCurrentMode === 'lkr' && rate) ? v / rate : v;
-    };
+    fetch('api/filterPaymentPlans.php', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    })
+        .then(res => res.text())
+        .then(text => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
 
-    var taxAmountDisplay = parseFloat(mGet('modal-tax-amount-display') ? mGet('modal-tax-amount-display').value : 0) || 0;
-    var taxAmountBase = toBase(taxAmountDisplay);
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#accordionParent").html(result);
+            }
+        })
+        .catch(error => {
+            console.error("Filter users failed:", error);
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
 
-    var balanceDisplay = parseFloat(mGet('modal-balance-display') ? mGet('modal-balance-display').value : 0) || 0;
-    var balanceBase = toBase(balanceDisplay);
-
-    var taxRateEl = mGet('modal-tax-rate-badge');
-    var taxRate = taxRateEl ? parseFloat(taxRateEl.textContent) : 0;
-
-    var data = {
-        paymentId: paymentId,
-        status: mGet('status-selector') ? mGet('status-selector').value : '',
-        paidAmount: toBase(parseFloat(mGet('modal-paid-amount') ? mGet('modal-paid-amount').value : 0) || 0).toFixed(2),
-        discountAmount: toBase(parseFloat(mGet('modal-discount-amount') ? mGet('modal-discount-amount').value : 0) || 0).toFixed(2),
-        penaltyAmount: toBase(parseFloat(mGet('modal-penalty-amount') ? mGet('modal-penalty-amount').value : 0) || 0).toFixed(2),
-        taxAmount: taxAmountBase.toFixed(2),
-        taxRate: taxRate,
-        balance: balanceBase.toFixed(2),
-        paymentMethod: mGet('payment-method') ? mGet('payment-method').value : '',
-        paidDate: mGet('modal-paid-date') ? mGet('modal-paid-date').value : '',
-        exchangeRate: modalExchangeRate,
-        exchangeRateId: modalExchangeRateId,
-        currencyId: paymentCurrencyId,  // ✅ NOW SENDS CORRECT CURRENCY!
-        note: mGet('note') ? mGet('note').value : '',
-    };
-
-    console.log('Sending:', {
-        currency: paymentCurrencyId === 1 ? 'LKR' : currencyCode,
-        paidAmount: data.paidAmount,
-        mode: modalCurrentMode
-    });
-
-    var validationMap = {
-        status: ['#status-selector', '#status-selector-feedback'],
-        paidAmount: ['#modal-paid-amount', '#paid-amount-feedback'],
-        paymentMethod: ['#payment-method', '#payment-method-feedback'],
-        paidDate: ['#modal-paid-date', '#paid-date-feedback'],
-        note: ['#note', '#note-feedback'],
-    };
-
-    toggleBtnLoader(btn, true);
-
-    fetch('api/updatePaymentStatus.php', {
-        method: 'POST',
+const removeLecture = (id) => {
+    toggleLoader(true);
+    const data = {
+        id: id,
+    }
+    fetch('api/removeLecture.php', {
+        method: "POST",
         headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
     })
         .then((res) => res.json())
         .then((response) => {
-            toggleBtnLoader(btn, false);
-            applyValidation('', validationMap, false);
-
+            toggleLoader(false);
             if (response.done) {
-                showToast('success', response.done);
-                setTimeout(function () {
-                    location.reload();
-                }, 2000);
+                $("#removeLectureConfirmModal").modal('hide');
+                $("#lectureDetailsModal").modal('hide');
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload() }, 4000);
             } else if (response.error) {
-                showToast('error', response.error);
-            } else {
-                applyValidation(response, validationMap);
+                setTimeout(() => { showToast("error", response.error); }, 1000);
             }
         })
-        .catch(function () {
-            toggleBtnLoader(btn, false);
-            showToast('error', 'Something went wrong');
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
         });
 }
+
+const genarateStudentPaymentSummaryReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        filter: $("#filter-selector").val(),
+        from: $('#from-date').val(),
+        to: $("#to-date").val(),
+    }
+
+
+    fetch('api/genarateStudentPaymentSummaryReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Students Payment Summary Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}
+
+const filterStudentsPaymentsSummaryReport = () => {
+    const data = {
+        text: $("#search-text").val(),
+        status: $("#status-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        filter: $("#filter-selector").val(),
+        from: $('#from-date').val(),
+        to: $("#to-date").val(),
+        sortByAmount: sortCondition1,
+        sortByDate: sortCondition2,
+        sortByName: sortCondition4,
+        sortById: sortCondition3,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterStudentsPaymentsSummaryReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#payments-table-container").html(data);
+                getTableWidth("#payments-table", "#pagination-container")
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const genarateStudentsOutstandingBalancesReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        filter: $("#filter-selector").val(),
+        from: $('#from-date').val(),
+        to: $("#to-date").val(),
+    }
+
+
+    fetch('api/genarateStudentsOutstandingBalancesReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Students Payment Summary Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}
+
+const filterStudentsOutstandingBalancesReport = () => {
+    const data = {
+        text: $("#search-text").val(),
+        status: $("#status-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        filter: $("#filter-selector").val(),
+        from: $('#from-date').val(),
+        to: $("#to-date").val(),
+        sortByAmount: sortCondition1,
+        sortByDate: sortCondition2,
+        sortByName: sortCondition4,
+        sortById: sortCondition3,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterStudentsOutstandingBalancesReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#payments-table-container").html(data);
+                getTableWidth("#payments-table", "#pagination-container")
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+const filterInquiryRegistrationPayments = () => {
+
+    const data = {
+        text: $("#search-text").val(),
+        category: $("#category-selector").val(),
+        status: $("#status-selector").val(),
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage
+    }
+
+    console.log(data);
+
+    fetch(`api/filterInquiryRegistrationPayments.php`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#students-table-container").html(data);
+            }
+
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+
+}
+
+const genarateLatePaymentsReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        filter: $("#filter-selector").val(),
+        from: $('#from-date').val(),
+        to: $("#to-date").val(),
+    }
+
+
+    fetch('api/genarateLatePaymentsReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Students Payment Summary Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}
+
+
+const submitUpdatePaymentStatus = (btn, id, paid_id,currency_data = null) => {
+    toggleBtnLoader(btn, true);
+    const form = new FormData();
+    form.append("payment_id", id);
+    form.append("paid_payment_id",paid_id);
+    form.append("payment_status",$("#status-selector").val());
+    form.append("discount_amount", $("#discount-amount").val());
+    form.append("penalty_amount", $("#penalty-amount").val());
+    form.append("method", $("#payment-method").val());
+    form.append("paid_amount", $("#paid-amount").val()); // ← Tax-inclusive amount
+    form.append("paid_date", $("#paid-date").val());
+    form.append("balance", $("#balance-amount").val()); // ← For validation
+    form.append("note", $("#note").val());
+
+   
+    console.log(currency_data);
+    // Append currency data
+    if (currency_data != null) {
+        form.append("currency", JSON.stringify(currency_data));
+    }
+
+
+    // Validation mapping
+    const validationMap = {
+        amount: ["#paid-amount", "#paid-amount-feedback"],
+        method: ["#payment-method", "#payment-method-feedback"],
+        discount: ["#discount-amount", "#discount-amount-feedback"],
+        penalty: ["#penalty-amount", "#penalty-amount-feedback"],
+        paid_date: ["#paid-date", "#paid-date-feedback"],
+        note: ["#note", "#note-feedback"],
+    };
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // SUBMIT FORM
+    // ════════════════════════════════════════════════════════════════════════════
+
+    fetch("api/submitUpdatePaymentStatus.php", {
+        method: "POST",
+        body: form,
+    })
+        .then((res) => res.text())
+        .then((responseText) => {
+            toggleBtnLoader(btn, false);
+
+            try {
+                // Parse JSON response
+                var response = JSON.parse(responseText);
+                console.log('✅ Payment Receipt Response:', response);
+
+                // Clear previous validation errors
+                applyValidation('', validationMap, false);
+
+                // ════════════════════════════════════════════════════════════
+                // SUCCESS CASE
+                // ════════════════════════════════════════════════════════════
+                if (response.done) {
+                    // Show success toast with details
+                    $("#updatePaymentStatus").modal('hide');
+                    let successMsg = '✅ ' + response.done;
+
+                    if (response.receiptNumber) {
+                        successMsg += '<br>Receipt: ' + response.receiptNumber;
+                    }
+
+                    if (response.overpayment && response.overpayment.detected) {
+                        successMsg += '<br>⚠️ Overpayment detected: Applied to ' + response.overpayment.nextInstallments + ' next installment(s)';
+                    }
+
+                    showToast("success", successMsg);
+
+                    // Redirect after brief delay
+                    setTimeout(() => {
+                        window.location.reload()
+                    }, 2500);
+
+                    return;
+                }
+
+                // ════════════════════════════════════════════════════════════
+                // ERROR CASE
+                // ════════════════════════════════════════════════════════════
+                if (response.error) {
+                    // Check if this is an overpayment error that needs modal
+                    if (response.errorType === 'OVERPAYMENT_NO_NEXT_INSTALLMENT' && response.errorDetails) {
+                        showOverpaymentErrorModal(response);
+                    } else {
+                        showToast("error", "❌ " + response.error);
+                    }
+                    return;
+                }
+
+                if (response.warning) {
+                    showToast("warning", "⚠️ " + response.warning);
+                    return;
+                }
+
+                // ════════════════════════════════════════════════════════════
+                // VALIDATION ERRORS
+                // ════════════════════════════════════════════════════════════
+
+                // Apply field-level validation errors
+                applyValidation(response, validationMap);
+
+                // Handle file slip errors separately
+                if (response.slip) {
+                    const slipErrorContainer = $("#file-feedback");
+                    slipErrorContainer.html("");
+
+                    if (Array.isArray(response.slip)) {
+                        slipErrorContainer.append(
+                            '<p class="text-14 text-danger fw-bold">⚠️ Upload Errors:</p>'
+                        );
+                        response.slip.forEach(item => {
+                            slipErrorContainer.append(
+                                '<p class="text-12 text-danger" style="margin:4px 0;">• ' + item + '</p>'
+                            );
+                        });
+                    } else {
+                        slipErrorContainer.append(
+                            '<p class="text-12 text-danger">• ' + response.slip + '</p>'
+                        );
+                    }
+
+                    // Highlight the file input area
+                    $("#drop-section").addClass("border-danger");
+                } else {
+                    $("#file-feedback").html("");
+                    $("#drop-section").removeClass("border-danger");
+                }
+
+            } catch (parseErr) {
+                console.error('❌ JSON Parse Error:', parseErr);
+                console.log('Raw response:', responseText);
+                showToast("error", "Invalid response from server. Please try again.");
+            }
+        })
+        .catch((error) => {
+            console.error('❌ Network Error:', error);
+            toggleBtnLoader(btn, false);
+            showToast("error", "Network error occurred. Please check your connection and try again.");
+        });
+};

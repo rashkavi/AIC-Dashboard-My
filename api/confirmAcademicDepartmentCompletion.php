@@ -29,6 +29,8 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
                         INNER JOIN `title` ON `title_title_id` = `title_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                        INNER JOIN `intakes` ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
+                        INNER JOIN `programmes` ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
                         WHERE `students`.`student_id` = '" . $student_id . "'");
                         if ($student->num_rows == 0) {
                             http_response_code(400);
@@ -40,6 +42,15 @@ if (SessionUser::hasValidSession()) {
                             $timezone = new DateTimeZone("Asia/Colombo");
                             $dateTime = new DateTime("now", $timezone);
                             $now = $dateTime->format('Y-m-d H:i:s');
+
+
+                            $bytes = random_bytes(75);
+                            $token = substr(str_replace(['+', '/', '='], '', base64_encode($bytes)), 0, 100);
+
+                            $url = Project::getBasePortalUrl() . "/setup-password?token=" . $token;
+
+                            Database::iud("UPDATE `login_details` SET `status_status_id` = '1',`verification`='" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
+                            Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '1' WHERE `students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'");
 
                             Database::iud("
                             UPDATE `students`
@@ -67,7 +78,8 @@ if (SessionUser::hasValidSession()) {
                                     [
                                         'student_name' => $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'],
                                         'email' => $studentData['email'],
-                                        'login_url' => Project::getBasePortalUrl(),
+                                        'login_url' => $url,
+                                        'programme_name' => $studentData['programme'],
                                     ]
                                 );
 

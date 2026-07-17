@@ -64,6 +64,7 @@ if (SessionUser::hasValidSession()) {
                             ON `shi`.`status_status_id` = `st`.`status_id`
                         WHERE `shi`.`intakes_intake_id` = '" . $intake_id . "'
                         AND `shi`.`status_status_id` = '1'
+                        AND `ld`.`status_status_id` = '1'
                         AND `shi`.`students_has_intakes_id` NOT IN (
                         SELECT `students_has_intakes_students_has_intakes_id` 
                             FROM `payment_plan_has_students_has_intakes` 
@@ -72,7 +73,6 @@ if (SessionUser::hasValidSession()) {
                             
                         )
                     ";
-
                             if ($search_text != "") {
                                 $query .= " AND (`first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
                             }
@@ -221,7 +221,7 @@ if (SessionUser::hasValidSession()) {
                                                             <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                                             <?php
 
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
                                                             ?>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                             <?php
@@ -294,21 +294,21 @@ if (SessionUser::hasValidSession()) {
 
                                                                     <?php
 
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
                                                                     ?>
                                                                         <td class="py-3 align-middle">
                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                             <div class="dropdown">
                                                                                 <ul class="dropdown-menu border-0 shadow w-100 br-5" aria-labelledby="dropdownMenuButton2">
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
                                                                                     ?>
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-details?student-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Edit</a></li>
                                                                                     <?php
                                                                                     }
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
                                                                                     ?>
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="iconoir:wallet" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -316,7 +316,7 @@ if (SessionUser::hasValidSession()) {
                                                                                         <?php
                                                                                     }
 
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $intake_id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $intake_id)) {
 
                                                                                         if ($data["status"] == "Active") {
                                                                                         ?>

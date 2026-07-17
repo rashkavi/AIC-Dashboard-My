@@ -78,7 +78,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                     <?php
                                                     }
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                             <div class="dropdown w-100">
@@ -88,13 +88,13 @@ if (!SessionUser::hasValidSession()) {
                                                                 <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
 
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 2)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2)) {
                                                                     ?>
                                                                         <li><a class="dropdown-item" href="add-student" data-i18n="add-student">Add New Student</a></li>
                                                                         <li><a class="dropdown-item" href="upload-student-bulk" data-i18n="add-students-bulk">Add New Students Bulk</a></li>
                                                                     <?php
                                                                     }
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
                                                                     ?>
                                                                         <li><a class="dropdown-item" onclick="downloadStudentsCSV()" data-i18n="download-students">Download Students</a></li>
                                                                     <?php
@@ -142,7 +142,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12">
                                                                 <div class="row">
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
                                                                     ?>
 
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
@@ -210,7 +210,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                                                 ?>
                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                 <?php
@@ -306,7 +306,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </td>
 
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                                                         ?>
                                                                             <td class="py-3 align-middle">
                                                                                 <div class="dropdown">
@@ -316,10 +316,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <iconify-icon icon="hugeicons:activity-01" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Activity</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?php echo $data['sId']; ?>')">
+                                                                                        <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?php echo $data['sId']; ?>')">
                                                                                                 <iconify-icon icon="tabler:face-id" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Download Student ID Card</a></li>
-                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
                                                                                         <?php
                                                                                         if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                                                         ?>
@@ -336,7 +336,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <?php
                                                                                         }
-                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                                         ?>
                                                                                             <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?php echo $data['sId']; ?>">
                                                                                                     <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -344,7 +344,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <?php
                                                                                         }
 
-                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || (UserPermissions::hasPermission('students', 4) && UserPermissions::hasPermission('students', 10))) {
+                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                                                                         ?>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <?php
@@ -353,7 +353,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ?>
 
                                                                                         <?php
-                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
+                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
 
                                                                                             if ($data["status"] == "Active") {
                                                                                         ?>
@@ -457,7 +457,7 @@ if (!SessionUser::hasValidSession()) {
 
             <?php
 
-            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
+            if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1)) {
             ?>
                 <div class="modal fade br-0" id="csvDownload" aria-hidden="true" aria-labelledby="csvDownloadLabel" tabindex="-1">
                     <div class="modal-dialog modal-lg modal-dialog-centered br-0">

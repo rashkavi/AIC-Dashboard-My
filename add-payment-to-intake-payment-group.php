@@ -25,7 +25,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $intakeData = $intake->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeData['intake_id']))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $intakeData['intake_id']))) {
                     header("Location: ./intake-details?intake-id=" . $id);
                 } else {
 ?>
@@ -93,7 +93,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="col-12 col-lg-4 mt-3 mt-lg-0">
                                                             <div class="row align-items-center justify-content-end gx-3 h-100">
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $id)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 2, $id)) {
                                                                 ?>
                                                                     <div class="col-6 mt-3 mt-lg-0 m-md-0">
                                                                         <button class="custom-btn w-100" data-i18n="add-new" type="button" onclick="addPaymentIntakePaymentGroup(this, <?= $id ?>);">

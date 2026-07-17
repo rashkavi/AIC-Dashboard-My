@@ -126,7 +126,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row align-items-center justify-content-end gx-3 h-100">
                                                     <?php
 
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 2)) {
+                                                    if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole)) {
                                                     ?>
                                                         <div class="col-6 mt-3 mt-lg-0 m-md-0">
                                                             <button class="custom-btn w-100" data-i18n="add-new" type="button" data-bs-target="#exchangeRateModal" data-bs-toggle="modal">

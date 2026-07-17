@@ -13,7 +13,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['subject-id']) && !empty($_GET['subject-id']))) {
-            header("Location: ./level-details");
+            header("Location: ./subjects");
         } else {
 
             $id = $_GET['subject-id'];
@@ -38,7 +38,7 @@ if (!SessionUser::hasValidSession()) {
         ");
 
             if ($subject->num_rows == 0) {
-                header("Location: ./level-details");
+                header("Location: ./subjects");
             } else {
                 $subjectData = $subject->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
@@ -59,8 +59,8 @@ if (!SessionUser::hasValidSession()) {
                     }
                 }
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || $haveAnyPermission || $validLecturer)) {
-                    header("Location: ./level-details?level-id=" . $subjectData['level_id']);
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || $haveAnyPermission || $validLecturer)) {
+                    header("Location: ./subjects?level-id=" . $subjectData['level_id']);
                 } else {
 ?>
                     <!DOCTYPE html>
@@ -115,7 +115,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <ol class="breadcrumb m-0">
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $subjectData['programme_id'] ?>"><?= $subjectData['programme'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="level-details?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="subjects?level-id=<?= $subjectData['level_id'] ?>"><?= $subjectData['level'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="subject-details?subject-id=<?= $subjectData['subject_id'] ?>"><?= $subjectData['subject'] ?></a></li>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Quizes</a></li>
                                                                     </ol>
@@ -123,7 +123,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 2, $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
                                                                 <div class="row align-items-center">
@@ -214,7 +214,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </th>
                                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id) || UserPermissions::hasPermission('quiz', 11, $id)) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id) || UserPermissions::hasPermission('quiz', 11, $id)) {
                                                                                     ?>
                                                                                         <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                                     <?php
@@ -297,14 +297,14 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <button class="table-btn table-btn-dark-theme w-100" onclick="window.location.href='quiz-students-performance.php?quiz-id=<?= $data['quiz_id']; ?>'">View</button>
                                                                                             </td>
                                                                                             <?php
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id) || UserPermissions::hasPermission('quiz', 11, $id)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id) || UserPermissions::hasPermission('quiz', 11, $id)) {
                                                                                             ?>
                                                                                                 <td class="px-4 py-3 align-middle">
                                                                                                     <div class="dropdown">
                                                                                                         <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                                         <ul class="dropdown-menu border-0 shadow w-100 br-5" aria-labelledby="dropdownMenuButton2">
                                                                                                             <?php
-                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id)) {
+                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 10, $id)) {
                                                                                                             ?>
                                                                                                                 <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="quiz-details?quiz-id=<?= $data['quiz_id']; ?>">
                                                                                                                         <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -312,7 +312,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                 <?php
                                                                                                             }
 
-                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $id)) {
+                                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $id)) {
                                                                                                                 if (CheckDateTime::checkTimeStatus($data['exam_date'], $data['start_time'], $data['end_date'], $data['end_time']) == "Upcoming") {
                                                                                                                 ?>
                                                                                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -411,7 +411,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
 
                         <?php
-                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $id)) {
+                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('quiz', 11, $id)) {
                         ?>
                             <div class="modal fade" id="removeConfirmModal" tabindex="-1" role="dialog" aria-labelledby="removeConfirmModalTitle" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered" role="document">

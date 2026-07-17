@@ -27,7 +27,7 @@ if (SessionUser::hasValidSession()) {
                 } else {
                     $subjectData = $isValidSubject->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('level', 10, $subjectData['levels_level_id']))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('level', 10, $subjectData['levels_level_id']))) {
                         $status->error = "You don't have permission to update subjects";
                     } else {
                         if (empty($subject_name)) {

@@ -186,7 +186,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <ol class="breadcrumb m-0">
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $lectureData['programme_id'] ?>"><?= $lectureData['programme'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $lectureData['level_id'] ?>"><?= $lectureData['level'] ?></a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $lectureData['level_id'] ?>"><?= $lectureData['level'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $lectureData['subject_id'] ?>"><?= $lectureData['subject'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-lecture-schedule?subject-id=<?= $lectureData['subject_id'] ?>">Lectures</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Lecture Attendance</a></li>

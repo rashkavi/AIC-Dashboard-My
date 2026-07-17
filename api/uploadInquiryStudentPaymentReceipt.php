@@ -60,6 +60,7 @@ if (SessionUser::hasValidSession()) {
                     `cp`.`discount`,
                     `cp`.`discount_type_discount_type_id`,
                     `shi`.`student_id`,
+                    `shi`.`intakes_intake_id`,
                     `ld`.`first_name`,
                     `ld`.`last_name`,
                     `t`.`title`,
@@ -90,6 +91,7 @@ if (SessionUser::hasValidSession()) {
                 ) pp ON `cp`.`course_payments_id` = pp.`course_payments_course_payments_id`
                 WHERE `cp`.`course_payments_id` = '" . $payment_id . "'
                   AND `cp`.`payment_status_payment_status_id` = '1'
+                
                 GROUP BY `cp`.`course_payments_id`
                 ORDER BY `cp`.`course_payments_id` DESC
             ";
@@ -104,9 +106,10 @@ if (SessionUser::hasValidSession()) {
 
                 if (!(
                     SessionUser::ifUserIsPro($sessionUserRole) ||
+                    SessionUser::ifUserIsCounsiler($sessionUserRole) ||
                     UserPermissions::validPermisisonType('leads') ||
                     UserPermissions::validPermisisonType('payments') ||
-                    UserPermissions::hasPermission('intake_payments', 24, $paymentData['intake_id'])
+                    UserPermissions::hasPermission('intake_payments', 24, $paymentData['intakes_intake_id'])
                 )) {
                     $status->error = 'You are not authorized to this action.';
                 } else {
@@ -551,7 +554,8 @@ if (SessionUser::hasValidSession()) {
                             `currencies_currency_id`,
                             `note`,
                             `tax_rate`,
-                            `tax_amount`";
+                            `tax_amount`,
+                            `date_added`";
 
                         $insert_val = "
                             '{$payment_id}',
@@ -564,7 +568,8 @@ if (SessionUser::hasValidSession()) {
                             '{$paymentData['course_currency_id']}',
                             {$escapedNote},
                             '{$taxRate_formatted}',
-                            '{$paid_tax_amount}'";
+                            '{$paid_tax_amount}',
+                            '{$now}'";
 
                         Database::iud("
                             INSERT INTO `course_payment_has_payments`

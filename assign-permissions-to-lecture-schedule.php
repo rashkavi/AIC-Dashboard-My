@@ -96,7 +96,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-4 component-theme d-none" id="save-permission-btn-area">
                                             <div class="row justify-content-end p-0 m-0 g-0">
                                                 <div class="col-4 m-md-0 d-flex justify-content-end align-items-center">
-                                                    <button class="custom-btn col-12" onclick="addUsersOtherPermissions();" data-i18n="save-permissions">Save Permissions</button>
+                                                    <button class="custom-btn col-12" onclick="addUsersOtherPermissions(this);" data-i18n="save-permissions">Save Permissions</button>
                                                 </div>
                                             </div>
                                         </div>
