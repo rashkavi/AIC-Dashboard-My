@@ -91,11 +91,7 @@ if (SessionUser::hasValidSession()) {
                                     }
                                 }
 
-                                if ($paymentdiscountType == 2 || $paymentdiscountType == 3) {
-                                    if (empty($planDiscountNote)) {
-                                        $status->discountNote = 'Discount note is required';
-                                    }
-                                }
+                               
 
                                 if (!empty($plan)) {
                                     $errors = [];

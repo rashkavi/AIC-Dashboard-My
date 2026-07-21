@@ -205,7 +205,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="col-12">
                                                                     <div class="row gy-3 justify-content-end">
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                            <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties();">
+                                                                            <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties(),handleStudentsPaymentsSumamryReportPagination();">
                                                                                 <option value="0" selected>- Select -</option>
                                                                                 <?php
                                                                                 $query = "SELECT * FROM `branches`";
@@ -221,20 +221,20 @@ if (!SessionUser::hasValidSession()) {
                                                                             <span id="branch-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                            <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes();">
+                                                                            <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes(),handleStudentsPaymentsSumamryReportPagination();">
                                                                                 <option value="0" selected>- Select -</option>
 
                                                                             </select>
                                                                             <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                            <select name="" id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                                            <select name="" id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes(),handleStudentsPaymentsSumamryReportPagination();">
                                                                                 <option value="0" selected>- Select -</option>
                                                                             </select>
                                                                             <span id="programme-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                            <select name="" id="intake-selector" disabled class="form-select custom-select mt-2" onchange="loadLevels();">
+                                                                            <select name="" id="intake-selector" disabled class="form-select custom-select mt-2" onchange="loadLevels(),handleStudentsPaymentsSumamryReportPagination();">
                                                                                 <option value="0" selected>- Select -</option>
                                                                             </select>
                                                                             <span id="intake-feedback" class="text-dark-red text-12"></span>
@@ -253,7 +253,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 id="from-date"
                                                                                 placeholder="From Date"
                                                                                 onfocus="this.type='date'"
-                                                                                onblur="if(!this.value)this.type='text'" onchange="handleBalanceDueReportPagination('filter')">
+                                                                                onblur="if(!this.value)this.type='text'" onchange="handleStudentsPaymentsSumamryReportPagination('filter')">
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end d-none" id="to-date-container">
                                                                             <input type="text"
@@ -261,7 +261,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 class="form-control custom-input mt-2"
                                                                                 placeholder="To Date"
                                                                                 onfocus="this.type='date'"
-                                                                                onblur="if(!this.value)this.type='text'" onchange="handleBalanceDueReportPagination('filter')">
+                                                                                onblur="if(!this.value)this.type='text'" onchange="handleStudentsPaymentsSumamryReportPagination('filter')">
                                                                         </div>
 
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">

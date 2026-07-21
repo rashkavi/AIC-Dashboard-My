@@ -17,6 +17,11 @@ if (!SessionUser::hasValidSession()) {
 
             $id = $_GET['student-id'];
 
+            $inquiry_id = 0;
+            if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id'])) {
+                $inquiry_id = $_GET['inquiry-id'];
+            }
+
             $studentHasIntake = Database::search("SELECT
                 `faculty`, `faculty_id`, `programme`, `programme_id`, `intake`, `intake_id`,
                 `students_has_intakes`.`student_id`, `first_name`, `last_name`, `title`, `students_has_intakes_id`,
@@ -75,13 +80,15 @@ if (!SessionUser::hasValidSession()) {
                             <div id="appContainer" class="row p-0">
                                 <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                     <?php include "includes/side-menu.php";
-                                    load_side_menu::load("Course Overview"); ?>
+                                    $inquiry_id == 0 ? load_side_menu::load("Course Overview") : load_side_menu::load("Payments");
+                                    ?>
                                 </div>
                                 <div id="app-wrapper" class="app-wrapper p-0 m-0">
                                     <div class="row p-0 m-0 g-0">
                                         <div class="col-12 p-0 m-0 g-0">
                                             <?php include "./includes/header.php";
-                                            selectItem::setSelected("Students"); ?>
+                                            $inquiry_id == 0 ? selectItem::setSelected("Course Overview") : selectItem::setSelected("Payments");
+                                            ?>
                                         </div>
                                         <div class="container p-4 m-0" id="skeleton-list">
                                             <?php include "./includes/components/skeleton-header.php";
@@ -427,7 +434,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                 // awaiting = payable - settled - discounts + penalties + tax
                                                                 // (tax increases what's owed, so unpaid tax increases the awaiting amount)
-                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts + $total_given_penalties ;
+                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts + $total_given_penalties;
                                                         ?>
                                                                 <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
                                                                     <div class="row p-0 g-0 m-0">

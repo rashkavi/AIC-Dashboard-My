@@ -29,6 +29,7 @@ if (!SessionUser::hasValidSession()) {
                     SELECT * FROM `course_payment_has_payments`
                     INNER JOIN `payment_method` pm ON `course_payment_has_payments`.`payment_method_payment_method_id` = pm.payment_method_id
                     INNER JOIN `currencies` c ON `course_payment_has_payments`.`currencies_currency_id` = c.currency_id
+                    LEFT JOIN `course_payment_receipts` ON `course_payment_has_payments`.`course_payment_receipts_course_payment_receipt_id` = `course_payment_receipts`.`course_payment_receipt_id`
                     WHERE `course_payment_has_payment_id` = '" . $id . "'
                 ");
 
@@ -43,6 +44,7 @@ if (!SessionUser::hasValidSession()) {
                             ps.payment_status,
                             ps.payment_status_id,
                             pgp.payment_type,
+                            pgp.payment_type_id,
                             cp.amount,
                             cp.discount,
                             cp.discount_note,
@@ -1389,7 +1391,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="payment-header reference-section">
                                                                             <div class="reference-section">
                                                                                 <span class="reference-label">RECEIPT NO</span>
-                                                                                <h2 class="reference-number"><?= $coursepaymentData["course_payment_has_payment_id"] ?></h2>
+                                                                                <h2 class="reference-number"><?= $coursepaymentData["receipt_number"] == null ? "N/A" : $coursepaymentData["receipt_number"] ?></h2>
                                                                                 <hr>
                                                                             </div>
                                                                             <div class="amount-section">
@@ -1642,6 +1644,138 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </div>
                                                             <?php endif; ?>
+
+
+                                                            <?php if ($paymentData['payment_type_id'] == 18):
+                                                                $paymnetSlips = Database::search("
+                                                                                        SELECT * FROM students_identity_documents
+                                                                                        WHERE students_student_id = '" . $paymentData['student_id'] . "'
+                                                                                        AND `students_identity_documents_type_id` = '8'
+                                                                                        ORDER BY date_added DESC LIMIT 1
+                                                                                    ");
+                                                                if ($paymnetSlips->num_rows > 0):
+                                                            ?>
+                                                                    <div class="col-12">
+                                                                        <div class="row p-4 m-0 g-0 align-content-center bl-solid mt-4">
+                                                                            <span class="main-topic lh-lg">Payment Slips</span>
+                                                                            <div class="accordion accordion-flush" id="accordionParent">
+                                                                                <?php while ($paymentSlip = $paymnetSlips->fetch_assoc()) {
+                                                                                    $slipVerifier = new SlipVerifier();
+                                                                                    $fileType     = $slipVerifier->checkFileType($paymentSlip['document']);
+                                                                                    $bankAccNo    = '';
+
+                                                                                    $fileUrl  = file_exists("./assets/uploads/student-identity-documents/payment-slips/" . $paymentSlip['document'])
+                                                                                        ? Project::getBaseUrl()       . "/assets/uploads/student-identity-documents/payment-slips/" . $paymentSlip['document']
+                                                                                        : Project::getBasePortalUrl() . "/assets/uploads/payment-slips/" . $paymentSlip['document'];
+                                                                                    $fileData = $slipVerifier->verifySlip($paymentData['refference'], $bankAccNo, $coursepaymentData['paid_amount'], $fileUrl);
+                                                                                    if ($fileType != 'unsupported'):
+                                                                                ?>
+                                                                                        <div class="accordion-item mt-4">
+                                                                                            <h2 class="accordion-header bl-solid">
+                                                                                                <button class="accordion-button collapsed d-flex align-items-center" type="button"
+                                                                                                    data-bs-toggle="collapse"
+                                                                                                    data-bs-target="#flush-collapse-<?= $paymentSlip['students_identity_document_id'] ?>"
+                                                                                                    aria-expanded="false">
+                                                                                                    <img src="./assets/imgs/icons/<?= $fileType ?>.png" class="img-fluid pe-4" alt="Payment Slip">
+                                                                                                    <?php if ($fileData['verified']): ?>
+                                                                                                        <iconify-icon icon="ph:seal-check-duotone" width="40" height="40" class="text-dark-green"></iconify-icon>
+                                                                                                        <div class="ms-3 d-flex flex-column">
+                                                                                                            <span class="text-dark-green text-16 fw-semibold">Payment slip successfully verified</span>
+                                                                                                            <span class="text-12">Transaction details have been authenticated.</span>
+                                                                                                        </div>
+                                                                                                    <?php else: ?>
+                                                                                                        <iconify-icon icon="ant-design:close-circle-twotone" width="40" height="40" class="text-dark-red"></iconify-icon>
+                                                                                                        <div class="ms-3 d-flex flex-column">
+                                                                                                            <span class="text-dark-red text-16 fw-semibold">Unable to verify payment</span>
+                                                                                                            <span class="text-12">The uploaded slip appears to be invalid, duplicated, or altered.</span>
+                                                                                                        </div>
+                                                                                                    <?php endif; ?>
+                                                                                                </button>
+                                                                                            </h2>
+                                                                                            <div id="flush-collapse-<?= $paymentSlip['students_identity_document_id'] ?>" class="accordion-collapse collapse bl-solid-lrb" data-bs-parent="#accordionParent">
+                                                                                                <div class="accordion-body">
+                                                                                                    <div class="col-12">
+                                                                                                        <div class="row p-0 m-0">
+                                                                                                            <hr>
+                                                                                                            <div class="col-12 col-xl-6">
+                                                                                                                <div class="row">
+                                                                                                                    <div class="col-12">
+                                                                                                                        <div class="d-flex align-items-start">
+                                                                                                                            <?php if ($fileData['reference']): ?>
+                                                                                                                                <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-green text-16 fw-semibold">Reference Number</span><span class="text-12">Reference number verified and matches the transaction record.</span></div>
+                                                                                                                            <?php else: ?>
+                                                                                                                                <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-red text-16 fw-semibold">Reference Number</span><span class="text-12">Reference number could not be matched.</span></div>
+                                                                                                                            <?php endif; ?>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12 mt-2">
+                                                                                                                        <div class="d-flex align-items-start">
+                                                                                                                            <?php
+                                                                                                                            if ($fileData['date'] != null) {
+                                                                                                                                $slipDate = date('Y-m-d', strtotime($fileData['date']));
+                                                                                                                                $paidDate = date('Y-m-d', strtotime($coursepaymentData['date_paid']));
+                                                                                                                                if ($slipDate == $paidDate): ?>
+                                                                                                                                    <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                                                    <div class="ms-3 d-flex flex-column"><span class="text-dark-green text-16 fw-semibold">Payment Date</span><span class="text-12">Payment date successfully matched.</span></div>
+                                                                                                                                <?php else: ?>
+                                                                                                                                    <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                                                    <div class="ms-3 d-flex flex-column"><span class="text-dark-red text-16 fw-semibold">Payment Date</span><span class="text-12">Payment date does not match system records.</span></div>
+                                                                                                                                <?php endif; ?>
+                                                                                                                            <?php } else { ?>
+                                                                                                                                <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-red text-16 fw-semibold">Payment Date</span><span class="text-12">Payment date missing or does not match.</span></div>
+                                                                                                                            <?php } ?>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12">
+                                                                                                                        <div class="d-flex align-items-start">
+                                                                                                                            <?php if ($fileData['amount'] != null && empty($fileData['amount'])): ?>
+                                                                                                                                <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-green text-16 fw-semibold">Payment Amount</span><span class="text-12"><?= $coursepaymentData['paid_amount'] ?> — amount confirmed.</span></div>
+                                                                                                                            <?php else: ?>
+                                                                                                                                <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-red text-16 fw-semibold">Payment Amount</span><span class="text-12">Mismatch detected in payment amount.</span></div>
+                                                                                                                            <?php endif; ?>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                    <div class="col-12">
+                                                                                                                        <div class="d-flex align-items-start">
+                                                                                                                            <?php if ($fileData['account']): ?>
+                                                                                                                                <iconify-icon icon="gg:check-o" width="25" height="25" class="text-dark-green"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-green text-16 fw-semibold">Account Number</span><span class="text-12">Account number correct.</span></div>
+                                                                                                                            <?php else: ?>
+                                                                                                                                <iconify-icon icon="gg:close-o" width="25" height="25" class="text-dark-red"></iconify-icon>
+                                                                                                                                <div class="ms-3 d-flex flex-column"><span class="text-dark-red text-16 fw-semibold">Account Number</span><span class="text-12">Incorrect or unrecognized account number.</span></div>
+                                                                                                                            <?php endif; ?>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                            <div class="col-12 col-xl-6 mt-3 mt-xl-0">
+                                                                                                                <div class="row justify-content-end align-items-center">
+                                                                                                                    <?php if ($fileData['verified']): ?>
+                                                                                                                        <div class="alert alert-success br-0" role="alert">✅ This payment slip has been successfully verified and is valid.</div>
+                                                                                                                    <?php else: ?>
+                                                                                                                        <div class="alert alert-warning br-0" role="alert">⚠️ This payment slip has not been verified yet. Please review carefully before approval.</div>
+                                                                                                                    <?php endif; ?>
+                                                                                                                    <button class="custom-btn col-4" type="button" onclick="window.open('<?= $fileUrl ?>', '_blank');">View</button>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                <?php endif;
+                                                                                } ?>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                            <?php
+                                                                endif;
+                                                            endif; ?>
 
                                                             <!-- ── Payment logs ──────────────────────────────────────── -->
                                                             <div class="col-12 mt-4">
@@ -1919,11 +2053,11 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                     </div>
 
-                                                      <div class="col-12 d-flex flex-column">
-                                                    <label class="text-14 main-text">Note</label>
-                                                    <textarea class="form-control custom-input mt-2" id="note" rows="4"></textarea>
-                                                    <span id="note-feedback" class="text-dark-red text-12"></span>
-                                                </div>
+                                                    <div class="col-12 d-flex flex-column">
+                                                        <label class="text-14 main-text">Note</label>
+                                                        <textarea class="form-control custom-input mt-2" id="note" rows="4"></textarea>
+                                                        <span id="note-feedback" class="text-dark-red text-12"></span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

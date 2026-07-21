@@ -132,7 +132,7 @@ if (SessionUser::hasValidSession()) {
                 } else if (!normalizePhoneNumber($mobile)) {
                     $status->mobile =  "Please enter a valid contact number";
                 } else {
-                    $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE `mobile` = '" . $mobile . "'");
+                    $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE (`mobile` = '" . $mobile . "' OR `mobile` = '" . normalizePhoneNumber($mobile) . "')");
                     $row = $isValidMobile->fetch_assoc();
                     if ($row['count'] > 0) {
                         $status->mobile =  "Contact number already exists";
@@ -143,7 +143,7 @@ if (SessionUser::hasValidSession()) {
                 } else if (!normalizePhoneNumber($whatsapp)) {
                     $status->whatsapp =  "Please enter a valid whatsapp number";
                 } else {
-                    $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE `whatsapp` = '" . $whatsapp . "'");
+                    $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE (`whatsapp` = '" . $whatsapp . "' OR `whatsapp` = '" . normalizePhoneNumber($whatsapp) . "')");
                     $row = $isValidWhatsapp->fetch_assoc();
                     if ($row['count'] > 0) {
                         $status->whatsapp =  "Whatsapp number already exists";
@@ -505,20 +505,41 @@ echo (json_encode($status));
 
 function normalizePhoneNumber($number)
 {
-    $number = preg_replace('/[\s\-()]/', '', $number);
-    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
-        return '+94' . substr($number, 1);
-    }
-    if (preg_match('/^94([7][0-9]{8})$/', $number)) {
-        return '+94' . substr($number, 2);
-    }
-    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
-        if ($number[0] !== '+') {
-            return '+' . $number;
-        }
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
         return $number;
     }
 
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
     return false;
 }
 

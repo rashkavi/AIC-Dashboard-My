@@ -344,7 +344,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <iconify-icon icon="ic:baseline-history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             Update History</a></li>
                                                                                     <?php
-                                                                                    if ($displayStatusId == 2) {
+                                                                                    if ($displayStatusId == 2 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                                                     ?>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['sId']; ?>">
@@ -365,7 +365,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php
                                                                                     }
 
-                                                                                    if ($displayStatusId == 5) {
+                                                                                    if ($displayStatusId == 5 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                                                     ?>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
@@ -380,7 +380,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </li>
                                                                                     <?php
                                                                                     }
-                                                                                    if ($displayStatusId == 12) {
+                                                                                    if ($displayStatusId == 12 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                                                     ?>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
@@ -390,7 +390,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     width="20"
                                                                                                     height="20"
                                                                                                     class="sub-text me-3"></iconify-icon>
-                                                                                                Confirm Academic Completion
+                                                                                                Confirm Academic & Initial Payment Completion
                                                                                             </a>
                                                                                         </li>
                                                                                     <?php
@@ -675,7 +675,6 @@ if (!SessionUser::hasValidSession()) {
                                     </button>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>

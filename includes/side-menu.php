@@ -21,7 +21,14 @@ class load_side_menu
             ]);
         }
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::validPermisisonType('students')) {
+        if (
+            SessionUser::ifUserIsPro($sessionUserRole) ||
+            SessionUser::ifUserIsAcademic($sessionUserRole) ||
+            SessionUser::ifUserIsAcdemicDepartment($sessionUserRole) ||
+            SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) ||
+            SessionUser::ifUserIsCounsiler($sessionUserRole) ||
+            UserPermissions::validPermisisonType('students')
+        ) {
             $menuItems = array_merge($menuItems, [
                 ["Inquiries", "ix:inquiry", "inquiries", "inquiries"],
             ]);
@@ -34,7 +41,14 @@ class load_side_menu
             ["Course Overview", "hugeicons:course", "branches", "course-overview"],
         ]);
 
-        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsLecturer($sessionUserRole) || UserPermissions::validPermisisonType('super_lecture_schedule') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
+        if (
+            SessionUser::ifUserIsPro($sessionUserRole) ||
+            SessionUser::ifUserIsAcademic($sessionUserRole) ||
+            SessionUser::ifUserIsCounsiler($sessionUserRole) ||
+            SessionUser::ifUserIsLecturer($sessionUserRole) ||
+            UserPermissions::validPermisisonType('super_lecture_schedule') ||
+            UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)
+        ) {
             $menuItems = array_merge($menuItems, [
                 ["Lecture Schedule", "eos-icons:storage-class-outlined", "lecture-schedule", "lecture-schedule"],
             ]);
@@ -106,7 +120,7 @@ class load_side_menu
                 <div class="d-flex flex-column align-items-start mx-2 flex-grow-1">
                     <span class="text-16 main-text fw-medium"><?php
                                                                 $role = ucwords(strtolower($sessionUserRole));
-                                                                echo strlen($role) > 11 ? substr($role, 0, 11) . '...' : $role;
+                                                                echo strlen($role) > 10 ? substr($role, 0, 10) . '...' : $role;
                                                                 ?></span>
                     <span class=" text-12 sub-text fw-medium">Log Out</span>
                 </div>

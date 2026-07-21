@@ -9,7 +9,7 @@ if (!SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     $sessionUserObject = SessionUser::getCurrentUserObject();
     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 25))) {
+    if (SessionUser::ifUserIsLecturer($sessionUserRole)) {
         header("Location: ./dashboard");
     } else {
 
@@ -104,7 +104,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             $query = "SELECT * FROM `help_desk_category`";
                                                                             if ($sessionUserRole != "Developer") {
-                                                                                $query .= " AND `help_desk_category_id` != 2";
+                                                                                $query .= " WHERE `help_desk_category_id` != 2";
                                                                             }
                                                                             $help_desk_categories = Database::search($query);
                                                                             if ($help_desk_categories->num_rows > 0) {

@@ -45,9 +45,8 @@ if (!SessionUser::hasValidSession()) {
                         <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
                         <link href="./assets/plugins/cropperjs/cropper.min.css" rel="stylesheet">
 
-                        <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
                         <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
-                        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
                         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
                         <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
                         <style>
@@ -120,7 +119,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                         ?>
                                                             <div class="col-12 col-md-2 mt-3 mt-lg-0">
                                                                 <div class="row h-100 justify-content-end align-items-center">
@@ -200,7 +199,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <span id="plan-discount-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
                                                                 <div class="col-12 d-flex flex-column <?= $intakeData['discount_type_discount_type_id'] == 1 ? "d-none" : '' ?>" id="discount-note-container">
-                                                                    <label class="text-14 main-text required" for="">Discount Note</label>
+                                                                    <label class="text-14 main-text" for="">Discount Note</label>
                                                                     <textarea id="plan-discount-note" class="form-control custom-input mt-2" rows="5"><?= $intakeData['discount_note'] ?></textarea>
                                                                     <span id="plan-discount-note-feedback" class="text-dark-red text-12"></span>
                                                                 </div>

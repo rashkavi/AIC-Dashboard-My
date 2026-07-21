@@ -43,7 +43,8 @@ if (!SessionUser::hasValidSession()) {
                     `c`.`code` AS `currency_code`, `c`.`decimal_places`,
                     `c`.`currency_id`,
                     `ppo`.`panelty_payment_option`,
-                    IFNULL(pp.panelty_amount, 0) AS panelty_amount_lkr
+                    IFNULL(pp.panelty_amount, 0) AS panelty_amount_lkr,
+                    `shi`.`students_has_intakes_id`
                 FROM `course_payments` AS `cp`
                 INNER JOIN `payment_type` AS `pt`     ON `cp`.`payment_type_payment_type_id` = `pt`.`payment_type_id`
                 INNER JOIN `discount_type` AS `dt`    ON `cp`.`discount_type_discount_type_id` = `dt`.`discount_type_id`
@@ -92,7 +93,11 @@ if (!SessionUser::hasValidSession()) {
                 } else {
 
                     if ($paymentData['payment_status_id'] != 1) {
-                        header("Location: ./batch-student-payments?student-id=" . $paymentData['students_has_intakes_id']);
+                        if ($inquiry_id != 0) {
+                            header("Location: ./batch-student-payments?student-id=" . $paymentData['students_has_intakes_id']);
+                        } else {
+                            header("Location: ./intake-student-payments?student-id=" . $paymentData['students_has_intakes_id'] . "&inquiry-id=" . $inquiry_id);
+                        }
                     } else {
 
                         // ============================================================
@@ -323,7 +328,6 @@ if (!SessionUser::hasValidSession()) {
                             .currency-toggle {
                                 display: flex;
                                 border: 0.5px solid var(--border-color);
-                                border-radius: 8px;
                                 overflow: hidden;
                             }
 
@@ -1520,6 +1524,7 @@ if (!SessionUser::hasValidSession()) {
                                         fetch(`api/getExchangeRate.php?base=${baseCurrencyId}&target=${lkrCurrencyId}&date=${paidDateInput.value}`)
                                             .then(r => r.json())
                                             .then(data => {
+                                                console.log(data);
                                                 if (data.rate) {
                                                     exchangeRate = parseFloat(data.rate);
                                                     exchangeRateId = data.currency_exchange_rate_id;

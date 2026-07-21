@@ -63,7 +63,7 @@ if (!SessionUser::hasValidSession()) {
                 LEFT JOIN users
                     ON cerl.updated_by = users.user_id
 
-                WHERE cer.currency_exchange_rate_id = '" . $currencyID . "'
+                WHERE bc.currency_id = '" . $currencyID . "'
 
                 ORDER BY cerl.date_added DESC
             ";

@@ -15,7 +15,7 @@ if (SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::hasPermission('payments', 15) || UserPermissions::hasPermission('payments', 1))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 15) || UserPermissions::hasPermission('payments', 1))) {
                         $status->error = 'You do not have permission to perform this action!';
                     } else {
                         $search_text = isset($decoded['text']) ? $decoded['text'] : '';
@@ -35,82 +35,119 @@ if (SessionUser::hasValidSession()) {
 
 
                         $query = "
-                                                        SELECT
-                                                            `cp`.`course_payments_id`,
-                                                            `cpp`.`course_payment_has_payment_id`,
-                                                            `cp`.`discount`,
-                                                            `cp`.`discount_type_discount_type_id`,
-                                                            `cp`.`due_date`,
-                                                            `cp`.`amount`,
-                                                            `cpp`.`paid_amount`,
-                                                            `cpp`.`discount_amount`,
-                                                            `cpp`.`panelty_amount`          AS panelty_charge,
-                                                            `cpp`.`tax_amount`              AS tax_charge,
-                                                            `cpp`.`currencies_currency_id`  AS paid_currency_id,
-                                                            `cpp`.`currency_exchange_rate`,
-                                                            `cpp`.`currency_exchange_rate_id`,
-                                                            `ps`.`payment_status`,
-                                                            `ps`.`payment_status_id`,
-                                                            `pgp`.`payment_type`,
-                                                            `pm`.`payment_method`,
-                                                            `pm`.`payment_method_id`,
-                                                            `cpp`.`date_paid`,
-                                                            `shi`.`student_id`,
-                                                            `ld`.`first_name`,
-                                                            `ld`.`last_name`,
-                                                            `t`.`title`,
-                                                            `s`.`profile_img`,
-                                                            `s`.`student_id`                AS aId,
-                                                            IFNULL(pp.panelty_amount, 0)    AS main_panelty_amount,
-                                                            `course_cur`.`currency_id`      AS course_currency_id,
-                                                            `course_cur`.`code`             AS course_currency_code,
-                                                            `course_cur`.`decimal_places`   AS course_decimal_places,
-                                                            `paid_cur`.`code`               AS paid_currency_code,
-                                                            `paid_cur`.`decimal_places`     AS paid_decimal_places
-                                                        FROM `course_payment_has_payments` `cpp`
-                                                        INNER JOIN `course_payments` `cp`
-                                                            ON `cp`.`course_payments_id` = `cpp`.`course_payments_course_payments_id`
-                                                        INNER JOIN `payment_status` `ps`
-                                                            ON `cpp`.`payment_status_payment_status_id` = `ps`.`payment_status_id`
-                                                        INNER JOIN `payment_method` `pm`
-                                                            ON `cpp`.`payment_method_payment_method_id` = `pm`.`payment_method_id`
-                                                        INNER JOIN `payment_type` `pgp`
-                                                            ON `cp`.`payment_type_payment_type_id` = `pgp`.`payment_type_id`
-                                                        INNER JOIN `payment_plan_has_students_has_intakes` `phsi`
-                                                            ON `cp`.`payment_plan_has_students_has_intakes_id` = `phsi`.`payment_plan_has_students_has_intakes_id`
-                                                        INNER JOIN `payment_category` `pc`
-                                                            ON `phsi`.`payment_category_payment_category_id` = `pc`.`payment_category_id`
-                                                        -- Course currency comes from payment_category → currencies
-                                                        INNER JOIN `currencies` `course_cur`
-                                                            ON `pc`.`currencies_currency_id` = `course_cur`.`currency_id`
-                                                        -- Paid currency comes from the receipt row (may differ)
-                                                        LEFT JOIN `currencies` `paid_cur`
-                                                            ON `cpp`.`currencies_currency_id` = `paid_cur`.`currency_id`
-                                                        INNER JOIN `students_has_intakes` `shi`
-                                                            ON `phsi`.`students_has_intakes_students_has_intakes_id` = `shi`.`students_has_intakes_id`
-                                                        INNER JOIN `intakes` `i`
-                                                            ON `shi`.`intakes_intake_id` = `i`.`intake_id`
-                                                        INNER JOIN `programmes` `p`
-                                                            ON `i`.`programmes_programme_id` = `p`.`programme_id`
-                                                        INNER JOIN `faculties` `f`
-                                                            ON `p`.`faculties_faculty_id` = `f`.`faculty_id`
-                                                            INNER JOIN `students` `s`
-                                                            ON `shi`.`students_student_id` = `s`.`student_id`
-                                                        INNER JOIN `login_details` `ld`
-                                                            ON `s`.`login_details_login_details_id` = `ld`.`login_details_id`
-                                                        INNER JOIN `title` `t`
-                                                            ON `s`.`title_title_id` = `t`.`title_id`
-                                                        LEFT JOIN (
-                                                            SELECT course_payments_course_payments_id, SUM(amount) AS panelty_amount
-                                                            FROM panelty_payments
-                                                            GROUP BY course_payments_course_payments_id
-                                                        ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
-                                                        WHERE 1 = 1
-                                                    ";
+                                                                            SELECT
+                                                                                cp.course_payments_id,
+                                                                                cpp.course_payment_has_payment_id,
+
+                                                                                cp.amount,
+                                                                                cp.discount,
+                                                                                cp.discount_type_discount_type_id,
+                                                                                cp.due_date,
+
+                                                                                cpp.paid_amount,
+                                                                                cpp.discount_amount,
+                                                                                cpp.panelty_amount          AS receipt_penalty_paid_cur,
+                                                                                cpp.tax_rate,
+                                                                                cpp.tax_amount              AS receipt_tax_paid_cur,
+                                                                                cpp.currencies_currency_id  AS paid_currency_id,
+                                                                                cpp.currency_exchange_rate,
+                                                                                cpp.currency_exchange_rate_id,
+                                                                                cpp.date_paid,
+
+                                                                                ps.payment_status,
+                                                                                ps.payment_status_id,
+                                                                                pgp.payment_type,
+                                                                                pm.payment_method,
+                                                                                pm.payment_method_id,
+
+                                                                                shi.student_id,
+                                                                                ld.first_name,
+                                                                                ld.last_name,
+                                                                                t.title,
+                                                                                s.profile_img,
+                                                                                s.student_id AS aId,
+
+                                                                                /* penalty_lkr: cumulative from panelty_payments — always LKR */
+                                                                                IFNULL(pp.penalty_lkr, 0) AS penalty_lkr,
+
+                                                                                /* course currency */
+                                                                                course_cur.currency_id   AS course_currency_id,
+                                                                                course_cur.code          AS course_currency_code,
+                                                                                course_cur.decimal_places AS course_decimal_places,
+
+                                                                                /* paid currency */
+                                                                                COALESCE(paid_cur.code, course_cur.code)
+                                                                                                         AS paid_currency_code,
+                                                                                COALESCE(paid_cur.decimal_places, course_cur.decimal_places)
+                                                                                                         AS paid_decimal_places,
+
+                                                                                /* LKR currency id for penalty conversion */
+                                                                                1 AS lkr_currency_id
+
+                                                                            FROM course_payment_has_payments cpp
+
+                                                                            INNER JOIN course_payments cp
+                                                                                ON cp.course_payments_id = cpp.course_payments_course_payments_id
+
+                                                                            INNER JOIN payment_status ps
+                                                                                ON cpp.payment_status_payment_status_id = ps.payment_status_id
+
+                                                                            INNER JOIN payment_method pm
+                                                                                ON cpp.payment_method_payment_method_id = pm.payment_method_id
+
+                                                                            INNER JOIN payment_type pgp
+                                                                                ON cp.payment_type_payment_type_id = pgp.payment_type_id
+
+                                                                            INNER JOIN payment_plan_has_students_has_intakes phsi
+                                                                                ON cp.payment_plan_has_students_has_intakes_id = phsi.payment_plan_has_students_has_intakes_id
+
+                                                                            INNER JOIN payment_category pc
+                                                                                ON phsi.payment_category_payment_category_id = pc.payment_category_id
+
+                                                                            /* Course currency: from payment_category */
+                                                                            INNER JOIN currencies course_cur
+                                                                                ON pc.currencies_currency_id = course_cur.currency_id
+
+                                                                            /* Paid currency: nullable (student may pay in same currency) */
+                                                                            LEFT JOIN currencies paid_cur
+                                                                                ON cpp.currencies_currency_id = paid_cur.currency_id
+
+                                                                            INNER JOIN students_has_intakes shi
+                                                                                ON phsi.students_has_intakes_students_has_intakes_id = shi.students_has_intakes_id
+
+                                                                            INNER JOIN students s
+                                                                                ON shi.students_student_id = s.student_id
+
+                                                                            INNER JOIN login_details ld
+                                                                                ON s.login_details_login_details_id = ld.login_details_id
+
+                                                                            INNER JOIN title t
+                                                                                ON s.title_title_id = t.title_id
+
+                                                                            INNER JOIN intakes i
+                                                                                ON shi.intakes_intake_id = i.intake_id
+
+                                                                            INNER JOIN programmes p
+                                                                                ON i.programmes_programme_id = p.programme_id
+
+                                                                            INNER JOIN faculties f
+                                                                                ON p.faculties_faculty_id = f.faculty_id
+
+                                                                            /* Cumulative penalty log — amount always in LKR */
+                                                                            LEFT JOIN (
+                                                                                SELECT
+                                                                                    course_payments_course_payments_id,
+                                                                                    SUM(amount) AS penalty_lkr
+                                                                                FROM panelty_payments
+                                                                                GROUP BY course_payments_course_payments_id
+                                                                            ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
+
+                                                                            WHERE 1=1
+                                                                        ";
 
 
                         if ($search_text != "") {
-                            $query .= " WHERE (`first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `shi`.`student_id` LIKE '%" . $search_text . "%')";
+                            $query .= " AND (`first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `shi`.`student_id` LIKE '%" . $search_text . "%')";
                         }
 
                         if ($status_selector != 0) {
@@ -194,12 +231,16 @@ if (SessionUser::hasValidSession()) {
 
                         $page_results = ($pageno - 1) * $result_per_page;
                         $payments = Database::search("" . $query . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
-
+                        function toCourse(float $amount, ?float $rate): float
+                        {
+                            if ($rate === null || $rate <= 0) return $amount;
+                            return $amount / $rate;
+                        }
 ?>
                         <table class="table bl-solid m-0 p-0 g-0" id="payments-table">
                             <thead>
                                 <tr class="br-t-5">
-                                    <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium align-content-center cursor-pointer">
+                                    <th class="px-4 py-3 bg-table-header main-text fw-medium align-content-center cursor-pointer">
                                         <div class="d-flex flex-row align-items-center">
                                             <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
                                             <div class="d-flex justify-content-between align-items-center w-100" onclick="handleStudentsPaymentsSumamryReportPagination('sortByName')">
@@ -218,37 +259,15 @@ if (SessionUser::hasValidSession()) {
                                             </div>
                                         </div>
                                     </th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center" onclick="handleStudentsPaymentsSumamryReportPagination('sortById')">
-                                        <div class="d-flex justify-content-between align-items-center cursor-pointer">
-                                            <span class="text-14 main-text fw-medium me-2">Student ID</span>
-                                            <?php
-                                            if ($sortById == 0) {
-                                            ?>
-                                                <iconify-icon icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
-                                            <?php
-                                            } else {
-                                            ?>
-                                                <iconify-icon icon="<?= $sortById == 2 ? 'mingcute:up-fill' : 'mingcute:down-fill' ?>" width="20" height="20" class="dark-theme"></iconify-icon>
-                                            <?php
-                                            }
-                                            ?>
-                                        </div>
-                                    </th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Payment Type</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Due Date</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Amount</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Discount</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Penalty Amount</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">
-                                        <div class="d-flex justify-content-between align-items-center cursor-pointer">
-                                            <span class="text-14 main-text fw-medium me-2">Payable Amount</span>
 
-                                        </div>
-                                    </th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Paid Amount</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center" onclick="handleStudentsPaymentsSumamryReportPagination('sortByDate')">
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Fees Type</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Amount</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Tax</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Payable</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Paid Amount</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center" onclick="handleStudentsPaymentsSumamryReportPagination('sortByDate')">
                                         <div class="d-flex justify-content-between align-items-center cursor-pointer">
-                                            <span class="text-14 main-text fw-medium me-2">Date Paid</span>
+                                            <span class="text-14 main-text fw-medium me-2">Paid Date</span>
                                             <?php
                                             if ($sortByDate == 0) {
                                             ?>
@@ -262,48 +281,72 @@ if (SessionUser::hasValidSession()) {
                                             ?>
                                         </div>
                                     </th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Payment method</th>
-                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
-
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Method</th>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="user-table-data">
                                 <?php
+
                                 if ($payments && $payments->num_rows > 0):
                                     while ($data = $payments->fetch_assoc()):
 
-                                        // ------------------------------------------------
-                                        // Resolve exchange rate using course currency as base
-                                        // paid_currency_id = what the student paid in
-                                        // course_currency_id = what the plan is in
-                                        // ------------------------------------------------
-                                        $rate = resolveExchangeRate($data, $data['course_currency_id']);
+                                        /* ── Exchange rate ───────────────────────────────────
+                                                                                   rate: 1 course_cur = X paid_cur
+                                                                                   null → same currency, no conversion needed           */
+                                        $rate = resolveExchangeRate($data, (int)$data['course_currency_id']);
 
-                                        // paid_amount is in paid currency → convert to course currency
-                                        $convertedPaid = convertToCourseAmount($data['paid_amount'], $rate);
-                                        $convertedDiscount = convertToCourseAmount($data['discount_amount'], $rate);
-                                        $convertedPenalty = convertToCourseAmount($data['panelty_charge'], $rate);
-                                        $convertedTax = convertToCourseAmount($data['tax_charge'], $rate);
-
-                                        // CP-level discount (stored in course currency — no conversion)
-                                        $cpDiscount = $data['discount'];
+                                        /* ── Plan-level (CP) discount → always course currency ─
+                                                                                   type 3 = percentage of cp.amount
+                                                                                   type 2 = fixed amount (course currency)
+                                                                                   other  = 0                                           */
+                                        $cpDiscount = 0.0;
                                         if ($data['discount_type_discount_type_id'] == 3) {
-                                            $cpDiscount = $data['amount'] / 100 * $data['discount'];
+                                            $cpDiscount = (float)$data['amount'] / 100 * (float)$data['discount'];
+                                        } elseif ($data['discount_type_discount_type_id'] == 2) {
+                                            $cpDiscount = (float)$data['discount'];
                                         }
 
-                                        // receipt-level discount_amount stored in course currency — no conversion
-                                        $totalDiscount = $cpDiscount + $convertedDiscount;
+                                        /* ── Receipt-level discount → stored in course currency ─
+                                                                                   cpp.discount_amount is always course currency per schema */
+                                        $receiptDiscount = (float)$data['discount_amount'];
+                                        $totalDiscount   = $cpDiscount + $receiptDiscount;
 
-                                        // penalty from panelty_payments table (course currency)
-                                        // + receipt-level panelty_charge (stored in course currency)
-                                        $totalPenalty = $data['main_panelty_amount'] + $convertedPenalty;
+                                        /* ── Receipt-level penalty → stored in PAID currency ────
+                                                                                   Convert to course currency for display                  */
+                                        $receiptPenaltyCc = toCourse((float)($data['receipt_penalty_paid_cur'] ?? 0), $rate);
 
-                                        // Payable = amount - discounts + penalties  (all course currency)
-                                        $payableAmount = $data['amount'] - $totalDiscount + $totalPenalty;
+                                        /* ── Cumulative penalty from panelty_payments → always LKR
+                                                                                   If course currency is LKR: use as-is
+                                                                                   If course currency is foreign: convert LKR → course
+                                                                                     rate means 1 course = X paid (paid often = LKR here)
+                                                                                     So: lkr_amount / rate = course_amount                 */
+                                        $penaltyLkr = (float)($data['penalty_lkr'] ?? 0);
+                                        $isCourseLkr = ((int)$data['course_currency_id'] === 1);
+                                        if ($isCourseLkr || $rate === null) {
+                                            /* course IS lkr, or same currency: penalty already in course cur */
+                                            $mainPenaltyCc = $penaltyLkr;
+                                        } else {
+                                            /* course is foreign (e.g. GBP), penalty in LKR
+                                                                                       rate = 1 GBP = X LKR → lkr / rate = gbp           */
+                                            $mainPenaltyCc = ($rate > 0) ? $penaltyLkr / $rate : $penaltyLkr;
+                                        }
+                                        $totalPenalty = $receiptPenaltyCc + $mainPenaltyCc;
 
-                                        $code = $data['course_currency_code'];
-                                        $dp   = $data['course_decimal_places'];
+                                        /* ── Tax → stored in PAID currency, convert to course ── */
+                                        $taxCc = toCourse((float)($data['receipt_tax_paid_cur'] ?? 0), $rate);
 
+                                        /* ── Payable = amount - discounts + penalties + tax ──── */
+                                        $payableAmount = (float)$data['amount'] - $totalDiscount + $totalPenalty + $taxCc;
+
+                                        /* ── Paid amount → convert from paid currency to course ─ */
+                                        $paidInCourse = toCourse((float)$data['paid_amount'], $rate);
+
+                                        /* ── Display helpers ──────────────────────────────────── */
+                                        $cc   = htmlspecialchars($data['course_currency_code']);
+                                        $dp   = (int)$data['course_decimal_places'];
+                                        $pcc  = htmlspecialchars($data['paid_currency_code']);
+                                        $pdp  = (int)$data['paid_decimal_places'];
                                         $isForeign = ($rate !== null);
 
                                         $status_classes_method = [
@@ -325,74 +368,92 @@ if (SessionUser::hasValidSession()) {
                                         $sclass = $status_classes_payment[$data['payment_status_id']] ?? 'table-btn-yellow';
                                 ?>
                                         <tr>
+                                            <!-- Student Name -->
                                             <td class="px-4 py-3 pe-0 align-middle">
                                                 <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
                                                     <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check">
-                                                    <?php
-                                                    if (!empty($data['profile_img']) && file_exists('../assets/imgs/students/' . $data['profile_img'])): ?>
-                                                        <img src="./assets/imgs/students/<?= $data['profile_img'] ?>" class="hwr-40" alt="User image">
+                                                    <?php if (!empty($data['profile_img']) && file_exists('./assets/imgs/students/' . $data['profile_img'])): ?>
+                                                        <img src="./assets/imgs/students/<?= $data['profile_img'] ?>" class="hwr-40" alt="Student">
                                                     <?php else:
                                                         $fi = strtoupper(substr($data['first_name'], 0, 1));
-                                                        $li = strtoupper(substr($data['last_name'], 0, 1));
+                                                        $li = strtoupper(substr($data['last_name'],  0, 1));
                                                     ?>
                                                         <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= $fi . $li ?></div>
                                                     <?php endif; ?>
-                                                    <span class="text-14 main-text mx-2"><?= $data['title'] . '.' . $data['first_name'] . ' ' . $data['last_name'] ?></span>
+                                                    <span class="text-14 main-text mx-2"><?= htmlspecialchars($data['title'] . '.' . $data['first_name'] . ' ' . $data['last_name']) ?></span>
                                                 </div>
                                             </td>
-                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data['aId'] ?></span></td>
-                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data['payment_type'] ?></span></td>
-                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data['due_date'] ?: 'N/A' ?></span></td>
-
-                                            <!-- Amount (course currency) -->
+                                            <!-- Fees Type -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text"><?= $code . ' ' . number_format($data['amount'], $dp) ?></span>
+                                                <span class="text-14 main-text"><?= htmlspecialchars($data['payment_type']) ?></span>
                                             </td>
 
-                                            <!-- Total Discount (course currency) -->
+                                            <!-- Amount (course currency — plan instalment) -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text"><?= $code . ' ' . number_format($totalDiscount, $dp) ?></span>
+                                                <span class="text-14 main-text"><?= $cc . ' ' . number_format((float)$data['amount'], $dp) ?></span>
                                             </td>
 
-                                            <!-- Total Penalty (course currency) -->
+
+                                            <!-- Tax (course currency) — NEW COLUMN -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text"><?= $code . ' ' . number_format($totalPenalty, $dp) ?></span>
+                                                <?php if ($taxCc > 0): ?>
+                                                    <span class="text-14 main-text"><?= $cc . ' ' . number_format($taxCc, $dp) ?></span>
+                                                    <?php if ((float)$data['tax_rate'] > 0): ?>
+                                                        <br><small class="sub-text" style="font-size:10px;"><?= number_format((float)$data['tax_rate'], 2) ?>%</small>
+                                                    <?php endif; ?>
+                                                    <?php if ($isForeign): ?>
+                                                        <br><small class="sub-text" style="font-size:10px;">
+                                                            <?= $pcc . ' ' . number_format((float)$data['receipt_tax_paid_cur'], $pdp) ?>
+                                                        </small>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <span class="text-14 sub-text">—</span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- Payable Amount (course currency) -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text"><?= $code . ' ' . number_format($payableAmount, $dp) ?></span>
+                                                <span class="text-14 main-text fw-medium"><?= $cc . ' ' . number_format($payableAmount, $dp) ?></span>
                                             </td>
 
-                                            <!-- Paid Amount: converted to course currency, original shown as tooltip if foreign -->
+                                            <!-- Paid Amount:
+                                                                                         Primary = paid currency (what student gave)
+                                                                                         Sub     = course currency equivalent (if foreign) -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text">
-                                                    <?= $data['paid_currency_code'] . ' ' . number_format($data['paid_amount'], 2) ?>
-                                                </span>
+                                                <span class="text-14 main-text"><?= $pcc . ' ' . number_format((float)$data['paid_amount'], $pdp) ?></span>
+                                                <?php if ($isForeign): ?>
+                                                    <br><small class="sub-text" style="font-size:10px;">
+                                                        ≈ <?= $cc . ' ' . number_format($paidInCourse, $dp) ?>
+                                                        <?php if ($rate): ?>
+                                                            <span style="opacity:.65;">(@ <?= number_format($rate, 2) ?>)</span>
+                                                        <?php endif; ?>
+                                                    </small>
+                                                <?php endif; ?>
                                             </td>
 
                                             <!-- Paid Date -->
                                             <td class="py-2 align-middle">
-                                                <span class="text-14 main-text"><?= $data['date_paid'] ? date('Y-m-d', strtotime($data['date_paid'])) : 'N/A' ?></span>
+                                                <span class="text-14 main-text">
+                                                    <?= $data['date_paid'] ? date('Y-m-d', strtotime($data['date_paid'])) : 'N/A' ?>
+                                                </span>
                                             </td>
 
                                             <!-- Payment Method -->
                                             <td class="py-2 align-middle">
-                                                <button class="table-btn <?= $mclass ?> w-100"><?= $data['payment_method'] ?></button>
+                                                <button class="table-btn <?= $mclass ?> w-100"><?= htmlspecialchars($data['payment_method']) ?></button>
                                             </td>
 
                                             <!-- Status -->
                                             <td class="py-2 align-middle">
-                                                <button class="table-btn <?= $sclass ?> w-100"><?= $data['payment_status'] ?></button>
+                                                <button class="table-btn <?= $sclass ?> w-100"><?= htmlspecialchars($data['payment_status']) ?></button>
                                             </td>
-
                                         </tr>
                                     <?php
                                     endwhile;
                                 else:
                                     ?>
                                     <tr class="justify-content-center align-middle">
-                                        <td colspan="14" class="align-middle justify-content-center">
+                                        <td colspan="15" class="align-middle justify-content-center">
                                             <div class="d-flex flex-column align-items-center">
                                                 <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
                                             </div>
@@ -401,35 +462,33 @@ if (SessionUser::hasValidSession()) {
                                 <?php endif; ?>
                             </tbody>
                         </table>
+
+                        <!-- Pagination -->
                         <div class="bl-solid-lrb br-b-5 m-0 g-0 component-theme pagination-wrapper" id="pagination-container">
-                            <nav aria-label="..." class="col-12 px-2 pe-2 m-0 container-fluid">
+                            <nav class="col-12 px-2 pe-2 m-0 container-fluid">
                                 <div class="row p-4 align-items-center">
-                                    <!-- Previous Button (col-1) -->
                                     <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleStudentsPaymentsSumamryReportPagination('previousPage')">
                                         <iconify-icon icon="tabler:arrow-left" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                         <span class="text-14 main-text fw-semibold">Previous</span>
                                     </button>
-                                    <!-- Page Numbers (col-10, centered) -->
                                     <div class="col-8 col-lg-10 custom-pagination d-flex justify-content-center">
                                         <ul class="pagination-list d-flex mb-0">
                                             <?php
                                             $shudderPages1 = false;
                                             $shudderPages2 = false;
-
                                             function renderPageButton($i, $isActive = false)
                                             {
-                                                $activeClass = $isActive ? 'active' : '';
-                                                $action = $isActive ? '' : "onclick=\"handleStudentsPaymentsSumamryReportPagination('goToPage', '{$i}')\"";
-                                                echo "<li class='page-item {$activeClass}' id='page-{$i}'><button class='hw-40' {$action}>{$i}</button></li>";
+                                                $ac  = $isActive ? 'active' : '';
+                                                $ac2 = $isActive ? '' : "onclick=\"handleStudentsPaymentsSumamryReportPagination('goToPage', '{$i}')\"";
+                                                echo "<li class='page-item {$ac}' id='page-{$i}'><button class='hw-40' {$ac2}>{$i}</button></li>";
                                             }
-
                                             for ($i = 1; $i <= $number_of_pages; $i++) {
                                                 if ($i == 1 || $i == $number_of_pages || abs($pageno - $i) <= 1) {
                                                     renderPageButton($i, $pageno == $i);
-                                                } elseif (!$shudderPages1 && ($i < $pageno - 1 && $i > 1)) {
+                                                } elseif (!$shudderPages1 && $i < $pageno - 1 && $i > 1) {
                                                     $shudderPages1 = true;
                                                     echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
-                                                } elseif (!$shudderPages2 && ($i > $pageno + 1 && $i < $number_of_pages)) {
+                                                } elseif (!$shudderPages2 && $i > $pageno + 1 && $i < $number_of_pages) {
                                                     $shudderPages2 = true;
                                                     echo "<li class='d-flex align-items-end h-100'><iconify-icon icon='bi:three-dots' width='20' height='20' class='sub-text m-0 p-0'></iconify-icon></li>";
                                                 }
@@ -437,8 +496,7 @@ if (SessionUser::hasValidSession()) {
                                             ?>
                                         </ul>
                                     </div>
-                                    <!-- Next Button (col-1) -->
-                                    <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleStudentsPaymentsSumamryReportPagination('nextPage',<?= $pageno ?>,'<?= $number_of_pages ?>')">
+                                    <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleStudentsPaymentsSumamryReportPagination('nextPage',null,'<?= $number_of_pages ?>')">
                                         <span class="text-14 main-text fw-semibold">Next</span>
                                         <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                     </button>

@@ -41,15 +41,22 @@ if (SessionUser::hasValidSession()) {
                                 http_response_code(400);
                                 $status->error = 'Payment plan not created for this student';
                             } else {
+
+                                $paymentPlanCreateData = $paymentPlanCreate->fetch_assoc();
+
+                                $paymentType = 18;
+                                if ($paymentPlanCreateData['payment_category_payment_category_id'] == 4) {
+                                    $paymentType = 20;
+                                }
                                 $registrationPaymentApprove = Database::search("SELECT * FROM course_payment_has_payments
                                 INNER JOIN course_payments ON course_payment_has_payments.course_payments_course_payments_id = course_payments.course_payments_id
                                 INNER JOIN payment_plan_has_students_has_intakes ON course_payments.payment_plan_has_students_has_intakes_id=payment_plan_has_students_has_intakes.payment_plan_has_students_has_intakes_id
                                 INNER JOIN students_has_intakes ON payment_plan_has_students_has_intakes.students_has_intakes_students_has_intakes_id=students_has_intakes.students_has_intakes_id
-                                WHERE `payment_type_payment_type_id` = '18' AND `course_payment_has_payments`.`payment_status_payment_status_id` = '3' AND `students_has_intakes`.`students_student_id` = '" . $student_id . "'");
+                                WHERE `payment_type_payment_type_id` = '" . $paymentType . "' AND `course_payment_has_payments`.`payment_status_payment_status_id` = '3' AND `students_has_intakes`.`students_student_id` = '" . $student_id . "'");
 
                                 if ($registrationPaymentApprove->num_rows == 0) {
                                     http_response_code(400);
-                                    $status->error = 'Registration payment not approved yet';
+                                    $status->error = $paymentType == 18 ? 'Registration payment not approved yet' : '1st installment not approved yet';
                                 } else {
                                     $timezone = new DateTimeZone("Asia/Colombo");
                                     $dateTime = new DateTime("now", $timezone);

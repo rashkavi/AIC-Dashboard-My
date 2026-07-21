@@ -95,7 +95,7 @@ if (SessionUser::hasValidSession()) {
                         ) cpp
                             ON cp.course_payments_id = cpp.course_payments_course_payments_id 
                         WHERE `shi`.`intakes_intake_id` = '" . $intake_id . "'
-                      
+                      AND `ld`.`status_status_id`= 1
                       
                         ";
 

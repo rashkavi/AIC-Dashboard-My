@@ -120,7 +120,7 @@ if (SessionUser::hasValidSession()) {
                                             </div>
 
                                             <?php
-                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments')) {
+                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments')) {
                                                 $isValidPlan = Database::search("SELECT * FROM `payment_plan_has_students_has_intakes` WHERE `intake_has_payment_plan_id` = '" . $data['intake_has_payment_plan_id'] . "'");
                                                 if ($isValidPlan->num_rows == 0) {
                                             ?>

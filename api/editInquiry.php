@@ -298,51 +298,7 @@ if (SessionUser::hasValidSession()) {
                         $status->$key = $message;
                     }
 
-                    $requiredProperties = [
-                        'fname',
-                        'lname',
-                        'fullname',
-                        'nwi',
-                        'title',
-                        'gender',
-                        'marital_status',
-                        'nationality',
-                        'nic',
-                        'cob',
-                        'cor',
-                        'dob',
-                        'email',
-                        'mobile',
-                        'whatsapp',
-                        'address',
-                        'address2',
-                        'city',
-                        'pcode',
-                        'image',
-                        'branch',
-                        'faculty',
-                        'programme',
-                        'intake',
-                        'entry_type',
-                        'gtitle',
-                        'grelationship',
-                        'gfname',
-                        'glname',
-                        'gemail',
-                        'gmobile',
-                    ];
-                    $allFieldsPresent = true;
-                    foreach ($requiredProperties as $property) {
-                        if (property_exists($status, $property)) {
-                            $allFieldsPresent = false;
-                            break; // Exit loop on the first missing property
-                        }
-                    }
-                    foreach ($studentDocuments["errors"] as $key => $message) {
-                        $allPropertiesExist = false;
-                        break; // Exit loop on the first missing property
-                    }
-                    if ($allFieldsPresent) {
+                    if (empty(get_object_vars($status))) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);
                         $resetTime = $dateTime->format('Y-m-d H:i:s');
@@ -350,11 +306,11 @@ if (SessionUser::hasValidSession()) {
                         $timestamp = strtotime($dob);
                         $dob = date("Y-m-d", $timestamp);
 
-                        $login_table_update = "`first_name`='" . $fname . "',`last_name`='" . $lname . "',`whatsapp`='" . $whatsapp . "',`email`='" . $email . "'";
+                        $login_table_update = "`first_name`='" . $fname . "',`last_name`='" . $lname . "',`whatsapp`='" . normalizePhoneNumber($whatsapp) . "',`email`='" . $email . "'";
 
                         $student_table_update = "`full_name`='" . $fullname . "',`name_with_initials`='" . $nwi . "'
                         ,`title_title_id`='" . $title . "'
-                        ,`mobile`='" . $mobile . "',`gender_gender_id`='" . $gender . "'
+                        ,`mobile`='" . normalizePhoneNumber($mobile) . "',`gender_gender_id`='" . $gender . "'
                         ,`country_of_birth`='" . $cob . "',`country_of_residence`='" . $cor . "',
                         `entry_type`='" . $entry_type . "',`payment_option`='" . $payment_option . "'
                         ";
@@ -399,19 +355,19 @@ if (SessionUser::hasValidSession()) {
                             if ($studentHasAddress->num_rows == 0) {
 
                                 $address_table_columns = "`students_student_id`,`address_line_1`,`city_city_id`,`postal_code`";
-                                $address_table_values = "'" . $student["student_id"] . "','" . $address . "','" . $city . "','" . $pcode . "'";
+                                $address_table_values = "'" . $student["student_id"] . "','" . Database::escape($address) . "','" . $city . "','" . $pcode . "'";
 
                                 if (!empty($address2)) {
                                     $address_table_columns .= ",`address_line_2`";
-                                    $address_table_values .= ",'" . $address2 . "'";
+                                    $address_table_values .= ",'" . Database::escape($address2) . "'";
                                 }
 
                                 Database::iud("INSERT INTO `student_has_address` (" . $address_table_columns . ") VALUES (" . $address_table_values . ")");
                             } else {
-                                $address_table_update = "`address_line_1`='" . $address . "',`city_city_id`='" . $city . "',`postal_code`='" . $pcode . "'";
+                                $address_table_update = "`address_line_1`='" . Database::escape($address) . "',`city_city_id`='" . $city . "',`postal_code`='" . $pcode . "'";
 
                                 if (!empty($address2)) {
-                                    $address_table_update .= ",`address_line_2`='" . $address2 . "'";
+                                    $address_table_update .= ",`address_line_2`='" . Database::escape($address2) . "'";
                                 }
 
                                 Database::iud("UPDATE `student_has_address` SET " . $address_table_update . " WHERE `students_student_id` = '" . $student["student_id"] . "'");
@@ -541,20 +497,41 @@ echo (json_encode($status));
 
 function normalizePhoneNumber($number)
 {
-    $number = preg_replace('/[\s\-()]/', '', $number);
-    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
-        return '+94' . substr($number, 1);
-    }
-    if (preg_match('/^94([7][0-9]{8})$/', $number)) {
-        return '+94' . substr($number, 2);
-    }
-    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
-        if ($number[0] !== '+') {
-            return '+' . $number;
-        }
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
         return $number;
     }
 
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
     return false;
 }
 

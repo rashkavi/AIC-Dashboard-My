@@ -1,4 +1,5 @@
 var currentSelectedMonth;
+var currentSelectedYear;  
 const now = new Date();
 let isSubjectLectureSchedule = false;
 let subject = null;
@@ -103,6 +104,7 @@ function generateCalendar(year, month) {
     const daysInMonth = lastDay.getDate();
 
     currentSelectedMonth = month;
+        currentSelectedYear = year;
 
     let table = `<table class='calendar-grid'><thead><tr>`;
     const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -282,14 +284,14 @@ function generateAttendnaceCalendar(year, month) {
 
 
 const prevMonthSchedule = () => {
-    const year = currentSelectedMonth === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const year = currentSelectedMonth === 0 ? currentSelectedYear - 1 : currentSelectedYear;
     const month = currentSelectedMonth === 0 ? 11 : currentSelectedMonth - 1;
     generateCalendar(year, month);
     initializeLanguage();
 };
 
 const nextMonthSchedule = () => {
-    const year = currentSelectedMonth === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    const year = currentSelectedMonth === 11 ?currentSelectedYear + 1 : currentSelectedYear;
     const month = currentSelectedMonth === 11 ? 0 : currentSelectedMonth + 1;
     generateCalendar(year, month);
     initializeLanguage();

@@ -109,7 +109,11 @@ class SessionUser
 
     public static function ifUserIsAcademic(?string $userRole): bool
     {
-        return $userRole === "Academic";
+         return in_array(
+            $userRole,
+            ["Academic", "Head of Admission","Academic Admin"],
+            true
+        );
     }
 
     public static function ifUserIsAcdemicAdministration(?string $userRole): bool

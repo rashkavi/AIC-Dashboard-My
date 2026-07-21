@@ -12,7 +12,13 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule'))) {
+        
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) ||
+            SessionUser::ifUserIsAcademic($sessionUserRole) ||
+            SessionUser::ifUserIsCounsiler($sessionUserRole) ||
+            SessionUser::ifUserIsLecturer($sessionUserRole) ||
+            UserPermissions::validPermisisonType('super_lecture_schedule') ||
+            UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
             header("Location: ./dashboard");
         } else {
 ?>
@@ -101,7 +107,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) ||SessionUser::ifUserIsAcademic($sessionUserRole) ||  UserPermissions::validPermisisonType('lecture_schedule', 0)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||  UserPermissions::validPermisisonType('lecture_schedule', 0)) {
                                                         ?>
                                                             <div class="col-12 col-md-4 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <button class="custom-btn w-100" data-i18n="schedule-lecture" onclick="window.location = 'schedule-lecture'">Schedule a Lecture</button>

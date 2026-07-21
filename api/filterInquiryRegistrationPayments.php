@@ -21,7 +21,7 @@ if (SessionUser::hasValidSession()) {
                     $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
                     $resultPerPage = isset($decoded['resultPerPage']) ? $decoded['resultPerPage'] : 10;
                     $pageno = isset($decoded['page']) ? $decoded['page'] : 1;
-                                    $query = "
+                    $query = "
                                                             SELECT 
                                                              `students`.`student_id` AS 'sId', 
                                                          
@@ -257,9 +257,14 @@ if (SessionUser::hasValidSession()) {
                                                         ?>
 
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&inquiry-id=<?php echo $data['sId']; ?>">
                                                                     <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                     View Student Payment Plan</a></li>
+
+                                                        <?php
+                                                        }
+                                                        if ($data['lead_student_status_id'] == 4) {
+                                                        ?>
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                             <li>
                                                                 <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"

@@ -452,9 +452,25 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
 
                                                                                 <div class="col-12 col-md-4 d-flex flex-column">
-                                                                                    <label class="text-14 main-text not-required" for="">Date of Birth</label>
-                                                                                    <input type="date" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="dob" value="<?php echo $sdata['date_of_birth'] == null ? "" : $sdata['date_of_birth']; ?>">
-                                                                                    <span id="dob-feedback" class="text-dark-red text-12"></span>
+                                                                                    <label class="text-14 main-text required" for="">Date of Birth</label>
+                                                                                    <?php
+                                                                                    $dob = $sdata['date_of_birth'];
+
+                                                                                    if (
+                                                                                        $dob == null ||
+                                                                                        $dob == '' ||
+                                                                                        $dob == '0000-00-00' ||
+                                                                                        $dob == '1970-01-01'
+                                                                                    ) {
+                                                                                        $dob = '';
+                                                                                    }
+                                                                                    ?>
+
+                                                                                    <input type="date"
+                                                                                        class="form-control custom-input mt-2"
+                                                                                        <?= $fieldsDisabled ? "disabled" : "" ?>
+                                                                                        id="dob"
+                                                                                        value="<?= $dob ?>"> <span id="dob-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                                     <label class="text-14 main-text required" for="">Nationality</label>
@@ -510,12 +526,12 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                                 <div class="col-12 col-md-3 d-flex flex-column">
                                                                     <label class="text-14 main-text required" for="">Mobile</label>
-                                                                    <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="mobile" maxlength="10" value="<?php echo $sdata['mobile']; ?>" onkeypress="checkDigit(event)">
+                                                                    <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="mobile" value="<?php echo $sdata['mobile']; ?>">
                                                                     <span id="mobile-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
                                                                 <div class="col-12 col-md-3 d-flex flex-column">
                                                                     <label class="text-14 main-text required" for="">Whatsapp</label>
-                                                                    <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="whatsapp" maxlength="10" value="<?php echo $sdata['whatsapp']; ?>" onkeypress="checkDigit(event)">
+                                                                    <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="whatsapp" value="<?php echo $sdata['whatsapp']; ?>">
                                                                     <span id="whatsapp-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
                                                                 <div class="col-12 col-md-6 d-flex flex-column">

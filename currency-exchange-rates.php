@@ -342,7 +342,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                             <li>
                                                                                                 <a class="dropdown-item text-14 main-text d-flex align-items-center"
-                                                                                                    href="currency-exchange-rate-history?currency-id=<?php echo $data['currency_exchange_rate_id']; ?>">
+                                                                                                    href="currency-exchange-rate-history?currency-id=<?php echo $data['base_currency_id']; ?>">
                                                                                                     <iconify-icon icon="material-symbols:history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     History
                                                                                                 </a>
