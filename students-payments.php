@@ -213,7 +213,8 @@ if (!SessionUser::hasValidSession()) {
                                                                             <select class="form-select custom-select" id="sort-selector" onchange="handleStudentsPaymentsPagination('filter')">
                                                                                 <option selected value="0">- Filter Data -</option>
                                                                                 <option value="1">Bank Transfer</option>
-                                                                                <option value="2">Card Payments</option>
+                                                                                <option value="2">Cash Payments</option>
+                                                                                 <option value="3">Card Payments</option>
                                                                             </select>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
@@ -279,6 +280,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <iconify-icon icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                                 </div>
                                                                             </th>
+                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Receipt Number</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Method</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
                                                                             <th class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
@@ -352,7 +354,8 @@ if (!SessionUser::hasValidSession()) {
                                                                                                          AS paid_decimal_places,
 
                                                                                 /* LKR currency id for penalty conversion */
-                                                                                1 AS lkr_currency_id
+                                                                                1 AS lkr_currency_id,
+                                                                                cpr.receipt_number
 
                                                                             FROM course_payment_has_payments cpp
 
@@ -402,7 +405,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                 FROM panelty_payments
                                                                                 GROUP BY course_payments_course_payments_id
                                                                             ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
-
+                                                                            LEFT JOIN `course_payment_receipts` cpr
+                                                                                ON cpr.course_payment_receipt_id = cpp.course_payment_receipts_course_payment_receipt_id
+                                                                            GROUP BY cpp.course_payment_has_payment_id
                                                                             ORDER BY cpp.course_payment_has_payment_id DESC
                                                                         ";
 
@@ -562,6 +567,11 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <td class="py-2 align-middle">
                                                                                         <span class="text-14 main-text">
                                                                                             <?= $data['date_paid'] ? date('Y-m-d', strtotime($data['date_paid'])) : 'N/A' ?>
+                                                                                        </span>
+                                                                                    </td>
+                                                                                     <td class="py-2 align-middle">
+                                                                                        <span class="text-14 main-text">
+                                                                                            <?= $data['receipt_number'] ? $data['receipt_number'] : 'N/A' ?>
                                                                                         </span>
                                                                                     </td>
 

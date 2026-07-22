@@ -1516,7 +1516,11 @@ if (!SessionUser::hasValidSession()) {
 
                                                             <!-- ── Payment slips ─────────────────────────────────────── -->
                                                             <?php
-                                                            $paymnetSlips = Database::search("SELECT * FROM `course_payment_slips` WHERE `course_payment_has_payment_id` = '" . $coursepaymentData['course_payment_has_payment_id'] . "'");
+                                                            $paymnetSlips = Database::search("SELECT * FROM `course_payment_slips` 
+                                                            WHERE (`course_payment_has_payment_id` = '" . $coursepaymentData['course_payment_has_payment_id'] . "' OR 
+                                                            `course_payment_has_payment_id` IN (SELECT `course_payment_has_payment_id` FROM `course_payment_has_payments` 
+                                                            WHERE `course_payment_receipts_course_payment_receipt_id` IS NOT NULL 
+                                                            AND `course_payment_receipts_course_payment_receipt_id`='" . $coursepaymentData['course_payment_receipts_course_payment_receipt_id'] . "'))");
                                                             if ($paymnetSlips->num_rows > 0):
                                                             ?>
                                                                 <div class="col-12">
