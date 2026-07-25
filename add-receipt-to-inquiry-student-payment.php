@@ -83,7 +83,7 @@ if (!SessionUser::hasValidSession()) {
                     $ifHasPermissions = true;
                 }
                 if (!$ifHasPermissions) {
-                    $inquiry_id == 0 ? header("Location: ./faculties") : header("Location: ./inquiries");
+                    $inquiry_id == 0 ? header("Location: ./faculties") : header("Location: ./registrations");
                 } else {
                     if ($paymentData['payment_status_id'] != 1) {
                         header("Location: ./batch-student-payments?student-id=" . $paymentData['students_has_intakes_id']);
@@ -587,7 +587,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
                                                                             <?php else: ?>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
-                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiries-registration-payments">Inquiry Registration Payments</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./registrations-registration-payments">Inquiry Registration Payments</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiry-payment-plan?inquiry-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
                                                                             <?php endif; ?>

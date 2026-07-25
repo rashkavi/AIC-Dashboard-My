@@ -210,7 +210,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
                                                                 <?php
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsAccounts($sessionUserRole) ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                                                 ?>
                                                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                 <?php
@@ -306,7 +306,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </td>
 
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsAccounts($sessionUserRole) ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                                                         ?>
                                                                             <td class="py-3 align-middle">
                                                                                 <div class="dropdown">
@@ -353,7 +353,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ?>
 
                                                                                         <?php
-                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
+                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsAccounts($sessionUserRole) ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
 
                                                                                             if ($data["status"] == "Active") {
                                                                                         ?>

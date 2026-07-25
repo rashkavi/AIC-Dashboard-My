@@ -38,7 +38,7 @@ if (!SessionUser::hasValidSession()) {
                     <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                         <?php
                         include "includes/side-menu.php";
-                        load_side_menu::load("Inquiries");
+                        load_side_menu::load("Registrations");
                         ?>
                     </div>
                     <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -46,7 +46,7 @@ if (!SessionUser::hasValidSession()) {
                             <div class="col-12 p-0 m-0 g-0">
                                 <?php
                                 include "./includes/header.php";
-                                selectItem::setSelected("Inquiries");
+                                selectItem::setSelected("Registrations");
                                 ?>
                             </div>
 
@@ -62,7 +62,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="row align-items-center p-0 m-0 g-0">
                                             <div class="col-12 col-md-12 col-xxl-8">
                                                 <div class="row">
-                                                    <span class="main-topic lh-lg" data-i18n="">Inquiries</span>
+                                                    <span class="main-topic lh-lg" data-i18n="">Registrations</span>
                                                     <span class="text-14 sub-text lh-base mt-1" data-i18n="students-desc">Effortlessly manage students, access profiles, and maintain oversight</span>
                                                 </div>
                                             </div>
@@ -81,8 +81,8 @@ if (!SessionUser::hasValidSession()) {
                                                     if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="custom-btn w-100" onclick="window.location = 'add-inquiry'">
-                                                                Add New Inquiry
+                                                            <button class="custom-btn w-100" onclick="window.location = 'add-registration'">
+                                                                Add New Registration
                                                             </button>
                                                         </div>
                                                     <?php
@@ -239,6 +239,8 @@ if (!SessionUser::hasValidSession()) {
                                                                             `sl2`.`students_log_id` DESC
                                                                    LIMIT 1
                                                                )
+                                                            
+                                                           
                                                        
                                                            ORDER BY 
                                                                `students_logs`.`date_updated` DESC,
@@ -295,30 +297,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         $displayStatusId = $data['lead_student_status_id'];
                                                                         $displayStatus = $data['lead_student_status'];
 
-                                                                        // if ($data['lead_student_status_id'] == 5) {
-
-                                                                        //     $requiredDocumentTypes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-
-                                                                        //     $documentCount = Database::search("
-                                                                        //     SELECT COUNT(DISTINCT students_identity_documents_type_id) AS total
-                                                                        //     FROM students_identity_documents
-                                                                        //     WHERE students_student_id = '" . $data['sId'] . "'
-                                                                        //     AND students_identity_documents_type_id IN (1,2,3,4,5,6,7,8,9,10,11)
-                                                                        // ");
-
-                                                                        //     $documentData = $documentCount->fetch_assoc();
-
-                                                                        //     if ((int)$documentData['total'] < count($requiredDocumentTypes)) {
-
-                                                                        //         // Additional Documents Pending
-                                                                        //         $displayStatusId = 6;
-                                                                        //         $displayStatus = "Additional Documents Pending";
-                                                                        //     } else {
-                                                                        //         // First Installment Payment Pending
-                                                                        //         $displayStatusId = 7;
-                                                                        //         $displayStatus = "First Installment Payment Pending";
-                                                                        //     }
-                                                                        // }
+                                                                       
                                                                         ?>
 
                                                                         <td class="py-2 align-middle">
@@ -336,17 +315,21 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             View</a></li>
                                                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-inquiry?inquiry-id=<?php echo $data['sId']; ?>">
-                                                                                            <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                            Edit</a></li>
-                                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+
                                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-update-history?inquiry-id=<?php echo $data['sId']; ?>">
                                                                                             <iconify-icon icon="ic:baseline-history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             Update History</a></li>
                                                                                     <?php
+                                                                                    if ($displayStatusId != 17) {
+                                                                                    ?>
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                Edit</a></li>
+                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                    <?php
+                                                                                    }
                                                                                     if ($displayStatusId == 2 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                                                     ?>
-                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['sId']; ?>">
                                                                                                 <iconify-icon icon="material-symbols-light:upload-2-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Re-Upload Registration Payment Slip</a></li>

@@ -15,7 +15,7 @@ if (!SessionUser::hasValidSession()) {
             header("Location: ./students");
         } else {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 10))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 10))) {
                 header("Location: ./students");
             } else {
                 $id = $_GET['inquiry-id'];
@@ -253,7 +253,7 @@ if (!SessionUser::hasValidSession()) {
                                 <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                     <?php
                                     include "includes/side-menu.php";
-                                    load_side_menu::load("Inquiries");
+                                    load_side_menu::load("Registrations");
                                     ?>
                                 </div>
                                 <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -261,7 +261,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0 m-0 g-0">
                                             <?php
                                             include "./includes/header.php";
-                                            selectItem::setSelected("Inquiries");
+                                            selectItem::setSelected("Registrations");
                                             ?>
                                         </div>
                                         <div class="container p-4 m-0" id="skeleton-list">
@@ -278,8 +278,8 @@ if (!SessionUser::hasValidSession()) {
                                                                 <span class="main-topic lh-lg"><?php echo ucwords(strtolower($sdata['title'] . " . " . $sdata['first_name'] . " " . $sdata['last_name'])); ?></span>
                                                                 <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                                     <ol class="breadcrumb m-0">
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./students">Inquiries</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Edit Inquiry</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./registrations.php">Registrations</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Edit Registration</a></li>
                                                                     </ol>
                                                                 </nav>
                                                             </div>

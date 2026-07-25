@@ -35,7 +35,7 @@ if (!SessionUser::hasValidSession()) {
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <meta name="robots" content="noindex, nofollow">
-                <title>Add Inquiry - Admin Dashboard | <?= Project::getBaseName(); ?></title>
+                <title>Add Registration - Admin Dashboard | <?= Project::getBaseName(); ?></title>
 
                 <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
                 <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
@@ -76,11 +76,11 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="row p-0 m-0 g-0">
                                                 <div class="col-12 col-md-8">
                                                     <div class="row">
-                                                        <span class="main-topic lh-lg" data-i18n="">Add New Inquiry</span>
+                                                        <span class="main-topic lh-lg" data-i18n="">Add New Registration</span>
                                                         <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                             <ol class="breadcrumb m-0">
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="" href="./inquiries">Inquiries</a></li>
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="">Add New Inquiry</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="" href="./registrations">Registrations</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="">Add New Registration</a></li>
                                                             </ol>
                                                         </nav>
                                                     </div>
@@ -88,7 +88,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
                                                     <div class="row h-100 justify-content-end align-items-center gx-3">
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="custom-btn w-100" data-i18n="save-student" onclick="addLead(this)">Save Inquiry</button>
+                                                            <button class="custom-btn w-100" data-i18n="" onclick="addLead(this)">Save Registration</button>
                                                         </div>
                                                     </div>
                                                 </div>

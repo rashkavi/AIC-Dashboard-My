@@ -11474,10 +11474,12 @@ const updateExchangeRate = () => {
         });
 };
 
-const filterCurrencyExchange = () => {
+const filterCurrencyExchange = (id) => {
     const data = {
+        currency: id,
         text: $("#user-search-text").val() || "",
-        date: $("#date").val() || "",
+        fromDate: $("#from-date").val() || "",
+        toDate: $("#to-date").val() || "",
         resultPerPage: $("#show-result-selector").val() || 10,
         page: selectedPage || 1,
     };
@@ -13258,12 +13260,12 @@ const genarateLatePaymentsReport = (btn) => {
 }
 
 
-const submitUpdatePaymentStatus = (btn, id, paid_id,currency_data = null) => {
+const submitUpdatePaymentStatus = (btn, id, paid_id, currency_data = null) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("payment_id", id);
-    form.append("paid_payment_id",paid_id);
-    form.append("payment_status",$("#status-selector").val());
+    form.append("paid_payment_id", paid_id);
+    form.append("payment_status", $("#status-selector").val());
     form.append("discount_amount", $("#discount-amount").val());
     form.append("penalty_amount", $("#penalty-amount").val());
     form.append("method", $("#payment-method").val());
@@ -13272,7 +13274,7 @@ const submitUpdatePaymentStatus = (btn, id, paid_id,currency_data = null) => {
     form.append("balance", $("#balance-amount").val()); // ← For validation
     form.append("note", $("#note").val());
 
-   
+
     console.log(currency_data);
     // Append currency data
     if (currency_data != null) {
@@ -13400,3 +13402,108 @@ const submitUpdatePaymentStatus = (btn, id, paid_id,currency_data = null) => {
             showToast("error", "Network error occurred. Please check your connection and try again.");
         });
 };
+
+const genarateCurrencyExchangeRateReport = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        currency: id,
+        text: $("#user-search-text").val() || "",
+        fromDate: $("#from-date").val() || "",
+        toDate: $("#to-date").val() || "",
+    }
+
+
+    fetch('api/genarateCurrencyExchangeRateReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Currency Exchange Rate Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}
+
+const filterDuePayments = () => {
+    const data = {
+        text: $("#search-text").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        category: $("#payment-category-selector").val(),
+        plan: $("#payment-plan-selector").val(),
+        type: $("#payment-type-selector").val(),
+        sortByAmount: sortCondition1,
+        sortByDate: sortCondition2,
+        sortByName: sortCondition3,
+        sortById: sortCondition4,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage2,
+    }
+
+    fetch('api/filterDuePayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+        
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#payments-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            console.log(error);
+            showToast("error", "An error occured. Please try again later.");
+        });
+}

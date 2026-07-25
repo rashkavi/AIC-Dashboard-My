@@ -20,13 +20,13 @@ $sessionUserObject = SessionUser::getCurrentUserObject();
 
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
-    header("Location: ./inquiries");
+if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
+    header("Location: ./registrations");
     exit;
 }
 
 if (!isset($_GET["inquiry-id"]) || !is_numeric($_GET["inquiry-id"])) {
-    header("Location: ./inquiries");
+    header("Location: ./registrations");
     exit;
 }
 
@@ -125,7 +125,7 @@ $leadRs = Database::search("
 ");
 
 if ($leadRs->num_rows == 0) {
-    header("Location: ./inquiries");
+    header("Location: ./registrations");
     exit;
 }
 

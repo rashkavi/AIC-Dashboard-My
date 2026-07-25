@@ -217,7 +217,7 @@ if (SessionUser::hasValidSession()) {
                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                             View</a></li>
                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-inquiry?inquiry-id=<?php echo $data['sId']; ?>">
+                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?inquiry-id=<?php echo $data['sId']; ?>">
                                                             <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                             Edit</a></li>
                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">

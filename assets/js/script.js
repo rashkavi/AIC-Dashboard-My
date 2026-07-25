@@ -6998,3 +6998,43 @@ const handleInquiryRegistrationPaymentsPagination = (action, pageId = null, tota
 
     filterInquiryRegistrationPayments();
 }
+
+const handleDuePaymentsPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage2 = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage2 > 1) {
+                selectedPage2--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage2 < totalPages) {
+                selectedPage2++;
+            }
+            break;
+        case 'filter':
+            selectedPage2 = 1;
+            break;
+        case 'sortByAmount':
+            sortCondition2 = sortCondition3 = sortCondition4 = 0;
+            sortCondition1 = (sortCondition1 === 1 ? 2 : 1);
+            break;
+        case 'sortByDate':
+            sortCondition1 = sortCondition3 = sortCondition4 = 0;
+            sortCondition2 = (sortCondition2 == 1 ? 2 : 1);
+            break;
+        case 'sortByName':
+            sortCondition1 = sortCondition2 = sortCondition4 = 0;
+            sortCondition3 = (sortCondition3 === 1 ? 2 : 1);
+            break;
+        case 'sortById':
+            sortCondition1 = sortCondition2 = sortCondition3 = 0;
+            sortCondition4 = (sortCondition4 === 1 ? 2 : 1);
+            break;
+
+    }
+
+    filterDuePayments();
+}

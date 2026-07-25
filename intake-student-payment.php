@@ -24,6 +24,7 @@ if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['payment-id']) && !empt
 }
 
 $id = $_GET['payment-id'];
+$department = $_GET['department'];
 
 $detailQuery = "
     SELECT
@@ -419,7 +420,7 @@ switch ($paymentData['payment_status_id']) {
             <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                 <?php
                 include "includes/side-menu.php";
-                load_side_menu::load("Course Overview");
+                $department == "payments" ? load_side_menu::load("Payments") : load_side_menu::load("Course Overview");
                 ?>
             </div>
 
@@ -429,7 +430,7 @@ switch ($paymentData['payment_status_id']) {
                     <div class="col-12 p-0 m-0 g-0">
                         <?php
                         include "./includes/header.php";
-                        selectItem::setSelected("Students");
+                        $department == "payments" ? selectItem::setSelected("Payments") : selectItem::setSelected("Course Overview");
                         ?>
                     </div>
 
@@ -452,12 +453,25 @@ switch ($paymentData['payment_status_id']) {
                                         <span class="main-topic lh-lg">Student Payment</span>
                                         <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                             <ol class="breadcrumb m-0">
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $paymentData['faculty_id'] ?>'><?= htmlspecialchars($paymentData['faculty']) ?></a></li>
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $paymentData['programme_id'] ?>'><?= htmlspecialchars($paymentData['programme']) ?></a></li>
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intake-details?intake-id=<?= $paymentData['intake_id'] ?>'><?= htmlspecialchars($paymentData['intake']) ?></a></li>
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= ucwords(strtolower($paymentData['title'] . ' ' . $paymentData['first_name'] . ' ' . $paymentData['last_name'])) ?></a></li>
-                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
+                                                <?php
+                                                if ($department == "payments") {
+                                                ?>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $paymentData['faculty_id'] ?>'><?= htmlspecialchars($paymentData['faculty']) ?></a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $paymentData['programme_id'] ?>'><?= htmlspecialchars($paymentData['programme']) ?></a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intake-details?intake-id=<?= $paymentData['intake_id'] ?>'><?= htmlspecialchars($paymentData['intake']) ?></a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $paymentData['title'] . ' ' . $paymentData['first_name'] . ' ' . $paymentData['last_name'] ?></a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Payments</a></li>
+                                                <?php
+                                                } else {
+                                                ?>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='payments'>Payments</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./students-due-payments.php'>Students Due Payments</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='#'>Student Payment</a></li>
+                                                <?php
+                                                }
+                                                ?>
+
                                             </ol>
                                         </nav>
                                     </div>
@@ -512,77 +526,6 @@ switch ($paymentData['payment_status_id']) {
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- Exchange rate badge -->
-                                    <?php if (!$isCourseLKR): ?>
-                                        <div class="col-12 mb-3 d-flex align-items-center gap-3 flex-wrap">
-                                            <?php if ($pageExchangeRate): ?>
-                                                <div class="exchange-rate-banner">
-                                                    <iconify-icon icon="mdi:swap-horizontal" width="14"></iconify-icon>
-                                                    <span class="main-text">
-                                                        1 <?= $courseCurrencyCode ?> = LKR <?= number_format($pageExchangeRateValue, 2) ?>
-                                                        &nbsp;<span class="sub-text">(<?= date('d M Y', strtotime($pageExchangeRate['effective_date'])) ?>)</span>
-                                                    </span>
-                                                </div>
-                                            <?php else: ?>
-                                                <div class="exchange-rate-banner" style="border-color:#f5c6cb;background:#fff5f5;">
-                                                    <iconify-icon icon="mdi:alert-outline" width="14" style="color:#a32d2d;"></iconify-icon>
-                                                    <span style="color:#a32d2d;">No exchange rate available — amounts shown in <?= $courseCurrencyCode ?> only</span>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endif; ?>
-
-                                    <!-- LKR Equivalent Summary Panel -->
-                                    <?php if (!$isCourseLKR && $pageExchangeRate): ?>
-                                        <div class="col-12">
-                                            <div class="lkr-panel">
-                                                <div class="lkr-panel-top">
-                                                    <div class="lkr-panel-top-left">
-                                                        <iconify-icon icon="mdi:currency-usd" width="16"></iconify-icon>
-                                                        LKR equivalent summary
-                                                    </div>
-                                                    <span class="lkr-panel-rate-note">
-                                                        @ <?= number_format($pageExchangeRateValue, 2) ?> per <?= $courseCurrencyCode ?>
-                                                    </span>
-                                                </div>
-                                                <div class="lkr-panel-grid">
-                                                    <div class="lkr-panel-item">
-                                                        <span class="lkr-item-label">Total Amount</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $pageExchangeRateValue, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($paymentData['amount'], 2) ?></span>
-                                                    </div>
-                                                    <div class="lkr-panel-item">
-                                                        <span class="lkr-item-label">Total Discount</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($discountAmtLKR, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($totalDiscount, 2) ?></span>
-                                                    </div>
-                                                    <div class="lkr-panel-item">
-                                                        <span class="lkr-item-label">Total Penalty</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($penaltyAmtLKR, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($totalPenalty, 2) ?></span>
-                                                    </div>
-                                                    <div class="lkr-panel-item">
-                                                        <span class="lkr-item-label">Total Tax</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($taxAmtLKR, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($totalReceiptTax, 2) ?></span>
-                                                    </div>
-                                                    <div class="lkr-panel-item">
-                                                        <span class="lkr-item-label">Total Paid</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($paidAmtLKR, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($totalPaidAmount, 2) ?></span>
-                                                    </div>
-                                                    <div class="lkr-panel-item balance-item">
-                                                        <span class="lkr-item-label">Balance Due</span>
-                                                        <span class="lkr-item-value">LKR <?= number_format($balanceLKR, 2) ?></span>
-                                                        <span class="lkr-item-sub"><?= $courseCurrencyCode ?> <?= number_format($balance, 2) ?></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    <?php endif; ?>
-
-
 
                                     <!-- ── Payment Summary Card ── -->
                                     <div class="payment-card-container mt-4">
@@ -1015,7 +958,7 @@ switch ($paymentData['payment_status_id']) {
                                                                 </div>
                                                             <?php endif; ?>
 
-                                                            
+
 
                                                             <!-- View Receipt button -->
                                                             <?php if ($statusId == 3 && $receiptItemId): ?>
@@ -1363,7 +1306,7 @@ switch ($paymentData['payment_status_id']) {
     <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
     <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
     <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
-      <script src="./assets/js/paymentReceiptRenderer.js?v=<?= Project::getVersion() ?>"></script>
+    <script src="./assets/js/paymentReceiptRenderer.js?v=<?= Project::getVersion() ?>"></script>
 
     <script>
         /* ── Progress bar ── */
@@ -1384,7 +1327,7 @@ switch ($paymentData['payment_status_id']) {
             });
         });
     </script>
-  
+
 </body>
 
 </html>

@@ -55,7 +55,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) || UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments'))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) || UserPermissions::validPermisisonType('leads') || UserPermissions::validPermisisonType('payments'))) {
                     header("Location: ./faculties");
                 } else {
                     $latestTaxRate = 2.5;
