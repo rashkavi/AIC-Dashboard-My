@@ -672,6 +672,10 @@ const filterStudents = () => {
     const data = {
         text: $("#search-text").val(),
         sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         update: $("#update-selector").val(),
@@ -12199,6 +12203,10 @@ const filterStudentsInquiries = () => {
     const data = {
         text: $("#search-text").val(),
         sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         resultPerPage: $("#show-result-selector").val(),
@@ -13492,7 +13500,7 @@ const filterDuePayments = () => {
     })
         .then((response) => response.text())
         .then((data) => {
-        
+
             try {
                 const response = JSON.parse(data);
                 if (response.hasOwnProperty('error')) {

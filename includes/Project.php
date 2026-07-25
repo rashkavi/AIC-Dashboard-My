@@ -5,7 +5,7 @@ class Project
     private const BASE_URL = "https://dashboard.aiccampuslms.com";
     private const BASE_PORTAL_URL = "https://portal.aiccampuslms.com";
     private const INSTITUTE_LOGO = "common/logo.png";
-    private const VERSION = "2.3.40";
+    private const VERSION = "2.3.41";
     public static function getBaseName()
     {
         return self::BASE_NAME;

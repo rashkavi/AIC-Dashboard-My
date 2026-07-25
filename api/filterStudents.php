@@ -17,6 +17,10 @@ if (SessionUser::hasValidSession()) {
 
                     $search_text = isset($decoded['text']) ? $decoded['text'] : '';
                     $sort = isset($decoded['sort']) ? $decoded['sort'] : 0;
+                    $branch = isset($decoded['branch']) ? $decoded['branch'] : 0;
+                    $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : 0;
+                    $programme = isset($decoded['programme']) ? $decoded['programme'] : 0;
+                    $intake = isset($decoded['intake']) ? $decoded['intake'] : 0;
                     $sortByName = isset($decoded['sortByName']) ? $decoded['sortByName'] : 0;
                     $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
                     $update = isset($decoded['update']) ? $decoded['update'] : 0;
@@ -51,7 +55,7 @@ if (SessionUser::hasValidSession()) {
                                                            INNER JOIN 
                                                                `status` 
                                                                ON `login_details`.`status_status_id` = `status`.`status_id`
-                                                          
+                                                          WHERE 1=1
                                                        ";
 
                     if ($search_text != "") {
@@ -59,12 +63,28 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     if ($sort != 0) {
-                        if (strpos($query, 'WHERE') == false) {
-                            $query .= " WHERE `login_details`.`status_status_id` = '" . $sort . "'";
-                        } else {
-                            $query .= " AND `login_details`.`status_status_id` = '" . $sort . "'";
-                        }
+                        $query .= " AND `login_details`.`status_status_id` = '" . $sort . "'";
                     }
+
+                    if ($intake != 0) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` WHERE `intakes_intake_id`='" . $intake . "')";
+                    } else if ($programme != 0) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
+                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
+                        WHERE `programmes_programme_id`='" . $programme . "')";
+                    } else if ($faculty != 0) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
+                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
+                        INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
+                        WHERE `faculties_faculty_id`='" . $faculty . "')";
+                    } else if ($branch != 0) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
+                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
+                        INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
+INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
+                        WHERE `branches_branch_id`='" . $branch . "')";
+                    }
+
 
                     if ($sortByName != 0) {
                         $sort = $sortByName == 1 ? 'ASC' : 'DESC';

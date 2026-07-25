@@ -17,6 +17,10 @@ if (SessionUser::hasValidSession()) {
 
                     $search_text = isset($decoded['text']) ? $decoded['text'] : '';
                     $sort = isset($decoded['sort']) ? $decoded['sort'] : 0;
+                    $branch = isset($decoded['branch']) ? $decoded['branch'] : 0;
+                    $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : 0;
+                    $programme = isset($decoded['programme']) ? $decoded['programme'] : 0;
+                    $intake = isset($decoded['intake']) ? $decoded['intake'] : 0;
                     $sortByName = isset($decoded['sortByName']) ? $decoded['sortByName'] : 0;
                     $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
                     $resultPerPage = isset($decoded['resultPerPage']) ? $decoded['resultPerPage'] : 10;
@@ -50,6 +54,14 @@ if (SessionUser::hasValidSession()) {
                                                            INNER JOIN 
                                                                `lead_student_status` 
                                                                ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                            INNER JOIN `students_has_intakes` 
+                                                                ON `students`.`student_id`=`students_has_intakes`.`students_student_id`
+                                                            INNER JOIN `intakes` 
+                                                                ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
+                                                            INNER JOIN `programmes` 
+                                                                ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
+                                                            INNER JOIN `faculties`
+                                                                ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
                                                             INNER JOIN 
                                                                `users` 
                                                                ON `students`.`users_user_id` = `users`.`user_id`
@@ -65,18 +77,26 @@ if (SessionUser::hasValidSession()) {
                                                                             `sl2`.`students_log_id` DESC
                                                                    LIMIT 1
                                                                )
+                                                                   WHERE 1=1
                                                        ";
 
                     if ($search_text != "") {
-                        $query .= " WHERE (`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                        $query .= " AND (`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
                     }
 
                     if ($sort != 0) {
-                        if (strpos($query, 'WHERE') == false) {
-                            $query .= " WHERE `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
-                        } else {
-                            $query .= " AND `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
-                        }
+
+                        $query .= " AND `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
+                    }
+
+                    if ($intake != 0) {
+                        $query .= " AND `intake_id`='" . $intake . "' ";
+                    } else if ($programme != 0) {
+                        $query .= " AND `programme_id`='" . $programme . "' ";
+                    } else if ($faculty != 0) {
+                        $query .= " AND `faculty_id`='" . $faculty . "' ";
+                    } else if ($branch != 0) {
+                        $query .= " AND `branches_branch_id`='" . $branch . "' ";
                     }
 
                     $order_key = " ORDER BY";

@@ -122,6 +122,41 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="card card-body border-0 p-0">
                                                             <div class="col-12">
                                                                 <div class="row justify-content-end">
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleInquiryPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                            <?php
+                                                                            $query = "SELECT * FROM `branches`";
+
+                                                                            $branches = Database::search($query);
+                                                                            while ($data = $branches->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="branch-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="faculty-selector" disabled class="form-select custom-select" onchange="loadProgrammes(),handleInquiryPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+
+                                                                        </select>
+                                                                        <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleInquiryPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                        </select>
+                                                                        <span id="programme-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleInquiryPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                        </select>
+                                                                        <span id="intake-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex align-items-center justify-content-end">
                                                                         <select class="form-select custom-select" aria-label="Default select example" id="sort-selector" onchange="handleInquiryPagination('filter')">
                                                                             <option selected value="0">- Select Status -</option>
@@ -297,7 +332,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         $displayStatusId = $data['lead_student_status_id'];
                                                                         $displayStatus = $data['lead_student_status'];
 
-                                                                       
+
                                                                         ?>
 
                                                                         <td class="py-2 align-middle">

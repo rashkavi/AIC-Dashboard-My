@@ -140,7 +140,45 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="collapse" id="studentsFilter">
                                                         <div class="card card-body border-0 p-0">
                                                             <div class="col-12">
-                                                                <div class="row">
+                                                                <div class="row justify-content-end">
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleStudentsPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                            <?php
+                                                                            $query = "SELECT * FROM `branches`";
+
+                                                                            $branches = Database::search($query);
+                                                                            while ($data = $branches->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="branch-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="faculty-selector" disabled class="form-select custom-select" onchange="loadProgrammes(),handleStudentsPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+
+                                                                        </select>
+                                                                        <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleStudentsPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                        </select>
+                                                                        <span id="programme-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleStudentsPagination('filter');">
+                                                                            <option value="0" selected>- Select -</option>
+                                                                        </select>
+                                                                        <span id="intake-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="row mt-2"> 
+
                                                                     <?php
                                                                     if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
                                                                     ?>
