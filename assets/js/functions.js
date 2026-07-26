@@ -132,6 +132,7 @@ const addUser = (btn) => {
     form.append("title", $("#user-title").val());
     form.append("nic", $("#user-national-id").val());
     form.append("dob", $("#user-dob").val());
+    form.append("branch", $("#branch-selector").val());
     form.append("address", $("#address-line-1").val());
     form.append("address2", $("#address-line-2").val());
     form.append("city", $("#city").val());
@@ -175,7 +176,8 @@ const addUser = (btn) => {
                     address2: ["#address-line-2", "#address2-feedback"],
                     city: ["#city", "#city-feedback"],
                     pcode: ["#postal-code", "#pcode-feedback"],
-                    cv: ["#file-info", "#cv-feedback"]
+                    cv: ["#file-info", "#cv-feedback"],
+                    branch:["#branch-selector", "#branch-feedback"]
                 };
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
@@ -200,6 +202,7 @@ const editUser = (btn, id) => {
     form.append("title", $("#user-title").val());
     form.append("nic", $("#user-national-id").val());
     form.append("dob", $("#user-dob").val());
+    form.append("branch", $("#branch-selector").val());
     form.append("address", $("#address-line-1").val());
     form.append("address2", $("#address-line-2").val());
     form.append("city", $("#city").val());
@@ -218,7 +221,6 @@ const editUser = (btn, id) => {
         })
         .then(res => res.json())
         .then(response => {
-
             if (response.done) {
                 toggleBtnLoader(btn, false);
                 showToast("success", response.done);
@@ -243,7 +245,9 @@ const editUser = (btn, id) => {
                     address2: ["#address-line-2", "#address2-feedback"],
                     city: ["#city", "#city-feedback"],
                     pcode: ["#postal-code", "#pcode-feedback"],
-                    cv: ["#file-info", "#cv-feedback"]
+                    cv: ["#file-info", "#cv-feedback"],
+                                        branch:["#branch-selector", "#branch-feedback"]
+
                 };
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
@@ -12207,6 +12211,8 @@ const filterStudentsInquiries = () => {
         faculty: $("#faculty-selector").val(),
         programme: $("#programme-selector").val(),
         intake: $("#intake-selector").val(),
+        user: $("#user-selector").val(),
+        paymentStatus:$("#payment-status-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         resultPerPage: $("#show-result-selector").val(),

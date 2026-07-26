@@ -173,7 +173,7 @@ if (SessionUser::hasValidSession()) {
                                                         </div>
 
                                                         <div class="student-detail-box full-width">
-                                                            <label>Full Name</label>
+                                                            <label>Full Name (Certificate Name)</label>
                                                             <div><?= $student['full_name'] ?></div>
                                                         </div>
 

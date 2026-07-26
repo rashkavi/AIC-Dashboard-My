@@ -125,8 +125,8 @@ $leadRs = Database::search("
 ");
 
 if ($leadRs->num_rows == 0) {
-    // header("Location: ./registrations");
-    // exit;
+    header("Location: ./registrations");
+    exit;
 }
 
 $lead = $leadRs->fetch_assoc();
@@ -205,196 +205,6 @@ if (!empty($lead["profile_img"])) {
 
     <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
     <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
-
-    <style>
-        .lead-layout-card {
-            border: 1px solid var(--line-color);
-            background: var(--custom-white);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-        }
-
-        .lead-profile-sidebar {
-            position: sticky;
-            top: 20px;
-            overflow: hidden;
-        }
-
-        .lead-cover {
-            height: 110px;
-            background: linear-gradient(135deg, var(--dark-theme), #2e86de);
-            position: relative;
-        }
-
-        .lead-cover::after {
-            content: "";
-            position: absolute;
-            width: 220px;
-            height: 220px;
-            background: rgba(255, 255, 255, 0.08);
-            right: -90px;
-            top: -90px;
-            border-radius: 50%;
-        }
-
-        .lead-profile-area {
-            margin-top: -65px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .lead-profile-image {
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border: 4px solid #fff;
-            background: #fff;
-        }
-
-        .lead-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 14px;
-            background: var(--light-theme);
-            color: var(--dark-theme);
-            font-size: 12px;
-            font-weight: 600;
-            border-left: 3px solid var(--dark-theme);
-        }
-
-        .lead-contact-item {
-            padding: 16px 0;
-            border-bottom: 1px dashed var(--line-color);
-        }
-
-        .lead-contact-item:last-child {
-            border-bottom: 0;
-        }
-
-        .lead-contact-icon {
-            width: 42px;
-            height: 42px;
-            background: var(--light-theme);
-            color: var(--dark-theme);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .lead-main-card {
-            border: 1px solid var(--line-color);
-            background: var(--custom-white);
-        }
-
-        .lead-main-header {
-            padding: 24px;
-            border-bottom: 1px solid var(--line-color);
-            background: var(--custom-white);
-        }
-
-        .lead-main-title {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--dark-theme);
-        }
-
-        .lead-main-sub {
-            color: var(--sub-text);
-            font-size: 13px;
-        }
-
-        .lead-accordion .accordion-item {
-            border: 0;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-
-        .lead-accordion .accordion-button {
-            box-shadow: none !important;
-            border: 1px solid var(--line-color);
-            padding: 18px 22px;
-            font-size: 15px;
-            font-weight: 600;
-            border-left: 4px solid var(--dark-theme);
-            background: var(--custom-white);
-        }
-
-        .lead-accordion .accordion-button:not(.collapsed) {
-            background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
-            color: white;
-        }
-
-        .lead-accordion .accordion-body {
-            border: 1px solid var(--line-color);
-            border-top: 0;
-            padding: 0;
-            background: var(--custom-white);
-        }
-
-        .lead-detail-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        }
-
-        .lead-detail-item {
-            padding: 20px;
-            border-right: 1px solid var(--line-color);
-            border-bottom: 1px solid var(--line-color);
-            min-height: 100px;
-        }
-
-        .lead-detail-label {
-            font-size: 11px;
-            color: var(--sub-text);
-            margin-bottom: 8px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .5px;
-        }
-
-        .lead-detail-value {
-            font-size: 14px;
-            color: var(--main-text-color);
-            font-weight: 600;
-            word-break: break-word;
-            line-height: 1.6;
-        }
-
-        .lead-doc-card {
-            border: 1px solid var(--line-color);
-            transition: .2s;
-            background: #fff;
-        }
-
-        .lead-doc-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, .06);
-        }
-
-        .lead-doc-icon {
-            width: 55px;
-            height: 55px;
-            background: var(--light-theme);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--dark-theme);
-        }
-
-        .lead-view-btn {
-            height: 38px;
-            padding: 0 18px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        @media(max-width:991px) {
-            .lead-profile-sidebar {
-                position: relative;
-                top: unset;
-            }
-        }
-    </style>
 
 </head>
 
@@ -562,7 +372,7 @@ if (!empty($lead["profile_img"])) {
 
                                                             <?php
                                                             $personal = [
-                                                                "Full Name" => $lead["full_name"],
+                                                                "Full Name (Certificate Name)" => $lead["full_name"],
                                                                 "Name With Initials" => $lead["name_with_initials"],
                                                                 "Gender" => $lead["gender"],
                                                                 "Date of Birth" => $lead["date_of_birth"],

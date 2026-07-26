@@ -148,7 +148,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <ul class="bulk-instructions-list">
                                                             <li><strong>First Name:</strong> Maximum 45 characters</li>
                                                             <li><strong>Last Name:</strong> Maximum 45 characters</li>
-                                                            <li><strong>Full Name:</strong> Maximum 100 characters</li>
+                                                            <li><strong>Full Name (Certificate Name):</strong> Maximum 100 characters</li>
                                                             <li><strong>Name With Initials:</strong> Maximum 45 characters</li>
                                                         </ul>
 
@@ -330,7 +330,7 @@ if (!SessionUser::hasValidSession()) {
                 <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
                 <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
                 <script src="./assets/js/chart.js?v=<?= Project::getVersion() ?>"></script>
-                <script src="./assets/js/bulkfileChooser.js?v=<?= Project::getVersion() ?>"></script>
+                <script src="./assets/js/bulkFileChooser.js"></script>
             </body>
 
             </html>

@@ -37,13 +37,16 @@ if (SessionUser::hasValidSession()) {
                                                                `email`, 
                                                                `mobile`, 
                                                                `whatsapp`, 
-                                                               `profile_img`, 
+                                                               `students`.`profile_img`, 
                                                                `date_registered`, 
                                                                `title`.`title`, 
                                                                `status`.`status`,
                                                                `status`.`status_id`,
                                                                `verification`,
-                                                               `reset_time`
+                                                               `reset_time`,
+                                                               `users`.`user_fname`,
+                                                               `users`.`user_lname`,
+                                                               `title2`.`title` AS `user_title`
                                                            FROM 
                                                                `students`
                                                            INNER JOIN 
@@ -55,11 +58,15 @@ if (SessionUser::hasValidSession()) {
                                                            INNER JOIN 
                                                                `status` 
                                                                ON `login_details`.`status_status_id` = `status`.`status_id`
+                                                            LEFT JOIN `users`
+                                                                ON `students`.`users_user_id` = `users`.`user_id`
+                                                            LEFT JOIN `title` AS `title2`
+                                                                ON `users`.`title_title_id` = `title2`.`title_id`
                                                           WHERE 1=1
                                                        ";
 
                     if ($search_text != "") {
-                        $query .= " WHERE (`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                        $query .= " AND (`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
                     }
 
                     if ($sort != 0) {
@@ -81,7 +88,7 @@ if (SessionUser::hasValidSession()) {
                         $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
                         INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
                         INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
-INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
+                        INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
                         WHERE `branches_branch_id`='" . $branch . "')";
                     }
 
@@ -146,8 +153,8 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
                                     </div>
                                 </th>
                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Email Address</th>
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Mobile</th>
                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">WhatsApp Number</th>
+                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Counselor</th>
                                 <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleStudentsPagination('sortByDate')">
                                     <div class="d-flex justify-content-between align-items-center w-100">
                                         <span class="text-14 main-text fw-medium">Admission Date</span>
@@ -214,37 +221,37 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
 
                                                 if ($isMatchSelectUpdate) {
                                                 ?>
-                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" checked id="check-user<?php echo $data["sId"]; ?>" onchange="checkRowEvents(<?php echo $data['sId']; ?>);">
+                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" checked id="check-user<?= $data["sId"]; ?>" onchange="checkRowEvents(<?= $data['sId']; ?>);">
                                                 <?php
                                                 } else {
                                                 ?>
-                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["sId"]; ?>" onchange="checkRowEvents(<?php echo $data['sId']; ?>);">
+                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?= $data["sId"]; ?>" onchange="checkRowEvents(<?= $data['sId']; ?>);">
                                                 <?php
                                                 }
                                                 ?>
-                                                <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?= $data['sId']; ?>)">
                                                     <?php
                                                     if (!empty($data["profile_img"]) && file_exists('../assets/imgs/students/' . $data["profile_img"])) {
                                                     ?>
-                                                        <img src="./assets/imgs/students/<?php echo $data["profile_img"]; ?>" class="hwr-40" alt="User image">
+                                                        <img src="./assets/imgs/students/<?= $data["profile_img"]; ?>" class="hwr-40" alt="User image">
                                                     <?php
                                                     } else {
                                                         $firstNameInitial = strtoupper(substr($data["first_name"], 0, 1));
                                                         $lastNameInitial = strtoupper(substr($data["last_name"], 0, 1));
                                                     ?>
-                                                        <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
+                                                        <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= $firstNameInitial . $lastNameInitial; ?></div>
                                                     <?php
                                                     }
                                                     ?>
-                                                    <span class="text-14 main-text mx-2"><?php echo $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
+                                                    <span class="text-14 main-text mx-2"><?= $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
                                                 </div>
                                             </div>
                                         </td>
 
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["email"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["mobile"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["whatsapp"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["date_registered"]; ?></span></td>
+                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["email"]; ?></span></td>
+                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["whatsapp"]; ?></span></td>
+                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["user_fname"] == null ? 'N/A' : $data["user_title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span></td>
+                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["date_registered"]; ?></span></td>
 
                                         <td class="py-2 align-middle">
                                             <?php
@@ -254,7 +261,7 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
                                             ];
                                             $sbutton_class = $status_classes[$data["status"]];
                                             ?>
-                                            <button class="table-btn <?php echo $sbutton_class; ?> w-100"> <?php echo $data["status"]; ?></button>
+                                            <button class="table-btn <?= $sbutton_class; ?> w-100"> <?= $data["status"]; ?></button>
                                         </td>
 
                                         <?php
@@ -265,25 +272,25 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
                                                 <div class="dropdown">
                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                     <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-details?student-id=<?php echo $data['sId']; ?>">
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-details?student-id=<?= $data['sId']; ?>">
                                                                 <iconify-icon icon="hugeicons:activity-01" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Activity</a></li>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?php echo $data['sId']; ?>')">
+                                                        <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?= $data['sId']; ?>')">
                                                                 <iconify-icon icon="tabler:face-id" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Download Student ID Card</a></li>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
                                                         <?php
                                                         if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                         ?>
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
                                                                     <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
                                                                     Resend Registration Email</a></li>
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                         <?php
                                                         } else {
                                                         ?>
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
                                                                     <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
                                                                     Resend Password Reset Email</a></li>
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -291,7 +298,7 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
                                                         }
                                                         if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                         ?>
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?php echo $data['sId']; ?>">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?= $data['sId']; ?>">
                                                                     <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                     Edit</a></li>
                                                         <?php
@@ -310,13 +317,13 @@ INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_facul
 
                                                             if ($data["status"] == "Active") {
                                                         ?>
-                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(2,'<?php echo $data['sId']; ?>')">
+                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(2,'<?= $data['sId']; ?>')">
                                                                         <iconify-icon icon="lsicon:minus-filled" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                         Deactivate</a></li>
                                                             <?php
                                                             } else {
                                                             ?>
-                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(1,'<?php echo $data['sId']; ?>')">
+                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(1,'<?= $data['sId']; ?>')">
                                                                         <iconify-icon icon="dashicons:plus-alt" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                         Activate</a></li>
                                                         <?php

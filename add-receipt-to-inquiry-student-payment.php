@@ -588,7 +588,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php else: ?>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./registrations-registration-payments">Inquiry Registration Payments</a></li>
-                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./inquiry-payment-plan?inquiry-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./student-payment-plan?student-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
                                                                             <?php endif; ?>
                                                                         </ol>

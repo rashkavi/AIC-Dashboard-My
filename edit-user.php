@@ -206,7 +206,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                                     <label class="text-14 main-text required" for="">User Role</label>
-                                                                                    <select id="user-role" class="form-select custom-select mt-2" <?= $fieldsDisabled ? "disabled" : "" ?>>
+                                                                                    <select id="user-role" class="form-select custom-select mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> onchange="enableBranchSelector(this.value)">
                                                                                         <?php
                                                                                         $query = "SELECT * FROM `user_roles`";
 
@@ -248,7 +248,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span id="contact-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                                 <div class="col-12 col-md-6 col-xxl-4 d-flex flex-column">
-                                                                                    <label class="text-14 main-text d-inline-flex align-items-center" for="">
+                                                                                    <label class="text-14 main-text d-inline-flex align-items-center not-required" for="">
                                                                                         NIC
                                                                                         <span class="chip-info-icon me-0 d-flex align-items-center mx-1" data-tooltip="National Id Card Number">
                                                                                             <iconify-icon icon="iwwa:info" width="18" height="18"></iconify-icon>
@@ -258,9 +258,34 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span id="nic-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                                 <div class="col-12 col-md-6 col-xxl-4 d-flex flex-column">
-                                                                                    <label class="text-14 main-text" for="">Date of Birth</label>
+                                                                                    <label class="text-14 main-text not-required" for="">Date of Birth</label>
                                                                                     <input type="date" class="form-control custom-input mt-2" id="user-dob" value="<?= $udata["dob"]; ?>" <?= $fieldsDisabled ? "disabled" : "" ?>>
                                                                                     <span id="dob-feedback" class="text-dark-red text-12"></span>
+                                                                                </div>
+                                                                               
+                                                                                <div class="col-12 col-md-4 d-flex flex-column <?= $udata["user_roles_user_role_id"] == 9 ? '' : 'd-none' ?>" id="branch-selector-area">
+                                                                                    <label class="text-14 main-text required" for="">Select Branch</label>
+                                                                                    <select name="" id="branch-selector" class="form-select custom-select mt-2">
+                                                                                        <option value="0">- Select -</option>
+                                                                                        <?php
+
+                                                                                        $query = "SELECT * FROM `branches`";
+
+                                                                                        $branches = Database::search($query);
+                                                                                        while ($data = $branches->fetch_assoc()) {
+                                                                                            if ($udata["user_roles_user_role_id"] == 9 && ($udata['branches_branch_id'] == $data['branch_id'])) {
+                                                                                        ?>
+                                                                                                <option value="<?php echo $data["branch_id"]; ?>" selected><?php echo $data["branch"]; ?></option>
+                                                                                            <?php
+                                                                                            } else {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                                        <?php
+                                                                                            }
+                                                                                        }
+                                                                                        ?>
+                                                                                    </select>
+                                                                                    <span id="branch-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>

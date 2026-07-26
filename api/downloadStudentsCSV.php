@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             header('Content-Disposition: attachment; filename="students.csv"');
 
             $output = fopen('php://output', 'w');
-            fputcsv($output, ['Student Id', 'First Name', 'Last Name', 'Full Name', 'Name with Initials', 'Date of Birth', 'Email', 'Mobile', 'NIC', 'Whatsapp', 'Gender', 'Address Line 1', 'Address Line 2', 'District Id', 'City', 'Postal Code', 'Status']);
+            fputcsv($output, ['Student Id', 'First Name', 'Last Name', 'Full Name (Certificate Name)', 'Name with Initials', 'Date of Birth', 'Email', 'Mobile', 'NIC', 'Whatsapp', 'Gender', 'Address Line 1', 'Address Line 2', 'District Id', 'City', 'Postal Code', 'Status']);
 
             while ($student = $students->fetch_assoc()) {
                 $studentRow = [

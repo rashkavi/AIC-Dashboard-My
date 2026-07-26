@@ -68,7 +68,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 GROUP BY course_payments_course_payments_id
                                                                                             ) cpp ON cp.course_payments_id = cpp.course_payments_course_payments_id
                                                                                             WHERE cp.payment_status_payment_status_id = 1
-                                                                                            AND `cp`.`due_date` >= CURDATE()
+                                                                                            AND `cp`.`due_date` <= CURDATE()
                                                                                             ORDER BY `cp`.`due_date` ASC
                                                                                         ";
 
@@ -113,8 +113,8 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                                 <div class="container p-4 m-0" id="skeleton-list">
                                     <?php
-                                    include "./includes/components/skeleton-header.php";
-                                    include "./includes/components/skeleton-dashboards.php"; ?>
+                                    include "./includes/components/skeleton-table.php";
+                                    ?>
                                 </div>
                                 <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
                                     <div class="row p-4 m-0 g-0">

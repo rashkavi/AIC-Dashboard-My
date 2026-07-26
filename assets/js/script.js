@@ -7038,3 +7038,11 @@ const handleDuePaymentsPagination = (action, pageId = null, totalPages = null) =
 
     filterDuePayments();
 }
+
+const enableBranchSelector = (value) => {
+    if (value == 9) {
+        $("#branch-selector-area").removeClass('d-none');
+    } else {
+        $("#branch-selector-area").hasClass('d-none') ? '' : $("#branch-selector-area").addClass('d-none');
+    }
+}

@@ -36,6 +36,7 @@ if (SessionUser::hasValidSession()) {
                         $contact = isset($_POST['contact']) ? trim($_POST['contact']) : '';
                         $nic = isset($_POST['nic']) ? trim($_POST['nic']) : '';
                         $dob = isset($_POST['dob']) ? trim($_POST['dob']) : '';
+                        $branch = isset($_POST['branch']) ? trim($_POST['branch']) : '';
                         $address = isset($_POST['address']) ? trim($_POST['address']) : '';
                         $address2 = isset($_POST['address2']) ? trim($_POST['address2']) : '';
                         $city = isset($_POST['city']) ? trim($_POST['city']) : '';
@@ -95,18 +96,16 @@ if (SessionUser::hasValidSession()) {
                             if ($role == 2 && SessionUser::ifUserIsPro($sessionUserRole) == false) {
                                 $status->role =  "You can't add this user role";
                             }
+                            if ($role == 9 && $branch == 0) {
+                                $status->branch = "Please Select Branch";
+                            }
                         }
                         if (!empty($nic)) {
                             if (!preg_match('/^(?:[0-9]{9}[vV]|[0-9]{12})$/', $nic)) {
                                 $status->nic =  "Please enter a valid NIC number";
                             }
                         }
-                        // if (!empty($dob)) {
-                        //     if (isValidBDDate($dob) == false) {
-                        //         $status->dob =  "Please enter a valid Date of Birth";
-                        //     }
-                        // }
-                        $invalid_chars = '/[\'\";\-]/';
+
                         if (!empty($address) || !empty($address2) || !$city == 0 || !empty($pcode)) {
                             if (empty($address)) {
                                 $status->address =  "Please enter user address";
@@ -115,15 +114,11 @@ if (SessionUser::hasValidSession()) {
                             if (!empty($address)) {
                                 if (!strlen($address) > 100) {
                                     $status->address1 =  "Address should be less than 100 characters";
-                                } else if (preg_match($invalid_chars, $address)) {
-                                    $status->address1 =  "Address lines contain invalid characters.";
                                 }
                             }
                             if (!empty($address2)) {
                                 if (!strlen($address2) > 100) {
                                     $status->address2 =  "Address should be less than 100 characters";
-                                } else if (preg_match($invalid_chars, $address2)) {
-                                    $status->address2 =  "Address lines contain invalid characters.";
                                 }
                             }
 
@@ -206,30 +201,7 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        $requiredProperties = [
-                            'fname',
-                            'lname',
-                            'email',
-                            'contact',
-                            'title',
-                            'role',
-                            'image',
-                            'address',
-                            'address2',
-                            'city',
-                            'pcode',
-                            'cv',
-                            'nic',
-                            'dob'
-                        ];
-                        $allPropertiesDoesNotExist = true;
-                        foreach ($requiredProperties as $property) {
-                            if (property_exists($status, $property)) {
-                                $allPropertiesDoesNotExist = false;
-                                break; // Exit loop on the first missing property
-                            }
-                        }
-                        if ($allPropertiesDoesNotExist) {
+                        if (empty(get_object_vars($status))) {
 
                             $user = Database::search("SELECT * FROM `users` WHERE `user_id` = '" . $id . "'");
                             $user_data = $user->fetch_assoc();
@@ -246,6 +218,12 @@ if (SessionUser::hasValidSession()) {
                                 $timestamp = strtotime($dob);
                                 $dob = date("Y-m-d", $timestamp);
                                 $users_table_update_query .= ",`dob`='" . $dob . "'";
+                            }
+
+                            if ($role == 9 && $branch != 0) {
+                                $users_table_update_query .= ",`branches_branch_id`='" . $branch . "'";
+                            } else {
+                                $users_table_update_query .= ",`branches_branch_id`=NULL";
                             }
 
                             Database::iud("UPDATE `users` SET " . $users_table_update_query . " WHERE `user_id` = '" . $id . "'");

@@ -107,11 +107,16 @@ class SessionUser
         return $userRole === "Accounts";
     }
 
+    public static function ifUserIsBranchManager(?string $userRole): bool
+    {
+        return $userRole === "Branch Manager";
+    }
+
     public static function ifUserIsAcademic(?string $userRole): bool
     {
-         return in_array(
+        return in_array(
             $userRole,
-            ["Academic", "Head of Admission","Academic Admin"],
+            ["Academic", "Head of Admission", "Academic Admin"],
             true
         );
     }

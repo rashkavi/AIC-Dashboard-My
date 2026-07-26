@@ -181,7 +181,7 @@ if (!SessionUser::hasValidSession()) {
                                                         } else if (!($lead['latest_log_status_id'] == 2)) {
                                                         ?>
                                                             <div class="col-6 mt-3 mt-lg-0 m-md-0">
-                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='inquiry-payment-plan?inquiry-id=<?= $leadId ?>'">
+                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='student-payment-plan?student-id=<?= $leadId ?>'">
                                                                     View Payment Plan
                                                                 </button>
                                                             </div>

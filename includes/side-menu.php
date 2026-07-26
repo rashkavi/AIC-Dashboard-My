@@ -21,15 +21,7 @@ class load_side_menu
             ]);
         }
 
-        if (
-            SessionUser::ifUserIsPro($sessionUserRole) ||
-            SessionUser::ifUserIsAccounts($sessionUserRole) ||
-            SessionUser::ifUserIsAcademic($sessionUserRole) ||
-            SessionUser::ifUserIsAcdemicDepartment($sessionUserRole) ||
-            SessionUser::ifUserIsAcdemicAdministration($sessionUserRole) ||
-            SessionUser::ifUserIsCounsiler($sessionUserRole) ||
-            UserPermissions::validPermisisonType('students')
-        ) {
+        if (!SessionUser::ifUserIsLecturer($sessionUserRole)) {
             $menuItems = array_merge($menuItems, [
                 ["Registrations", "ic:round-app-registration", "registrations", "registrations"],
             ]);

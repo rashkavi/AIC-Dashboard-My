@@ -27,7 +27,8 @@ if (SessionUser::hasValidSession()) {
                 $email = isset($_POST['email']) ? trim($_POST['email']) : '';
                 $contact = isset($_POST['contact']) ? trim($_POST['contact']) : '';
                 $nic = isset($_POST['nic']) ? trim($_POST['nic']) : '';
-                $dob = isset($_POST['dob']) ? trim($_POST['dob']) : '';
+                $dob = isset($_POST['branch']) ? trim($_POST['branch']) : '';
+                $branch = isset($_POST['branch']) ? trim($_POST['branch']) : '';
                 $address = isset($_POST['address']) ? trim($_POST['address']) : '';
                 $address2 = isset($_POST['address2']) ? trim($_POST['address2']) : '';
                 $city = isset($_POST['city']) ? trim($_POST['city']) : '';
@@ -47,6 +48,8 @@ if (SessionUser::hasValidSession()) {
                 }
                 if ($role == 0) {
                     $status->role =  "Please select user role";
+                } else if ($role == 9 && $branch == 0) {
+                    $status->branch = "Please Select Branch";
                 }
                 if (empty($fname)) {
                     $status->fname =  "Please enter user first name";
@@ -86,19 +89,16 @@ if (SessionUser::hasValidSession()) {
                         $status->nic =  "Please enter a valid NIC number";
                     }
                 }
-                $invalid_chars = '/[\'\";\-]/';
+
+
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
                         $status->address1 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address)) {
-                        $status->address1 =  "Address lines contain invalid characters.";
                     }
                 }
                 if (!empty($address2)) {
                     if (!strlen($address2) > 100) {
                         $status->address2 =  "Address should be less than 100 characters";
-                    } else if (preg_match($invalid_chars, $address2)) {
-                        $status->address2 =  "Address lines contain invalid characters.";
                     }
                 }
                 if (!empty($address) || !$city == 0 || !empty($pcode)) {
@@ -185,32 +185,7 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-
-                $requiredProperties = [
-                    'fname',
-                    'lname',
-                    'email',
-                    'contact',
-                    'title',
-                    'role',
-                    'gender',
-                    'image',
-                    'address',
-                    'address2',
-                    'city',
-                    'pcode',
-                    'cv',
-                    'nic',
-                    'dob'
-                ];
-                $allPropertiesExist = true;
-                foreach ($requiredProperties as $property) {
-                    if (property_exists($status, $property)) {
-                        $allPropertiesExist = false;
-                        break; // Exit loop on the first missing property
-                    }
-                }
-                if ($allPropertiesExist) {
+                if (empty(get_object_vars($status))) {
                     $timezone = new DateTimeZone("Asia/Colombo");
                     $dateTime = new DateTime("now", $timezone);
                     $registerTime = $dateTime->format('Y-m-d H:i:s');
@@ -242,6 +217,10 @@ if (SessionUser::hasValidSession()) {
                         $users_table_insert_values .= ",'" . $dob . "'";
                     }
 
+                    if ($role == 9) {
+                        $users_table_insert_columns .= ", `branches_branch_id`";
+                        $users_table_insert_values .= ",'" . $branch . "'";
+                    }
 
                     Database::iud("INSERT INTO `users` (" . $users_table_insert_columns . ") VALUES (" . $users_table_insert_values . ")");
 

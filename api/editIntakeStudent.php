@@ -75,9 +75,9 @@ if (SessionUser::hasValidSession()) {
                         $status->lname =  "Last Name should be less than 45 characters";
                     }
                     if (empty($fullname)) {
-                        $status->fullname =  "Please enter user full name";
+                        $status->fullname =  "Please enter user Full Name (Certificate Name)";
                     } else if (strlen($fullname) > 150) {
-                        $status->fullname =  "Full Name should be less than 150 characters";
+                        $status->fullname =  "Full Name (Certificate Name) should be less than 150 characters";
                     }
                     if (empty($nwi)) {
                         $status->nwi =  "Please enter user name with initials";

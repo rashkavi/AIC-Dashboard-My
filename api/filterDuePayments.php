@@ -75,7 +75,7 @@ if (SessionUser::hasValidSession()) {
                                                                                                 GROUP BY course_payments_course_payments_id
                                                                                             ) cpp ON cp.course_payments_id = cpp.course_payments_course_payments_id
                                                                                             WHERE cp.payment_status_payment_status_id = 1
-                                                                                            AND `cp`.`due_date` >= CURDATE()
+                                                                                            AND `cp`.`due_date` <= CURDATE()
                                                                                             
 ";
 

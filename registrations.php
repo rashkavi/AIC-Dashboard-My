@@ -124,7 +124,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="row justify-content-end">
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleInquiryPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Branch -</option>
                                                                             <?php
                                                                             $query = "SELECT * FROM `branches`";
 
@@ -140,23 +140,43 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="faculty-selector" disabled class="form-select custom-select" onchange="loadProgrammes(),handleInquiryPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
-
+                                                                            <option value="0" selected>- Select Faculty -</option>
                                                                         </select>
                                                                         <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleInquiryPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Programme -</option>
                                                                         </select>
                                                                         <span id="programme-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleInquiryPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Intake -</option>
                                                                         </select>
                                                                         <span id="intake-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
+                                                                    <?php
+                                                                    if (!($sessionUserRole == "Counselor")) {
+                                                                    ?>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                            <select name="" id="user-selector" class="form-select custom-select" onchange="handleInquiryPagination('filter');">
+                                                                                <option value="0" selected>- Select Counselor -</option>
+                                                                                <?php
+                                                                                $counselors = Database::search("SELECT * FROM `users` 
+                                                                                INNER JOIN `title` ON `users`.`title_title_id`=`title`.`title_id`
+                                                                                WHERE `user_roles_user_role_id` IN (3,9,10)");
+                                                                                while ($counselor = $counselors->fetch_assoc()) {
+                                                                                ?>
+                                                                                    <option value="<?= $counselor['user_id'] ?>"><?= $counselor['title'] . "." . $counselor['user_fname'] . " " . $counselor['user_lname'] ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                        </div>
+                                                                    <?php
+                                                                    }
+                                                                    ?>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex align-items-center justify-content-end">
                                                                         <select class="form-select custom-select" aria-label="Default select example" id="sort-selector" onchange="handleInquiryPagination('filter')">
                                                                             <option selected value="0">- Select Status -</option>
@@ -168,6 +188,13 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             }
                                                                             ?>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 mt-2 d-flex align-items-center justify-content-end">
+                                                                        <select class="form-select custom-select" aria-label="Payment status filter" id="payment-status-selector" onchange="handleInquiryPagination('filter')">
+                                                                            <option selected value="0">- Select Payment Status -</option>
+                                                                            <option value="1">Has Due Payments</option>
+                                                                            <option value="2">No Due Payments</option>
                                                                         </select>
                                                                     </div>
                                                                 </div>
@@ -195,7 +222,6 @@ if (!SessionUser::hasValidSession()) {
                                                             <tr class="br-t-5">
                                                                 <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium align-content-center w-25">
                                                                     <div class="d-flex flex-row align-items-center cursor-pointer">
-                                                                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
                                                                         <div class="d-flex justify-content-between align-items-center w-100" onclick="handleInquiryPagination('sortByName')">
                                                                             <span class="text-14 main-text fw-medium mx-2">Student Name</span>
                                                                             <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
@@ -203,8 +229,8 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Email Address</th>
-                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Mobile</th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">WhatsApp Number</th>
+                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Programme</th>
                                                                 <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryPagination('sortByDate')">
                                                                     <div class="d-flex justify-content-between align-items-center w-100">
                                                                         <span class="text-14 main-text fw-medium">Date Added</span>
@@ -222,65 +248,102 @@ if (!SessionUser::hasValidSession()) {
                                                         <tbody id="user-table-data">
                                                             <?php
                                                             $query = "
-                                                           SELECT 
-                                                               `students`.`student_id` AS 'sId', 
-                                                               `login_details`.`first_name`, 
-                                                               `login_details`.`last_name`, 
-                                                               `login_details`.`email`, 
-                                                               `students`.`mobile`, 
-                                                               `login_details`.`whatsapp`, 
-                                                               `students`.`profile_img`, 
-                                                               `login_details`.`date_registered`, 
-                                                               `title`.`title`, 
-                                                       
-                                                               `lead_student_status`.`lead_student_status`,
-                                                               `lead_student_status`.`lead_student_status_id`,
-                                                       
-                                                               `login_details`.`verification`,
-                                                               `login_details`.`reset_time`,
-                                                       
-                                                               `users`.`user_fname`,
-                                                               `users`.`user_lname`,
-                                                       
-                                                               `title2`.`title` AS `user_title`,
-                                                       
-                                                               `students_logs`.`students_log_id`,
-                                                               `students_logs`.`date_updated`,
-                                                               `students_logs`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`
-                                                       
-                                                           FROM `students`
-                                                       
-                                                           INNER JOIN `login_details`
-                                                               ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
-                                                       
-                                                           INNER JOIN `title`
-                                                               ON `students`.`title_title_id` = `title`.`title_id`
-                                                       
-                                                           INNER JOIN `lead_student_status`
-                                                               ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
-                                                       
-                                                           INNER JOIN `users`
-                                                               ON `students`.`users_user_id` = `users`.`user_id`
-                                                       
-                                                           INNER JOIN `title` AS `title2`
-                                                               ON `users`.`title_title_id` = `title2`.`title_id`
-                                                       
-                                                           LEFT JOIN `students_logs`
-                                                               ON `students_logs`.`students_log_id` = (
-                                                                   SELECT `sl2`.`students_log_id`
-                                                                   FROM `students_logs` `sl2`
-                                                                   WHERE `sl2`.`students_student_id` = `students`.`student_id`
-                                                                   ORDER BY `sl2`.`date_updated` DESC,
-                                                                            `sl2`.`students_log_id` DESC
-                                                                   LIMIT 1
-                                                               )
-                                                            
-                                                           
-                                                       
-                                                           ORDER BY 
+                                                                            SELECT
+                                                                                `students`.`student_id` AS `sId`,
+                                                                                `login_details`.`first_name`,
+                                                                                `login_details`.`last_name`,
+                                                                                `login_details`.`email`,
+                                                                                `students`.`mobile`,
+                                                                                `login_details`.`whatsapp`,
+                                                                                `students`.`profile_img`,
+                                                                                `login_details`.`date_registered`,
+                                                                                `title`.`title`,
+
+                                                                                `lead_student_status`.`lead_student_status`,
+                                                                                `lead_student_status`.`lead_student_status_id`,
+
+                                                                                `login_details`.`verification`,
+                                                                                `login_details`.`reset_time`,
+
+                                                                                `users`.`user_fname`,
+                                                                                `users`.`user_lname`,
+
+                                                                                `title2`.`title`                                           AS `user_title`,
+
+                                                                                `students_logs`.`students_log_id`,
+                                                                                `students_logs`.`date_updated`,
+                                                                                `students_logs`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`,
+
+                                                                                `programmes`.`programme`,
+
+                                                                                CASE
+                                                                                    WHEN `payment`.`students_has_intakes_students_has_intakes_id` IS NOT NULL
+                                                                                        THEN 1
+                                                                                    ELSE 0
+                                                                                END AS `has_due_payment`
+
+                                                                            FROM `students`
+
+                                                                            INNER JOIN `login_details`
+                                                                                ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
+
+                                                                            INNER JOIN `title`
+                                                                                ON `students`.`title_title_id` = `title`.`title_id`
+
+                                                                            INNER JOIN `lead_student_status`
+                                                                                ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+
+                                                                            INNER JOIN `students_has_intakes`
+                                                                                ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                                                                            INNER JOIN `intakes`
+                                                                                ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
+
+                                                                            INNER JOIN `programmes`
+                                                                                ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
+
+                                                                            INNER JOIN `faculties`
+                                                                                ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
+
+                                                                            INNER JOIN `users`
+                                                                                ON `students`.`users_user_id` = `users`.`user_id`
+
+                                                                            INNER JOIN `title` AS `title2`
+                                                                                ON `users`.`title_title_id` = `title2`.`title_id`
+
+                                                                            LEFT JOIN `students_logs`
+                                                                                ON `students_logs`.`students_log_id` = (
+                                                                                    SELECT `sl2`.`students_log_id`
+                                                                                    FROM `students_logs` `sl2`
+                                                                                    WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                                    ORDER BY `sl2`.`date_updated` DESC, `sl2`.`students_log_id` DESC
+                                                                                    LIMIT 1
+                                                                                )
+
+                                                                            LEFT JOIN (
+                                                                                SELECT DISTINCT `pshi`.`students_has_intakes_students_has_intakes_id`
+                                                                                FROM `course_payments` AS `cp`
+                                                                                INNER JOIN `payment_plan_has_students_has_intakes` AS `pshi`
+                                                                                    ON `cp`.`payment_plan_has_students_has_intakes_id` = `pshi`.`payment_plan_has_students_has_intakes_id`
+                                                                                WHERE `cp`.`payment_status_payment_status_id` = '1'
+                                                                                AND `cp`.`due_date` < '" . date("Y-m-d") . "'
+                                                                            ) AS `payment`
+                                                                                ON `payment`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
+                                                                        ";
+
+                                                            if ($sessionUserRole == "Counselor") {
+                                                                $query .= " WHERE `users`.`user_id`='" . $sessionUserObject['user_id'] . "'";
+                                                            } else if ($sessionUserRole == "Branch Manager") {
+                                                                $userData = Database::search("SELECT * FROM `users` WHERE `user_id`='" . $sessionUserObject['user_id'] . "'")->fetch_assoc();
+
+                                                                $query .= " WHERE (`users`.`user_id`='" . $sessionUserObject['user_id'] . "' 
+                                                                OR `faculties`.`branches_branch_id`='" . $userData['branches_branch_id'] . "')
+                                                                ";
+                                                            }
+
+                                                            $query .= "  ORDER BY 
                                                                `students_logs`.`date_updated` DESC,
-                                                               `students`.`student_id` DESC
-                                                       ";
+                                                               `students`.`student_id` DESC";
 
                                                             $results = Database::search($query);
                                                             $pageno = 1;
@@ -299,11 +362,39 @@ if (!SessionUser::hasValidSession()) {
                                                             if ($users->num_rows > 0) {
                                                                 while ($data = $users->fetch_assoc()) {
                                                             ?>
-                                                                    <tr>
-                                                                        <td class="px-4 py-3 pe-0 align-middle">
-                                                                            <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
-                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["sId"]; ?>" onchange="checkRowEvents(<?php echo $data['sId']; ?>);">
-                                                                                <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                                    <tr class="position-relative">
+                                                                        <td class="align-middle lead-id-td">
+                                                                            <?php
+                                                                            if ($data['has_due_payment']) {
+                                                                            ?>
+                                                                                <div class="lead-id-card position-relative d-flex align-items-center">
+                                                                                    <span class="mini-left-ribbon"
+                                                                                        style="background: #EB5757">
+                                                                                        Due
+                                                                                                                                                                            </span>
+
+                                                                                    <div class="d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                                                        <?php
+                                                                                        if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
+                                                                                        ?>
+                                                                                            <img src="./assets/imgs/students/<?php echo $data["profile_img"]; ?>" class="hwr-40" alt="Students image">
+                                                                                        <?php
+                                                                                        } else {
+                                                                                            $firstNameInitial = strtoupper(substr($data["first_name"], 0, 1));
+                                                                                            $lastNameInitial = strtoupper(substr($data["last_name"], 0, 1));
+                                                                                        ?>
+                                                                                            <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
+                                                                                        <?php
+                                                                                        }
+                                                                                        ?>
+                                                                                        <span class="text-14 main-text mx-2"><?php echo $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
+                                                                                    </div>
+
+                                                                                </div>
+                                                                            <?php
+                                                                            } else {
+                                                                            ?>
+                                                                                <div class="d-flex align-items-center cursor-pointer px-4" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
                                                                                     <?php
                                                                                     if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
                                                                                     ?>
@@ -319,12 +410,15 @@ if (!SessionUser::hasValidSession()) {
                                                                                     ?>
                                                                                     <span class="text-14 main-text mx-2"><?php echo $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
                                                                                 </div>
-                                                                            </div>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+
                                                                         </td>
 
                                                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["email"]; ?></span></td>
-                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["mobile"]; ?></span></td>
                                                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["whatsapp"]; ?></span></td>
+                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["programme"]; ?></span></td>
                                                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo date("Y-m-d h:i A", strtotime($data["date_registered"])); ?></span></td>
                                                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["user_title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span></td>
                                                                         <?php
@@ -377,7 +471,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <iconify-icon icon="solar:document-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Other Documents</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-payment-plan?inquiry-id=<?php echo $data['sId']; ?>&path=inquiries">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-payment-plan?student-id=<?php echo $data['sId']; ?>&path=inquiries">
                                                                                                 <iconify-icon icon="tabler:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Payment Plan</a></li>
                                                                                     <?php

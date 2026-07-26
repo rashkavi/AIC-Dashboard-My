@@ -123,7 +123,7 @@ if (!SessionUser::hasValidSession()) {
                                                             INNER JOIN `status` ON `login_details`.`status_status_id` = `status`.`status_id`");
                                                             $data = $studentCount->fetch_assoc();
                                                             ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
+                                                            <span class="text-14 dark-theme fw-medium"><?= $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
@@ -143,14 +143,14 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="row justify-content-end">
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleStudentsPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Branch -</option>
                                                                             <?php
                                                                             $query = "SELECT * FROM `branches`";
 
                                                                             $branches = Database::search($query);
                                                                             while ($data = $branches->fetch_assoc()) {
                                                                             ?>
-                                                                                <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                                <option value="<?= $data["branch_id"]; ?>"><?= $data["branch"]; ?></option>
                                                                             <?php
                                                                             }
                                                                             ?>
@@ -159,25 +159,25 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="faculty-selector" disabled class="form-select custom-select" onchange="loadProgrammes(),handleStudentsPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Faculty -</option>
 
                                                                         </select>
                                                                         <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleStudentsPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Programme -</option>
                                                                         </select>
                                                                         <span id="programme-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleStudentsPagination('filter');">
-                                                                            <option value="0" selected>- Select -</option>
+                                                                            <option value="0" selected>- Select Intake -</option>
                                                                         </select>
                                                                         <span id="intake-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                 </div>
-                                                                <div class="row mt-2"> 
+                                                                <div class="row mt-2">
 
                                                                     <?php
                                                                     if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
@@ -237,8 +237,8 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Email Address</th>
-                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Mobile</th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">WhatsApp Number</th>
+                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Counselor</th>
                                                                 <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleStudentsPagination('sortByDate')">
                                                                     <div class="d-flex justify-content-between align-items-center w-100">
                                                                         <span class="text-14 main-text fw-medium">Admission Date</span>
@@ -266,12 +266,15 @@ if (!SessionUser::hasValidSession()) {
                                                                `email`, 
                                                                `mobile`, 
                                                                `whatsapp`, 
-                                                               `profile_img`, 
+                                                               `students`.`profile_img`, 
                                                                `date_registered`, 
                                                                `title`.`title`, 
                                                                `status`.`status`,
                                                                `verification`,
-                                                               `reset_time`
+                                                               `reset_time`,
+                                                               `users`.`user_fname`,
+                                                               `users`.`user_lname`,
+                                                               `title2`.`title` AS `user_title`
                                                            FROM 
                                                                `students`
                                                            INNER JOIN 
@@ -283,6 +286,10 @@ if (!SessionUser::hasValidSession()) {
                                                            INNER JOIN 
                                                                `status` 
                                                                ON `login_details`.`status_status_id` = `status`.`status_id`
+                                                            LEFT JOIN `users`
+                                                                ON `students`.`users_user_id` = `users`.`user_id`
+                                                            LEFT JOIN `title` AS `title2`
+                                                                ON `users`.`title_title_id` = `title2`.`title_id`
                                                            ORDER BY 
                                                                `students`.`student_id` DESC
                                                        ";
@@ -307,30 +314,30 @@ if (!SessionUser::hasValidSession()) {
                                                                     <tr>
                                                                         <td class="px-4 py-3 pe-0 align-middle">
                                                                             <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
-                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["sId"]; ?>" onchange="checkRowEvents(<?php echo $data['sId']; ?>);">
-                                                                                <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?= $data["sId"]; ?>" onchange="checkRowEvents(<?= $data['sId']; ?>);">
+                                                                                <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?= $data['sId']; ?>)">
                                                                                     <?php
                                                                                     if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
                                                                                     ?>
-                                                                                        <img src="./assets/imgs/students/<?php echo $data["profile_img"]; ?>" class="hwr-40" alt="Students image">
+                                                                                        <img src="./assets/imgs/students/<?= $data["profile_img"]; ?>" class="hwr-40" alt="Students image">
                                                                                     <?php
                                                                                     } else {
                                                                                         $firstNameInitial = strtoupper(substr($data["first_name"], 0, 1));
                                                                                         $lastNameInitial = strtoupper(substr($data["last_name"], 0, 1));
                                                                                     ?>
-                                                                                        <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
+                                                                                        <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= $firstNameInitial . $lastNameInitial; ?></div>
                                                                                     <?php
                                                                                     }
                                                                                     ?>
-                                                                                    <span class="text-14 main-text mx-2"><?php echo $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
+                                                                                    <span class="text-14 main-text mx-2"><?= $data["title"] . "." . $data["first_name"] . " " . $data["last_name"]; ?></span>
                                                                                 </div>
                                                                             </div>
                                                                         </td>
 
-                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["email"]; ?></span></td>
-                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["mobile"]; ?></span></td>
-                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["whatsapp"]; ?></span></td>
-                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo date("Y-m-d h:i A", strtotime($data["date_registered"])); ?></span></td>
+                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["email"]; ?></span></td>
+                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["whatsapp"]; ?></span></td>
+                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["user_fname"] == null ? 'N/A' : $data["user_title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span></td>
+                                                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= date("Y-m-d h:i A", strtotime($data["date_registered"])); ?></span></td>
 
                                                                         <td class="py-2 align-middle">
                                                                             <?php
@@ -340,7 +347,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             ];
                                                                             $sbutton_class = $status_classes[$data["status"]];
                                                                             ?>
-                                                                            <button class="table-btn <?php echo $sbutton_class; ?> w-100"> <?php echo $data["status"]; ?></button>
+                                                                            <button class="table-btn <?= $sbutton_class; ?> w-100"> <?= $data["status"]; ?></button>
                                                                         </td>
 
                                                                         <?php
@@ -350,25 +357,25 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="dropdown">
                                                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                     <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-details?student-id=<?php echo $data['sId']; ?>">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-details?student-id=<?= $data['sId']; ?>">
                                                                                                 <iconify-icon icon="hugeicons:activity-01" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Activity</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                        <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?php echo $data['sId']; ?>')">
+                                                                                        <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="downloadStudentIDCard('<?= $data['sId']; ?>')">
                                                                                                 <iconify-icon icon="tabler:face-id" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Download Student ID Card</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
                                                                                         <?php
                                                                                         if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                                                         ?>
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
                                                                                                     <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     Resend Registration Link</a></li>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <?php
                                                                                         } else {
                                                                                         ?>
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
                                                                                                     <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     Send Password Reset Link</a></li>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -376,7 +383,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         }
                                                                                         if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                                         ?>
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?php echo $data['sId']; ?>">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?= $data['sId']; ?>">
                                                                                                     <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     Edit</a></li>
                                                                                         <?php
@@ -395,13 +402,13 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                             if ($data["status"] == "Active") {
                                                                                         ?>
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(2,'<?php echo $data['sId']; ?>')">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(2,'<?= $data['sId']; ?>')">
                                                                                                         <iconify-icon icon="lsicon:minus-filled" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         Deactivate</a></li>
                                                                                             <?php
                                                                                             } else {
                                                                                             ?>
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(1,'<?php echo $data['sId']; ?>')">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="updateStudentStatus(1,'<?= $data['sId']; ?>')">
                                                                                                         <iconify-icon icon="dashicons:plus-alt" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         Activate</a></li>
                                                                                         <?php
