@@ -148,7 +148,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <ul class="bulk-instructions-list">
                                                             <li><strong>First Name:</strong> Maximum 45 characters</li>
                                                             <li><strong>Last Name:</strong> Maximum 45 characters</li>
-                                                            <li><strong>Full Name (Certificate Name):</strong> Maximum 100 characters</li>
+                                                            <li><strong>Full Name (As it appears on the Certificate):</strong> Maximum 100 characters</li>
                                                             <li><strong>Name With Initials:</strong> Maximum 45 characters</li>
                                                         </ul>
 

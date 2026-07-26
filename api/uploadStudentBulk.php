@@ -78,9 +78,9 @@ if (SessionUser::hasValidSession()) {
                                         $lineErrors[] =  "Data Row " . $rowNumber . ": Last Name should be less than 45 characters";
                                     }
                                     if (empty($fullname)) {
-                                        $lineErrors[] =  "Data Row " . $rowNumber . ": student Full Name (Certificate Name) cannot be empty";
+                                        $lineErrors[] =  "Data Row " . $rowNumber . ": student Full Name (As it appears on the Certificate) cannot be empty";
                                     } else if (strlen($fullname) > 150) {
-                                        $lineErrors[] =  "Data Row " . $rowNumber . ": Full Name (Certificate Name) should be less than 150 characters";
+                                        $lineErrors[] =  "Data Row " . $rowNumber . ": Full Name (As it appears on the Certificate) should be less than 150 characters";
                                     }
                                     if (empty($nwi)) {
                                         $lineErrors[] =  "Data Row " . $rowNumber . ": Please enter student name with initials";

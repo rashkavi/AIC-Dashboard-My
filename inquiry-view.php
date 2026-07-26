@@ -372,7 +372,7 @@ if (!empty($lead["profile_img"])) {
 
                                                             <?php
                                                             $personal = [
-                                                                "Full Name (Certificate Name)" => $lead["full_name"],
+                                                                "Full Name (As it appears on the Certificate)" => $lead["full_name"],
                                                                 "Name With Initials" => $lead["name_with_initials"],
                                                                 "Gender" => $lead["gender"],
                                                                 "Date of Birth" => $lead["date_of_birth"],

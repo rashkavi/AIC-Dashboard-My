@@ -349,7 +349,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span id="lname-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                                 <div class="col-12 col-md-7 d-flex flex-column">
-                                                                                    <label class="text-14 main-text required" for="">Full Name (Certificate Name)</label>
+                                                                                    <label class="text-14 main-text required" for="">Full Name (As it appears on the Certificate)</label>
                                                                                     <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="full-name" maxlength="150" value="<?php echo $sdata['full_name'] ?>">
                                                                                     <span id="fullname-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
