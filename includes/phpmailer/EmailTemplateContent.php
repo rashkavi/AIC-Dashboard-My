@@ -137,9 +137,11 @@ final class EmailTemplateContent
 
                     "<strong>Activate Your LMS Account</strong>",
 
-                    "Please use the LMS Activation Link provided below to activate your Learning Management System (LMS) account.",
+                    "Please use the LMS Activation Button provided below to activate your Learning Management System (LMS) account.",
 
-                    "When you click the activation link, you will be prompted to create your own LMS password. Please choose a secure password and keep it confidential.",
+                    "When you click the activation button, you will be prompted to create your own LMS password. Please choose a secure password and keep it confidential.",
+
+                    self::inlineButton('Activate Your LMS Account', $data['login_url'] ?? ''),
 
                     "The LMS is your official student portal, where you can access all important academic and administrative information throughout your studies.",
 
@@ -190,10 +192,6 @@ final class EmailTemplateContent
                     "Kind regards,<br>Academic Affairs {$baseName}",
 
                 ]),
-
-                'button_text' => 'Activate Your LMS Account',
-
-                'button_url' => $data['login_url'] ?? '',
 
                 'params' => [
                     'student_name',
@@ -291,5 +289,32 @@ final class EmailTemplateContent
         }
         $html .= '</table>';
         return $html;
+    }
+
+    private static function inlineButton(string $text, string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+        return '
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0;">
+            <tr>
+                <td align="center">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td align="center" bgcolor="#21409B" style="border-radius:6px;">
+                                <a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"
+                                   target="_blank"
+                                   style="display:inline-block; padding:12px 28px; font-size:14px; font-weight:600;
+                                          color:#ffffff; text-decoration:none; border-radius:6px; font-family:Arial,sans-serif;">
+                                    ' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8') . '
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    ';
     }
 }

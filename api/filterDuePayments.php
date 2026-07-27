@@ -14,6 +14,7 @@ if (SessionUser::hasValidSession()) {
                 if (json_last_error() == JSON_ERROR_NONE) {
 
                     $search_text = isset($decoded['text']) ? $decoded['text'] : '';
+                    $branch = isset($decoded['branch']) ? $decoded['branch'] : '';
                     $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : '';
                     $programme = isset($decoded['programme']) ? $decoded['programme'] : '';
                     $intake = isset($decoded['intake']) ? $decoded['intake'] : '';
@@ -62,6 +63,8 @@ if (SessionUser::hasValidSession()) {
                                                                                                 ON `shi`.`intakes_intake_id` = `intakes`.`intake_id`
                                                                                             INNER JOIN `programmes` 
                                                                                                 ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                                                            INNER JOIN `faculties` 
+                                                                                                ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
                                                                                             LEFT JOIN (
                                                                                                 SELECT course_payments_course_payments_id, SUM(amount) AS panelty_amount
                                                                                                 FROM panelty_payments GROUP BY course_payments_course_payments_id
@@ -82,6 +85,10 @@ if (SessionUser::hasValidSession()) {
 
                     if ($search_text != "") {
                         $query .= " AND (`first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `shi`.`student_id` LIKE '%" . $search_text . "%')";
+                    }
+
+                    if($branch != 0){
+                        $query .= " AND `faculties`.`branches_branch_id` = '" . $branch . "'";
                     }
 
                     if ($faculty  != 0) {

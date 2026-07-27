@@ -473,7 +473,8 @@ function validateStudentDocuments()
         "passport_nic",
         "payment_slip",
         "signed_fee_structure",
-        "discount_approved_document"
+        "discount_approved_document",
+        "aic_application"
     ];
 
     $documentTypes = getStudentDocumentTypeConfig();

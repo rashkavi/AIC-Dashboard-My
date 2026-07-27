@@ -22,6 +22,12 @@ if (!SessionUser::hasValidSession()) {
                 $inquiry_id = $_GET['inquiry-id'];
             }
 
+            $path = 0;
+            if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['path']) && !empty($_GET['path'])) {
+                $path = $_GET['path'];
+            }
+
+
             $studentHasIntake = Database::search("SELECT
                 `faculty`, `faculty_id`, `programme`, `programme_id`, `intake`, `intake_id`,
                 `students_has_intakes`.`student_id`, `first_name`, `last_name`, `title`, `students_has_intakes_id`,
@@ -80,14 +86,27 @@ if (!SessionUser::hasValidSession()) {
                             <div id="appContainer" class="row p-0">
                                 <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                     <?php include "includes/side-menu.php";
-                                    $inquiry_id == 0 ? load_side_menu::load("Course Overview") : load_side_menu::load("Payments");
+                                    if ($path == 0) {
+                                        load_side_menu::load("Course Overview");
+                                    } else if ($path == "payments") {
+                                        load_side_menu::load("Payments");
+                                    } else {
+                                        load_side_menu::load("Registrations");
+                                    }
+
                                     ?>
                                 </div>
                                 <div id="app-wrapper" class="app-wrapper p-0 m-0">
                                     <div class="row p-0 m-0 g-0">
                                         <div class="col-12 p-0 m-0 g-0">
                                             <?php include "./includes/header.php";
-                                            $inquiry_id == 0 ? selectItem::setSelected("Course Overview") : selectItem::setSelected("Payments");
+                                            if ($path == 0) {
+                                                selectItem::setSelected("Course Overview");
+                                            } else if ($path == "payments") {
+                                                selectItem::setSelected("Payments");
+                                            } else {
+                                                selectItem::setSelected("Registrations");
+                                            }
                                             ?>
                                         </div>
                                         <div class="container p-4 m-0" id="skeleton-list">
@@ -573,7 +592,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ) cpp ON cp.course_payments_id = cpp.course_payments_course_payments_id
                                                                                             WHERE `shi`.`students_has_intakes_id` = '" . $id . "'
                                                                                             AND `pshi`.`payment_category_payment_category_id` = '" . (int)$data['payment_category_id'] . "'
-                                                                                            ORDER BY `cp`.`course_payments_id` DESC
+                                                                                            ORDER BY `cp`.`course_payments_id` ASC
                                                                                         ";
 
                                                                                             $detailResults   = Database::search($detailQuery);

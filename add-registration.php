@@ -54,7 +54,7 @@ if (!SessionUser::hasValidSession()) {
                         <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                             <?php
                             include "includes/side-menu.php";
-                            load_side_menu::load("Inquiries");
+                            load_side_menu::load("Registrations");
                             ?>
                         </div>
                         <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -62,7 +62,7 @@ if (!SessionUser::hasValidSession()) {
                                 <div class="col-12 p-0 m-0 g-0">
                                     <?php
                                     include "./includes/header.php";
-                                    selectItem::setSelected("Inquiries");
+                                     selectItem::setSelected("Registrations");
                                     ?>
                                 </div>
                                 <div class="container p-4 m-0" id="skeleton-list">
@@ -88,7 +88,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 col-md-12 col-lg-4 mt-3 mt-lg-0">
                                                     <div class="row h-100 justify-content-end align-items-center gx-3">
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="custom-btn w-100" data-i18n="" onclick="addLead(this)">Save Registration</button>
+                                                            <button class="custom-btn w-100" data-i18n="" onclick="addRegistration(this)">Save Registration</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -149,7 +149,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <span id="lname-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-7 d-flex flex-column">
-                                                                            <label class="text-14 main-text required" for="">Full Name (As it appears on the Certificate) (Name on Certifcate)</label>
+                                                                            <label class="text-14 main-text required" for="">Full Name (As it appears on the Certificate)</label>
                                                                             <input type="text" class="form-control custom-input mt-2" id="full-name" maxlength="150">
                                                                             <span id="fullname-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
@@ -480,7 +480,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">AIC Application</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">
@@ -875,7 +875,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12 p-0 g-0 mt-5">
                                                     <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                         <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
-                                                            <button class="custom-btn w-100" data-i18n="" onclick="addLead(this);">Save Inquiry</button>
+                                                            <button class="custom-btn w-100" data-i18n="" onclick="addRegistration(this);">Save Inquiry</button>
                                                         </div>
                                                     </div>
                                                 </div>

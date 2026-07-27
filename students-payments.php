@@ -198,6 +198,79 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="card card-body border-0 p-0">
                                                                 <div class="col-12">
                                                                     <div class="row gy-3 justify-content-end">
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                            <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties(),handleStudentsPaymentsPagination('filter');">
+                                                                                <option value="0" selected>- Select Branch -</option>
+                                                                                <?php
+
+                                                                                $faculties = Database::search("SELECT * FROM `branches`");
+                                                                                while ($data = $faculties->fetch_assoc()) {
+                                                                                ?>
+                                                                                    <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                            <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                            <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes(),handleStudentsPaymentsPagination('filter');">
+                                                                                <option value="0" selected>- Select Faculty -</option>
+
+                                                                            </select>
+                                                                            <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                            <select name="" id="programme-selector" disabled class="form-select custom-select mt-2" onchange="handleStudentsPaymentsPagination('filter'),loadIntakes();">
+                                                                                <option value="0" selected>- Select Programme -</option>
+                                                                            </select>
+                                                                            <span id="programme-feedback" class="text-dark-red text-12"></span>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                            <select name="" id="intake-selector" disabled class="form-select custom-select mt-2" onchange="handleStudentsPaymentsPagination('filter'),loadLevels();">
+                                                                                <option value="0" selected>- Select Intake -</option>
+                                                                            </select>
+                                                                            <span id="intake-feedback" class="text-dark-red text-12"></span>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
+                                                                            <select class="form-select custom-select" aria-label="Default select example" id="payment-category-selector" onchange="handleStudentsPaymentsPagination('filter')">
+                                                                                <option selected value="0">- Payment Category -</option>
+                                                                                <?php
+                                                                                $paymentCategories = Database::search("SELECT * FROM `payment_category`");
+                                                                                while ($paymentCategory = $paymentCategories->fetch_assoc()) {
+                                                                                ?>
+                                                                                    <option value="<?= $paymentCategory['payment_category_id'] ?>"><?= $paymentCategory['payment_category'] ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
+                                                                            <select class="form-select custom-select" aria-label="Default select example" id="payment-plan-selector" onchange="handleStudentsPaymentsPagination('filter'),loadPaymentTypes()">
+                                                                                <option selected value="0">- Payment Plans -</option>
+                                                                                <?php
+                                                                                $paymentPlans = Database::search("SELECT * FROM `payment_plan`");
+                                                                                while ($paymentPlan = $paymentPlans->fetch_assoc()) {
+                                                                                ?>
+                                                                                    <option value="<?= $paymentPlan['payment_plan_id'] ?>"><?= $paymentPlan['payment_plan'] ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
+                                                                            <select class="form-select custom-select" aria-label="Default select example" id="payment-type-selector" onchange="handleStudentsPaymentsPagination('filter')">
+                                                                                <option selected value="0">- Payment Type -</option>
+                                                                                <?php
+                                                                                $paymentType = Database::search("SELECT * FROM `payment_type`");
+                                                                                while ($paymenttype = $paymentType->fetch_assoc()) {
+                                                                                ?>
+                                                                                    <option value="<?= $paymenttype['payment_type_id'] ?>"><?= $paymenttype['payment_type'] ?></option>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                        </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
                                                                             <select class="form-select custom-select" id="status-selector" onchange="handleStudentsPaymentsPagination('filter')">
                                                                                 <option selected value="0">- Select Payment Status -</option>
@@ -211,10 +284,13 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
                                                                             <select class="form-select custom-select" id="sort-selector" onchange="handleStudentsPaymentsPagination('filter')">
-                                                                                <option selected value="0">- Filter Data -</option>
-                                                                                <option value="1">Bank Transfer</option>
-                                                                                <option value="2">Cash Payments</option>
-                                                                                 <option value="3">Card Payments</option>
+                                                                                <option selected value="0">- Payment Method -</option>
+                                                                               <?php
+                                                                                $paymentmethod = Database::search("SELECT * FROM `payment_method`");
+                                                                                while ($ps = $paymentmethod->fetch_assoc()) {
+                                                                                    echo "<option value='{$ps['payment_method_id']}'>{$ps['payment_method']}</option>";
+                                                                                }
+                                                                                ?>
                                                                             </select>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
@@ -271,7 +347,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Fees Type</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Amount</th>
-                                                                                                                                                       <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Tax</th>
+                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Tax</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Payable</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Paid Amount</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center" onclick="handleStudentsPaymentsPagination('sortByDate')">
@@ -525,7 +601,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <span class="text-14 main-text"><?= $cc . ' ' . number_format((float)$data['amount'], $dp) ?></span>
                                                                                     </td>
 
-                                                                                  
+
                                                                                     <!-- Tax (course currency) — NEW COLUMN -->
                                                                                     <td class="py-2 align-middle">
                                                                                         <?php if ($taxCc > 0): ?>
@@ -569,7 +645,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <?= $data['date_paid'] ? date('Y-m-d', strtotime($data['date_paid'])) : 'N/A' ?>
                                                                                         </span>
                                                                                     </td>
-                                                                                     <td class="py-2 align-middle">
+                                                                                    <td class="py-2 align-middle">
                                                                                         <span class="text-14 main-text">
                                                                                             <?= $data['receipt_number'] ? $data['receipt_number'] : 'N/A' ?>
                                                                                         </span>

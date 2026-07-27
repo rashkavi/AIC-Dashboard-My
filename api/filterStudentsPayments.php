@@ -23,6 +23,13 @@ if (SessionUser::hasValidSession()) {
                         $sort = isset($decoded['sort']) ? $decoded['sort'] : 0;
                         $year = isset($decoded['year']) ? $decoded['year'] : 0;
                         $month = isset($decoded['month']) ? $decoded['month'] : 0;
+                        $branch = isset($decoded['branch']) ? $decoded['branch'] : '';
+                        $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : '';
+                        $programme = isset($decoded['programme']) ? $decoded['programme'] : '';
+                        $intake = isset($decoded['intake']) ? $decoded['intake'] : '';
+                        $category = isset($decoded['category']) ? $decoded['category'] : '';
+                        $plan = isset($decoded['plan']) ? $decoded['plan'] : 0;
+                        $type = isset($decoded['type']) ? $decoded['type'] : 0;
                         $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
                         $sortByName = isset($decoded['sortByName']) ? $decoded['sortByName'] : 0;
                         $sortById = isset($decoded['sortById']) ? $decoded['sortById'] : 0;
@@ -115,6 +122,15 @@ if (SessionUser::hasValidSession()) {
                                                                             INNER JOIN students s
                                                                                 ON shi.students_student_id = s.student_id
 
+                                                                            INNER JOIN intakes i
+                                                                                ON shi.intakes_intake_id = i.intake_id
+
+                                                                            INNER JOIN programmes p
+                                                                                ON i.programmes_programme_id = p.programme_id
+                                                                                
+                                                                            INNER JOIN faculties f
+                                                                                ON p.faculties_faculty_id = f.faculty_id
+
                                                                             INNER JOIN login_details ld
                                                                                 ON s.login_details_login_details_id = ld.login_details_id
 
@@ -132,7 +148,8 @@ if (SessionUser::hasValidSession()) {
 
                                                                              LEFT JOIN `course_payment_receipts` cpr
                                                                                 ON cpr.course_payment_receipt_id = cpp.course_payment_receipts_course_payment_receipt_id
-                                                                        ";
+WHERE 1=1
+                                                                                ";
 
 
                         if ($search_text != "") {
@@ -140,35 +157,51 @@ if (SessionUser::hasValidSession()) {
                         }
 
                         if ($status_selector != 0) {
-                            if (strpos($query, 'WHERE') == false) {
-                                $query .= " WHERE `ps`.`payment_status_id` = '" . $status_selector . "'";
-                            } else {
-                                $query .= " AND `ps`.`payment_status_id` = '" . $status_selector . "'";
-                            }
+
+                            $query .= " AND `ps`.`payment_status_id` = '" . $status_selector . "'";
                         }
 
                         if ($sort != 0) {
-                            if (strpos($query, 'WHERE') == false) {
-                                $query .= " WHERE `payment_method_id` = '" . $sort . "'";
-                            } else {
-                                $query .= " AND `payment_method_id` = '" . $sort . "'";
-                            }
+
+                            $query .= " AND `payment_method_id` = '" . $sort . "'";
                         }
 
                         if ($year != 0) {
-                            if (strpos($query, 'WHERE') == false) {
-                                $query .= " WHERE YEAR(`cpp`.`date_paid`) = '" . $year . "'";
-                            } else {
-                                $query .= " AND YEAR(`cpp`.`date_paid`) = '" . $year . "'";
-                            }
+
+                            $query .= " AND YEAR(`cpp`.`date_paid`) = '" . $year . "'";
                         }
 
                         if ($month != 0) {
-                            if (strpos($query, 'WHERE') == false) {
-                                $query .= " WHERE MONTH(`cpp`.`date_paid`) = '" . $month . "'";
-                            } else {
-                                $query .= " AND MONTH(`cpp`.`date_paid`) = '" . $month . "'";
-                            }
+
+                            $query .= " AND MONTH(`cpp`.`date_paid`) = '" . $month . "'";
+                        }
+
+                        if ($branch != 0) {
+                            $query .= " AND `f`.`branches_branch_id` = '" . $branch . "'";
+                        }
+
+                        if ($faculty  != 0) {
+                            $query .= " AND `p`.`faculties_faculty_id` = '" . $faculty . "'";
+                        }
+
+                        if ($programme != 0) {
+                            $query .= " AND `p`.`programme_id` = '" . $programme . "'";
+                        }
+
+                        if ($intake != 0) {
+                            $query .= " AND `i`.`intake_id` = '" . $intake . "'";
+                        }
+
+                        if ($category != 0) {
+                            $query .= " AND `pshi`.`payment_category_payment_category_id`='" . $category . "'";
+                        }
+
+                        if ($plan != 0) {
+                            $query .= " AND `pshi`.`payment_plan_has_students_has_intakes_id`='" . $plan . "'";
+                        }
+
+                        if ($type != 0) {
+                            $query .= " AND `cp`.`payment_type_payment_type_id`='" . $type . "'";
                         }
 
                         $query .= " GROUP BY `cpp`.`course_payment_has_payment_id`";

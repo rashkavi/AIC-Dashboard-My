@@ -62,11 +62,11 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="row align-items-center p-0 m-0 g-0">
                                             <div class="col-12 col-md-12 col-xxl-8">
                                                 <div class="row">
-                                                    <span class="main-topic lh-lg" data-i18n="">Inquiries Registration Payments</span>
+                                                    <span class="main-topic lh-lg" data-i18n="">Registrations Payments</span>
                                                     <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                         <ol class="breadcrumb m-0">
                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
-                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./registrations-registration-payments">Inquiry Registration Payments</a></li>
+                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./registrations-registration-payments">Registrations Payments</a></li>
                                                         </ol>
                                                     </nav>
                                                 </div>
@@ -321,7 +321,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         ?>
 
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&path=payments">
                                                                                                     <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     View Student Payment Plan</a></li>
 
@@ -345,9 +345,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <?php
                                                                                         }
                                                                                         ?>
-
-
-
 
                                                                                     </ul>
                                                                                 </div>

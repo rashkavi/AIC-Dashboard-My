@@ -193,7 +193,7 @@ if (!SessionUser::hasValidSession()) {
 
                     <?php
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('department', 2, $id)) {
+                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||  UserPermissions::hasPermission('department', 2, $id)) {
                     ?>
                         <!-- Programme Add Model => Start -->
                         <div class="modal fade br-0" id="addProgramme" aria-hidden="true" aria-labelledby="addProgrammeLabel" tabindex="-1">

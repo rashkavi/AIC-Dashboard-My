@@ -85,8 +85,34 @@ if (SessionUser::hasValidSession()) {
 
                                 $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
 
-                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body']);
+                                // Fetch added-by user email + counsellor email for CC
+                                $ccEmails = [];
 
+                                $ccQuery = Database::search("
+                                        SELECT
+                                          
+                                            counsellorUser.user_email AS counsellor_email,
+                                            counsellorUser.user_fname AS counsellor_first_name,
+                                            counsellorUser.user_lname AS counsellor_last_name
+                                        FROM `students`
+                                        LEFT JOIN `users` AS counsellorUser
+                                            ON `students`.`users_user_id` = counsellorUser.`user_id`
+                                        
+                                        WHERE `students`.`student_id` = '" . $studentData['students_student_id'] . "'
+                                    ");
+
+                                if ($ccQuery && $ccQuery->num_rows > 0) {
+                                    $ccData = $ccQuery->fetch_assoc();
+
+                                    if (!empty($ccData['counsellor_email'])) {
+                                        $ccEmails[$ccData['counsellor_email']] = trim($ccData['counsellor_first_name'] . ' ' . $ccData['counsellor_last_name']);
+                                    }
+                                }
+
+                                $ccEmails[$sessionUserObject['user_email']] = trim($sessionUserObject['user_fname'] . ' ' . $sessionUserObject['user_lname']);
+
+                                // Send with CC
+                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
                                 $status->done = 'Academic department completion confirmed';
                             } catch (Exception $e) {
                                 $status->error = "Academic department completion confirmed but mail not sent";

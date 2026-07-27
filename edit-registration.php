@@ -292,7 +292,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                 ?>
                                                                     <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                        <button class="custom-btn col-12" onclick="editInquiry(this,'<?php echo $id ?>');">Save Changes</button>
+                                                                        <button class="custom-btn col-12" onclick="editRegistration(this,'<?php echo $id ?>');">Save Changes</button>
                                                                     </div>
                                                                 <?php
                                                                 }
@@ -778,7 +778,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">AIC Application</span>
-                                                                            <!-- <span class="doc-required">Required</span> -->
+                                                                            <span class="doc-required">Required</span>
                                                                         </div>
 
                                                                         <div class="doc-drop-area">
@@ -1176,7 +1176,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 p-0 g-0 mt-5">
                                                                 <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                                     <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
-                                                                        <button class="custom-btn w-100" onclick="editInquiry(this,'<?php echo $id ?>');">Save Changes</button>
+                                                                        <button class="custom-btn w-100" onclick="editRegistration(this,'<?php echo $id ?>');">Save Changes</button>
                                                                     </div>
                                                                 </div>
                                                             </div>

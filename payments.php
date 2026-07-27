@@ -140,7 +140,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <iconify-icon icon="ix:inquiry" width="32" height="32" class="dark-theme"></iconify-icon>
                                                     </div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
-                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Registration Payments (Inquiries)</span>
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">Registrations Payments</span>
                                                         <span class="text-14 main-text" data-i18n="">Monitor and manage real-time currency conversions with accuracy</span>
                                                     </div>
                                                 </div>
@@ -150,7 +150,7 @@ if (!SessionUser::hasValidSession()) {
                                                         if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="inquiries-registration-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <a href="registrations-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
                                                                     <button class="custom-btn w-100" data-i18n="view">View</button>
                                                                 </a>
                                                             </div>

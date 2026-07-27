@@ -56,6 +56,7 @@ if (SessionUser::hasValidSession()) {
                             `students_logs`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`,
 
                             `programmes`.`programme`,
+                            `students_has_intakes`.`students_has_intakes_id`,
 
                             CASE
                                 WHEN `payment`.`students_has_intakes_students_has_intakes_id` IS NOT NULL
@@ -338,7 +339,7 @@ if (SessionUser::hasValidSession()) {
                                                                 <iconify-icon icon="solar:document-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Other Documents</a></li>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-payment-plan?student-id=<?php echo $data['sId']; ?>">
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['students_has_intakes_id']; ?>">
                                                                 <iconify-icon icon="tabler:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Payment Plan</a></li>
                                                     <?php

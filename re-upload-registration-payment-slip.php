@@ -274,7 +274,7 @@ if ($log->num_rows > 0) {
             <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                 <?php
                 include "includes/side-menu.php";
-                load_side_menu::load("Inquiries");
+                load_side_menu::load("Registrations");
                 ?>
             </div>
 
@@ -283,7 +283,7 @@ if ($log->num_rows > 0) {
                     <div class="col-12 p-0 m-0 g-0">
                         <?php
                         include "./includes/header.php";
-                        selectItem::setSelected("Inquiries");
+                         selectItem::setSelected("Registrations");
                         ?>
                     </div>
 

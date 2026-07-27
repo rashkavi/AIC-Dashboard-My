@@ -352,17 +352,24 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="col-12 collapse collapse-horizontal" id="studentsFilter">
                                                             <div class="row justify-content-end">
                                                                 <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                    <select name="" id="faculty-selector" class="form-select custom-select mt-2" onchange="loadProgrammes(),handleDuePaymentsPagination('filter');">
-                                                                        <option value="0" selected>- Select Faculty -</option>
+                                                                    <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties(),handleDuePaymentsPagination('filter');">
+                                                                        <option value="0" selected>- Select Branch -</option>
                                                                         <?php
 
-                                                                        $faculties = Database::search("SELECT * FROM `faculties`");
+                                                                        $faculties = Database::search("SELECT * FROM `branches`");
                                                                         while ($data = $faculties->fetch_assoc()) {
                                                                         ?>
-                                                                            <option value="<?php echo $data["faculty_id"]; ?>"><?php echo $data["faculty"]; ?></option>
+                                                                            <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
                                                                         <?php
                                                                         }
                                                                         ?>
+                                                                    </select>
+                                                                    <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                </div>
+                                                                <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                    <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes(),handleDuePaymentsPagination('filter');">
+                                                                        <option value="0" selected>- Select Faculty -</option>
+                                                                      
                                                                     </select>
                                                                     <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                 </div>

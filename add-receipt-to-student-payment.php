@@ -18,7 +18,7 @@ if (!SessionUser::hasValidSession()) {
         } else {
             date_default_timezone_set('Asia/Colombo');
             $id = $_GET['payment-id'];
-            $department = $_GET['department'];
+            $department = $_GET['department'] ?? null;
 
             $inquiry_id = 0;
             if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id'])) {
@@ -624,7 +624,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php else: ?>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Payments</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./registrations-registration-payments">Inquiry Registration Payments</a></li>
-                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./student-payment-plan?student-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intake-student-payments?student-id=<?= $inquiry_id ?>">Inquiry Payment Plan</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="#">Add Receipt to Student Payment</a></li>
                                                                             <?php endif; ?>
                                                                         </ol>

@@ -177,7 +177,7 @@ const addUser = (btn) => {
                     city: ["#city", "#city-feedback"],
                     pcode: ["#postal-code", "#pcode-feedback"],
                     cv: ["#file-info", "#cv-feedback"],
-                    branch:["#branch-selector", "#branch-feedback"]
+                    branch: ["#branch-selector", "#branch-feedback"]
                 };
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
@@ -246,7 +246,7 @@ const editUser = (btn, id) => {
                     city: ["#city", "#city-feedback"],
                     pcode: ["#postal-code", "#pcode-feedback"],
                     cv: ["#file-info", "#cv-feedback"],
-                                        branch:["#branch-selector", "#branch-feedback"]
+                    branch: ["#branch-selector", "#branch-feedback"]
 
                 };
                 applyValidation(response, validationMap);
@@ -11518,7 +11518,7 @@ const filterCurrencyExchange = (id) => {
         });
 };
 
-const addLead = (btn) => {
+const addRegistration = (btn) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("fname", $("#first-name").val());
@@ -11605,7 +11605,7 @@ const addLead = (btn) => {
         payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
-    fetch("api/addLead.php", {
+    fetch("api/addRegistration.php", {
         method: "POST",
         body: form,
     })
@@ -11939,7 +11939,7 @@ const uploadOtherDocuments = (btn, id) => {
         });
 }
 
-const editInquiry = (btn, id) => {
+const editRegistration = (btn, id) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("id", id);
@@ -12025,7 +12025,7 @@ const editInquiry = (btn, id) => {
         payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
-    fetch("api/editInquiry.php", {
+    fetch("api/editRegistration.php", {
         method: "POST",
         body: form,
     })
@@ -12212,7 +12212,7 @@ const filterStudentsInquiries = () => {
         programme: $("#programme-selector").val(),
         intake: $("#intake-selector").val(),
         user: $("#user-selector").val(),
-        paymentStatus:$("#payment-status-selector").val(),
+        paymentStatus: $("#payment-status-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         resultPerPage: $("#show-result-selector").val(),
@@ -12381,6 +12381,7 @@ const confirmAcademicDepartmentCompletion = (btn) => {
     })
         .then(response => response.json())
         .then(data => {
+            console.log(data);
             toggleBtnLoader(btn, false);
             if (data.done) {
                 showToast("success", data.done);
@@ -12476,6 +12477,13 @@ const filterStudentsPayments = () => {
         sort: $("#sort-selector").val(),
         year: $("#year").val(),
         month: $("#month").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        category: $("#payment-category-selector").val(),
+        plan: $("#payment-plan-selector").val(),
+        type: $("#payment-type-selector").val(),
         sortByAmount: sortCondition1,
         sortByDate: sortCondition2,
         sortByName: sortCondition4,
@@ -13483,6 +13491,7 @@ const genarateCurrencyExchangeRateReport = (btn, id) => {
 const filterDuePayments = () => {
     const data = {
         text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
         faculty: $("#faculty-selector").val(),
         programme: $("#programme-selector").val(),
         intake: $("#intake-selector").val(),
