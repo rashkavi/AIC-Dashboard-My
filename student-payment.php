@@ -518,9 +518,6 @@ if (!SessionUser::hasValidSession()) {
                         }
                         $taxFactor = 1 + ($latestTaxRate / 100);
 
-
-
-
                         function convertLkrPenaltyToCourseCurrency($lkrAmount, $courseCurrencyId)
                         {
                             static $lkrCurrencyId = null;
@@ -1010,80 +1007,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </div>
                                                             </div>
-
-                                                            <!-- Exchange rate badge -->
-                                                            <?php if (!$isBaseCurrencyLKR): ?>
-                                                                <div class="col-12 mt-3 d-flex align-items-center gap-3 flex-wrap">
-                                                                    <?php if ($exchangeRate): ?>
-                                                                        <div class="exchange-rate-badge">
-                                                                            <iconify-icon icon="mdi:swap-horizontal" width="14" height="14"></iconify-icon>
-                                                                            <span>1 <?= $currencyCode ?> = LKR <?= number_format($exchangeRateValue, 2) ?>
-                                                                                (<?= date('d M Y', strtotime($exchangeRate['effective_date'])) ?>)</span>
-                                                                        </div>
-                                                                        <div class="exchange-rate-badge" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06);color:#dc2626;">
-                                                                            <iconify-icon icon="mdi:information-outline" width="14" height="14"></iconify-icon>
-                                                                            <span>Penalties stored in LKR — converted to <?= $currencyCode ?> at this rate</span>
-                                                                        </div>
-                                                                    <?php else: ?>
-                                                                        <div class="exchange-rate-badge rate-unavailable">
-                                                                            <iconify-icon icon="mdi:alert-outline" width="14" height="14"></iconify-icon>
-                                                                            <span>No exchange rate available — amounts shown in <?= $currencyCode ?> only</span>
-                                                                        </div>
-                                                                    <?php endif; ?>
-                                                                </div>
-                                                            <?php endif; ?>
-
-                                                            <!-- LKR Equivalent Summary Panel -->
-                                                            <?php if (!$isBaseCurrencyLKR && $exchangeRate): ?>
-                                                                <div class="col-12 mt-3">
-                                                                    <div class="lkr-panel">
-                                                                        <div class="lkr-panel-top">
-                                                                            <div class="lkr-panel-top-left">
-                                                                                <iconify-icon icon="mdi:currency-usd" width="16" height="16"></iconify-icon>
-                                                                                LKR equivalent summary
-                                                                            </div>
-                                                                            <span class="lkr-panel-rate-note">@ <?= number_format($exchangeRateValue, 2) ?> per <?= $currencyCode ?></span>
-                                                                        </div>
-                                                                        <div class="lkr-panel-grid" style="grid-template-columns:repeat(7,minmax(0,1fr));">
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Amount</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($paymentData['amount'] * $exchangeRateValue, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paymentData['amount'], 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Discount</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($discountAmtLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($totalDiscount, 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Penalty <span class="penalty-lkr-badge">LKR</span></span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($penaltyAmtLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($penaltyAmtCC, 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Tax</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($taxAmtLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($taxOnPayable, 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Payable</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($payableAmtLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($payableAmount, 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item">
-                                                                                <span class="lkr-item-label">Total Paid</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($paidAmountLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($paidAmount, 2) ?></span>
-                                                                            </div>
-                                                                            <div class="lkr-panel-item balance-item">
-                                                                                <span class="lkr-item-label">Balance Due</span>
-                                                                                <span class="lkr-item-value">LKR <?= number_format($balanceLKR, 2) ?></span>
-                                                                                <span class="lkr-item-sub"><?= $currencyCode ?> <?= number_format($balance, 2) ?></span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            <?php endif; ?>
+                                                           
 
                                                             <!-- ════════════════════════════════════════════════════════
                                                                  OVERPAYMENT SUMMARY PANEL (FIX)
@@ -1154,11 +1078,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php if (!$isBaseCurrencyLKR && $exchangeRate && $balance > 0): ?>
                                                                                         <small class="amount-label" style="font-size:12px;opacity:.7;">≈ LKR <?= number_format($balanceLKR, 2) ?></small>
                                                                                     <?php endif; ?>
-                                                                                    <?php if ($nextInstallmentData): ?>
-                                                                                        <small class="amount-label" style="font-size:12px;color:#2563eb;">
-                                                                                            Overpaid <?= $currencyCode ?> <?= number_format($nextInstallmentData['overpay'], 2) ?> — credited to next installment
-                                                                                        </small>
-                                                                                    <?php endif; ?>
+                                                                                   
                                                                                 </div>
                                                                             </div>
                                                                         </div>

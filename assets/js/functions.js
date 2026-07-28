@@ -13530,3 +13530,69 @@ const filterDuePayments = () => {
             showToast("error", "An error occured. Please try again later.");
         });
 }
+
+const genarateStudentRegistrationsReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        user: $("#user-selector").val(),
+        paymentStatus: $("#payment-status-selector").val(),
+    }
+
+    fetch('api/genarateStudentRegistrationsReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Students Registrations Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}

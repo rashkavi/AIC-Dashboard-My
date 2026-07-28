@@ -190,7 +190,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="token:pay" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="tabler:calendar-due" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
                                                             Students Due Payments

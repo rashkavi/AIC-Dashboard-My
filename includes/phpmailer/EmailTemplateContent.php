@@ -189,7 +189,7 @@ final class EmailTemplateContent
 
                     "Welcome to {$baseName}!",
 
-                    "Kind regards,<br>Academic Affairs {$baseName}",
+                    "Kind regards,<br>Academic Department {$baseName}",
 
                 ]),
 

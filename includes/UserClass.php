@@ -135,7 +135,7 @@ class SessionUser
     {
         return in_array(
             $userRole,
-            ["Head of Admission", "Counselor"],
+            ["Head of Admission", "Branch Manager", "Counselor"],
             true
         );
     }

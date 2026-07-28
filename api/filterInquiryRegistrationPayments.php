@@ -263,7 +263,7 @@ if (SessionUser::hasValidSession()) {
 
                                                         <?php
                                                         }
-                                                        if ($data['lead_student_status_id'] == 4) {
+                                                        if ($data['lead_student_status_id'] == 5) {
                                                         ?>
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                             <li>

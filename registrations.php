@@ -107,7 +107,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
+                                                    <div class="col-8 col-md-8 col-lg-7 d-flex flex-column">
                                                         <div class="h-100 d-flex align-items-center p-1 bl-solid">
                                                             <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 pt-2 pb-2"></iconify-icon>
                                                             <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." data-i18n="[placeholder]search-placeholder" id="search-text" onkeyup="handleInquiryPagination('filter')">
@@ -116,6 +116,12 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-12 col-md-2 col-lg-1 d-flex flex-column justify-content-end">
                                                         <button class="custom-btn w-100" type="button" data-bs-toggle="collapse" data-bs-target="#studentsFilter" aria-expanded="false" aria-controls="studentsFilter">
                                                             <iconify-icon icon="mage:filter" width="26" height="26" class="text-white px-3 pe-3 py-2"></iconify-icon>
+                                                        </button>
+                                                    </div>
+                                                    <div class="col-12 col-md-2 col-lg-2 d-flex flex-column justify-content-end">
+                                                        <button class="custom-btn w-100 d-flex align-items-center justify-content-center" type="button" onclick="genarateStudentRegistrationsReport(this)">
+                                                            <span class="text-14 fw-semibold">Export Report</span>
+                                                            <iconify-icon icon="line-md:download-loop" width="26" height="26" class="text-white px-3 pe-0"></iconify-icon>
                                                         </button>
                                                     </div>
                                                     <div class="collapse" id="studentsFilter">
@@ -372,7 +378,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <span class="mini-left-ribbon"
                                                                                         style="background: #EB5757">
                                                                                         Due
-                                                                                                                                                                            </span>
+                                                                                    </span>
 
                                                                                     <div class="d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
                                                                                         <?php

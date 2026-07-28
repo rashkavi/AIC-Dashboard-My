@@ -411,7 +411,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
+                                                                <div class="col-12 col-md-4 col-lg-2 mt-2 d-flex flex-column justify-content-end">
                                                                     <select class="form-select custom-select" aria-label="Default select example" id="payment-type-selector" onchange="handleDuePaymentsPagination('filter')">
                                                                         <option selected value="0">- Payment Type -</option>
                                                                         <?php

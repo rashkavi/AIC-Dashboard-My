@@ -24,7 +24,7 @@ if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['payment-id']) && !empt
 }
 
 $id = $_GET['payment-id'];
-$department = $_GET['department'];
+$department = $_GET['department'] ?? null;
 
 $detailQuery = "
     SELECT
