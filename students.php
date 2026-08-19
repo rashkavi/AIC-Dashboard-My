@@ -158,21 +158,50 @@ if (!SessionUser::hasValidSession()) {
                                                                         <span id="branch-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                        <select name="" id="faculty-selector" disabled class="form-select custom-select" onchange="loadProgrammes(),handleStudentsPagination('filter');">
+                                                                        <select name="" id="faculty-selector" class="form-select custom-select" onchange="loadProgrammes(),handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Faculty -</option>
+                                                                            <?php
+                                                                            $query = "SELECT * FROM `faculties`";
 
+                                                                            $faculties = Database::search($query);
+                                                                            while ($data = $faculties->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?= $data["faculty_id"]; ?>"><?= $data["faculty"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
                                                                         </select>
                                                                         <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Programme -</option>
+                                                                            <?php
+                                                                            $query = "SELECT * FROM `programmes`";
+
+                                                                            $programmes = Database::search($query);
+                                                                            while ($data = $programmes->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?= $data["programme_id"]; ?>"><?= $data["programme"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
                                                                         </select>
                                                                         <span id="programme-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Intake -</option>
+                                                                            <?php
+                                                                            $query = "SELECT * FROM `intakes`";
+
+                                                                            $intakes = Database::search($query);
+                                                                            while ($data = $intakes->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?= $data["intake_id"]; ?>"><?= $data["intake"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
                                                                         </select>
                                                                         <span id="intake-feedback" class="text-dark-red text-12"></span>
                                                                     </div>

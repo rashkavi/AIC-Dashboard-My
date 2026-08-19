@@ -20,7 +20,7 @@ $sessionUserObject = SessionUser::getCurrentUserObject();
 
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
+if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
     header("Location: ./registrations");
     exit;
 }
@@ -274,7 +274,7 @@ $existingDocumentsJson = json_encode(
                     <div class="col-12 p-0 m-0 g-0">
                         <?php
                         include "./includes/header.php";
-                         selectItem::setSelected("Registrations");
+                        selectItem::setSelected("Registrations");
                         ?>
                     </div>
 
@@ -296,7 +296,7 @@ $existingDocumentsJson = json_encode(
                                     <div class="col-12 col-md-12 col-xxl-4 mt-3 mt-xxl-0">
                                         <div class="row gx-3 justify-content-end">
                                             <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                
+
                                                 <button class="custom-btn w-100" onclick="uploadOtherDocuments(this,<?= $leadId ?>);">
                                                     Upload
                                                 </button>
@@ -313,7 +313,7 @@ $existingDocumentsJson = json_encode(
                                         <div class="student-doc-upload-box" data-doc-key="aic_application">
                                             <div class="doc-upload-header">
                                                 <span class="doc-title">AIC Application</span>
-                                                <!-- <span class="doc-required">Required</span> -->
+                                                <span class="doc-required">Required</span>
                                             </div>
 
                                             <div class="doc-drop-area">
@@ -599,12 +599,41 @@ $existingDocumentsJson = json_encode(
                                         </div>
                                     </div>
 
+                                    <!--Signed fee structure  -->
+                                    <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                        <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                            <div class="doc-upload-header">
+                                                <span class="doc-title">Signed fee structure</span>
+                                                <span class="doc-required">Required</span>
+                                            </div>
+
+                                            <div class="doc-drop-area">
+                                                <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                <span class="doc-drop-text">Drag & Drop file here</span>
+                                                <span class="doc-or-text">OR</span>
+
+                                                <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                    Browse File
+                                                </button>
+
+                                                <input type="file"
+                                                    class="d-none student-doc-input"
+                                                    id="doc-signed-fee-structure"
+                                                    data-doc-key="discount_approved_document"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                            </div>
+
+                                            <div class="doc-preview mt-2"></div>
+                                            <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                        </div>
+                                    </div>
+
                                     <!-- Discount Approved Document -->
                                     <div class="col-12 col-md-6 col-lg-4 mb-3">
                                         <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                             <div class="doc-upload-header">
                                                 <span class="doc-title">Discount Approved Document</span>
-                                                <!-- <span class="doc-required">Required</span> -->
+                                                <span class="doc-required">Required</span>
                                             </div>
 
                                             <div class="doc-drop-area">

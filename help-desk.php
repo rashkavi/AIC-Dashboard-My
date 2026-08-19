@@ -301,7 +301,6 @@ if (!SessionUser::hasValidSession()) {
                                                                         </tr>
                                                                     <?php
                                                                     }
-
                                                                     ?>
 
                                                                 </tbody>

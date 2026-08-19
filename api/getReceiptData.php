@@ -1,17 +1,39 @@
 <?php
 
 /**
- * api/getReceiptData.php - FIXED v4
+ * api/getReceiptData.php - v6
  *
- * KEY FIX: Penalties added AFTER payment date are completely excluded
- * 
- * Business Logic:
- * - Payment on 2026-06-10: include only penalties added before/on 2026-06-10
- * - Penalties added 2026-06-12 (after payment): EXCLUDE from this receipt
- * - Receipt created 2026-06-14: still uses same logic
+ * CHANGES IN v6 (on top of v5):
+ *   Per-installment balance now uses the SAME tax-inclusive model as
+ *   intake-student-payment.php, instead of a plain subtraction:
  *
- * Formula:
- * Balance Due = Course Fee - Discount + (Penalties added BEFORE payment) + Tax - Amount Paid
+ *       basePayable   = installmentAmount - totalDiscount + totalPenalty
+ *       basePortion   = 1 - (latestTaxRate / 100)
+ *       paidBaseTotal = cumulativePaidAsOfCutoff * basePortion
+ *       remainingBase = max(0, basePayable - paidBaseTotal)
+ *       remainingTax  = remainingBase * (latestTaxRate / (100 - latestTaxRate))
+ *       balance       = remainingBase + remainingTax
+ *
+ *   Also fixed: installment-plan discount is now resolved as a PERCENTAGE
+ *   when discount_type_id == 3 (installmentAmount/100 * discount), matching
+ *   intake-student-payment.php's $cpDiscount — the previous version used
+ *   the raw cp.discount value directly, which was wrong for percentage
+ *   discounts.
+ *
+ *   See getInstallmentBalance(), getLatestTaxRate(), getPageExchangeRate()
+ *   below for full detail and one flagged assumption (balance always uses
+ *   TODAY's tax rate, not a historical one — inherited from the source page).
+ *
+ * ══════════════════════════════════════════════════════════════════════
+ * CHANGES IN v5 (on top of v4):
+ * 1. Added Intake Counsellor to the receipt header data.
+ *    ASSUMPTION (please confirm/fix): students_has_intakes.counsellor_user_id -> users.user_id
+ *    If your actual column/table is different, only the JOIN block marked
+ *    "COUNSELLOR JOIN" below needs to change — nothing else depends on it.
+ *
+ * 2. Added per-installment running balance to each payment row (v5 used a
+ *    simple subtraction; see v6 notes above for the current tax-aware model).
+ * (Existing pre-payment-date penalty filtering logic from v4 is untouched.)
  */
 
 error_reporting(E_ALL);
@@ -59,7 +81,14 @@ $receiptRow = Database::search("
         p.programme,
         f.faculty,
 
-        b.branch        AS branch_name
+        b.branch        AS branch_name,
+
+        /* ── COUNSELLOR JOIN ──────────────────────────────────────────────
+           ASSUMPTION: students_has_intakes.counsellor_user_id -> users.user_id
+           Update this block if your schema differs. */
+        u_c.user_fname   AS counsellor_fname,
+        u_c.user_lname   AS counsellor_lname,
+        t_c.title        AS counsellor_title
 
     FROM course_payment_receipts cpr
     INNER JOIN users             u   ON cpr.users_user_id
@@ -83,6 +112,13 @@ $receiptRow = Database::search("
                                          = f.faculty_id
     INNER JOIN branches          b   ON f.branches_branch_id
                                          = b.branch_id
+
+    /* ── COUNSELLOR JOIN (LEFT — receipt should still render if no counsellor set) ── */
+    LEFT JOIN users               u_c ON s.users_user_id
+                                          = u_c.user_id
+    LEFT JOIN title                t_c ON u_c.title_title_id
+                                          = t_c.title_id
+
     WHERE cpr.course_payment_receipt_id = '$receiptId'
     LIMIT 1
 ");
@@ -95,19 +131,7 @@ $receipt = $receiptRow->fetch_assoc();
 
 /* ════════════════════════════════════════════════════════════════════════════
    Payments linked to this receipt
-   
-   🔴 CRITICAL: Penalty filtering by payment date
-   
-   Rule: Only count penalties where date_created <= date_paid
-   This ensures penalties added AFTER the payment are NOT included in this receipt.
-   
-   Example:
-   - Payment made: 2026-06-10
-   - Penalty added: 2026-06-12 (AFTER payment)
-   - Receipt created: 2026-06-14
-   → Penalty should NOT appear in receipt
-   
-   SQL filters using: pp.created_at <= cpp.date_paid (or equivalent date field)
+   (v4 pre-payment-date penalty filtering logic — unchanged)
 ════════════════════════════════════════════════════════════════════════════ */
 $paymentsRow = Database::search("
     SELECT
@@ -127,6 +151,7 @@ $paymentsRow = Database::search("
 
         COALESCE(cur.code, c.code)   AS paid_currency_code,
 
+        cp.course_payments_id        AS installment_id,
         cp.refference,
         cp.amount                    AS cp_amount,
         cp.discount                  AS cp_discount,
@@ -139,17 +164,6 @@ $paymentsRow = Database::search("
         c.code                       AS course_currency_code,
         c.decimal_places             AS course_decimal_places,
 
-        /*
-         * 🔴 PENALTY FILTER FIX:
-         * 
-         * This subquery ONLY sums penalties where:
-         *   created_at <= payment.date_paid
-         *
-         * If payment was made 2026-06-10, only penalties created 
-         * on or before 2026-06-10 are counted.
-         * 
-         * Penalties added later are completely excluded.
-         */
         COALESCE(pp.total_penalty_lkr, 0) AS total_penalty_lkr
 
     FROM course_payment_has_payments cpp
@@ -171,14 +185,6 @@ $paymentsRow = Database::search("
     INNER JOIN currencies       c    ON pc.currencies_currency_id
                                           = c.currency_id
     LEFT  JOIN (
-        /*
-         * Correlated subquery: Count penalties ONLY if created BEFORE/ON payment date
-         * 
-         * Adjust the date field based on your schema:
-         *   - panelty_payments.created_at  (recommended)
-         *   - panelty_payments.date_added
-         *   - panelty_payments.penalty_date
-         */
         SELECT
             pp_inner.course_payments_course_payments_id,
             SUM(pp_inner.amount) AS total_penalty_lkr
@@ -187,7 +193,6 @@ $paymentsRow = Database::search("
                ON pp_inner.course_payments_course_payments_id
                     = cpp_inner.course_payments_course_payments_id
         WHERE  cpp_inner.course_payment_receipts_course_payment_receipt_id = '$receiptId'
-          /* 🔴 KEY FIX: Only count penalties created ON OR BEFORE payment date */
           AND  DATE(pp_inner.date_added) <= DATE(cpp_inner.date_paid)
         GROUP  BY pp_inner.course_payments_course_payments_id
     ) pp ON cp.course_payments_id = pp.course_payments_course_payments_id
@@ -203,11 +208,6 @@ $paymentsRow = Database::search("
 $lkrCurrencyId = 1;
 $__rateCache   = [];
 
-/**
- * Resolve the exchange rate for a single payment row.
- * Returns (float) rate if paid in a DIFFERENT currency from course,
- * returns null if same currency (no conversion needed).
- */
 function resolveRate(array $row, int $courseCurrId): ?float
 {
     $paidId = (int)($row['paid_currency_db_id'] ?? 0);
@@ -238,11 +238,157 @@ function resolveRate(array $row, int $courseCurrId): ?float
     return null;
 }
 
-/** Convert an amount from paid currency to course currency */
 function toCourse(float $amount, ?float $rate): float
 {
     if ($rate === null || $rate <= 0) return $amount;
     return $amount / $rate;
+}
+
+/**
+ * NEW v6 — latest global tax rate (mirrors intake-student-payment.php exactly:
+ * always the CURRENT latest tax_rates row, not a historical/per-payment rate).
+ * Cached for the life of the request.
+ */
+function getLatestTaxRate(): float
+{
+    static $rate = null;
+    if ($rate !== null) return $rate;
+
+    $r = Database::search("
+        SELECT `tax_rate` AS `rate` FROM `tax_rates`
+        ORDER BY `date_added` DESC LIMIT 1
+    ");
+    $rate = ($r && $r->num_rows > 0) ? (float)$r->fetch_assoc()['rate'] : 0.0;
+    return $rate;
+}
+
+/**
+ * NEW v6 — course currency -> LKR "page" exchange rate, used only for
+ * converting panelty_payments (always stored in LKR) into course currency.
+ * Mirrors intake-student-payment.php's $pageExchangeRateValue. Cached per
+ * course currency for the life of the request.
+ */
+function getPageExchangeRate(int $courseCurrId, int $lkrCurrencyId): float
+{
+    static $cache = [];
+    if ($courseCurrId === $lkrCurrencyId) return 1.0;
+    if (isset($cache[$courseCurrId])) return $cache[$courseCurrId];
+
+    $r = Database::search("
+        SELECT rate FROM currency_exchange_rates
+        WHERE  base_currency_id   = '$courseCurrId'
+          AND  target_currency_id = '$lkrCurrencyId'
+        ORDER  BY effective_date DESC, effective_time DESC
+        LIMIT  1
+    ");
+    $rate = ($r && $r->num_rows > 0) ? (float)$r->fetch_assoc()['rate'] : 0.0;
+    $cache[$courseCurrId] = $rate;
+    return $rate;
+}
+
+/**
+ * NEW v6 — computes the running balance for a single installment as of a
+ * given cutoff date_paid (inclusive), across ALL receipts, using the SAME
+ * tax-inclusive model as intake-student-payment.php:
+ *
+ *     basePayable   = installmentAmount - totalDiscount + totalPenalty
+ *     basePortion   = 1 - (latestTaxRate / 100)
+ *     paidBaseTotal = cumulativePaidAsOfCutoff * basePortion
+ *     remainingBase = max(0, basePayable - paidBaseTotal)
+ *     remainingTax  = remainingBase * (latestTaxRate / (100 - latestTaxRate))
+ *     balance       = remainingBase + remainingTax
+ *
+ * ⚠ FLAGGED ASSUMPTION (inherited from intake-student-payment.php): the
+ * balance projection always uses TODAY's latest tax rate, not the tax rate
+ * that was actually in effect on the cutoff date. This matches the live
+ * dashboard page exactly, so a historical receipt's balance figure will
+ * reflect the current tax rate, not a rate frozen at the time of payment.
+ * Flagging this in case you want receipt balances to be a true historical
+ * snapshot instead — that would need each payment's own tax_rate.
+ *
+ * totalDiscount / totalPenalty here include BOTH:
+ *   - the installment-plan-level discount (cpDiscount, percentage-resolved)
+ *   - any receipt-level discount_amount / panelty_amount recorded on
+ *     individual payments up to the cutoff date (converted to course currency
+ *     using each payment's own exchange rate)
+ * plus penalties from the panelty_payments ledger (LKR, date-filtered,
+ * converted via the page-level course→LKR rate).
+ */
+function getInstallmentBalance(
+    int $installmentId,
+    string $cutoffDatePaid,
+    int $courseCurrId,
+    int $lkrCurrencyId,
+    float $installmentAmount,
+    float $installmentDiscount   // cp-level discount, already percentage-resolved by caller
+): float {
+    /* 1) Cumulative confirmed payments toward this installment, any receipt,
+          up to and including this row's own date_paid — plus any
+          receipt-level discount/penalty recorded on those same rows. */
+    $paidRows = Database::search("
+        SELECT
+            cpp.paid_amount,
+            cpp.discount_amount,
+            cpp.panelty_amount,
+            cpp.currencies_currency_id AS paid_currency_db_id,
+            cpp.currency_exchange_rate,
+            cpp.currency_exchange_rate_id
+        FROM course_payment_has_payments cpp
+        WHERE cpp.course_payments_course_payments_id = '$installmentId'
+          AND cpp.payment_status_payment_status_id = 3
+          AND cpp.date_paid <= '$cutoffDatePaid'
+    ");
+
+    $cumulativePaidCourse    = 0.0;
+    $cumulativeDiscountCourse = 0.0;
+    $cumulativePenaltyCourse  = 0.0;
+
+    if ($paidRows) {
+        while ($row = $paidRows->fetch_assoc()) {
+            $rate = resolveRate($row, $courseCurrId);
+            $cumulativePaidCourse     += toCourse((float)$row['paid_amount'], $rate);
+            $cumulativeDiscountCourse += toCourse((float)($row['discount_amount'] ?? 0), $rate);
+            $cumulativePenaltyCourse  += toCourse((float)($row['panelty_amount']  ?? 0), $rate);
+        }
+    }
+
+    /* 2) Confirmed penalties (panelty_payments ledger, always LKR) added
+          on/before the cutoff DATE for this installment. */
+    $cutoffDateOnly = date('Y-m-d', strtotime($cutoffDatePaid));
+    $penRows = Database::search("
+        SELECT COALESCE(SUM(amount), 0) AS total_penalty
+        FROM panelty_payments
+        WHERE course_payments_course_payments_id = '$installmentId'
+          AND DATE(date_added) <= '$cutoffDateOnly'
+    ");
+    $penaltyLKR = ($penRows && $penRows->num_rows > 0)
+        ? (float)$penRows->fetch_assoc()['total_penalty']
+        : 0.0;
+
+    $pageRate      = getPageExchangeRate($courseCurrId, $lkrCurrencyId);
+    $penaltyCourse = ($courseCurrId === $lkrCurrencyId || $pageRate <= 0)
+        ? $penaltyLKR
+        : ($penaltyLKR / $pageRate);
+
+    /* 3) Roll up totals exactly like intake-student-payment.php */
+    $totalDiscount = $installmentDiscount + $cumulativeDiscountCourse;
+    $totalPenalty  = $penaltyCourse + $cumulativePenaltyCourse;
+
+    $basePayable = $installmentAmount - $totalDiscount + $totalPenalty;
+
+    $latestTaxRate  = getLatestTaxRate();
+    $taxRateDecimal = $latestTaxRate / 100;
+    $basePortion    = 1 - $taxRateDecimal;
+
+    $paidBaseTotal = ($basePortion > 0) ? ($cumulativePaidCourse * $basePortion) : 0.0;
+    $remainingBase = max(0, $basePayable - $paidBaseTotal);
+
+    $remainingTax = ($basePortion > 0 && $latestTaxRate < 100)
+        ? ($remainingBase * ($latestTaxRate / (100 - $latestTaxRate)))
+        : 0.0;
+
+    $balance = $remainingBase + $remainingTax;
+    return round($balance, 2);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -252,7 +398,7 @@ $payments           = [];
 $grandTotalPaid     = 0.0;
 $grandTotalAmount   = 0.0;
 $grandTotalDiscount = 0.0;
-$grandTotalPenalty  = 0.0;  // Only pre-payment penalties!
+$grandTotalPenalty  = 0.0;
 $grandTotalTax      = 0.0;
 $courseCurrencyCode = 'LKR';
 
@@ -266,11 +412,6 @@ while ($p = $paymentsRow->fetch_assoc()) {
 
     $paidInCourse = toCourse((float)$p['paid_amount'], $exRate);
 
-    /*
-     * 🔴 PENALTY FIX: This is ALREADY filtered by SQL
-     * total_penalty_lkr is 0 if penalty was added after payment date
-     * (no need for additional checks here)
-     */
     $penaltyLKR      = (float)$p['total_penalty_lkr'];
     $penaltyInCourse = ($isCourseLKR || $exRate === null)
         ? $penaltyLKR
@@ -279,36 +420,63 @@ while ($p = $paymentsRow->fetch_assoc()) {
     $taxInCourse      = toCourse((float)($p['tax_amount'] ?? 0), $exRate);
     $discountInCourse = (float)$p['discount_amount'];
 
+    /* ── NEW: per-installment running balance ── */
+    $installmentId       = (int)$p['installment_id'];
+    $installmentAmount   = (float)$p['cp_amount'];
+
+    /* Resolve the installment-plan-level discount exactly like
+       intake-student-payment.php's $cpDiscount: discount_type_id == 3
+       means the stored value is a PERCENTAGE of the installment amount,
+       otherwise it's already a flat course-currency amount. */
+    $installmentDiscountTypeId = (int)$p['discount_type_discount_type_id'];
+    $installmentDiscount = ($installmentDiscountTypeId == 3)
+        ? ($installmentAmount / 100 * (float)$p['cp_discount'])
+        : (float)$p['cp_discount'];
+
+    $installmentBalance = getInstallmentBalance(
+        $installmentId,
+        $p['date_paid'],
+        $courseCurrId,
+        $lkrCurrencyId,
+        $installmentAmount,
+        $installmentDiscount
+    );
+
     $payments[] = [
-        'id'              => $p['course_payment_has_payment_id'],
-        'reference'       => $p['refference'],
-        'payment_type'    => $p['payment_type'],
-        'date_paid'       => $p['date_paid'],
-        'due_date'        => $p['due_date'],
-        'payment_method'  => $p['payment_method'],
-        'course_currency' => $courseCurrencyCode,
-        'paid_currency'   => $p['paid_currency_code'],
-        'cp_amount'       => (float)$p['cp_amount'],
-        'paid_amount'     => (float)$p['paid_amount'],
-        'paid_in_course'  => $paidInCourse,
-        'discount_amount' => $discountInCourse,
-        'penalty_lkr'     => $penaltyLKR,
-        'penalty_course'  => $penaltyInCourse,
-        'tax_rate'        => (float)$p['tax_rate'],
-        'tax_amount'      => (float)$p['tax_amount'],
-        'tax_course'      => $taxInCourse,
-        'exchange_rate'   => $exRate,
-        'is_foreign'      => ($exRate !== null),
-        'note'            => $p['note'],
-        'discount_type'   => $p['discount_type'],
-        'cp_discount'     => (float)$p['cp_discount'],
-        'discount_type_id' => (int)$p['discount_type_discount_type_id'],
+        'id'                   => $p['course_payment_has_payment_id'],
+        'reference'            => $p['refference'],
+        'payment_type'         => $p['payment_type'],
+        'date_paid'            => $p['date_paid'],
+        'due_date'             => $p['due_date'],
+        'payment_method'       => $p['payment_method'],
+        'course_currency'      => $courseCurrencyCode,
+        'paid_currency'        => $p['paid_currency_code'],
+        'cp_amount'            => (float)$p['cp_amount'],
+        'paid_amount'          => (float)$p['paid_amount'],
+        'paid_in_course'       => $paidInCourse,
+        'discount_amount'      => $discountInCourse,
+        'penalty_lkr'          => $penaltyLKR,
+        'penalty_course'       => $penaltyInCourse,
+        'tax_rate'             => (float)$p['tax_rate'],
+        'tax_amount'           => (float)$p['tax_amount'],
+        'tax_course'           => $taxInCourse,
+        'exchange_rate'        => $exRate,
+        'is_foreign'           => ($exRate !== null),
+        'note'                 => $p['note'],
+        'discount_type'        => $p['discount_type'],
+        'cp_discount'          => (float)$p['cp_discount'],
+        'discount_type_id'     => (int)$p['discount_type_discount_type_id'],
+
+        /* NEW fields */
+        'installment_id'       => $installmentId,
+        'installment_balance'  => $installmentBalance,   // > 0 = still owing, <= 0 = settled/overpaid
+        'balance_as_of'        => $p['date_paid'],        // full timestamp for display
     ];
 
     $grandTotalPaid     += $paidInCourse;
     $grandTotalAmount   += (float)$p['cp_amount'];
     $grandTotalDiscount += $discountInCourse;
-    $grandTotalPenalty  += $penaltyInCourse;  // Only pre-payment penalties
+    $grandTotalPenalty  += $penaltyInCourse;
     $grandTotalTax      += $taxInCourse;
 }
 
@@ -320,7 +488,7 @@ $receipt['course_currency']      = $courseCurrencyCode;
 $receipt['grand_total_paid']     = $grandTotalPaid;
 $receipt['grand_total_amount']   = $grandTotalAmount;
 $receipt['grand_total_discount'] = $grandTotalDiscount;
-$receipt['grand_total_penalty']  = $grandTotalPenalty;  // Pre-payment penalties only
+$receipt['grand_total_penalty']  = $grandTotalPenalty;
 $receipt['grand_total_tax']      = $grandTotalTax;
 $receipt['branch_address']       = "No.154, Havelock Road, Thimbirigasyaya, Colombo 05";
 $receipt['branch_phone']         = "+94 114 325 864";

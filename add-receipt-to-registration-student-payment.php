@@ -228,6 +228,7 @@ if (!SessionUser::hasValidSession()) {
                         $basePayable    = $paymentData['amount'] - $totalDiscount + $totalPenalty;
                         $taxRateDecimal = $latestTaxRate / 100;
                         $basePortion    = 1 - $taxRateDecimal;
+                        $totalPayableTax = $basePayable * $taxRateDecimal / $basePortion;
 
                         $paidBaseTotal  = ($basePortion > 0) ? $convertedPaidTotal * $basePortion : 0;
                         $remainingBase  = max(0, $basePayable - $paidBaseTotal);
@@ -283,7 +284,7 @@ if (!SessionUser::hasValidSession()) {
                         $discountAmtLKR = $totalDiscount       * $exchangeRateValue;
                         $penaltyAmtLKR  = $paymentData['panelty_amount_lkr']
                             + ($totalPenalty - $paneltyPaymentsConverted) * $exchangeRateValue;
-                        $taxAmtLKR      = $totalTax            * $exchangeRateValue;
+                        $taxAmtLKR      = $totalPayableTax            * $exchangeRateValue;
 
                         $isBaseCurrencyLKR = ($paymentData['currency_id'] == $lkrCurrencyId);
 ?>
@@ -848,7 +849,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </div>
                                                                                             <div class="lkr-panel-item">
                                                                                                 <span class="lkr-item-label">Total Tax</span>
-                                                                                                <span class="lkr-item-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalTax, $paymentData['decimal_places']) ?></span>
+                                                                                                <span class="lkr-item-value"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalPayableTax, $paymentData['decimal_places']) ?></span>
                                                                                             </div>
                                                                                             <div class="lkr-panel-item">
                                                                                                 <span class="lkr-item-label">Total Payable</span>
@@ -896,7 +897,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <div class="lkr-panel-item">
                                                                                                     <span class="lkr-item-label">Total Tax</span>
                                                                                                     <span class="lkr-item-value">LKR <?= number_format($taxAmtLKR, 2) ?></span>
-                                                                                                    <span class="lkr-item-sub"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalTax, $paymentData['decimal_places']) ?></span>
+                                                                                                    <span class="lkr-item-sub"><?= htmlspecialchars($paymentData['currency_code']) ?> <?= number_format($totalPayableTax, $paymentData['decimal_places']) ?></span>
                                                                                                 </div>
                                                                                                 <div class="lkr-panel-item">
                                                                                                     <span class="lkr-item-label">Total Payable</span>

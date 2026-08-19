@@ -141,6 +141,102 @@ if (!SessionUser::hasValidSession()) {
                 }
                 return $lkrAmount; // no rate resolvable
             }
+
+            $query = "
+                                                                            SELECT
+                                                                                r.course_payment_receipt_id,
+                                                                                r.receipt_number,
+
+                                                                                br.branch_id,
+                                                                                br.branch,
+
+                                                                                shi.students_has_intakes_id,
+                                                                                s.student_id AS aId,
+                                                                                ld.first_name,
+                                                                                ld.last_name,
+                                                                                t.title,
+
+                                                                                cu.user_id      AS counsellor_id,
+                                                                                cu.user_fname   AS counsellor_first_name,
+                                                                                cu.user_lname   AS counsellor_last_name,
+
+                                                                                GROUP_CONCAT(DISTINCT pgp.payment_type ORDER BY pgp.payment_type SEPARATOR ', ') AS payment_types,
+
+                                                                                MIN(cpp.date_paid)                    AS paid_date,
+                                                                                SUM(cpp.paid_amount)                  AS total_paid_amount,
+
+                                                                                /* Raw paid currency as actually recorded (may be NULL) */
+                                                                                MAX(cpp.currencies_currency_id)       AS raw_paid_currency_id,
+
+                                                                                /* The course's own (base) currency */
+                                                                                MAX(course_cur.currency_id)           AS base_currency_id,
+                                                                                MAX(course_cur.code)                  AS base_currency_code,
+                                                                                MAX(course_cur.decimal_places)        AS base_decimal_places,
+
+                                                                                MAX(cpp.currency_exchange_rate_id)    AS exchange_rate_id,
+                                                                                MAX(cpp.currency_exchange_rate)       AS inline_exchange_rate,
+
+                                                                                COALESCE(paid_cur.code, course_cur.code) AS paid_currency_code,
+                                                                                COALESCE(paid_cur.decimal_places, course_cur.decimal_places) AS paid_decimal_places
+
+                                                                            FROM course_payment_receipts r
+
+                                                                            INNER JOIN course_payment_has_payments cpp
+                                                                                ON cpp.course_payment_receipts_course_payment_receipt_id = r.course_payment_receipt_id
+
+                                                                            INNER JOIN course_payments cp
+                                                                                ON cp.course_payments_id = cpp.course_payments_course_payments_id
+
+                                                                            INNER JOIN payment_type pgp
+                                                                                ON cp.payment_type_payment_type_id = pgp.payment_type_id
+
+                                                                            INNER JOIN payment_plan_has_students_has_intakes phsi
+                                                                                ON cp.payment_plan_has_students_has_intakes_id = phsi.payment_plan_has_students_has_intakes_id
+
+                                                                            INNER JOIN payment_category pc
+                                                                                ON phsi.payment_category_payment_category_id = pc.payment_category_id
+
+                                                                            INNER JOIN currencies course_cur
+                                                                                ON pc.currencies_currency_id = course_cur.currency_id
+
+                                                                            LEFT JOIN currencies paid_cur
+                                                                                ON cpp.currencies_currency_id = paid_cur.currency_id
+
+                                                                            INNER JOIN students_has_intakes shi
+                                                                                ON r.students_has_intakes_students_has_intakes_id = shi.students_has_intakes_id
+
+                                                                            INNER JOIN students s
+                                                                                ON shi.students_student_id = s.student_id
+
+                                                                            INNER JOIN login_details ld
+                                                                                ON s.login_details_login_details_id = ld.login_details_id
+
+                                                                            INNER JOIN title t
+                                                                                ON s.title_title_id = t.title_id
+
+                                                                            /* Counsellor: students.users_user_id -> users */
+                                                                            LEFT JOIN users cu
+                                                                                ON s.users_user_id = cu.user_id
+
+                                                                            /* Branch chain: intakes -> programmes -> faculties -> branches */
+                                                                            INNER JOIN intakes intk
+                                                                                ON shi.intakes_intake_id = intk.intake_id
+
+                                                                            INNER JOIN programmes prog
+                                                                                ON intk.programmes_programme_id = prog.programme_id
+
+                                                                            INNER JOIN faculties fac
+                                                                                ON prog.faculties_faculty_id = fac.faculty_id
+
+                                                                            INNER JOIN branches br
+                                                                                ON fac.branches_branch_id = br.branch_id
+
+                                                                            GROUP BY r.course_payment_receipt_id
+                                                                            ORDER BY r.course_payment_receipt_id DESC
+                                                                        ";
+
+            $results         = Database::search($query);
+            $results_count   = $results->num_rows;
 ?>
             <!DOCTYPE html>
             <html lang="en">
@@ -185,7 +281,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                     <ol class="breadcrumb m-0">
                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="payments" data-i18n="payments">Payments</a></li>
-                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./students-payment" data-i18n="student-payments">Manage Students Payments</a></li>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./students-payments-reports" >Students Payments Reports</a></li>
                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Collection Report</a></li>
                                                     </ol>
                                                 </nav>
@@ -197,7 +293,13 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="row p-0 m-0 g-0">
                                                 <div class="col-12 mb-4">
                                                     <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
-                                                        <div class="col-12 col-md-8 col-lg-9 d-flex flex-column">
+                                                        <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                            <div class="d-flex custom-div align-items-center justify-content-center">
+
+                                                                <span class="text-14 dark-theme fw-medium p-0 m-0"><?php echo $results_count; ?> Payments</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-md-8 col-lg-7 d-flex flex-column">
                                                             <div class="h-100 d-flex align-items-center p-1 bl-solid">
                                                                 <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 py-2"></iconify-icon>
                                                                 <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." id="search-text" onkeyup="handleCollectionReportPagination('filter')">
@@ -358,101 +460,7 @@ if (!SessionUser::hasValidSession()) {
                                                                          * All course_payment_has_payments lines under the same
                                                                          * receipt are aggregated (SUM / GROUP_CONCAT / MIN / MAX).
                                                                          */
-                                                                        $query = "
-                                                                            SELECT
-                                                                                r.course_payment_receipt_id,
-                                                                                r.receipt_number,
 
-                                                                                br.branch_id,
-                                                                                br.branch,
-
-                                                                                shi.students_has_intakes_id,
-                                                                                s.student_id AS aId,
-                                                                                ld.first_name,
-                                                                                ld.last_name,
-                                                                                t.title,
-
-                                                                                cu.user_id      AS counsellor_id,
-                                                                                cu.user_fname   AS counsellor_first_name,
-                                                                                cu.user_lname   AS counsellor_last_name,
-
-                                                                                GROUP_CONCAT(DISTINCT pgp.payment_type ORDER BY pgp.payment_type SEPARATOR ', ') AS payment_types,
-
-                                                                                MIN(cpp.date_paid)                    AS paid_date,
-                                                                                SUM(cpp.paid_amount)                  AS total_paid_amount,
-
-                                                                                /* Raw paid currency as actually recorded (may be NULL) */
-                                                                                MAX(cpp.currencies_currency_id)       AS raw_paid_currency_id,
-
-                                                                                /* The course's own (base) currency */
-                                                                                MAX(course_cur.currency_id)           AS base_currency_id,
-                                                                                MAX(course_cur.code)                  AS base_currency_code,
-                                                                                MAX(course_cur.decimal_places)        AS base_decimal_places,
-
-                                                                                MAX(cpp.currency_exchange_rate_id)    AS exchange_rate_id,
-                                                                                MAX(cpp.currency_exchange_rate)       AS inline_exchange_rate,
-
-                                                                                COALESCE(paid_cur.code, course_cur.code) AS paid_currency_code,
-                                                                                COALESCE(paid_cur.decimal_places, course_cur.decimal_places) AS paid_decimal_places
-
-                                                                            FROM course_payment_receipts r
-
-                                                                            INNER JOIN course_payment_has_payments cpp
-                                                                                ON cpp.course_payment_receipts_course_payment_receipt_id = r.course_payment_receipt_id
-
-                                                                            INNER JOIN course_payments cp
-                                                                                ON cp.course_payments_id = cpp.course_payments_course_payments_id
-
-                                                                            INNER JOIN payment_type pgp
-                                                                                ON cp.payment_type_payment_type_id = pgp.payment_type_id
-
-                                                                            INNER JOIN payment_plan_has_students_has_intakes phsi
-                                                                                ON cp.payment_plan_has_students_has_intakes_id = phsi.payment_plan_has_students_has_intakes_id
-
-                                                                            INNER JOIN payment_category pc
-                                                                                ON phsi.payment_category_payment_category_id = pc.payment_category_id
-
-                                                                            INNER JOIN currencies course_cur
-                                                                                ON pc.currencies_currency_id = course_cur.currency_id
-
-                                                                            LEFT JOIN currencies paid_cur
-                                                                                ON cpp.currencies_currency_id = paid_cur.currency_id
-
-                                                                            INNER JOIN students_has_intakes shi
-                                                                                ON r.students_has_intakes_students_has_intakes_id = shi.students_has_intakes_id
-
-                                                                            INNER JOIN students s
-                                                                                ON shi.students_student_id = s.student_id
-
-                                                                            INNER JOIN login_details ld
-                                                                                ON s.login_details_login_details_id = ld.login_details_id
-
-                                                                            INNER JOIN title t
-                                                                                ON s.title_title_id = t.title_id
-
-                                                                            /* Counsellor: students.users_user_id -> users */
-                                                                            LEFT JOIN users cu
-                                                                                ON s.users_user_id = cu.user_id
-
-                                                                            /* Branch chain: intakes -> programmes -> faculties -> branches */
-                                                                            INNER JOIN intakes intk
-                                                                                ON shi.intakes_intake_id = intk.intake_id
-
-                                                                            INNER JOIN programmes prog
-                                                                                ON intk.programmes_programme_id = prog.programme_id
-
-                                                                            INNER JOIN faculties fac
-                                                                                ON prog.faculties_faculty_id = fac.faculty_id
-
-                                                                            INNER JOIN branches br
-                                                                                ON fac.branches_branch_id = br.branch_id
-
-                                                                            GROUP BY r.course_payment_receipt_id
-                                                                            ORDER BY r.course_payment_receipt_id DESC
-                                                                        ";
-
-                                                                        $results         = Database::search($query);
-                                                                        $results_count   = $results->num_rows;
                                                                         $result_per_page = 10;
                                                                         $pageno          = 1;
                                                                         $page_results    = ($pageno - 1) * $result_per_page;

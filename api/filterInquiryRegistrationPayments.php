@@ -16,6 +16,10 @@ if (SessionUser::hasValidSession()) {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                     $search_text = isset($decoded['text']) ? $decoded['text'] : '';
+                    $branch = isset($decoded['branch']) ? $decoded['branch'] : 0;
+                    $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : 0;
+                    $programme = isset($decoded['programme']) ? $decoded['programme'] : 0;
+                    $intake = isset($decoded['intake']) ? $decoded['intake'] : 0;
                     $sort = isset($decoded['sort']) ? $decoded['sort'] : 0;
                     $sortByName = isset($decoded['sortByName']) ? $decoded['sortByName'] : 0;
                     $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
@@ -73,6 +77,15 @@ if (SessionUser::hasValidSession()) {
 
                                                         INNER JOIN `students_has_intakes`
                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                                                        INNER JOIN `intakes`
+                                                            ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
+                                                         
+                                                         INNER JOIN `programmes`
+                                                             ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
+                                                         
+                                                         INNER JOIN `faculties`
+                                                             ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
                                                          
                                                          INNER JOIN `lead_student_status`
                                                              ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
@@ -98,19 +111,31 @@ if (SessionUser::hasValidSession()) {
                                                          
                                                          LEFT JOIN `title` AS `updated_user_title`
                                                              ON `updated_user`.`title_title_id` = `updated_user_title`.`title_id`
-                                                         
+                                                         WHERE 1=1
                                                        ";
 
                     if ($search_text != "") {
-                        $query .= " WHERE (`students`.`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                        $query .= " AND (`students`.`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                    }
+
+                    if ($branch != 0) {
+                        $query .= " AND `faculties`.`branches_branch_id` = '" . $branch . "'";
+                    }
+
+                    if ($faculty != 0) {
+                        $query .= " AND `faculties`.`faculty_id` = '" . $faculty . "'";
+                    }
+
+                    if ($programme != 0) {
+                        $query .= " AND `programmes`.`programme_id` = '" . $programme . "'";
+                    }
+
+                    if ($intake != 0) {
+                        $query .= " AND `intakes`.`intake_id` = '" . $intake . "'";
                     }
 
                     if ($sort != 0) {
-                        if (strpos($query, 'WHERE') == false) {
-                            $query .= " WHERE `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
-                        } else {
-                            $query .= " AND `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
-                        }
+                        $query .= " AND `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
                     }
 
                     $order_key = " ORDER BY";
@@ -149,31 +174,40 @@ if (SessionUser::hasValidSession()) {
                                 <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium align-content-center w-25">
                                     <div class="d-flex flex-row align-items-center cursor-pointer">
                                         <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
-                                        <div class="d-flex justify-content-between align-items-center w-100" onclick="handleInquiryPagination('sortByName')">
+                                        <div class="d-flex justify-content-between align-items-center w-100" onclick="handleInquiryRegistrationPaymentsPagination('sortByName')">
                                             <span class="text-14 main-text fw-medium mx-2">Student Name</span>
                                             <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                         </div>
                                     </div>
                                 </th>
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Email Address</th>
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Mobile</th>
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">WhatsApp Number</th>
-                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryPagination('sortByDate')">
+                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryRegistrationPaymentsPagination('sortByDate')">
                                     <div class="d-flex justify-content-between align-items-center w-100">
                                         <span class="text-14 main-text fw-medium">Date Added</span>
                                         <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                     </div>
                                 </th>
                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Added By</th>
+                                <th scope="col" class="py-3 bg-table-header align-content-center cursor-pointer" onclick="handleInquiryRegistrationPaymentsPagination('sortByDate')">
+                                    <div class="d-flex justify-content-between align-items-center w-100">
+                                        <span class="text-14 main-text fw-medium">Date Updated</span>
+                                        <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
+                                    </div>
+                                </th>
+                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Updated By</th>
                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
-
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
-
+                                <?php
+                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole)) {
+                                ?>
+                                    <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
+                                <?php
+                                }
+                                ?>
                             </tr>
                         </thead>
                         <tbody id="user-table-data">
                             <?php
+                           
                             if ($students->num_rows > 0) {
                                 while ($data = $students->fetch_assoc()) {
                             ?>
@@ -183,7 +217,7 @@ if (SessionUser::hasValidSession()) {
                                                 <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["sId"]; ?>" onchange="checkRowEvents(<?php echo $data['sId']; ?>);">
                                                 <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
                                                     <?php
-                                                    if (!empty($data["profile_img"]) && file_exists('../assets/imgs/students/' . $data["profile_img"])) {
+                                                    if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
                                                     ?>
                                                         <img src="./assets/imgs/students/<?php echo $data["profile_img"]; ?>" class="hwr-40" alt="Students image">
                                                     <?php
@@ -200,47 +234,26 @@ if (SessionUser::hasValidSession()) {
                                             </div>
                                         </td>
 
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["email"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["mobile"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["whatsapp"]; ?></span></td>
                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo date("Y-m-d h:i A", strtotime($data["date_registered"])); ?></span></td>
                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["user_title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span></td>
                                         <?php
-
-                                        $displayStatusId = $data['lead_student_status_id'];
-                                        $displayStatus = $data['lead_student_status'];
-
-                                        // if ($data['lead_student_status_id'] == 5) {
-
-                                        //     $requiredDocumentTypes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-
-                                        //     $documentCount = Database::search("
-                                        //     SELECT COUNT(DISTINCT students_identity_documents_type_id) AS total
-                                        //     FROM students_identity_documents
-                                        //     WHERE students_student_id = '" . $data['sId'] . "'
-                                        //     AND students_identity_documents_type_id IN (1,2,3,4,5,6,7,8,9,10,11)
-                                        // ");
-
-                                        //     $documentData = $documentCount->fetch_assoc();
-
-                                        //     if ((int)$documentData['total'] < count($requiredDocumentTypes)) {
-
-                                        //         // Additional Documents Pending
-                                        //         $displayStatusId = 6;
-                                        //         $displayStatus = "Additional Documents Pending";
-                                        //     } else {
-                                        //         // First Installment Payment Pending
-                                        //         $displayStatusId = 7;
-                                        //         $displayStatus = "First Installment Payment Pending";
-                                        //     }
-                                        // }
+                                        if ($data["lead_student_status_id"] == 1) {
+                                        ?>
+                                            <td class="py-2 align-middle"><span class="text-14 main-text">N/A</span></td>
+                                            <td class="py-2 align-middle"><span class="text-14 main-text">N/A</span></td>
+                                        <?php
+                                        } else {
+                                        ?>
+                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo date("Y-m-d h:i A", strtotime($data["latest_log_date"])); ?></span></td>
+                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo $data["updated_user_title"] . "." . $data["updated_user_fname"] . " " . $data["updated_user_lname"]; ?></span></td>
+                                        <?php
+                                        }
                                         ?>
 
                                         <td class="py-2 align-middle">
-                                            <button class="table-btn label-student-status-<?php echo $displayStatusId; ?> w-100">
-                                                <?php echo htmlspecialchars($displayStatus); ?>
-                                            </button>
+                                            <label class="table-btn label-student-status-<?php echo $data["lead_student_status_id"]; ?> text-center w-100"> <?php echo $data["lead_student_status"]; ?></label>
                                         </td>
+
                                         <?php
                                         if (SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsAccounts($sessionUserRole)) {
                                         ?>
@@ -257,13 +270,13 @@ if (SessionUser::hasValidSession()) {
                                                         ?>
 
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&inquiry-id=<?php echo $data['sId']; ?>">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&path=payments">
                                                                     <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                     View Student Payment Plan</a></li>
 
                                                         <?php
                                                         }
-                                                        if ($data['lead_student_status_id'] == 5) {
+                                                        if ($data['lead_student_status_id'] == 3 || $data['lead_student_status_id'] == 4) {
                                                         ?>
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                             <li>
@@ -280,16 +293,12 @@ if (SessionUser::hasValidSession()) {
                                                         }
                                                         ?>
 
-
-
-
                                                     </ul>
                                                 </div>
                                             </td>
                                         <?php
                                         }
                                         ?>
-
 
                                     </tr>
                                 <?php
@@ -312,7 +321,7 @@ if (SessionUser::hasValidSession()) {
                         <nav aria-label="..." class="col-12 px-2 pe-2 m-0 container-fluid">
                             <div class="row p-4 align-items-center">
                                 <!-- Previous Button (col-1) -->
-                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleInquiryPagination('previousPage');">
+                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme previous-button" onclick="handleInquiryRegistrationPaymentsPagination('previousPage');">
                                     <iconify-icon icon="tabler:arrow-left" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                     <span class="text-14 main-text fw-semibold">Previous</span>
                                 </button>
@@ -326,7 +335,7 @@ if (SessionUser::hasValidSession()) {
                                         function renderPageButton($i, $isActive = false)
                                         {
                                             $activeClass = $isActive ? 'active' : '';
-                                            $action = $isActive ? '' : "onclick=\"handleInquiryPagination('goToPage', '{$i}')\"";
+                                            $action = $isActive ? '' : "onclick=\"handleInquiryRegistrationPaymentsPagination('goToPage', '{$i}')\"";
                                             echo "<li class='page-item {$activeClass}' id='page-{$i}'><button class='py-2 px-3' {$action}>{$i}</button></li>";
                                         }
 
@@ -346,7 +355,7 @@ if (SessionUser::hasValidSession()) {
                                     </ul>
                                 </div>
                                 <!-- Next Button (col-1) -->
-                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleInquiryPagination('nextPage',<?= $number_of_pages ?>);">
+                                <button class="col-2 col-lg-1 p-2 bl-solid br-8 d-flex align-items-center justify-content-center component-theme next-button" onclick="handleInquiryRegistrationPaymentsPagination('nextPage',<?= $number_of_pages ?>);">
                                     <span class="text-14 main-text fw-semibold">Next</span>
                                     <iconify-icon icon="tabler:arrow-right" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
                                 </button>

@@ -64,6 +64,99 @@ class AdminDashboardSummary
             'period'      => $period
         ];
     }
+
+
+    /**
+     * TEMPORARY debug version — swap this in for getCurrencyIncomeCards()
+     * to find out why no cards are showing. Remove the error_log/die lines
+     * once you've confirmed the real cause.
+     */
+    private static function getCurrencyIncomeCards()
+    {
+        // <-- adjust these two if DESCRIBE currencies shows different names
+        $codeCol = 'c.code';
+        $nameCol = 'c.name';
+
+        $sql = "
+        SELECT
+            c.currency_id,
+            {$codeCol} AS currency_code,
+            {$nameCol} AS currency_name,
+            COALESCE(SUM(CASE
+                WHEN cpp.payment_status_payment_status_id = 3
+                
+                 AND MONTH(cpp.date_paid) = MONTH(CURDATE())
+                 AND YEAR(cpp.date_paid) = YEAR(CURDATE())
+                THEN cpp.paid_amount ELSE 0 END), 0) AS current_amount,
+            COALESCE(SUM(CASE
+                WHEN cpp.payment_status_payment_status_id = 3
+                 AND MONTH(cpp.date_paid) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                 AND YEAR(cpp.date_paid) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+                THEN cpp.paid_amount ELSE 0 END), 0) AS previous_amount
+        FROM currencies c
+        LEFT JOIN course_payment_has_payments cpp
+            ON cpp.currencies_currency_id = c.currency_id
+        LEFT JOIN course_payments cp
+            ON cpp.course_payments_course_payments_id = cp.course_payments_id
+        LEFT JOIN payment_plan_has_students_has_intakes ppsi
+            ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
+        GROUP BY c.currency_id, {$codeCol}, {$nameCol}
+        ORDER BY current_amount DESC
+        LIMIT 8
+    ";
+
+        $rows = Database::search($sql);
+
+        $cards = [];
+        if (!$rows) {
+            return $cards;
+        }
+
+        while ($row = $rows->fetch_assoc()) {
+            $currencyId   = $row['currency_id'];
+            $currencyCode = $row['currency_code'];
+            $currencyName = $row['currency_name'];
+
+            // Same category/status filter as the summary query above, so the
+            // chart and the card total always agree with each other.
+            $chart = self::getMonthlySeries("
+            SELECT
+                DATE_FORMAT(cpp.date_paid, '%Y-%m') AS month_key,
+                SUM(cpp.paid_amount) AS total
+            FROM course_payment_has_payments cpp
+            INNER JOIN course_payments cp
+                ON cpp.course_payments_course_payments_id = cp.course_payments_id
+            INNER JOIN payment_plan_has_students_has_intakes ppsi
+                ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
+            WHERE cpp.payment_status_payment_status_id = 3
+              AND ppsi.payment_category_payment_category_id = 5
+              AND cpp.currencies_currency_id = " . (int)$currencyId . "
+              AND cpp.date_paid IS NOT NULL
+              AND cpp.date_paid >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 4 MONTH), '%Y-%m-01')
+            GROUP BY DATE_FORMAT(cpp.date_paid, '%Y-%m')
+        ");
+
+            $meta = self::buildChangeMeta($row['current_amount'], $row['previous_amount']);
+
+            $cards[] = [
+                'title'       => $currencyCode . ' - ' . $currencyName,
+                'value'       => number_format((float)$row['current_amount'], 2),
+                'icon'        => 'mdi:cash-multiple',
+                'change'      => $meta['change'],
+                'change_type' => $meta['change_type'],
+                'period'      => $meta['period'],
+                'chart'       => $chart,
+                'currency'    => $currencyCode,
+                'currency_id' => $currencyId,
+                'card_type'   => 'currency_income',
+                'link'        => 'currency-income-history.php?currency=' . $currencyId
+            ];
+        }
+
+        return $cards;
+    }
+
+
     public static function getDashboardSummary()
     {
         $cardData = self::fetchRow("
@@ -467,7 +560,8 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Total active',
-                'chart' => []
+                'chart' => [],
+                'link' => 'students'
             ],
             [
                 'title' => 'Monthly New Admissions',
@@ -476,7 +570,8 @@ class AdminDashboardSummary
                 'change' => $admissionsMeta['change'],
                 'change_type' => $admissionsMeta['change_type'],
                 'period' => $admissionsMeta['period'],
-                'chart' => $admissionsChart
+                'chart' => $admissionsChart,
+                'link' => ''
             ],
             [
                 'title' => 'Users',
@@ -485,7 +580,8 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Active',
-                'chart' => []
+                'chart' => [],
+                'link' => 'users'
             ],
             [
                 'title' => 'Lecturers',
@@ -494,46 +590,10 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Active',
-                'chart' => []
+                'chart' => [],
+                'link' => ''
             ],
 
-            [
-                'title' => 'Monthly Income',
-                'value' => number_format((float)$paymentCardData['monthly_batch_income'], 2),
-                'icon' => 'mdi:cash-multiple',
-                'change' => $incomeMeta['change'],
-                'change_type' => $incomeMeta['change_type'],
-                'period' => $incomeMeta['period'],
-                'chart' => $incomeChart
-            ],
-
-            [
-                'title' => 'Due Payments',
-                'value' => number_format((float)$paymentCardData['total_awaiting_amount'], 2),
-                'icon' => 'mdi:calendar-clock-outline',
-                'change' => $dueMeta['change'],
-                'change_type' => $dueMeta['change_type'],
-                'period' => $dueMeta['period'],
-                'chart' => $duePaymentsChart
-            ],
-            [
-                'title' => 'Pending Approval Payments',
-                'value' => number_format((float)$paymentCardData['pending_approval_payments'], 2),
-                'icon' => 'mdi:timer-sand',
-                'change' => $pendingMeta['change'],
-                'change_type' => $pendingMeta['change_type'],
-                'period' => $pendingMeta['period'],
-                'chart' => $pendingApprovalChart
-            ],
-            [
-                'title' => 'Rejected Payments',
-                'value' => number_format((float)$paymentCardData['reject_payments'], 2),
-                'icon' => 'mdi:close-circle-outline',
-                'change' => $rejectMeta['change'],
-                'change_type' => $rejectMeta['change_type'],
-                'period' => $rejectMeta['period'],
-                'chart' => $rejectedPaymentsChart
-            ],
 
             [
                 'title' => 'Faculties',
@@ -542,7 +602,8 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Total',
-                'chart' => []
+                'chart' => [],
+                'link' => ''
             ],
             [
                 'title' => 'Programmes',
@@ -551,7 +612,8 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Total',
-                'chart' => []
+                'chart' => [],
+                'link' => ''
             ],
             [
                 'title' => 'Intakes',
@@ -560,7 +622,8 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Total',
-                'chart' => []
+                'chart' => [],
+                'link' => ''
             ],
 
             [
@@ -570,10 +633,16 @@ class AdminDashboardSummary
                 'change' => '',
                 'change_type' => 'neutral',
                 'period' => 'Active',
-                'chart' => []
+                'chart' => [],
+                'link' => ''
             ]
 
         ];
+
+        $currencyCards = self::getCurrencyIncomeCards();
+        // Insert currency cards right after 'Lecturers' (index 3) and before 'Faculties'.
+        // array_splice mutates $dashboardCards in place.
+        array_splice($dashboardCards, 4, 0, $currencyCards);
 
         return $dashboardCards;
     }

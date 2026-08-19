@@ -23,7 +23,8 @@ if (SessionUser::hasValidSession()) {
             if (empty($acc_no) || !is_numeric($acc_no)) {
                 $status->acc_no = "Account number is required";
             } else {
-                $isValidAccNo = Database::search("SELECT * FROM `bank` WHERE `acc_no`='" . $acc_no . "'");
+                $isValidAccNo = Database::search("SELECT * FROM `bank` 
+                WHERE `acc_no`='" . $acc_no . "' AND `branches_branch_id`='" . $branch_select . "'");
                 if ($isValidAccNo->num_rows > 0) {
                     $status->acc_no = "Account number already exists";
                 }

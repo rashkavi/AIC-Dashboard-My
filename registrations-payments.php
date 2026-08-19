@@ -95,15 +95,61 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                     </div>
                                                     <div class="col-12 col-md-2 col-lg-1 d-flex flex-column justify-content-end">
-                                                        <button class="custom-btn w-100" type="button" data-bs-toggle="collapse" data-bs-target="#studentsFilter" aria-expanded="false" aria-controls="studentsFilter">
+                                                        <button class="custom-btn w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filter" aria-expanded="false" aria-controls="filter">
                                                             <iconify-icon icon="mage:filter" width="26" height="26" class="text-white px-3 pe-3 py-2"></iconify-icon>
                                                         </button>
                                                     </div>
-                                                    <div class="collapse" id="studentsFilter">
+                                                    <div class="collapse" id="filter">
                                                         <div class="card card-body border-0 p-0">
                                                             <div class="col-12">
-                                                                <div class="row">
+                                                                <div class="row gy-3 justify-content-end">
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties(),handleInquiryRegistrationPaymentsPagination('filter');">
+                                                                            <option value="0" selected>- Select Branch -</option>
+                                                                            <?php
 
+                                                                            $faculties = Database::search("SELECT * FROM `branches`");
+                                                                            while ($data = $faculties->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                        <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes(),handleInquiryRegistrationPaymentsPagination('filter');">
+                                                                            <option value="0" selected>- Select Faculty -</option>
+
+                                                                        </select>
+                                                                        <span id="faculty-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="programme-selector" disabled class="form-select custom-select mt-2" onchange="handleInquiryRegistrationPaymentsPagination('filter'),loadIntakes();">
+                                                                            <option value="0" selected>- Select Programme -</option>
+                                                                        </select>
+                                                                        <span id="programme-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
+                                                                        <select name="" id="intake-selector" disabled class="form-select custom-select mt-2" onchange="handleInquiryRegistrationPaymentsPagination('filter'),loadLevels();">
+                                                                            <option value="0" selected>- Select Intake -</option>
+                                                                        </select>
+                                                                        <span id="intake-feedback" class="text-dark-red text-12"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-md-4 col-lg-2 d-flex align-items-center justify-content-end">
+                                                                        <select class="form-select custom-select" aria-label="Default select example" id="sort-selector" onchange="handleInquiryRegistrationPaymentsPagination('filter')">
+                                                                            <option selected value="0">- Select Status -</option>
+                                                                            <?php
+                                                                            $leadStatus = Database::search("SELECT * FROM `lead_student_status`");
+                                                                            while ($status = $leadStatus->fetch_assoc()) {
+                                                                            ?>
+                                                                                <option value="<?php echo $status["lead_student_status_id"]; ?>"><?php echo $status["lead_student_status"]; ?></option>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
+                                                                        </select>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -327,11 +373,9 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                         <?php
                                                                                         }
-                                                                                        if ($data['lead_student_status_id'] == 5) {
+                                                                                        if ($data['lead_student_status_id'] == 3 || $data['lead_student_status_id'] == 4) {
                                                                                         ?>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-
-
                                                                                             <li>
                                                                                                 <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
                                                                                                     onclick="openAccountsConfirmModal(<?= $data['sId']; ?>)">

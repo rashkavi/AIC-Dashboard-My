@@ -251,6 +251,7 @@ $paymentPlan = Database::search("
         ld.email,
         pt.payment_type_id, pt.payment_type,
         shi.students_has_intakes_id,
+        shi.status_status_id,
         dt.discount_type, dt.discount_type_id,
         c.code   AS currency_code,
         c.symbol AS currency_symbol,
@@ -274,8 +275,7 @@ $paymentPlan = Database::search("
     INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
     INNER JOIN title      t   ON s.title_title_id            = t.title_id
     WHERE cp.course_payments_id = '" . $payment_id . "'
-    AND (shi.status_status_id = '1' OR shi.status_status_id IS NULL)
-    AND (ld.status_status_id = '1' OR ld.status_status_id IS NULL)
+    
 ");
 
 if (!$paymentPlan || $paymentPlan->num_rows == 0) {
@@ -326,6 +326,35 @@ foreach (['error', 'amount', 'slip', 'paid_date', 'method', 'discount', 'panelty
         exit;
     }
 }
+
+$timezone = new DateTimeZone("Asia/Colombo");
+$now      = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
+$dateTime = new DateTime("now", $timezone);
+$date = $dateTime->format('Y-m-d H:i:s');
+$today = date('Y-m-d', strtotime($date));
+
+
+if ($payment_status == 4) {
+
+    Database::iud("
+        UPDATE `course_payment_has_payments`
+        SET `payment_status_payment_status_id` = '4'
+        WHERE `course_payment_has_payment_id` = '$payment_id'
+    ");
+
+    $logNote = addslashes($note ?: 'Payment rejected');
+    Database::iud("
+        INSERT INTO `payment_logs`
+            (`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `note`, `log`)
+        VALUES
+            ('$coursePaymentsId', '$payment_id', '" . $sessionUserObject['user_id'] . "', '$now', '$logNote', '$logNote')
+    ");
+
+    $status->done = 'Payment has been rejected.';
+    echo json_encode($status);
+    exit;
+}
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    CONVERT ORIGINAL AMOUNTS TO BASE CURRENCY (for all calculations)
@@ -821,6 +850,82 @@ if (in_array($paymentData['lead_student_status_lead_student_status_id'], [5, 9])
             VALUES ('" . $paymentData['student_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'First installment payment receipt uploaded', '8')");
     }
 }
+
+if ($paymentData['status_status_id'] == 2) {
+
+    $query = "
+                                        SELECT
+                                            `cp`.`course_payments_id`,
+                                            `cp`.`amount`,
+                                            `cp`.`discount`,
+                                            `cp`.`due_date`,
+                                            `cp`.`discount_type_discount_type_id`,
+                                            IFNULL(pp.panelty_amount, 0) AS panelty_amount,
+                                            IFNULL(cpp.paid_amount, 0) AS paid_amount,
+                                            IFNULL(cpp.total_discount, 0) AS total_discount,
+                                            IFNULL(cpp.total_sub_panelty_amount, 0) AS total_sub_panelty_amount
+                                        FROM `course_payments` AS `cp`
+                                        INNER JOIN `payment_plan_has_students_has_intakes` AS `pphsi`
+                                            ON `cp`.`payment_plan_has_students_has_intakes_id` = `pphsi`.`payment_plan_has_students_has_intakes_id`
+                                        LEFT JOIN (
+                                            SELECT
+                                                course_payments_course_payments_id,
+                                                SUM(amount) AS panelty_amount
+                                            FROM panelty_payments
+                                            GROUP BY course_payments_course_payments_id
+                                        ) pp
+                                            ON cp.course_payments_id = pp.course_payments_course_payments_id
+                                        LEFT JOIN (
+                                            SELECT
+                                                course_payments_course_payments_id,
+                                                SUM(paid_amount) AS paid_amount,
+                                                SUM(discount_amount) AS total_discount,
+                                                SUM(panelty_amount) AS total_sub_panelty_amount
+                                            FROM course_payment_has_payments
+                                            WHERE payment_status_payment_status_id IN (2,3)
+                                            GROUP BY course_payments_course_payments_id
+                                        ) cpp
+                                            ON cp.course_payments_id = cpp.course_payments_course_payments_id
+                                        WHERE `pphsi`.`students_has_intakes_students_has_intakes_id` = '" . $paymentData['students_has_intakes_id'] . "'
+                                            AND `cp`.`payment_status_payment_status_id` = '1'
+                                            AND `cp`.`due_date` < '$today'
+                                        GROUP BY `cp`.`course_payments_id`
+                                    ";
+
+    $payments = Database::search($query);
+
+    $isOverdueWithBalance = false;
+    $overdueDetails = [];
+
+    if ($payments->num_rows > 0) {
+        while ($payment = $payments->fetch_assoc()) {
+
+            $discountAmount = $payment["discount"];
+            if ($payment["discount_type_discount_type_id"] == 3) {
+                $discountAmount = $payment["amount"] / 100 * $payment["discount"];
+            }
+
+            $payableAmount = $payment["amount"]
+                - $discountAmount
+                - $payment["total_discount"]
+                + $payment["panelty_amount"]
+                + $payment["total_sub_panelty_amount"];
+
+            $balance = $payableAmount - $payment["paid_amount"];
+
+            if ($balance > 0) {
+                $isOverdueWithBalance = true;
+                $overdueDetails[] = "course_payments_id=" . $payment["course_payments_id"]
+                    . " due_date=" . $payment["due_date"]
+                    . " balance=" . number_format($balance, 2, '.', '');
+            }
+        }
+    }
+    if (!$isOverdueWithBalance) {
+        Database::iud("UPDATE `students_has_intakes` SET `status_status_id`='1' WHERE `students_has_intakes_id`='" . $paymentData['students_has_intakes_id'] . "'");
+    }
+}
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    RESPONSE

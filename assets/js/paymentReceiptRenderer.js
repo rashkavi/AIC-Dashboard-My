@@ -1,29 +1,14 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   paymentReceiptRenderer.js  — v7 FIXED LOGO BACKGROUND
-   
-   FORMAT CHANGE:
-   Instead of showing what was OWED, now shows what was ACTUALLY PAID
-   
-   LOGO AREA FIX:
-   Changed header background from dark blue (#1e3a5f) to white (#ffffff)
-   for better logo visibility
-   
-   Old Format:
-   ├─ Total Course Fee (owed): 30,000
-   ├─ Total Discount: —
-   ├─ Total Penalty: —
-   ├─ Total Tax: 300
-   ├─ TOTAL PAID: 10,256.41
-   └─ BALANCE DUE: 20,043.59
-   
-   New Format:
-   ├─ Course Fee (paid/net): 9,956.41
-   ├─ Discount: —
-   ├─ Penalty: —
-   ├─ Tax: 300
-   ├─ TOTAL PAID AMOUNT: 10,256.41
-   └─ (No Balance - only show FULLY PAID when paid)
-   
+   paymentReceiptRenderer.js  — v8 COUNSELLOR + INSTALLMENT BALANCE
+
+   NEW IN THIS VERSION (on top of v7):
+   1. "Counsellor" line added to Programme Details box (next to Processed by).
+   2. New "Balance" column in Payment Records table — shows the running
+      balance for THAT installment as of THAT payment's date/time
+      (pulled from data.payments[i].installment_balance / balance_as_of,
+      computed server-side in getReceiptData.php v5).
+      - Balance > 0.005  -> shown in amber, "as of <date time>"
+      - Balance <= 0.005 -> shown as "Fully Paid" in green
 ════════════════════════════════════════════════════════════════════════════ */
 
 var mGet = function (id) { return document.getElementById(id); };
@@ -36,6 +21,15 @@ function fmt(n, dp) {
 }
 function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* Formats a MySQL datetime ("2026-08-16 09:00:00") as "2026-08-16 09:00" */
+function fmtDateTime(s) {
+    if (!s) return '—';
+    var parts = String(s).split(/[ T]/);
+    var datePart = parts[0] || '';
+    var timePart = parts[1] ? parts[1].substring(0, 5) : '';
+    return timePart ? (datePart + ' ' + timePart) : datePart;
 }
 
 var currentReceiptId = null;
@@ -69,7 +63,16 @@ function downloadReceipt() {
     win.document.write(
         '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payment Receipt</title>' +
         '<style>*{box-sizing:border-box;margin:0;padding:0;}' +
-        'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11px;background:#fff;color:#111827;}' +
+        'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11px;background:#fff;color:#111827;' +
+        'padding-bottom:64px;}' + /* leave room so content never sits under the fixed footer block */
+        /* ── Force the payment table to fit the printed page width — no clipping, no scroll ── */
+        '.rcpt-scroll-wrap{overflow:visible!important;}' +
+        '.rcpt-payment-table{width:100%!important;min-width:0!important;table-layout:fixed!important;}' +
+        '.rcpt-payment-table th{font-size:7px!important;padding:5px 3px!important;word-break:break-word;white-space:normal!important;}' +
+        '.rcpt-payment-table td{font-size:7.5px!important;padding:5px 3px!important;word-break:break-word;white-space:normal!important;}' +
+        '.rcpt-payment-table td div{font-size:6.5px!important;}' +
+        /* ── Whole footer block (disclaimer + receipt/generated info + copyright) pinned to page bottom ── */
+        '.rcpt-page-footer{position:fixed;bottom:0;left:0;right:0;background:#fff;}' +
         '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
         '@page{size:A4 portrait;margin:8mm 10mm;}}</style></head><body>' +
         printArea.outerHTML +
@@ -155,6 +158,19 @@ function renderReceiptHTML(data) {
         var penMain = parseFloat(p.penalty_course || 0) > 0 ? cc + ' ' + fmt(p.penalty_course) : dash();
         var bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
+        /* ── NEW: per-installment balance cell ── */
+        var balMain;
+        var balVal = parseFloat(p.installment_balance);
+        if (isNaN(balVal)) {
+            balMain = dash();
+        } else if (balVal > 0.005) {
+            balMain =
+                '<span style="color:#b45309;font-weight:700;">' + cc + ' ' + fmt(balVal) + '</span>' +
+                subNote('as of ' + fmtDateTime(p.balance_as_of));
+        } else {
+            balMain = '<span style="color:#16a34a;font-weight:700;">Fully Paid</span>';
+        }
+
         payRows +=
             '<tr style="background:' + bg + ';">' +
             rTD(idx + 1, 'color:#9ca3af;width:22px;') +
@@ -168,15 +184,13 @@ function renderReceiptHTML(data) {
             rTDC(taxRateDisp) +
             rTDR(taxMain + taxSub) +
             rTDR(paidMain + paidSub, 'font-weight:700;color:#111827;') +
+            rTDR(balMain) +
             '</tr>';
     });
     if (!payRows) payRows = noDataRow();
 
     /* ════════════════════════════════════════════════════════════════════
-       🔴 NEW SUMMARY FORMAT - SHOWS WHAT WAS ACTUALLY PAID
-       
-       Course Fee (paid/net) = Total Paid (gross) - Tax
-       This is the actual amount that went toward the course
+       SUMMARY FORMAT - SHOWS WHAT WAS ACTUALLY PAID
     ════════════════════════════════════════════════════════════════════ */
 
     var totalPaidGross = data.grand_total_paid || 0;
@@ -184,15 +198,11 @@ function renderReceiptHTML(data) {
     var totalDiscount = data.grand_total_discount || 0;
     var totalPenalty = data.grand_total_penalty || 0;
 
-    // Course Fee (paid) = Gross Paid - Tax
-    // This is the net amount that actually paid the course
     var courseFeeActuallyPaid = Math.max(0, totalPaidGross - totalTax);
 
-    // Check if fully paid by comparing paid to total course fee
     var totalCourseFeeListed = data.grand_total_amount || 0;
     var isPaid = (courseFeeActuallyPaid >= totalCourseFeeListed - 0.005);
 
-    /* ── Summary rows (NEW FORMAT) ─── */
     var ROW_STYLE = 'padding:8px 13px;font-size:11px;border-bottom:1px solid #f3f4f6;';
     var LABEL_STYLE = ROW_STYLE + 'color:#374151;font-weight:500;';
     var VALUE_STYLE = ROW_STYLE + 'color:#111827;font-weight:600;text-align:right;';
@@ -205,36 +215,11 @@ function renderReceiptHTML(data) {
     }
 
     var summaryRows =
-        /* 1 — Course Fee (Paid/Net) */
         sRow('Course Fee', cc + ' ' + fmt(courseFeeActuallyPaid)) +
+        sRow('Discount', parseFloat(totalDiscount || 0) > 0 ? cc + ' ' + fmt(totalDiscount) : dash()) +
+        sRow('Penalty', parseFloat(totalPenalty || 0) > 0 ? cc + ' ' + fmt(totalPenalty) : dash()) +
+        sRow('Tax', parseFloat(totalTax || 0) > 0 ? cc + ' ' + fmt(totalTax) : dash());
 
-        /* 2 — Discount */
-        sRow(
-            'Discount',
-            parseFloat(totalDiscount || 0) > 0
-                ? cc + ' ' + fmt(totalDiscount)
-                : dash()
-        ) +
-
-        /* 3 — Penalty */
-        sRow(
-            'Penalty',
-            parseFloat(totalPenalty || 0) > 0
-                ? cc + ' ' + fmt(totalPenalty)
-                : dash()
-        ) +
-
-        /* 4 — Tax */
-        sRow(
-            'Tax',
-            parseFloat(totalTax || 0) > 0
-                ? cc + ' ' + fmt(totalTax)
-                : dash()
-        );
-
-    /* ════════════════════════════════════════════════════════════════════
-       Total Paid Amount (Gross - includes tax)
-    ════════════════════════════════════════════════════════════════════ */
     var totalRow =
         '<tr style="background:#1e3a5f;border-top:2px solid #1e3a5f;">' +
         '<td style="padding:10px 13px;font-size:12px;font-weight:700;color:#fff;">TOTAL PAID AMOUNT</td>' +
@@ -242,9 +227,6 @@ function renderReceiptHTML(data) {
         cc + ' ' + fmt(totalPaidGross) +
         '</td></tr>';
 
-    /* ════════════════════════════════════════════════════════════════════
-       Status Row - FULLY PAID or nothing (no balance shown)
-    ════════════════════════════════════════════════════════════════════ */
     var statusRow = '';
     if (isPaid) {
         statusRow =
@@ -261,15 +243,24 @@ function renderReceiptHTML(data) {
 
     var exRateNote = buildExchangeNote(data, cc);
 
-    /* ── Student info ───────────────────────────────────────────────────── */
+    /* ── Student / counsellor info ─────────────────────────────────────── */
     var studentName = esc((data.student_title || '') + '. ' + (data.first_name || '') + ' ' + (data.last_name || ''));
     var processedBy = esc((data.user_title || '') + '. ' + (data.user_fname || '') + ' ' + (data.user_lname || ''));
+
+    /* NEW: counsellor line — falls back gracefully if not set */
+    var counsellorLine = '';
+    if (data.counsellor_fname || data.counsellor_lname) {
+        var counsellorName = esc((data.counsellor_title || '') + '. ' + (data.counsellor_fname || '') + ' ' + (data.counsellor_lname || ''));
+        counsellorLine =
+            '<div style="font-size:9px;color:#9ca3af;margin-top:3px;">' +
+            'Counsellor: ' + counsellorName +
+            '</div>';
+    }
 
     /* ════════════════════════════════════════════════════════════════════════
        BUILD HTML
     ════════════════════════════════════════════════════════════════════════ */
     var html =
-        /* ── Scoped styles ── */
         '<style>' +
         '@keyframes rcptSpin{to{transform:rotate(360deg);}}' +
         '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
@@ -287,11 +278,9 @@ function renderReceiptHTML(data) {
         '<div id="rcpt-scroll">' +
         '<div id="receipt-print-area" style="font-family:\'Segoe UI\',system-ui,-apple-system,sans-serif;font-size:11px;line-height:1.5;color:#111827;background:#fff;max-width:880px;margin:0 auto;">' +
 
-        /* ════ HEADER BAND - NOW WITH WHITE BACKGROUND ════ */
         '<div style="background:#ffffff;padding:22px 28px 0;position:relative;overflow:hidden;border-bottom:2px solid #1e3a5f;">' +
         '<table style="width:100%;border-collapse:collapse;padding-bottom:28px;"><tr>' +
 
-        /* Left — logo + branch */
         '<td style="vertical-align:top;width:55%;">' +
         '<div>' +
         '<img src="./assets/imgs/common/logo.png" alt="" style="height:40px;width:auto;" onerror="this.style.display=\'none\'">' +
@@ -301,7 +290,6 @@ function renderReceiptHTML(data) {
         (data.branch_email ? '<div style="font-size:9px;color:#6b7280;">' + esc(data.branch_email) + '</div>' : '') +
         '</div></td>' +
 
-        /* Right — receipt ID */
         '<td style="vertical-align:top;text-align:right;padding-bottom:32px;">' +
         '<div style="font-size:8px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px;">Official Payment Receipt</div>' +
         '<div style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:-.5px;">' + recNum + '</div>' +
@@ -310,21 +298,18 @@ function renderReceiptHTML(data) {
         '<span style="display:inline-flex;align-items:center;gap:4px;background:#e6f5ed;border:1px solid #86efac;border-radius:20px;padding:3px 11px;font-size:9px;font-weight:700;color:#16a34a;letter-spacing:.06em;">&#10003; APPROVED</span>' +
         '</div></td>' +
         '</tr></table>' +
-    
-        /* ════ BODY ════ */
+
         '<div >' +
 
-        /* Bill To + Programme */
-        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>' +
-        '<td style="width:50%;vertical-align:top;padding-right:10px;">' + infoBox(
+        '<div style="display:flex;align-items:stretch;gap:20px;margin-bottom:20px;">' +
+        '<div style="width:50%;">' + infoBox(
             'Bill To',
             '<div style="font-size:13px;font-weight:700;color:#111827;">' + studentName + '</div>' +
             '<div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.9;">' +
-            'ID: ' + esc(data.student_reg_id || '') + '<br>' +
             esc(data.email || '') + '<br>' + esc(data.mobile || '') +
             '</div>'
-        ) + '</td>' +
-        '<td style="width:50%;vertical-align:top;padding-left:10px;">' + infoBox(
+        ) + '</div>' +
+        '<div style="width:50%;">' + infoBox(
             'Programme Details',
             '<div style="font-size:11px;font-weight:700;color:#111827;">' + esc(data.faculty || '') + '</div>' +
             '<div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.9;">' +
@@ -332,29 +317,32 @@ function renderReceiptHTML(data) {
             '</div>' +
             '<div style="font-size:9px;color:#9ca3af;margin-top:7px;padding-top:7px;border-top:1px solid #f3f4f6;">' +
             'Processed by: ' + processedBy +
-            '</div>'
-        ) + '</td>' +
-        '</tr></table>' +
+            '</div>' +
+            counsellorLine
+        ) + '</div>' +
+        '</div>' +
 
-        /* Section label */
         sectionLabel('Payment Records') +
 
-        /* Payment table */
         '<div style="border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px;">' +
-        '<div style="overflow-x:auto;">' +
-        '<table style="width:100%;border-collapse:collapse;min-width:640px;">' +
+        '<div class="rcpt-scroll-wrap" style="overflow-x:auto;">' +
+        '<table class="rcpt-payment-table" style="width:100%;border-collapse:collapse;min-width:720px;">' +
+        '<colgroup>' +
+        '<col style="width:3%;"><col style="width:9%;"><col style="width:9%;">' +
+        '<col style="width:7%;"><col style="width:8%;"><col style="width:9%;">' +
+        '<col style="width:7%;"><col style="width:7%;"><col style="width:6%;">' +
+        '<col style="width:9%;"><col style="width:14%;"><col style="width:12%;">' +
+        '</colgroup>' +
         '<thead><tr style="background:#1e3a5f;">' +
         thL('#') + thL('Reference') + thL('Type') + thL('Date') + thL('Method') +
         thR('Schedule Amount') + thR('Discount') + thR('Penalty') +
-        thC('Tax %') + thR('Tax Amt') + thR('Paid') +
+        thC('Tax %') + thR('Tax Amt') + thR('Paid') + thR('Balance') +
         '</tr></thead>' +
         '<tbody>' + payRows + '</tbody>' +
         '</table></div></div>' +
 
-        /* Summary row */
         '<table style="width:100%;border-collapse:collapse;margin-bottom:22px;"><tr>' +
 
-        /* Left — notes */
         '<td style="width:50%;vertical-align:top;padding-right:16px;">' +
         (exRateNote ||
             '<div style="font-size:9px;color:#9ca3af;line-height:1.95;margin-top:2px;">' +
@@ -366,7 +354,6 @@ function renderReceiptHTML(data) {
         ) +
         '</td>' +
 
-        /* Right — totals summary (NEW FORMAT) */
         '<td style="vertical-align:top;">' +
         '<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;overflow:hidden;">' +
         summaryRows +
@@ -375,23 +362,23 @@ function renderReceiptHTML(data) {
         '</table></td>' +
         '</tr></table>' +
 
-        '</div>' + /* /body */
+        '</div>' +
 
-        /* ════ FOOTER ════ */
+        '<div class="rcpt-page-footer">' +
         '<div style="border-top:1px dashed #e5e7eb;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#fafafa;">' +
         '<div style="font-size:9px;color:#9ca3af;">This is a computer-generated receipt and does not require a physical signature.</div>' +
         '<div style="font-size:9px;color:#6b7280;text-align:right;">' +
         'Receipt No: <strong style="color:#374151;">' + recNum + '</strong>' +
-        '&nbsp;|&nbsp;Generated: ' + recDate +
+        '&nbsp;|&nbsp;Generated: ' + new Date().toLocaleString() +
         '</div></div>' +
 
-        /* System tag */
-        '<div style="text-align:center;padding:8px;border-top:1px solid #f3f4f6;background:#fff;">' +
+        '<div class="rcpt-footer-copy" style="text-align:center;padding:8px;border-top:1px solid #f3f4f6;background:#fff;">' +
         '<span style="font-size:8px;color:#d1d5db;letter-spacing:.06em;">ENLIXO LMS 2026 &copy; — All rights reserved</span>' +
         '</div>' +
+        '</div>' +
 
-        '</div>' + /* /print-area */
-        '</div>';  /* /scroll */
+        '</div>' +
+        '</div>';
 
     if (body) {
         body.style.overflow = 'hidden';
@@ -439,11 +426,11 @@ function thR(l) { return '<th style="' + TH + 'text-align:right;">' + l + '</th>
 function thC(l) { return '<th style="' + TH + 'text-align:center;">' + l + '</th>'; }
 
 function noDataRow() {
-    return '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
+    return '<tr><td colspan="12" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
 }
 
 function infoBox(labelText, content) {
-    return '<div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">' +
+    return '<div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;height:100%;box-sizing:border-box;">' +
         '<div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">' + labelText + '</div>' +
         content +
         '</div>';

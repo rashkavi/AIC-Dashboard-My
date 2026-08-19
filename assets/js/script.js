@@ -6265,14 +6265,14 @@ function renderStudentDocumentPreview(box) {
     existingDocs.forEach((doc) => {
         const template = `
           <div class="student-doc-file-card mb-2 existing-doc-card cursor-pointer"
-                    onclick="window.open('${escapeHtml(doc.url)}', '_blank')">
+                    >
 
                 <div class="d-flex align-items-center">
                     <div class="me-2">
                         <img src="assets/imgs/icons/${getStudentDocumentIconByName(doc.name)}" width="32" alt="file">
                     </div>
 
-                    <div class="flex-grow-1">
+                    <div class="flex-grow-1" onclick="window.open('${escapeHtml(doc.url)}', '_blank')">
                         <div class="student-doc-file-name">${escapeHtml(doc.name)}</div>
                         <div class="student-doc-file-meta">
                             Existing Document • ${escapeHtml(doc.date_added || '')}
@@ -7045,4 +7045,135 @@ const enableBranchSelector = (value) => {
     } else {
         $("#branch-selector-area").hasClass('d-none') ? '' : $("#branch-selector-area").addClass('d-none');
     }
+}
+
+const openRemoeRecordigConfirmationModal = (id) => {
+
+    $("#confirmRemoveLectureRecording").off('click').on('click', function () {
+        removeLectureRecording(this, id);
+    });
+
+    $("#removeLectureRecordingConfirmModal").modal('show');
+}
+
+const handleCollectionReportPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByName':
+            sortCondition2 = 0;
+            sortCondition1 = sortCondition1 === 1 ? 2 : 1;
+            break;
+        case 'sortByDate':
+            sortCondition1 = 0;
+            sortCondition2 = sortCondition2 == 1 ? 2 : 1;
+            break;
+    }
+
+    filterCollectionReport();
+}
+
+
+const handleDueReportPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = parseInt(pageId);
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < parseInt(totalPages)) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByName':
+            sortCondition2 = 0;
+            sortCondition1 = sortCondition1 === 1 ? 2 : 1;
+            break;
+        case 'sortByDue':
+            sortCondition1 = 0;
+            sortCondition2 = sortCondition2 == 1 ? 2 : 1;
+            break;
+    }
+
+    filterDueReport();
+}
+
+const handlePerformancePagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = parseInt(pageId);
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < parseInt(totalPages)) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByName':
+            sortCondition1 = sortCondition1 === 1 ? 2 : 1;
+            break;
+    }
+
+    filterPerformanceUsers();
+}
+
+const confirmDeleteBranch = (id) => {
+    $("#confirmRemoveBranch").off("click");
+    $("#confirmRemoveBranch").on("click", function () {
+        removeBranch(id);
+    });
+    $("#removeBranchConfirmModal").modal("show");
+}
+
+
+const confirmDeleteFaculty = (id) => {
+    $("#confirmRemoveFaculty").off("click");
+    $("#confirmRemoveFaculty").on("click", function () {
+        removeFaculty(id);
+    });
+    $("#removeFacultyConfirmModal").modal("show");
+}
+
+const confirmDeletePrograme = (id) => {
+    $("#confirmRemoveProgramme").off("click");
+    $("#confirmRemoveProgramme").on("click", function () {
+        removeProgramme(id);
+    });
+    $("#removeProgrammeConfirmModal").modal("show");
+}
+
+const confirmDeleteIntake = (id) => {
+    $("#confirmRemoveBatch").off("click");
+    $("#confirmRemoveBatch").on("click", function () {
+        removeIntake(id);
+    });
+    $("#removeBatchConfirmModal").modal("show");
 }

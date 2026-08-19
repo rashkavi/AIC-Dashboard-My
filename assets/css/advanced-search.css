@@ -1,0 +1,413 @@
+/* ==========================================================================
+   advanced-search.css
+   Append to style.css, or link separately after it. Uses only the
+   CSS custom properties already defined in :root / [data-custom-theme]
+   so it automatically follows the site's light/dark theme.
+   ========================================================================== */
+
+/* ---- Search bar ---------------------------------------------------- */
+.gsearch-wrap {
+    position: relative;
+    max-width: 100%;
+    margin: 0 auto;
+   
+}
+
+.gsearch-input-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--custom-white);
+    border: 1px solid var(--line-color);
+    padding: 0 18px;
+    height: 54px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.gsearch-input-box:focus-within {
+    border-color: var(--dark-theme);
+    box-shadow: 0 0 0 4px var(--light-theme);
+}
+
+.gsearch-input-box iconify-icon {
+    font-size: 22px;
+    color: var(--sub-text);
+    flex-shrink: 0;
+}
+
+.gsearch-input-box input {
+    border: 0;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    font-size: var(--font-size-16);
+    color: var(--main-text-color);
+}
+
+.gsearch-input-box input::placeholder {
+    color: var(--sub-text);
+}
+
+.gsearch-input-hint {
+    font-size: var(--font-size-12);
+    color: var(--sub-text);
+    border: 1px solid var(--line-color);
+    padding: 2px 8px;
+    flex-shrink: 0;
+}
+
+/* ---- Instant dropdown ------------------------------------------------ */
+.gsearch-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--custom-white);
+    border: 1px solid var(--line-color);
+    box-shadow: 0 20px 45px rgba(20, 30, 60, .12);
+    max-height: 480px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1050;
+}
+
+.gsearch-dropdown.show {
+    display: block;
+}
+
+.gsearch-group {
+    border-bottom: 1px solid var(--line-color);
+}
+
+.gsearch-group:last-child {
+    border-bottom: 0;
+}
+
+.gsearch-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 6px;
+    font-size: var(--font-size-12);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--sub-topic);
+}
+
+.gsearch-group-title iconify-icon {
+    font-size: 15px;
+}
+
+.gsearch-group-count {
+    margin-left: auto;
+    background: var(--light-theme);
+    color: var(--dark-theme);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 20px;
+}
+
+.gsearch-dropdown-loading,
+.gsearch-dropdown-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px 20px;
+    color: var(--sub-text);
+    font-size: var(--font-size-14);
+    text-align: center;
+}
+
+.gsearch-view-all-link {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: 10px 16px;
+    font-size: var(--font-size-13);
+    font-weight: 600;
+    color: var(--dark-theme);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gsearch-view-all-link:hover {
+    background: var(--light-theme);
+}
+
+/* ---- Filter chips row ------------------------------------------------- */
+.gsearch-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.gsearch-chips .chip {
+    border-radius: 30px;
+    padding: 7px 16px;
+}
+
+.gsearch-chips .chip iconify-icon {
+    margin-right: 6px;
+    font-size: 15px;
+}
+
+/* ---- Results header ---------------------------------------------------- */
+.gsearch-results-header {
+    font-size: var(--font-size-14);
+    color: var(--sub-text);
+    margin-bottom: 10px;
+}
+
+/* ---- Result row (the "clean line list" the client asked for) ---------- */
+.gsearch-results-list {
+    border: 1px solid var(--line-color);
+    background: var(--custom-white);
+}
+
+.gsearch-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-color);
+    cursor: pointer;
+    transition: background .15s ease;
+}
+
+.gsearch-row:last-child {
+    border-bottom: 0;
+}
+
+.gsearch-row:hover {
+    background: var(--light-theme);
+}
+
+.gsearch-row-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 20px;
+    background: var(--light-theme);
+    color: var(--dark-theme);
+}
+
+.gsearch-row-icon-student {
+    background: var(--role-eight-background, var(--light-theme));
+    color: var(--role-eight-text, var(--dark-theme));
+}
+
+.gsearch-row-icon-intake {
+    background: var(--role-four-background, var(--light-theme));
+    color: var(--role-four-text, var(--dark-theme));
+}
+
+.gsearch-row-icon-programme {
+    background: var(--role-six-background, var(--light-theme));
+    color: var(--role-six-text, var(--dark-theme));
+}
+
+.gsearch-row-icon-faculty {
+    background: var(--role-three-background, var(--light-theme));
+    color: var(--role-three-text, var(--dark-theme));
+}
+
+.gsearch-row-icon-branch {
+    background: var(--role-one-background, var(--light-theme));
+    color: var(--role-one-text, var(--dark-theme));
+}
+
+.gsearch-row-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.gsearch-row-title {
+    font-size: var(--font-size-15);
+    font-weight: 600;
+    color: var(--main-text-color);
+}
+
+.gsearch-row-crumb {
+    font-size: var(--font-size-13);
+    color: var(--sub-text);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gsearch-crumb-sep {
+    color: var(--line-color);
+    padding: 0 2px;
+}
+
+.gsearch-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 220px;
+}
+
+.gsearch-row-meta .status-badge {
+    padding: 4px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.gsearch-row-chevron {
+    color: var(--sub-text);
+    font-size: 18px;
+    align-self: center;
+    flex-shrink: 0;
+}
+
+/* ---- Inline student preview under a batch row -------------------------- */
+.gsearch-preview-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.gsearch-preview-chip {
+    font-size: 12px;
+    padding: 3px 10px;
+    background: var(--body-color);
+    border: 1px solid var(--line-color);
+    color: var(--main-text-color);
+}
+
+.gsearch-preview-more {
+    font-size: 12px;
+    padding: 3px 10px;
+    background: none;
+    border: 1px dashed var(--dark-theme);
+    color: var(--dark-theme);
+    font-weight: 600;
+}
+
+.gsearch-preview-more:hover {
+    background: var(--light-theme);
+}
+
+/* ---- Load more / empty state -------------------------------------------- */
+.gsearch-load-more {
+    width: 100%;
+    padding: 14px;
+    text-align: center;
+    background: var(--custom-white);
+    border: 1px solid var(--line-color);
+    border-top: 0;
+    color: var(--dark-theme);
+    font-weight: 600;
+    font-size: var(--font-size-14);
+}
+
+.gsearch-load-more:hover {
+    background: var(--light-theme);
+}
+
+.gsearch-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--sub-text);
+}
+
+.gsearch-empty-state iconify-icon {
+    font-size: 48px;
+    color: var(--line-color);
+    margin-bottom: 12px;
+}
+
+/* ---- Spinner ------------------------------------------------------------ */
+.gsearch-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--line-color);
+    border-top-color: var(--dark-theme);
+    border-radius: 50%;
+    animation: gsearch-spin .7s linear infinite;
+}
+
+@keyframes gsearch-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---- Skeleton loading rows ----------------------------------------------- */
+.gsearch-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-color);
+}
+
+.gsearch-skeleton-block {
+    background: linear-gradient(90deg, var(--skeleton-color-1), var(--skeleton-color-2), var(--skeleton-color-1));
+    background-size: 200% 100%;
+    animation: gsearch-shimmer 1.4s ease infinite;
+}
+
+@keyframes gsearch-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.gsearch-skeleton-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.gsearch-skeleton-lines {
+    flex: 1;
+}
+
+.gsearch-skeleton-line {
+    height: 12px;
+    margin-bottom: 8px;
+    width: 60%;
+}
+
+.gsearch-skeleton-line.short {
+    width: 35%;
+    margin-bottom: 0;
+}
+
+/* ---- Roster modal rows (reuses .gsearch-row-icon/body) ------------------- */
+.gsearch-roster-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--line-color);
+}
+
+.gsearch-roster-row:last-child {
+    border-bottom: 0;
+}
+
+/* ---- Responsive ----------------------------------------------------------- */
+@media (max-width: 576px) {
+    .gsearch-row-meta {
+        max-width: 100px;
+    }
+    .gsearch-input-hint {
+        display: none;
+    }
+}

@@ -56,7 +56,8 @@ if (SessionUser::hasValidSession()) {
                                 8 => "payment-slips",
                                 9 => "manager-checklists",
                                 10 => "passport-size-photos",
-                                11 => "discount-approved-documents"
+                                11 => "discount-approved-documents",
+                                12 => "signed-fee-structures"
                             ];
 
                             foreach ($_POST["removed_documents"] as $docId) {
@@ -332,6 +333,11 @@ function getStudentDocumentTypeConfig()
             "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+          "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }

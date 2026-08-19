@@ -973,3 +973,266 @@ function loadCurrencyChart() {
             });
         });
 }
+
+const initializePerformance = (userId, target) => {
+    loadTargetChart(userId, target);
+    loadWorkedDayChart(userId);
+}
+
+let targetChart = null;
+const loadTargetChart = (userId, target) => {
+    const condition = $("#target-condition").val();
+
+    fetch("api/getUserPerformance.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            id: userId,
+            condition: condition,
+        }),
+    })
+        .then((response) => response.json())
+        .then((response) => {
+            if (response.error) {
+                setTimeout(() => {
+                    showToast("error", response.error);
+                }, 1000);
+                return;
+            }
+
+            const pendingData = response.pending || [];
+            const rejectedData = response.rejected || [];
+            const inProgressData = response.inprogress || [];
+            const readyData = response.ready || [];
+            const enrolledData = response.enrolled || [];
+            const labels = response.labels || [];
+
+            const sumArray = (arr) => arr.reduce((total, val) => total + val, 0);
+
+            $("#pendingTotal").text(sumArray(pendingData));
+            $("#rejectedTotal").text(sumArray(rejectedData));
+            $("#progressTotal").text(sumArray(inProgressData));
+            $("#readyTotal").text(sumArray(readyData));
+            $("#enrolledTotal").text(sumArray(enrolledData));
+
+            let topic = "Weekly Target Chart";
+            let xTitle = "Days of the Week";
+
+            if (condition == "2") {
+                topic = "Monthly Target Chart";
+                xTitle = "Days of the Month";
+            } else if (condition == "3") {
+                topic = "Yearly Target Chart";
+                xTitle = "Months of the Year";
+            }
+
+            const monthlyTarget = parseInt(target) || 0;
+
+            const currentDate = new Date();
+            const selectedYear = parseInt(response.year) || currentDate.getFullYear();
+            const selectedMonth = parseInt(response.month) || (currentDate.getMonth() + 1);
+
+            const getWeeksInMonth = (year, month) => {
+                const firstDate = new Date(year, month - 1, 1);
+                const lastDate = new Date(year, month, 0);
+                const totalDays = lastDate.getDate();
+                const firstDay = firstDate.getDay();
+
+                return Math.ceil((firstDay + totalDays) / 7);
+            };
+
+            let targetValue = monthlyTarget;
+
+            if (condition == "1") {
+                const weekCount = getWeeksInMonth(selectedYear, selectedMonth);
+                targetValue = weekCount > 0 ? Math.round(monthlyTarget / weekCount) : 0;
+            } else if (condition == "2") {
+                targetValue = monthlyTarget;
+            } else if (condition == "3") {
+                targetValue = monthlyTarget;
+            }
+
+            // very important: target data length must match labels length
+            const targetLineData = labels.map(() => targetValue);
+
+            const ctx = document.getElementById("targetChart").getContext("2d");
+
+            if (targetChart) {
+                targetChart.destroy();
+            }
+
+            targetChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Pending Action",
+                            data: pendingData,
+                            borderColor: "#ffc107",
+                            backgroundColor: "rgba(255, 193, 7, 0.18)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#ffc107"
+                        },
+                        {
+                            label: "Rejected",
+                            data: rejectedData,
+                            borderColor: "#dc3545",
+                            backgroundColor: "rgba(220, 53, 69, 0.18)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#dc3545"
+                        },
+                        {
+                            label: "In Progress",
+                            data: inProgressData,
+                            borderColor: "#0d6efd",
+                            backgroundColor: "rgba(13, 110, 253, 0.18)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#0d6efd"
+                        },
+                        {
+                            label: "Ready to Enroll",
+                            data: readyData,
+                            borderColor: "#d63384",
+                            backgroundColor: "rgba(214, 51, 132, 0.18)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#d63384"
+                        },
+                        {
+                            label: "Enrolled",
+                            data: enrolledData,
+                            borderColor: "#6f42c1",
+                            backgroundColor: "rgba(111, 66, 193, 0.18)",
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#6f42c1"
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: "top",
+                            labels: {
+                                usePointStyle: true,
+                                font: { weight: "bold" }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: topic,
+                            font: { size: 18, weight: "bold" }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: "Number of Students"
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: xTitle
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch((error) => {
+            console.log("Error:", error);
+        });
+};
+
+const loadWorkedDayChart = (userId) => {
+    const monthName = document.getElementById('monthName');
+    const calendarDays = document.getElementById('calendarDays');
+    let currentDate = new Date();
+
+    let workingDays = [];
+
+    fetch('api/getUserWorkingDays.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            id: userId
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            workingDays = data.workingDays;
+            renderCalendar();
+        });
+    function renderCalendar() {
+        calendarDays.innerHTML = '';
+
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        monthName.textContent = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('div');
+            empty.classList.add('calendar-day', 'inactive');
+            calendarDays.appendChild(empty);
+        }
+
+        for (let day = 1; day <= lastDate; day++) {
+            const date = new Date(year, month, day);
+            const formatted = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' }); // YYYY-MM-DD
+
+            const dayCell = document.createElement('div');
+            dayCell.classList.add('calendar-day');
+            dayCell.textContent = day;
+
+            // if (workingDays.includes(formatted)) {
+            //     dayCell.classList.add('attended');
+            //     dayCell.addEventListener('click', () => {
+            //         window.location.href = `user-day-performance.php?user-id=${userId}&date=${encodeURIComponent(formatted)}`;
+            //     });
+            // }
+
+            calendarDays.appendChild(dayCell);
+        }
+    }
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+}

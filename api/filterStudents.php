@@ -74,7 +74,8 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     if ($intake != 0) {
-                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` WHERE `intakes_intake_id`='" . $intake . "')";
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
+                        WHERE `intakes_intake_id`='" . $intake . "')";
                     } else if ($programme != 0) {
                         $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
                         INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`

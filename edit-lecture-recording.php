@@ -22,12 +22,6 @@ if (!SessionUser::hasValidSession()) {
             $nowTime = $today->format('H:i:s');
 
             $lecture = Database::search("SELECT * FROM `lecture_recording`
-                                        INNER JOIN `time_table` ON `lecture_recording`.`time_table_time_table_id` = `time_table`.`time_table_id`
-                                        INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                                        INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                                        INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
-                                        INNER JOIN `lecture_type` ON `time_table`.`lecture_type_lecture_type_id` = `lecture_type`.`lecture_type_id`
-                                        INNER JOIN `time_table_status` ON `time_table`.`time_table_status_time_table_status_id` = `time_table_status`.`time_table_status_id`
                                         WHERE `lecture_recording`.`lecture_recording_id`='" . $id . "'
                                         ");
 
@@ -38,9 +32,56 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 28))) {
-                    header("Location: ./lecture-schedule");
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                    header("Location: ./faculties");
                 } else {
+
+                    $lectures = Database::search("
+                    SELECT 
+                        time_table.lecture_title,
+                        title.title,
+                        users.user_fname,
+                        users.user_lname,
+                        users.profile_img,
+                        time_table.date,
+                        time_table.start_time,
+                        time_table.end_time,
+                        lecture_type.lecture_type,
+                        GROUP_CONCAT(DISTINCT intakes.intake) AS batches,
+                        programmes.programme_cover
+                    FROM lecture_recording_has_lectures
+                    INNER JOIN time_table 
+                        ON lecture_recording_has_lectures.time_table_time_table_id = time_table.time_table_id
+                    INNER JOIN lecturers 
+                        ON time_table.lecturers_lecturers_id = lecturers.lecturers_id
+                    INNER JOIN users 
+                        ON lecturers.users_user_id = users.user_id
+                    INNER JOIN title 
+                        ON users.title_title_id = title.title_id
+                    INNER JOIN lecture_type 
+                        ON time_table.lecture_type_lecture_type_id = lecture_type.lecture_type_id
+                    INNER JOIN subjects 
+                        ON lecturers.subjects_subject_id = subjects.subject_id
+                    INNER JOIN levels 
+                        ON subjects.levels_level_id = levels.level_id
+                    INNER JOIN intakes 
+                        ON levels.intakes_intake_id = intakes.intake_id
+                    INNER JOIN programmes 
+                        ON intakes.programmes_programme_id = programmes.programme_id
+                    WHERE lecture_recording_has_lectures.lecture_recording_lecture_recording_id = '$id'
+                ");
+
+                    $data = $lectures->fetch_assoc();
+
+                    $title = $data['lecture_title'];
+                    $lecturer = $data['title'] . '. ' . $data['user_fname'] . ' ' . $data['user_lname'];
+                    $lecturer_image = $data['profile_img'];
+                    $date = $data['date'];
+                    $start_time = $data['start_time'];
+                    $end_time = $data['end_time'];
+                    $type = $data['lecture_type'];
+
+                    $batches = explode(',', $data['batches']);
 ?>
                     <!DOCTYPE html>
                     <html lang="en">
@@ -113,22 +154,22 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <!-- Reference on left -->
                                                                                 <div class="reference-section">
                                                                                     <span class="reference-label">Title</span>
-                                                                                    <h2 class="reference-number"><?= $lectureData["lecture_title"]; ?></h2>
+                                                                                    <h2 class="reference-number"><?= $data["lecture_title"]; ?></h2>
                                                                                     <hr>
                                                                                 </div>
                                                                             </div>
 
-                                                                            <div class="details-row d-flex flex-column flex-lg-row">
+                                                                            <div class="details-row d-flex flex-column flex-lg-row mb-4">
                                                                                 <div class="detail-item">
                                                                                     <div class="detail-icon">
                                                                                         <?php
-                                                                                        if (!empty($lectureData["profile_img"]) && file_exists('./assets/imgs/users/' . $lectureData["profile_img"])) {
+                                                                                        if (!empty($data["profile_img"]) && file_exists('./assets/imgs/users/' . $data["profile_img"])) {
                                                                                         ?>
-                                                                                            <img src="./assets/imgs/users/<?php echo $lectureData["profile_img"]; ?>" class="hwr-40" alt="User image">
+                                                                                            <img src="./assets/imgs/users/<?php echo $data["profile_img"]; ?>" class="hwr-40" alt="User image">
                                                                                         <?php
                                                                                         } else {
-                                                                                            $firstNameInitial = strtoupper(substr($lectureData["user_fname"], 0, 1));
-                                                                                            $lastNameInitial = strtoupper(substr($lectureData["user_lname"], 0, 1));
+                                                                                            $firstNameInitial = strtoupper(substr($data["user_fname"], 0, 1));
+                                                                                            $lastNameInitial = strtoupper(substr($data["user_lname"], 0, 1));
                                                                                         ?>
                                                                                             <div class="d-flex hwr-40 text-white align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
                                                                                         <?php
@@ -137,7 +178,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </div>
                                                                                     <div class="detail-content">
                                                                                         <span class="detail-label">Lecturer</span>
-                                                                                        <span class="detail-value"><?= $lectureData["title"] . '.' . $lectureData["user_fname"] . ' ' . $lectureData["user_lname"] ?></span>
+                                                                                        <span class="detail-value"><?= $data["title"] . '.' . $data["user_fname"] . ' ' . $data["user_lname"] ?></span>
                                                                                     </div>
                                                                                 </div>
                                                                                 <div class="detail-item">
@@ -148,7 +189,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </div>
                                                                                     <div class="detail-content">
                                                                                         <span class="detail-label">Date Time</span>
-                                                                                        <span class="detail-value"><?= $lectureData["date"] . ' ' . date("h:i A", strtotime($lectureData["start_time"])) . ' - ' . date("h:i A", strtotime($lectureData["end_time"])) ?? '--/--/----'; ?></span>
+                                                                                        <span class="detail-value"><?= $data["date"] . ' ' . date("h:i A", strtotime($data["start_time"])) . ' - ' . date("h:i A", strtotime($data["end_time"])) ?? '--/--/----'; ?></span>
                                                                                     </div>
                                                                                 </div>
 
@@ -161,7 +202,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </div>
                                                                                     <div class="detail-content">
                                                                                         <span class="detail-label">Type</span>
-                                                                                        <span class="detail-value"><?= $lectureData['lecture_type'] ?></span>
+                                                                                        <span class="detail-value"><?= $data['lecture_type'] ?></span>
                                                                                     </div>
                                                                                 </div>
 
@@ -179,6 +220,26 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
 
                                                                             </div>
+                                                                            <span class="reference-label">Batches</span>
+                                                                            <div class="details-row d-flex flex-column flex-lg-row">
+                                                                                <?php
+                                                                                foreach ($batches as $batch) {
+                                                                                ?>
+                                                                                    <div class="detail-item">
+                                                                                        <div class="detail-icon">
+                                                                                            <iconify-icon icon="ant-design:group-outlined" width="20" height="20" class="text-white"></iconify-icon>
+                                                                                        </div>
+                                                                                        <div class="detail-content">
+                                                                                            <span class="detail-label">Batch Name</span>
+                                                                                            <span class="detail-value"><?= $batch ?></span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+
+
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -188,9 +249,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="row d-flex flex-column gx-4 gy-3">
                                                                 <div class="col-12 d-flex flex-column justify-content-start">
                                                                     <label class="text-14 main-text required" for="">Recording Link</label>
-                                                                    <textarea class="form-control custom-text-area mt-2 br-0" id="recording-link">
-                                                                        <?= htmlspecialchars($lectureData["lecture_recording"]) ?>
-                                                                    </textarea>
+                                                                    <textarea class="form-control custom-text-area mt-2 br-0" id="recording-link"><?= htmlspecialchars($lectureData["lecture_recording"]) ?></textarea>
                                                                     <span id="link-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
                                                                 <div class="col-12 col-md-4 d-flex flex-column">
@@ -206,10 +265,14 @@ if (!SessionUser::hasValidSession()) {
                                                                     ?>
                                                                         <img src="./assets/imgs/recording-thumbnail/<?= $lectureData["recording_thumbnail"] ?>" class="col-6 h-auto mt-2" id="recording-thumbnail" alt="recording thumbnail">
                                                                     <?php
-                                                                    } else {
+                                                                    } else if (!empty($data['programme_cover']) && file_exists('./assets/imgs/programmes-covers/' . $data['programme_cover'])) {
 
                                                                     ?>
-                                                                        <img src="./assets/imgs/common/empty-thumbnail.webp" class="col-6 h-auto mt-2" id="recording-thumbnail" alt="recording thumbnail">
+                                                                        <img src="./assets/imgs/programmes-covers/<?= $data['programme_cover'] ?>" class="col-6 h-auto mt-2" id="recording-thumbnail" alt="recording thumbnail">
+                                                                    <?php
+                                                                    } else {
+                                                                    ?>
+                                                                        <img src="./assets/imgs/common/empty-thumbnail.webp" class="col-6 h-auto mt-2"  id="recording-thumbnail" alt="recording thumbnail">
                                                                     <?php
                                                                     }
                                                                     ?>

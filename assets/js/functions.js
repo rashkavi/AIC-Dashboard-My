@@ -478,7 +478,7 @@ const addStudent = (btn) => {
         method: "POST",
         body: form,
     })
-        .then((res) => res.text())
+        .then((res) => res.json())
         .then((response) => {
             console.log(response);
             applyValidation(response, validationMap, false);
@@ -1999,7 +1999,8 @@ const uploadLectureRecording = (btn, lectureId) => {
         cover: ["", "#cover-feedback"],
         expire_date: ["#expire-date", "#expire-date-feedback"],
         lecture: ["#lecture-selector", "#lecture-feedback"],
-        recording_link: ["#recording-link", "#link-feedback"]
+        recording_link: ["#recording-link", "#link-feedback"],
+        image: ["#file-input", "#image-feedback"]
     };
 
     fetch('api/uploadLectureRecording.php', {
@@ -2011,7 +2012,7 @@ const uploadLectureRecording = (btn, lectureId) => {
             toggleBtnLoader(btn, false);
             if (response.done) {
                 showToast("success", response.done);
-                setTimeout(() => { window.location.reload(); }, 3000);
+                setTimeout(() => { window.history.back(); }, 3000);
             } else if (response.error) {
                 showToast("error", response.error);
             } else {
@@ -4988,13 +4989,15 @@ const filterSubjectScheduledLectures = (id) => {
         });
 }
 
-const editLecture = (btn, id) => {
+const editLecture = (btn, id, programme, status, confirmation = false) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("lecture_id", id);
+    form.append("programme_id", programme);
     form.append("title", $("#title").val());
     form.append("lecturer_id", $("#lecturer-selector").val());
     form.append("lecture_date", $("#lecture-date").val());
+    form.append("confirmation", confirmation);
     form.append("start_time", $("#start-time").val());
     form.append("end_time", $("#end-time").val());
     form.append("status", $("#status-selector").val());
@@ -5003,6 +5006,7 @@ const editLecture = (btn, id) => {
     form.append("recording", $("#recording-checkbox").is(":checked"));
     form.append("link", $("#link-input").val());
     form.append("tutes", $("#file-selector-input")[0].files[0]);
+    form.append("edit_type", status);
     var files = $("#file-selector-input")[0].files;
     for (var i = 0; i < files.length; i++) {
         form.append("tutes[]", files[i]);
@@ -5012,15 +5016,40 @@ const editLecture = (btn, id) => {
         method: "POST",
         body: form
     })
-        .then((res) => res.json())
-        .then((response) => {
+        .then((res) => res.text())
+        .then((data) => {
+            const response = JSON.parse(data);
+            $("#scheduleConfirmModal").modal('hide');
             if (response.done) {
-                toggleBtnLoader(btn, false);
+                toggleBtnLoader(btn, 'done');
                 showToast("success", response.done);
                 setTimeout(() => { window.location.reload() }, 3000);
             } else if (response.error) {
                 toggleBtnLoader(btn, false);
                 showToast("error", response.error);
+            } else if (response.confirm_required) {
+                let messages = "";
+
+                if (response.lecturer_confirm) {
+                    messages += `<div class="mb-2">• ${response.lecturer_confirm}</div>`;
+                }
+
+                if (response.date_confirm) {
+                    messages += `<div class="mb-2">• ${response.date_confirm}</div>`;
+                }
+
+                document.getElementById("scheduleConfirmModalMessage").innerHTML =
+                    "The selected lecture has scheduling conflicts. Do you want to continue anyway?";
+
+                document.getElementById("scheduleConfirmDetails").innerHTML = messages;
+
+                const confirmModal = new bootstrap.Modal(document.getElementById("scheduleConfirmModal"));
+                $("#confirmScheduleSave").off("click");
+                $("#confirmScheduleSave").on("click", function () {
+                    editLecture(this, id, programme, status, true);
+                });
+                confirmModal.show();
+                return;
             } else {
                 const validationMap = {
                     date: ["#lecture-date", "#date-feedback"],
@@ -5034,16 +5063,7 @@ const editLecture = (btn, id) => {
 
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
-                if (response.tute) {
-                    const feedback = document.getElementById('attachment-feedback');
-                    feedback.innerHTML = `
-                    <ul class="ps-3">
-                        ${response.tute.map(e => `<li>${e}</li>`).join('')}
-                    </ul>
-                    `;
-                }
             }
-
         })
         .catch((error) => {
             toggleBtnLoader(btn, false);
@@ -13180,8 +13200,11 @@ const filterInquiryRegistrationPayments = () => {
 
     const data = {
         text: $("#search-text").val(),
-        category: $("#category-selector").val(),
-        status: $("#status-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        sort: $("#sort-selector").val(),
         resultPerPage: $("#show-result-selector").val(),
         page: selectedPage
     }
@@ -13596,3 +13619,426 @@ const genarateStudentRegistrationsReport = (btn) => {
             showToast("error", error.message);
         });
 }
+const removeLectureRecording = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        recording: id
+    }
+    fetch('api/removeLectureRecording.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                showToast("error", response.error);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeLectureRecordingConfirmModal").modal("hide");
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const filterCollectionReport = () => {
+    const data = {
+        text: $("#search-text").val(),
+        sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        dateFilter: $("filter-selector").val(),
+        fromDate: $("#from-date").val(),
+        toDate: $("#to-date").val(),
+        sortByName: sortCondition1,
+        sortByDate: sortCondition2,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterCollectionReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.text())
+        .then((text) => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
+
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#collection-table-container").html(result);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.")
+        });
+}
+
+
+const genarateCollectionReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        dateFilter: $("filter-selector").val(),
+        fromDate: $("#from-date").val(),
+        toDate: $("#to-date").val(),
+
+    }
+
+
+    fetch('api/genarateCollectionReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Collection Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            showToast("error", error.message);
+        });
+}
+
+const filterDueReport = () => {
+    const data = {
+        text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        counsellor: $("#counsellor-selector").val(),
+        currency: $("#currency-selector").val(),
+        status: $("#status-selector").val(),
+        dateFilter: $("#filter-selector").val(),
+        fromDate: $("#from-date").val(),
+        toDate: $("#to-date").val(),
+        sortByName: sortCondition1,
+        sortByDue: sortCondition2,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterDueReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.text())
+        .then((text) => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
+
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#due-table-container").html(result);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.")
+        });
+}
+
+const genarateDueReport = (btn) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        text: $("#search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        counsellor: $("#counsellor-selector").val(),
+        currency: $("#currency-selector").val(),
+        status: $("#status-selector").val(),
+        dateFilter: $("#filter-selector").val(),
+        fromDate: $("#from-date").val(),
+        toDate: $("#to-date").val(),
+    }
+
+
+    fetch('api/genarateDueReport.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then(async (response) => {
+            const contentType = response.headers.get('content-type');
+            console.log('HTTP Status:', response.status);
+            console.log('Content-Type:', contentType);
+
+            if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                return response.blob();
+            }
+
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            }
+
+            const text = await response.text();
+            console.log('Raw response:', text);
+            throw new Error('Unexpected response type.');
+        })
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data instanceof Blob) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                const now = new Date();
+
+                const pad = (num) => String(num).padStart(2, '0');
+
+                const dateTime =
+                    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_` +
+                    `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+                a.href = url;
+                a.download = `Due Report (${dateTime}).xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                showToast("error", data.error || "Unknown error");
+            }
+        })
+        .catch((error) => {
+            showToast("error", error.message || "An error occured. Please try again later.");
+        })
+
+}
+
+const filterPerformanceUsers = () => {
+    const data = {
+        text: $("#user-search-text").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        sortByName: sortCondition1,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterPerformance.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.text())
+        .then((text) => {
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch {
+                result = text;
+            }
+
+            if (typeof result === "object" && result.error) {
+                showToast("error", result.error);
+            } else {
+                $("#users-table-container").html(result);
+
+                const countMarker = $("#total-count-marker");
+                if (countMarker.length) {
+                    $("#user-count-label").html(countMarker.data("count") + " <span data-i18n=\"users\"></span>");
+                    countMarker.remove();
+                }
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.")
+        });
+}
+
+const removeBranch = (id) => {
+    toggleLoader(true);
+    const data = {
+        branch: id
+    }
+    fetch('api/removeBranch.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeBranchConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+
+const removeFaculty = (id) => {
+    toggleLoader(true);
+    const data = {
+        faculty: id
+    }
+    fetch('api/removeFaculty.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeFacultyConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const removeProgramme = (id) => {
+    toggleLoader(true);
+    const data = {
+        programme: id
+    }
+    fetch('api/removeProgramme.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeProgrammeConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const removeIntake = (id) => {
+    toggleLoader(true);
+    const data = {
+        intake: id
+    }
+    fetch('api/removeIntake.php', {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                $("#removeBatchConfirmModal").modal("hide");
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+

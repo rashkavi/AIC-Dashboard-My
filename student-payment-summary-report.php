@@ -183,7 +183,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <span class="text-14 dark-theme fw-medium"><?= $cnt['count'] ?> <span data-i18n="awaiting-payments"></span></span>
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 col-md-8 col-lg-7 d-flex flex-column">
+                                                        <div class="col-12 col-md-8 col-lg-9 d-flex flex-column">
                                                             <div class="h-100 d-flex align-items-center p-1 bl-solid">
                                                                 <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="text-dark-color px-3 pe-3 py-2"></iconify-icon>
                                                                 <input type="text" class="h-100 sub-text form-control border-0 shadow-none" placeholder="What do you want to search..." id="search-text" onkeyup="handleStudentsPaymentsSumamryReportPagination('filter')">

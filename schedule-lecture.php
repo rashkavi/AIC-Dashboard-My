@@ -811,8 +811,9 @@ if (!SessionUser::hasValidSession()) {
                                 method: "POST",
                                 body: form
                             })
-                            .then((res) => res.json())
+                            .then((res) => res.text())
                             .then((response) => {
+                                console.log(response);
                                 toggleBtnLoader(btn, false);
                                 applyValidation(response, validationMap, false);
                                 if (response.error) {

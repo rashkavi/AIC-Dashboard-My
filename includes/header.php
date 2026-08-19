@@ -20,6 +20,7 @@
                     <iconify-icon icon="teenyicons:search-outline" width="16" height="16" class="text-dark-color"></iconify-icon>
                 </div>
                 <iconify-icon icon="vaadin:line-v" width="16" height="20" class="text-dark-color px-1"></iconify-icon>
+
                 <div class="d-flex align-items-center justify-content-center">
                     <span class="text-dark-color text-16 fw-medium py-2 br-8">v<?= Project::getVersion() ?></span>
                 </div>
@@ -60,6 +61,7 @@
                         <li>
                             <hr class="dropdown-divider">
                         </li>
+
                         <li> <a class="dropdown-item d-flex align-items-center gap-2" href="my-profile"> <iconify-icon icon="line-md:edit" width="18" height="18"></iconify-icon> Edit Profile </a> </li>
                         <li>
                             <hr class="dropdown-divider">
@@ -86,6 +88,10 @@
                 <div class="w-100 d-flex align-items-center p-1 bl-solid search-container">
                     <iconify-icon icon="teenyicons:search-outline" width="20" height="20" class="dark-theme px-3 pe-3 pt-2 pb-2"></iconify-icon>
                     <input type="text" class="h-100 sub-text form-control border-0 shadow-none live-search-input" placeholder="What do you want to search..." data-i18n="[placeholder]search-placeholder" id="live-search-input" onkeyup="getLiveSearchResults()">
+
+                    <button type="button" class="custom-btn px-3" id="advanced-search-btn" title="Advanced Search" data-i18n="[title]advanced-search" onclick="window.location.href = 'advanced-search'">
+                        <iconify-icon icon="mdi:tune-variant" width="20" height="20" class="p-0 m-0"></iconify-icon>
+                    </button>
                 </div>
             </div>
             <div class="modal-body">

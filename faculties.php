@@ -153,13 +153,53 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                                 <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('faculties', 10)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
+                                                                        if ($faculty['total_programmes'] > 0) {
                                                                     ?>
-                                                                        <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                            <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadFacultyEditModel('<?= $faculty['faculty_id'] ?>','<?= $faculty['faculty'] ?>','<?= $faculty['faculty_cover'] ?>')">Edit</button>
-                                                                        </div>
+                                                                            <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                                <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadFacultyEditModel('<?= $faculty['faculty_id'] ?>','<?= $faculty['faculty'] ?>','<?= $faculty['faculty_cover'] ?>')">Edit</button>
+                                                                            </div>
+                                                                        <?php
+
+                                                                        } else {
+                                                                        ?>
+                                                                            <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                                <div class="dropdown w-100">
+                                                                                    <button
+                                                                                        class="custom-danger-btn w-100 dropdown-toggle d-flex align-items-center justify-content-center gap-2"
+                                                                                        type="button"
+                                                                                        data-bs-toggle="dropdown"
+                                                                                        aria-expanded="false">
+                                                                                        Actions
+                                                                                    </button>
+                                                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+
+                                                                                        <li>
+                                                                                            <button
+                                                                                                class="dropdown-item d-flex align-items-center gap-2"
+                                                                                                onclick="loadFacultyEditModel('<?= $faculty['faculty_id'] ?>','<?= $faculty['faculty'] ?>','<?= $faculty['faculty_cover'] ?>')">
+                                                                                                <iconify-icon icon="line-md:edit-filled" width="18" height="18"></iconify-icon>
+                                                                                                Edit
+                                                                                            </button>
+                                                                                        </li>
+                                                                                        <li>
+                                                                                            <hr class="dropdown-divider">
+                                                                                        </li>
+                                                                                        <li>
+                                                                                            <button
+                                                                                                class="dropdown-item d-flex align-items-center gap-2 text-danger"
+                                                                                                onclick="confirmDeleteFaculty('<?= $faculty['faculty_id'] ?>')">
+                                                                                                <iconify-icon icon="material-symbols:delete-outline-rounded" width="18" height="18"></iconify-icon>
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                </div>
+                                                                            </div>
                                                                     <?php
+                                                                        }
                                                                     }
+
                                                                     ?>
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-btn w-100" data-i18n="view" onclick="window.location.href='programes.php?faculty-id=<?= $faculty['faculty_id']; ?>'">View</button>
@@ -339,6 +379,76 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
                     ?>
+
+                    <div class="modal fade" id="removeFacultyConfirmModal" tabindex="-1"
+                        aria-labelledby="removeFacultyConfirmModalTitle" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow">
+
+                                <!-- Close button -->
+                                <div class="d-flex justify-content-end pe-3 pt-3 position-relative">
+                                    <button type="button"
+                                        class="btn-close text-end"
+                                        data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+
+                                <div class="modal-body text-center p-4">
+
+                                    <!-- Warning Icon -->
+                                    <div class="mb-3">
+                                        <iconify-icon
+                                            icon="bx:error-circle"
+                                            width="48"
+                                            height="48"
+                                            class="text-danger">
+                                        </iconify-icon>
+                                    </div>
+
+                                    <!-- Title -->
+                                    <h5 class="fw-semibold mb-2" id="removeFacultyConfirmModalTitle">
+                                        Confirm Faculty Removal
+                                    </h5>
+
+                                    <!-- Main message -->
+                                    <p class="text-muted mb-3">
+                                        You are about to remove this <strong>Faculty</strong>.
+                                    </p>
+
+                                    <!-- Detailed impact explanation -->
+                                    <div class="alert alert-warning text-start small mb-4">
+                                        <div class="d-flex align-items-start gap-2">
+                                            <iconify-icon icon="mdi:alert-outline" width="20"></iconify-icon>
+                                            <div>
+                                                <strong>This action will:</strong>
+                                                <ul class="mb-0 ps-3">
+                                                    <li>Permanently remove the selected faculty</li>
+                                                    <li>This action <strong>cannot be undone</strong></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action buttons -->
+                                    <div class="d-flex justify-content-center gap-3">
+                                        <button type="button"
+                                            class="btn btn-outline-secondary px-4 br-0"
+                                            data-bs-dismiss="modal">
+                                            Cancel
+                                        </button>
+
+                                        <button type="button"
+                                            id="confirmRemoveFaculty"
+                                            class="btn btn-danger px-4 br-0">
+                                            <iconify-icon icon="mdi:delete-outline" class="me-1"></iconify-icon>
+                                            Remove Faculty
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
                     <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>

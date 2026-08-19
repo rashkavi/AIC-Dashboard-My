@@ -50,6 +50,7 @@ if (!SessionUser::hasValidSession()) {
                 if (!(SessionUser::ifUserIsPro($sessionUserRole)
                     || SessionUser::ifUserIsAcademic($sessionUserRole)
                     || SessionUser::ifUserIsAccounts($sessionUserRole)
+                    || SessionUser::ifUserIsCounsiler($sessionUserRole)
                     || UserPermissions::hasPermission('intake_payments', 10, $studentHasIntakeData['intake_id'])
                     || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])
                     || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])
@@ -759,16 +760,48 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                             || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
                                                                                                                         ):
                                                                                                                             if ($balance > 0): ?>
-                                                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                        <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon> Add Reciept</a></li>
+                                                                                                                                <li>
+                                                                                                                                    <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                        href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                        <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                        Add Receipt
+                                                                                                                                    </a>
+                                                                                                                                </li>
                                                                                                                             <?php endif; ?>
-                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                                    <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon> Edit</a></li>
+
+                                                                                                                            <li>
+                                                                                                                                <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                    href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                    <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                    Edit
+                                                                                                                                </a>
+                                                                                                                            </li>
+
                                                                                                                             <?php if (count($receiptRows) === 0): ?>
-                                                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
-                                                                                                                                        <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon> Remove</a></li>
+                                                                                                                                <li>
+                                                                                                                                    <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                        onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
+                                                                                                                                        <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                        Remove
+                                                                                                                                    </a>
+                                                                                                                                </li>
                                                                                                                             <?php endif; ?>
+
+                                                                                                                        <?php else: ?>
+
+                                                                                                                            <?php if ($balance > 0): ?>
+                                                                                                                                <li>
+                                                                                                                                    <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                        href="add-receipt-to-registration-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                        <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                        Add Receipt
+                                                                                                                                    </a>
+                                                                                                                                </li>
+                                                                                                                            <?php endif; ?>
+
                                                                                                                         <?php endif; ?>
+
+
                                                                                                                     <?php endif; ?>
                                                                                                                 </ul>
                                                                                                             </div>

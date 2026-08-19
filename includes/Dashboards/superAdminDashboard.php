@@ -19,6 +19,7 @@ class SuperAdminDashboard
             <?php
             require_once "./includes/Dashboards/AdminDashboardSummary.php";
             $dashboardCards = AdminDashboardSummary::getDashboardSummary();
+            
             ?>
 
             <div class="container-fluid p-0">
@@ -26,7 +27,7 @@ class SuperAdminDashboard
                     <?php foreach ($dashboardCards as $card) {
                     ?>
                         <div class="col-12 col-md-6 col-lg-4 col-xl-3">
-                            <div class="stats-mini-card">
+                            <div class="stats-mini-card" <?= $card['link'] != '' ? 'onclick="window.location.href=\'' . $card['link'] . '\'"' : '' ?>>
                                 <div class="stats-mini-top">
                                     <div class="stats-mini-left">
                                         <div class="stats-mini-icon">

@@ -3,6 +3,8 @@ $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
+require_once("../includes/Project.php");
+require_once("../includes/WhatsAppService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -10,6 +12,7 @@ if (SessionUser::hasValidSession()) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             $lecture_id = isset($_POST['lecture_id']) ? trim($_POST['lecture_id']) : 0;
+            $programme_id = isset($_POST['programme_id']) ? trim($_POST['programme_id']) : 0;
             $title = isset($_POST['title']) ? trim($_POST['title']) : '';
             $lecturer_id = isset($_POST['lecturer_id']) ? trim($_POST['lecturer_id']) : 0;
             $lecture_date = isset($_POST['lecture_date']) ? trim($_POST['lecture_date']) : '';
@@ -20,13 +23,16 @@ if (SessionUser::hasValidSession()) {
             $online = isset($_POST['online']) ? trim($_POST['online']) : false;
             $recording = isset($_POST['recording']) ? trim($_POST['recording']) : false;
             $link = isset($_POST['link']) ? trim($_POST['link']) : '';
+            $confirmation = isset($_POST['confirmation']) && $_POST['confirmation'] === 'true' ? true : false;
+            $edit_type = isset($_POST['edit_type']) ? trim($_POST['edit_type']) : '';
 
             if (empty($lecture_id) || $lecture_id == 0) {
                 $status->error = "Invalid lecture Id";
             } else {
                 $isValidLecture = Database::search("SELECT * FROM `time_table`
                 INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
-                
+                INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
                 WHERE `time_table_id`='" . $lecture_id . "'");
                 if ($isValidLecture->num_rows == 0) {
                     $status->error = "Invalid lecture Id";
@@ -35,21 +41,27 @@ if (SessionUser::hasValidSession()) {
                     $subject_id = $lectureData['subjects_subject_id'];
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 10) || UserPermissions::hasPermission('lecture_schedule', 10, $lectureData['subjects_subject_id']))) {
-                        $status->error = 'You are not authorized to edit scheduled lectures';
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                        $status->error = "You are not authorized to this action.";
                     } else {
 
                         if (empty($title)) {
                             $status->title = 'Please enter a title';
-                        } else if (strlen($title) > 50) {
-                            $status->title = 'Title should be less than 50 characters';
+                        } else if (strlen($title) > 100) {
+                            $status->title = 'Title should be less than 100 characters';
                         }
 
                         if ($lecturer_id == 0) {
                             $status->lecturer = 'Please select a lecturer';
-                        } else if ($lecturer_id != 0 && $subject_id != 0) {
-                            $isValidLecturer = Database::search("SELECT * FROM `lecturers` WHERE `lecturers_id` = '" . $lecturer_id . "' AND `subjects_subject_id` = '" . $subject_id . "'");
+                        } else if ($lecturer_id != 0) {
+
+                            $query = "SELECT * FROM `lecturers` 
+                            INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
+                            INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                            WHERE `lecturers_id` = '" . $lecturer_id . "' 
+                            ";
+
+                            $isValidLecturer = Database::search($query);
                             if ($isValidLecturer->num_rows == 0) {
                                 $status->lecturer = 'This lecturer is not assigned to this subject';
                             } else {
@@ -72,7 +84,7 @@ if (SessionUser::hasValidSession()) {
                         }
 
                         if ((($online === true) || ($recording === true)) && empty($link)) {
-                            $status->link = 'Please enter a link1';
+                            $status->link = 'Please enter a link';
                         }
 
                         if ($time_table_status == 0) {
@@ -82,37 +94,39 @@ if (SessionUser::hasValidSession()) {
                         $tutes = array();
 
                         if (isset($_FILES["tutes"])) {
-                            $allowed_tute_extensions = array(
-                                "application/pdf",
-                            );
+                            $allowedTypes = [
+                                "image/jpeg" => ".jpg",
+                                "image/jpg" => ".jpg",
+                                "image/png" => ".png",
+                                "image/gif" => ".gif",
+                                "image/webp" => ".webp",
+                                "image/bmp" => ".bmp",
+                                "image/svg+xml" => ".svg",
+                                "application/pdf" => ".pdf",
+                                "application/msword" => ".doc",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+                                "application/zip" => ".zip",
+                                "application/x-zip-compressed" => ".zip",
+                                "application/x-rar-compressed" => ".rar",
+                                "application/vnd.ms-powerpoint" => ".ppt",
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation" => ".pptx"
+                            ];
 
                             foreach ($_FILES["tutes"]["name"] as $key => $tute_name) {
-                                $tute_ex = $_FILES["tutes"]["type"][$key];
+                                $fileType = $_FILES["tutes"]["type"][$key];
 
-                                if (!in_array($tute_ex, $allowed_tute_extensions)) {
-                                    $status->tute[] = "File '$tute_name' is not a valid type. Only PDF, DOC, and DOCX files are allowed.";
+                                if (!array_key_exists($fileType, $allowedTypes)) {
+                                    $status->file = "File '$tute_name' is not a valid type.Only PDF, DOC, DOCX, ZIP, RAR, PPT, and PPTX files are allowed";
                                 } else if (strlen($tute_name) > 45) {
                                     $status->tute[] = "File '$tute_name' exceeds the maximum allowed character limit of 45.";
                                 } else {
-                                    $new_tute_extension = '';
-                                    switch ($tute_ex) {
-                                        case "application/pdf":
-                                            $new_tute_extension = ".pdf";
-                                            break;
-                                        case "application/msword":
-                                            $new_tute_extension = ".doc";
-                                            break;
-                                        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                                            $new_tute_extension = ".docx";
-                                            break;
-                                    }
 
                                     if ($_FILES["tutes"]["error"][$key] === 0) {
-                                        if ($_FILES["tutes"]["size"][$key] <= 10 * 1024 * 1024) {
-                                            $tute = uniqid() . $new_tute_extension;
+                                        if ($_FILES["tutes"]["size"][$key] <= 25 * 1024 * 1024) {
+                                            $tute = uniqid() . $allowedTypes[$fileType];
                                             array_push($tutes, $tute);
                                         } else {
-                                            $status->tute[] = "File '$tute_name' exceeds the maximum allowed size of 10MB.";
+                                            $status->tute[] = "File '$tute_name' exceeds the maximum allowed size of 25MB. Please compress (ZIP) the file before uploading.";
                                         }
                                     } else {
                                         $status->tute[] = "There was an error uploading the file '$tute_name'.";
@@ -121,81 +135,43 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        // if ($lecturer_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                        if ($confirmation == false && $edit_type == 1) {
+                            if ($lecturer_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
 
-                        //     $isAvailableLecturer = Database::search("SELECT COUNT(*) FROM `time_table`
-                        //                                                             INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                        //                                                             WHERE `lecturers`.`users_user_id` = '" . $lecturerData['users_user_id'] . "'
-                        //                                                             AND `time_table`.`date` = '" . $lecture_date . "'
-                        //                                                             AND `time_table_id` !='" . $lecture_id . "'
-                        //                                                             AND ((`time_table`.`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                        //                                                             OR (`time_table`.`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
-                                                                                    
-                        //                                                             ");
+                                $isAvailableLecturer = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
+                                                                            INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
+                                                                            WHERE `lecturers`.`users_user_id` = '" . $lecturerData['users_user_id'] . "'
+                                                                            AND `time_table`.`date` = '" . $lecture_date . "'
+                                                                            AND ((`time_table`.`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
+                                                                            OR (`time_table`.`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))");
 
-                        //     $row = $isAvailableLecturer->fetch_assoc();
-                        //     if ($row['COUNT(*)'] > 0) {
-                        //         $status->lecturer = 'The selected time is already scheduled for this lecturer.';
-                        //     }
-                        // }
+                                $row = $isAvailableLecturer->fetch_assoc();
+                                if ($row['count'] > 0) {
+                                    $status->confirm_required = true;
+                                    $status->lecturer_confirm = 'The selected time is unavailable for this lecturer.';
+                                }
+                            }
 
-                        if (!empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
-                            $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) FROM `time_table`
-                                                                                            INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                                                            INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
-                                                                                            INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
-                                                                                            WHERE `levels`.`level_id` = '" . $lectureData['levels_level_id'] . "'
-                                                                                            AND `time_table_id` !='" . $lecture_id . "'
-                                                                                            AND `subject_type_subject_type_id` = '1'
-                                                                                              AND `date` = '" . $lecture_date . "'
-                                                                                              AND ((`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                                                                                              OR (`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
-                                                                                                                                                                             ");
-                            $row = $isAvailableSelectTimeInIntake->fetch_assoc();
-                            if ($row['COUNT(*)'] > 0) {
-                                $status->start_time = 'Time slot already booked for this Intake.';
-                                $status->end_time = 'Time slot already booked for this Intake.';
+                            if (!empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                                $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
+                            INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
+                            INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                            INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                                                      WHERE `intakes`.`intake_id` = '" . $lectureData['intakes_intake_id'] . "'
+    
+                                                                                      AND `date` = '" . $lecture_date . "'
+                                                                                      AND ((`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
+                                                                                      OR (`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
+                                                                                                                                                                     ");
+                                $row = $isAvailableSelectTimeInIntake->fetch_assoc();
+                                if ($row['count'] > 0) {
+                                    $status->confirm_required = true;
+                                    $status->date_confirm = 'The selected time has already been scheduled for a lecture in this Intake.';
+                                }
                             }
                         }
 
-                        if (!empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
-                            $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) FROM `time_table`
-                                                                                              WHERE `subjects_subject_id` = '" . $subject_id . "'
-                                                                                                 AND `time_table_id`!='" . $lecture_id . "' 
-                                                                                              AND `date` = '" . $lecture_date . "'
-                                                                                              AND ((`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                                                                                              OR (`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
-                                                                                                                                                                             ");
-                            $row = $isAvailableSelectTimeInIntake->fetch_assoc();
-                            if ($row['COUNT(*)'] > 0) {
-                                $status->start_time = 'Time slot already booked for this Subject.';
-                                $status->end_time = 'Time slot already booked for this Subject.';
-                            }
-                        }
-
-
-                        $requiredProperties = [
-                            'error',
-                            'subject',
-                            'title',
-                            'lecturer',
-                            'lecture_date',
-                            'start_time',
-                            'end_time',
-                            'link',
-                            'tute',
-                            'date',
-                            'time_table_status'
-                        ];
-                        $allFieldsPresent = true;
-                        foreach ($requiredProperties as $property) {
-                            if (property_exists($status, $property)) {
-                                $allFieldsPresent = false;
-                                break;
-                            }
-                        }
-
-                        if ($allFieldsPresent) {
+                        if (empty(get_object_vars($status))) {
                             $timezone = new DateTimeZone("Asia/Colombo");
                             $dateTime = new DateTime("now", $timezone);
                             $addTime = $dateTime->format('Y-m-d H:i:s');
@@ -222,27 +198,94 @@ if (SessionUser::hasValidSession()) {
                                 $time_table_update_query .= ",`lecture_type_lecture_type_id`='3',`lecture`='" . $link . "'";
                             }
 
-                            try {
-                                Database::iud("UPDATE `time_table` SET " . $time_table_update_query . " WHERE `time_table_id` = '" . $lecture_id . "'");
+                            if ($edit_type == 1) {
 
-                                if (isset($_FILES["tutes"])) {
-                                    for ($i = 0; $i < count($_FILES["tutes"]["name"]); $i++) {
+                                try {
+                                    Database::iud("UPDATE `time_table` SET " . $time_table_update_query . " WHERE `time_table_id` = '" . $lecture_id . "'");
 
-                                        $originalFileName = $_FILES["tutes"]["name"][$i];
+                                    if (isset($_FILES["tutes"])) {
+                                        for ($i = 0; $i < count($_FILES["tutes"]["name"]); $i++) {
 
-                                        $attachment_insert_columns = "`attachment`,`attachment_name`,`time_table_time_table_id`,`users_user_id`,`date_added`,`attachments_order`";
-                                        $attachment_insert_values = "'" . $tutes[$i] . "','" . $originalFileName . "','" . $lecture_id . "','" . $sessionUserObject["user_id"] . "','" . $addTime . "','0'";
+                                            $originalFileName = $_FILES["tutes"]["name"][$i];
 
-                                        Database::iud("INSERT INTO `attachments` (" . $attachment_insert_columns . ") VALUES (" . $attachment_insert_values . ")");
+                                            $attachment_insert_columns = "`attachment`,`attachment_name`,`time_table_time_table_id`,`users_user_id`,`date_added`,`attachments_order`";
+                                            $attachment_insert_values = "'" . $tutes[$i] . "','" . $originalFileName . "','" . $lecture_id . "','" . $sessionUserObject["user_id"] . "','" . $addTime . "','0'";
 
-                                        $tute_path = "../assets/uploads/lectures-attachments/" . $tutes[$i];
-                                        move_uploaded_file($_FILES["tutes"]["tmp_name"][$i], $tute_path);
+                                            Database::iud("INSERT INTO `attachments` (" . $attachment_insert_columns . ") VALUES (" . $attachment_insert_values . ")");
+
+                                            $tute_path = "../assets/uploads/lectures-attachments/" . $tutes[$i];
+                                            move_uploaded_file($_FILES["tutes"]["tmp_name"][$i], $tute_path);
+                                        }
                                     }
+
+                                    $status->done = "Lecture has been successfully updated";
+                                } catch (Exception $e) {
+                                    $status->error = "Something went wrong";
+                                }
+                            } else {
+
+                                $query = "SELECT * FROM `time_table`
+                                    INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
+                                    INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                                    INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                                    INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
+                                    WHERE `date`='" . $lectureData['date'] . "' AND `start_time`='" . $lectureData['start_time'] . "'
+                                    AND `end_time`='" . $lectureData['end_time'] . "'
+                                    AND `lecturers`.`users_user_id`='" . $lecturerData['user_id'] . "'
+                                    ";
+
+                                if ($programme_id != 0) {
+                                    $query .= " AND `programmes_programme_id`='" . $programme_id . "'";
                                 }
 
-                                $status->done = "Lecture has been successfully updated";
-                            } catch (Exception $e) {
-                                $status->error = $e->getMessage();
+
+                                $lectures = Database::search($query);
+
+                                if ($lectures->num_rows > 0) {
+                                    $attchments = [];
+                                    $tutesNames = [];
+
+                                    if (isset($_FILES["tutes"])) {
+                                        for ($i = 0; $i < count($_FILES["tutes"]["name"]); $i++) {
+
+                                            $originalFileName = $_FILES["tutes"]["name"][$i];
+                                            $tute_path = "../assets/uploads/lectures-attachments/" . $tutes[$i];
+                                            move_uploaded_file($_FILES["tutes"]["tmp_name"][$i], $tute_path);
+
+                                            $tutesNames[] = $originalFileName;
+                                        }
+                                    }
+                                    while ($lecturesData = $lectures->fetch_assoc()) {
+
+                                        $time_table_update_query = "`lecturers_lecturers_id`='" . $lectureData['lecturers_lecturers_id'] . "',`time_table_status_time_table_status_id`='" . $time_table_status . "'
+                            ,`date`='" . $lecture_date . "',`start_time`='" . $start_time . "',`end_time`='" . $end_time . "',`duration`='" . $duration . "',`lecture_title`='" . $title . "'";
+
+                                        if (filter_var($physical, FILTER_VALIDATE_BOOLEAN)) {
+                                            $time_table_update_query .= ",`lecture_type_lecture_type_id`='1',`lecture`=''";
+                                        }
+
+                                        if (filter_var($online, FILTER_VALIDATE_BOOLEAN)) {
+                                            $time_table_update_query .= ",`lecture_type_lecture_type_id`='2',`lecture`='" . $link . "'";
+                                        }
+
+                                        if (filter_var($recording, FILTER_VALIDATE_BOOLEAN)) {
+                                            $time_table_update_query .= ",`lecture_type_lecture_type_id`='3',`lecture`='" . $link . "'";
+                                        }
+                                        Database::iud("UPDATE `time_table` SET " . $time_table_update_query . " WHERE `time_table_id` = '" . $lecturesData['time_table_id'] . "'");
+
+                                        for ($i = 0; $i < count($tutesNames); $i++) {
+                                            $tute_name = $tutesNames[$i];
+                                            $attachment_insert_columns = "`attachment`,`attachment_name`,`time_table_time_table_id`,`users_user_id`,`date_added`,`attachments_order`";
+                                            $attachment_insert_values = "'" . $tutes[$i] . "','" . $tute_name . "','" . $lecturesData['time_table_id'] . "','" . $sessionUserObject["user_id"] . "','" . $addTime . "','0'";
+
+                                            Database::iud("INSERT INTO `attachments` (" . $attachment_insert_columns . ") VALUES (" . $attachment_insert_values . ")");
+                                        }
+                                    }
+
+                                    $status->done = "Lectures has been successfully updated";
+                                } else {
+                                    $status->error = "Lecture Not Updated";
+                                }
                             }
                         }
                     }

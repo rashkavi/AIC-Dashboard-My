@@ -4247,6 +4247,259 @@ option {
     }
 }
 
+.calendar-day {
+    padding: 12px 0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.calendar-day:hover {
+    background-color: #f3f3f3;
+}
+
+.calendar-day.attended {
+    background-color: var(--light-green);
+    /* light green */
+    color: var(--dark-green);
+    font-weight: 600;
+    border: 2px solid var(--dark-green);
+}
+
+.calendar-day.inactive {
+    color: #ccc;
+}
+
+.lead-summary-card {
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+}
+
+.summary-mini-card {
+    border-radius: 16px;
+    padding: 14px;
+    height: 100%;
+    background: #f8f9fa;
+    border: 1px solid var(--line-color);
+}
+
+.current-card {
+    background: linear-gradient(135deg, rgba(62, 64, 149, 0.08), rgba(62, 64, 149, 0.02));
+}
+
+.previous-card {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.10), rgba(108, 117, 125, 0.03));
+}
+
+.summary-label {
+    display: block;
+    font-size: 12px;
+    color: var(--sub-text);
+    margin-bottom: 6px;
+}
+
+.summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--dark-color);
+}
+
+.trend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.trend-badge.up {
+    background: var(--light-green);
+    color: var(--dark-green);
+}
+
+.trend-badge.down {
+    background: var(--light-red);
+    color: var(--dark-red);
+}
+
+.trend-badge.neutral {
+    background: rgba(108, 117, 125, 0.12);
+    color: #6c757d;
+}
+
+.trend-icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.trend-icon.up {
+    background: var(--light-green);
+    color: var(--dark-green);
+}
+
+.trend-icon.down {
+    background: var(--light-red);
+    color: var(--dark-red);
+}
+
+.trend-icon.neutral {
+    background: rgba(108, 117, 125, 0.12);
+    color: #6c757d;
+}
+
+.lead-performance-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line-color);
+    transition: all 0.2s ease;
+    height: 100%;
+}
+
+.lead-performance-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.lead-performance-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.lead-performance-label {
+    font-size: 13px;
+    color: var(--sub-text);
+}
+
+.lead-performance-value {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+/* Colors */
+.lead-performance-card.hot .lead-performance-icon {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.lead-performance-card.warm .lead-performance-icon {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.lead-performance-card.busy .lead-performance-icon {
+    background: rgba(13, 202, 240, 0.15);
+    color: #0dcaf0;
+}
+
+.lead-performance-card.sleep .lead-performance-icon {
+    background: rgba(13, 110, 253, 0.15);
+    color: #0d6efd;
+}
+
+.lead-performance-card.future .lead-performance-icon {
+    background: rgba(25, 135, 84, 0.15);
+    color: #198754;
+}
+
+.lead-performance-card.cold .lead-performance-icon {
+    background: rgba(108, 117, 125, 0.15);
+    color: #6c757d;
+}
+
+.lead-performance-card.enrolled .lead-performance-icon {
+    background: rgba(111, 66, 193, 0.15);
+    color: #6f42c1;
+}
+
+.lead-performance-card.blacklist .lead-performance-icon {
+    background: rgba(152, 171, 190, 0.15);
+    color: #7e8c9b;
+}
+
+
+/* ============================================================
+   Counselor Performance — new status-bucket theme colors
+   Append these to your main stylesheet (after the existing
+   .lead-performance-card color rules).
+
+   IMPORTANT: the "In Progress" card theme is named `inprogress`
+   (NOT `progress`) — `progress` collides with Bootstrap's built-in
+   .progress class and was causing the grey progress-bar background
+   you saw on that card.
+   ============================================================ */
+
+/* ---------- stats-mini-card (top summary cards) ---------- */
+
+.stats-mini-card.total .stats-mini-icon {
+    background: rgba(62, 64, 149, 0.12);
+    color: #3E4095;
+}
+
+.stats-mini-card.pending .stats-mini-icon {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.stats-mini-card.rejected .stats-mini-icon {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.stats-mini-card.inprogress .stats-mini-icon {
+    background: rgba(13, 110, 253, 0.15);
+    color: #0d6efd;
+}
+
+.stats-mini-card.ready .stats-mini-icon {
+    background: rgba(214, 51, 132, 0.15);
+    color: #d63384;
+}
+
+.stats-mini-card.enrolled .stats-mini-icon {
+    background: rgba(111, 66, 193, 0.15);
+    color: #6f42c1;
+}
+
+/* ---------- lead-performance-card (chart summary row) ---------- */
+
+.lead-performance-card.pending .lead-performance-icon {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.lead-performance-card.rejected .lead-performance-icon {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.lead-performance-card.inprogress .lead-performance-icon {
+    background: rgba(13, 110, 253, 0.15);
+    color: #0d6efd;
+}
+
+.lead-performance-card.ready .lead-performance-icon {
+    background: rgba(214, 51, 132, 0.15);
+    color: #d63384;
+}
+
+/* .lead-performance-card.enrolled already exists in your stylesheet
+   (purple, #6f42c1) — reused as-is, no change needed. */
+
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {
     .studentPolicyPageImage {

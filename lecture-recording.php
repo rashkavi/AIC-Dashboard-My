@@ -1,4 +1,5 @@
 <?php
+
 require_once './includes/UserClass.php';
 require_once './includes/UserPermissionsClass.php';
 require_once "./includes/connection.php";
@@ -28,6 +29,7 @@ if (!SessionUser::hasValidSession()) {
                 `f`.`faculty`,
                 `p`.`programme`,
                 `p`.`programme_id`,
+                `p`.`programme_cover`,
                 `i`.`intake_id`,
                 `i`.`intake`,
                 `l`.`level`,
@@ -61,6 +63,7 @@ if (!SessionUser::hasValidSession()) {
                 ON `s`.`levels_level_id` = `l`.`level_id`
             INNER JOIN `intakes` AS `i`
                 ON `l`.`intakes_intake_id` = `i`.`intake_id`
+               
             INNER JOIN `programmes` AS `p`
                 ON `i`.`programmes_programme_id` = `p`.`programme_id`
           
@@ -98,8 +101,9 @@ if (!SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission("super_lecture_schedule", 28))) {
-                        header("Location: ./lecture-schedule");
+                    UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id == 0 ? UserPermissions::validPermisisonType('course_overview') : UserPermissions::validPermisisonType('lecture_schedule')))) {
+                        header("Location: ./dashboard");
                     } else {
 
                         $timezone = new DateTimeZone("Asia/Colombo");
@@ -107,13 +111,12 @@ if (!SessionUser::hasValidSession()) {
                         $todayDate = $today->format('Y-m-d');
                         $nowTime = $today->format('H:i:s');
 
-                        $isHasRecording = Database::search("SELECT `lecture_recording`.*,`users`.`user_fname`,`users`.`user_lname`,`users`.`profile_img`,`title`.`title` FROM `lecture_recording`
-                        INNER JOIN `users` ON `users`.`user_id` = `lecture_recording`.`users_user_id`
-                        INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id` 
-                        WHERE `time_table_time_table_id` = '" . $lecture_id . "'");
-                        if ($isHasRecording->num_rows > 0) {
-                            $lectureRecordingData = $isHasRecording->fetch_assoc();
-                        }
+                        $isHasRecording = Database::search("SELECT * FROM `lecture_recording_has_lectures`
+                        INNER JOIN `lecture_recording` ON `lecture_recording_has_lectures`.`lecture_recording_lecture_recording_id` = `lecture_recording`.`lecture_recording_id`
+                        INNER JOIN `users` ON `lecture_recording`.`users_user_id` = `users`.`user_id`
+                        INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                        WHERE `time_table_time_table_id`='" . $lecture_id . "'");
+
 ?>
                         <!DOCTYPE html>
                         <html lang="en">
@@ -186,7 +189,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <ol class="breadcrumb m-0">
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./intakes?programme-id=<?= $lectureData['programme_id'] ?>"><?= $lectureData['programme'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">...</a></li>
-                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subjects?level-id=<?= $lectureData['level_id'] ?>"><?= $lectureData['level'] ?></a></li>
+                                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./level-details?level-id=<?= $lectureData['level_id'] ?>"><?= $lectureData['level'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-details?subject-id=<?= $lectureData['subject_id'] ?>"><?= $lectureData['subject'] ?></a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./subject-lecture-schedule?subject-id=<?= $lectureData['subject_id'] ?>">Lectures</a></li>
                                                                                 <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Lecture Attendance</a></li>
@@ -199,15 +202,32 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                             <?php
                                                             if ($isHasRecording->num_rows > 0) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
                                                             ?>
-                                                                <div class="col-12 col-lg-2">
-                                                                    <div class="row align-items-center">
-                                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                            <button class="custom-btn px-4" data-i18n="edit-lecture-recording" onclick="window.location = 'edit-lecture-recording?lecture-recording-id=<?= $lectureRecordingData['lecture_recording_id'] ?>' ">Edit Lecture Recording</button>
+                                                                    <div class="col-12 col-lg-2">
+                                                                        <div class="row align-items-center">
+                                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                                <?php
+                                                                                if ($subject_id == 0) {
+                                                                                ?>
+                                                                                    <button class="custom-btn w-100" onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>'">Upload Recording</button>
+                                                                                <?php
+                                                                                } else {
+                                                                                ?>
+                                                                                    <button
+                                                                                        class="custom-btn w-100"
+
+                                                                                        onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>&subject-id=<?= $subject_id ?>'">
+                                                                                        Upload Recording
+                                                                                    </button>
+                                                                                <?php
+                                                                                }
+                                                                                ?>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
                                                             <?php
+                                                                }
                                                             }
                                                             ?>
                                                         </div>
@@ -222,114 +242,105 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <?php
                                                     } else {
+
                                                         if ($isHasRecording->num_rows == 0) {
                                                         ?>
                                                             <div class="col-12 px-4 py-3 component-theme">
                                                                 <div class="d-flex flex-column align-items-center justify-content-center">
                                                                     <img src="./assets/imgs/common/emty-video.png" class="no-data-icon" alt="No data" />
                                                                     <?php
-                                                                    if ($subject_id == 0) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                                                                        if ($subject_id == 0) {
                                                                     ?>
-                                                                        <button class="custom-btn px-5" data-i18n="upload-lecture-recording" onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>'">Upload Recording</button>
+                                                                            <button class="custom-btn px-5" data-i18n="upload-lecture-recording" onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>'">Upload Recording</button>
+                                                                        <?php
+                                                                        } else {
+                                                                        ?>
+                                                                            <button
+                                                                                class="custom-btn px-5"
+                                                                                data-i18n="upload-lecture-recording"
+                                                                                onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>&subject-id=<?= $subject_id ?>'">
+                                                                                Upload Recording
+                                                                            </button>
                                                                     <?php
-                                                                    } else {
-                                                                    ?>
-                                                                        <button
-                                                                            class="custom-btn px-5"
-                                                                            data-i18n="upload-lecture-recording"
-                                                                            onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>&subject-id=<?= $subject_id ?>'">
-                                                                            Upload Recording
-                                                                        </button>
-                                                                    <?php
+                                                                        }
                                                                     }
                                                                     ?>
                                                                 </div>
                                                             </div>
                                                         <?php
                                                         } else {
-                                                            $iframeHtml = $lectureRecordingData['lecture_recording'];
-                                                            $src = "";
-                                                            if (preg_match('/src="([^"]+)"/', $iframeHtml, $matches)) {
-                                                                $src = $matches[1];
-                                                            }
                                                         ?>
-                                                            <div class="col-12 component-theme p-4">
-                                                                <div class="row p-0">
-                                                                    <div class="col-12 col-lg-6">
-                                                                        <div class="lecture-thumbnail" onclick="openLectureModal('<?= $src ?>')">
-                                                                            <?php
-                                                                            if (!empty($lectureRecordingData['recording_thumbnail']) && !file_exists('./assets/imgs/recording-thumbnail/' . $lectureRecordingData['recording_thumbnail'])) {
-                                                                            ?>
-                                                                                <img src="./assets/imgs/common/empty-thumbnail.webp" alt="Lecture Thumbnail" class="thumbnail-img">
-                                                                            <?php
-                                                                            } else {
-                                                                            ?>
-                                                                                <img src="./assets/imgs/recording-thumbnail/<?= $lectureRecordingData['recording_thumbnail'] ?>" alt="Lecture Thumbnail" class="thumbnail-img">
-                                                                            <?php
-                                                                            }
-                                                                            ?>
-                                                                            <div class="recording-pulse"></div>
-                                                                            <div class="play-icon">
-                                                                                <iconify-icon icon="line-md:play-filled" width="60" height="60" class="dark-theme"></iconify-icon>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="col-12 col-lg-6">
-                                                                        <div class="row p-0 m-0 justify-content-end">
-                                                                            <h3 class="sub-topic text-16 fw-bold mb-3 p-0">Recorrding Details</h3>
-                                                                            <div class="payment-card-container p-0">
-                                                                                <div class="payment-card shadow-none">
-                                                                                    <!-- Background elements -->
-                                                                                    <div class="card-background"></div>
-                                                                                    <!-- Card content -->
-                                                                                    <div class="card-content">
-                                                                                        <div class="payment-header">
-                                                                                            <!-- Reference on left -->
-                                                                                            <div class="reference-section">
-                                                                                                <span class="reference-label">Title</span>
-                                                                                                <h2 class="reference-number"><?= $lectureData["lecture_title"]; ?></h2>
-                                                                                                <hr>
-                                                                                            </div>
+                                                            <div class="col-12">
+                                                                <div class="row gx-4 gy-4">
+                                                                    <?php
+                                                                    $partsEnabled = $isHasRecording->num_rows > 1 ? true : false;
+                                                                    for ($i = 0; $i < $isHasRecording->num_rows; $i++) {
+                                                                        $lectureRecordingData = $isHasRecording->fetch_assoc();
+                                                                    ?>
+                                                                        <div class="col-12 col-lg-4">
+                                                                            <div class="student-details-card position-relative px-4 py-3 component-theme">
+                                                                                <div class="row p-0 m-0 g-0 align-content-center">
+                                                                                    <div class="col-12 d-flex flex-column align-items-center p-0 m-0 g-0">
+                                                                                        <div class="lecture-thumbnail"
+                                                                                            onclick='openLectureRecording(<?= json_encode($lectureRecordingData["lecture_recording"]) ?>);'>
+                                                                                            <?php
+                                                                                            if (!empty($lectureRecordingData['recording_thumbnail']) && file_exists('./assets/imgs/recording-thumbnail/' . $lectureRecordingData['recording_thumbnail'])) {
+                                                                                            ?>
+                                                                                                <img src="./assets/imgs/recording-thumbnail/<?= $lectureRecordingData['recording_thumbnail'] ?>" alt="Lecture Thumbnail" class="thumbnail-img">
+                                                                                            <?php
+                                                                                            } else if (!empty($lectureData['programme_cover']) && file_exists('./assets/imgs/programmes-covers/' . $lectureData['programme_cover'])) {
+                                                                                            ?>
+                                                                                                <img src="./assets/imgs/programmes-covers/<?= $lectureData['programme_cover'] ?>" alt="Lecture Thumbnail" class="thumbnail-img">
+                                                                                            <?php
+                                                                                            } else {
+                                                                                            ?>
+                                                                                                <img src="./assets/imgs/common/empty-thumbnail.webp" alt="Lecture Thumbnail" class="thumbnail-img">
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                          
                                                                                         </div>
-                                                                                        <div class="details-row d-flex flex-column">
-                                                                                            <div class="detail-item">
-                                                                                                <div class="detail-icon">
-                                                                                                    <?php
-                                                                                                    if (!empty($lectureRecordingData["profile_img"]) && file_exists('./assets/imgs/users/' . $lectureRecordingData["profile_img"])) {
-                                                                                                    ?>
-                                                                                                        <img src="./assets/imgs/users/<?php echo $lectureRecordingData["profile_img"]; ?>" class="hwr-40" alt="User image">
-                                                                                                    <?php
-                                                                                                    } else {
-                                                                                                        $firstNameInitial = strtoupper(substr($lectureRecordingData["user_fname"], 0, 1));
-                                                                                                        $lastNameInitial = strtoupper(substr($lectureRecordingData["user_lname"], 0, 1));
-                                                                                                    ?>
-                                                                                                        <div class="d-flex hwr-40 text-white align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
-                                                                                                    <?php
-                                                                                                    }
-                                                                                                    ?>
-                                                                                                </div>
-                                                                                                <div class="detail-content">
-                                                                                                    <span class="detail-label">Added By</span>
-                                                                                                    <span class="detail-value"><?= $lectureRecordingData["title"] . '.' . $lectureRecordingData["user_fname"] . ' ' . $lectureRecordingData["user_lname"] ?></span>
-                                                                                                </div>
+                                                                                    </div>
+                                                                                    <div class="col-12 d-flex flex-column px-0 mt-3 gap-3 align-content-center justify-content-center">
+                                                                                        <h6 class="text-18 text-dark-color fw-semibold m-0"><?= $lectureData["lecture_title"]; ?> - <?= $partsEnabled ? "Part " . ($i + 1) : "" ?></h6>
+                                                                                        <div class="d-flex flex-column gap-3 mt-3">
+                                                                                            <div class="student-details-item d-flex align-items-center gap-2">
+                                                                                                <iconify-icon icon="hugeicons:user-ai" width="20" height="20" class="dark-theme"></iconify-icon>
+                                                                                                <span class="student-details-intake text-13 sub-text">Uploaded By: <?= $lectureRecordingData['title'] . " " . $lectureRecordingData['user_fname'] . " " . $lectureRecordingData['user_lname'] ?>
+                                                                                                </span>
                                                                                             </div>
-                                                                                            <div class="detail-item">
-                                                                                                <div class="detail-icon">
-                                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                                                                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
-                                                                                                    </svg>
-                                                                                                </div>
-                                                                                                <div class="detail-content">
-                                                                                                    <span class="detail-label">Expire Date</span>
-                                                                                                    <span class="detail-value"><?= $lectureRecordingData["expire_date"] ?? '--/--/----'; ?></span>
-                                                                                                </div>
+                                                                                            <div class="student-details-item d-flex align-items-center gap-2">
+                                                                                                <iconify-icon icon="hugeicons:date-time" width="20" height="20" class="dark-theme"></iconify-icon>
+                                                                                                <span class="student-details-intake text-13 sub-text">Uploaded Date: <?= date('Y-m-d H:i A', strtotime($lectureRecordingData['added_at'])) ?>
+                                                                                                </span>
                                                                                             </div>
                                                                                         </div>
                                                                                     </div>
+                                                                                    <?php
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                                                                                    ?>
+                                                                                        <div class="col-12 p-0 mt-3 m-lg-0">
+                                                                                            <div class="row gx-3 mt-3 h-100 align-content-center justify-content-end">
+                                                                                                <div class="col-6 d-flex justify-content-end align-items-center">
+                                                                                                    <button class="custom-danger-btn w-100" onclick="window.location = 'edit-lecture-recording?lecture-recording-id=<?= $lectureRecordingData['lecture_recording_id'] ?>' ">Edit</button>
+                                                                                                </div>
+                                                                                                <div class="col-6 d-flex justify-content-end align-items-center">
+                                                                                                    <button class="custom-danger-btn w-100" onclick="openRemoeRecordigConfirmationModal(<?= $lectureRecordingData['lecture_recording_id'] ?>)">Remove</button>
+                                                                                                </div>
+
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
+                                                                    <?php
+                                                                    }
+                                                                    ?>
                                                                 </div>
                                                             </div>
                                                     <?php
@@ -347,14 +358,66 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                             </div>
 
-                            <div class="modal fade br-0" id="lectureView" aria-hidden="true" aria-labelledby="lectureViewLabel" tabindex="-1">
-                                <div class="modal-dialog modal-lg modal-dialog-centered br-0">
-                                    <div class="modal-content p-4">
-                                        <div class="modal-header p-0 border-0">
-                                            <h1 class="modal-title text-16 text-dark-color" id="lectureViewLabel">Lecture</h1>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <div class="modal fade" id="removeLectureRecordingConfirmModal" tabindex="-1"
+                                aria-labelledby="removeLectureRecordingConfirmModalTitle" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
+
+                                        <div class="d-flex justify-content-end pe-3 pt-3 position-relative">
+                                            <button type="button"
+                                                class="btn-close text-end"
+                                                data-bs-dismiss="modal"
+                                                aria-label="Close"></button>
                                         </div>
-                                        <div class="modal-body align-content-center justify-content-center p-0 mt-3" id="lectureModalBody">
+
+                                        <div class="modal-body text-center p-4">
+
+                                            <div class="mb-3">
+                                                <iconify-icon
+                                                    icon="bx:error-circle"
+                                                    width="48"
+                                                    height="48"
+                                                    class="text-danger">
+                                                </iconify-icon>
+                                            </div>
+
+                                            <h5 class="fw-semibold mb-2" id="removeLectureRecordingConfirmModalTitle">
+                                                Confirm Lecture Recording Removal
+                                            </h5>
+
+                                            <p class="text-muted mb-3">
+                                                You are about to remove this <strong>Lecture Recording</strong>.
+                                            </p>
+
+                                            <div class="alert alert-warning text-start small mb-4">
+                                                <div class="d-flex align-items-start gap-2">
+                                                    <iconify-icon icon="mdi:alert-outline" width="20"></iconify-icon>
+                                                    <div>
+                                                        <strong>This action will:</strong>
+                                                        <ul class="mb-0 ps-3">
+                                                            <li>Permanently remove the selected lecture recording</li>
+                                                            <li>Make the recording unavailable to students and staff</li>
+                                                            <li>This action <strong>cannot be undone</strong></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex justify-content-center gap-3">
+                                                <button type="button"
+                                                    class="btn btn-outline-secondary px-4 br-0"
+                                                    data-bs-dismiss="modal">
+                                                    Cancel
+                                                </button>
+
+                                                <button type="button"
+                                                    id="confirmRemoveLectureRecording"
+                                                    class="btn btn-danger px-4 br-0">
+                                                    <iconify-icon icon="mdi:delete-outline" class="me-1"></iconify-icon>
+                                                    Remove Recording
+                                                </button>
+                                            </div>
+
                                         </div>
                                     </div>
                                 </div>

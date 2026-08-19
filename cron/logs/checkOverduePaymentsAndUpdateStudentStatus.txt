@@ -1,0 +1,10 @@
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10001 | student_id: 1 | intake_id: 412 | course_payments_id=10002 due_date=2026-07-25 balance=203.62
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10003 | student_id: 3 | intake_id: 414 | course_payments_id=10015 due_date=2026-08-10 balance=195.29
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10004 | student_id: 4 | intake_id: 412 | course_payments_id=10022 due_date=2026-08-10 balance=200.00
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10007 | student_id: 7 | intake_id: 400 | course_payments_id=10029 due_date=2026-08-10 balance=200.00
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10008 | student_id: 8 | intake_id: 449 | course_payments_id=10050 due_date=2026-08-10 balance=200.00
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10011 | student_id: 11 | intake_id: 452 | course_payments_id=10107 due_date=2026-07-20 balance=35.56
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10013 | student_id: 13 | intake_id: 445 | course_payments_id=10066 due_date=2026-08-10 balance=199.09
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10015 | student_id: 15 | intake_id: 416 | course_payments_id=10073 due_date=2026-08-10 balance=99.59
+[2026-08-18 00:25:18] Flagged OVERDUE | students_has_intakes_id: 10016 | student_id: 16 | intake_id: 449 | course_payments_id=10101 due_date=2026-08-10 balance=199.98
+[2026-08-18 00:25:18] Run complete | total_checked: 16 | total_flagged_overdue: 9 | date: 2026-08-18 00:25:18

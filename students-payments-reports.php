@@ -69,8 +69,8 @@ if (!SessionUser::hasValidSession()) {
                                                         <span class="main-topic lh-lg" data-i18n="reports">Finance Reports</span>
                                                         <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                             <ol class="breadcrumb m-0">
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="reports">Reports</a></li>
-                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Finance Reports</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="payments">Payments</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Student Payments Reports</a></li>
                                                             </ol>
                                                         </nav>
                                                     </div>
@@ -80,7 +80,6 @@ if (!SessionUser::hasValidSession()) {
 
                                         <div class="col-12">
                                             <div class="row gy-4 gx-4">
-
                                                 <div class="col-12 col-lg-6 mt-4">
                                                     <div class="row m-0 component-theme p-4 h-100">
                                                         <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
@@ -110,6 +109,52 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-mdl2:analytics-report" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                             <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                                 <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
+                                                                    Collection Report
+                                                                </span>
+                                                                <span class="text-14 main-text" data-i18n="">
+                                                                    View and track payment collections, outstanding balances, and overdue amounts.
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                            <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                                <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn w-100" onclick="window.location.href='./collection-report'">Genarate</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 col-lg-6 mt-4">
+                                                    <div class="row m-0 component-theme p-4 h-100">
+                                                        <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                            <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-mdl2:analytics-report" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                            <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                                <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
+                                                                    Due Payments Report
+                                                                </span>
+                                                                <span class="text-14 main-text" data-i18n="">
+                                                                    View and track all due payments, including outstanding balances and overdue amounts.
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                            <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                                <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn w-100" onclick="window.location.href='due-report'">Genarate</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- <div class="col-12 col-lg-6 mt-4">
+                                                    <div class="row m-0 component-theme p-4 h-100">
+                                                        <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                            <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-mdl2:analytics-report" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                            <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                                <span class="text-16 text-dark-color fw-bold lh-lg" data-i18n="">
                                                                     Outstanding balances
                                                                 </span>
                                                                 <span class="text-14 main-text" data-i18n="">
@@ -127,7 +172,7 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 </div>
 
-                                                  <div class="col-12 col-lg-6 mt-4">
+                                                <div class="col-12 col-lg-6 mt-4">
                                                     <div class="row m-0 component-theme p-4 h-100">
                                                         <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
                                                             <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-mdl2:analytics-report" width="32" height="32" class="dark-theme"></iconify-icon></div>
@@ -148,7 +193,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </div> -->
 
                                             </div>
                                         </div>

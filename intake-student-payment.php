@@ -87,6 +87,19 @@ if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademi
 }
 
 /* ══════════════════════════════════════════════════════════
+   LATEST TAX RATE (matches add-receipt.php)
+══════════════════════════════════════════════════════════ */
+$latestTaxRateQuery = Database::search("
+    SELECT `tax_rate` AS `rate` FROM `tax_rates`
+    ORDER BY `date_added` DESC LIMIT 1
+");
+$latestTaxRate = 0;
+if ($latestTaxRateQuery && $latestTaxRateQuery->num_rows > 0) {
+    $taxRateRow    = $latestTaxRateQuery->fetch_assoc();
+    $latestTaxRate = (float)$taxRateRow['rate'];
+}
+
+/* ══════════════════════════════════════════════════════════
    CURRENCY HELPERS
 ══════════════════════════════════════════════════════════ */
 function resolveExchangeRate($row, $courseCurrencyId)
@@ -157,7 +170,7 @@ $penaltyInCourse = $isCourseLKR
     ? $penaltyLKR
     : ($pageExchangeRateValue > 0 ? $penaltyLKR / $pageExchangeRateValue : $penaltyLKR);
 
-/* ── Fetch all receipt rows ── */
+/* ── Fetch all receipt rows (pending + approved, for display) ── */
 $receipts = Database::search("
     SELECT
         cpp.*,
@@ -205,25 +218,44 @@ if ($receipts && $receipts->num_rows > 0) {
         /* Penalty in cpp table is in PAID currency → convert to course */
         $rec['penalty_in_course']  = convertToCourseAmount((float)($rec['panelty_amount']  ?? 0), $recRate);
 
-        $convertedPaidTotal += $rec['converted_paid'];
-        $receiptRows[]       = $rec;
+        // Keep every row (pending + approved) for the receipt accordion display.
+        $receiptRows[] = $rec;
 
-        if (in_array((int)$rec['payment_status_id'], [2, 3])) {
+        // ── Only APPROVED (status_id = 3) receipts feed the balance/summary math. ──
+        // This mirrors add-receipt.php, which only ever fetches status_id = 3 rows,
+        // so pending receipts never affect what's owed until they're approved.
+        if ((int)$rec['payment_status_id'] === 3) {
+            $convertedPaidTotal   += $rec['converted_paid'];
+            $totalPaidApproved    += $rec['converted_paid'];
             $totalReceiptDiscount += $rec['discount_in_course'];
             $totalReceiptPenalty  += $rec['penalty_in_course'];
             $totalReceiptTax      += $rec['tax_in_course'];
-        }
-        if ((int)$rec['payment_status_id'] === 3) {
-            $totalPaidApproved += $rec['converted_paid'];
         }
     }
 }
 
 /* ── Final totals (all in course currency) ── */
-$totalDiscount  = $cpDiscount + $totalReceiptDiscount;
-$totalPenalty   = $penaltyInCourse + $totalReceiptPenalty;
-$payableAmount  = $paymentData['amount'] - $totalDiscount + $totalPenalty + $totalReceiptTax;
-$balance        = $payableAmount - $convertedPaidTotal;
+$totalDiscount = $cpDiscount + $totalReceiptDiscount;
+$totalPenalty  = $penaltyInCourse + $totalReceiptPenalty;
+
+/* ══════════════════════════════════════════════════════════
+   BALANCE CALCULATION — NEW TAX MODEL (matches add-receipt.php)
+   Tax is a % of the FINAL (tax-inclusive) amount:
+     base = final * (1 - taxRate/100)
+     tax  = final * (taxRate/100)
+══════════════════════════════════════════════════════════ */
+$basePayable = $paymentData['amount'] - $totalDiscount + $totalPenalty;
+
+$taxRateDecimal = $latestTaxRate / 100;
+$basePortion    = 1 - $taxRateDecimal;
+
+$paidBaseTotal = ($basePortion > 0) ? ($convertedPaidTotal * $basePortion) : 0;
+$remainingBase = max(0, $basePayable - $paidBaseTotal);
+
+$remainingTax = ($basePortion > 0) ? ($remainingBase * ($latestTaxRate / (100 - $latestTaxRate))) : 0;
+
+$balance         = $remainingBase + $remainingTax;
+$payableAmount   = $basePayable + ($basePayable * ($latestTaxRate / (100 - $latestTaxRate)));
 $totalPaidAmount = $totalPaidApproved;
 
 /* ── LKR equivalents ── */
@@ -654,7 +686,7 @@ switch ($paymentData['payment_status_id']) {
                                                             <iconify-icon icon="mdi:percent-outline" width="16"></iconify-icon>
                                                         </div>
                                                         <div class="detail-content">
-                                                            <span class="detail-label">Total Tax</span>
+                                                            <span class="detail-label">Total Tax (paid receipts)</span>
                                                             <span class="detail-value"><?= $courseCurrencyCode ?> <?= number_format($totalReceiptTax, 2) ?></span>
                                                             <?php if (!$isCourseLKR && $pageExchangeRate): ?>
                                                                 <span class="detail-lkr-hint">≈ LKR <?= number_format($taxAmtLKR, 2) ?></span>

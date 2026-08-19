@@ -59,6 +59,12 @@ class load_side_menu
             ]);
         }
 
+        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsBranchManager($sessionUserRole)) {
+            $menuItems = array_merge($menuItems, [
+                ["Performance", "streamline-ultimate:performance-increase", "performance", "performance"],
+            ]);
+        }
+
         // if (SessionUser::ifUserIsPro($sessionUserRole) ||  UserPermissions::validPermisisonType('attendance')) {
         //     $menuItems = array_merge($menuItems, [
         //         ["Attendance", "gg:check-o", "attendance", "attendance"],

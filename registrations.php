@@ -451,10 +451,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             View</a></li>
                                                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-
                                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-update-history?inquiry-id=<?php echo $data['sId']; ?>">
                                                                                             <iconify-icon icon="ic:baseline-history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             Update History</a></li>
+                                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                     <?php
                                                                                     if ($displayStatusId != 17) {
                                                                                     ?>
@@ -469,11 +469,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['sId']; ?>">
                                                                                                 <iconify-icon icon="material-symbols-light:upload-2-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Re-Upload Registration Payment Slip</a></li>
+                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                     <?php
                                                                                     }
                                                                                     if ($displayStatusId >= 5) {
                                                                                     ?>
-                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+
                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="upload-other-documents?inquiry-id=<?php echo $data['sId']; ?>">
                                                                                                 <iconify-icon icon="solar:document-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Other Documents</a></li>

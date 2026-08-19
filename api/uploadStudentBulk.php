@@ -254,13 +254,13 @@ if (SessionUser::hasValidSession()) {
                                         $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $formattedMobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "'";
 
                                         $student_table_insert_columns .= ", `nationality`, `country_of_birth`, `country_of_residence`";
-                                        $student_table_insert_values .= ",'Sri Lanka','Sri Lanka','Sri Lanka'";
+                                        $student_table_insert_values .= ",'69','69','69'";
 
                                         if ($marital_status != 0) {
                                             $student_table_insert_columns .= ",`marital_status_marital_status_id`";
-                                            $student_table_insert_values .= "'" . $marital_status . "'";
+                                            $student_table_insert_values .= ",'" . $marital_status . "'";
                                         }
-                    
+
                                         if (!empty($dob)) {
                                             $student_table_insert_columns .= ",`date_of_birth`";
                                             $student_table_insert_values .= ",'" . $dob . "'";
@@ -276,7 +276,11 @@ if (SessionUser::hasValidSession()) {
                                             $student_table_insert_values .= ",'" . $passport . "'";
                                         }
 
-                                        Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
+                                        try {
+                                            Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
+                                        } catch (Exception $e) {
+                                            $status->error = $e->getMessage();
+                                        }
                                     }
 
                                     $status->done = "All students added successfully";
@@ -301,18 +305,41 @@ echo (json_encode($status));
 
 function normalizePhoneNumber($number)
 {
-    $number = preg_replace('/[\s\-()]/', '', $number);
-    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
         return $number;
     }
 
-    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
-        if ($number[0] !== '+') {
-            return '0' . $number;
-        }
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
         return $number;
     }
 
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
     return false;
 }
 

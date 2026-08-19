@@ -660,7 +660,7 @@ $year = date('Y');
 
 $seqQ  = Database::search("SELECT COUNT(*) AS cnt FROM course_payment_receipts WHERE receipt_number LIKE '" . addslashes($branchPrefix . $year) . "-%'");
 $seq   = 1 + (int)(($seqQ && $seqQ->num_rows > 0) ? $seqQ->fetch_assoc()['cnt'] : 0);
-$receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+$receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
 Database::iud("
     INSERT INTO course_payment_receipts
@@ -819,9 +819,9 @@ Database::iud("INSERT INTO payment_logs ({$logCols}) VALUES ({$logVals})");
 
 /* ── Registration status update ── */
 if ($paymentData['payment_type_id'] == 18 && $paymentData['lead_student_status_lead_student_status_id'] == 4) {
-    Database::iud("UPDATE students SET lead_student_status_lead_student_status_id='5' WHERE student_id='" . $paymentData['student_id'] . "'");
+    Database::iud("UPDATE students SET lead_student_status_lead_student_status_id='3' WHERE student_id='" . $paymentData['student_id'] . "'");
     Database::iud("INSERT INTO students_logs (students_student_id, date_updated, users_user_id, log, lead_student_status_lead_student_status_id)
-        VALUES ('" . $paymentData['student_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'Registration Payment marked as paid', '5')");
+        VALUES ('" . $paymentData['student_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'Registration Payment marked as paid', '3')");
 }
 
 /* ── First installment log ── */

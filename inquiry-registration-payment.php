@@ -38,6 +38,8 @@ if (!SessionUser::hasValidSession()) {
                                                          
                                                              `lead_student_status`.`lead_student_status`,
                                                              `lead_student_status`.`lead_student_status_id`,
+
+                                                              `students_has_intakes`.`students_has_intakes_id` AS `shiId`,
                                                          
                                                              `login_details`.`verification`,
                                                              `login_details`.`reset_time`,
@@ -66,6 +68,9 @@ if (!SessionUser::hasValidSession()) {
                                                          
                                                          INNER JOIN `title`
                                                              ON `students`.`title_title_id` = `title`.`title_id`
+
+                                                         INNER JOIN `students_has_intakes`
+                                                            ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                                                          
                                                          INNER JOIN `lead_student_status`
                                                              ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
@@ -181,7 +186,7 @@ if (!SessionUser::hasValidSession()) {
                                                         } else if (!($lead['latest_log_status_id'] == 2)) {
                                                         ?>
                                                             <div class="col-6 mt-3 mt-lg-0 m-md-0">
-                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='intake-student-payments?student-id=<?= $leadId ?>'">
+                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='intake-student-payments?student-id=<?= $lead['shiId'] ?>&path=payments'">
                                                                     View Payment Plan
                                                                 </button>
                                                             </div>

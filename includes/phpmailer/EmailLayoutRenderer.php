@@ -54,13 +54,12 @@ final class EmailLayoutRenderer
             padding: 30px 0;
         }
         .logo {
-            max-width: 180px;
-            height: auto;
+            width: 250px !important;
+            max-width: 250px !important;
+            height: auto !important;
         }
         .card {
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            background-color: #f5f7fa;
             padding: 40px;
         }
         h1 {

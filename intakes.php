@@ -25,6 +25,7 @@ if (!SessionUser::hasValidSession()) {
                 $query = "
                                             SELECT 
                                                 i.*, 
+                                                COUNT(s.intakes_intake_id) AS total_students,
                                                 COUNT(s.intakes_intake_id) AS active_students
                                             FROM intakes i
                                             LEFT JOIN students_has_intakes s 
@@ -104,33 +105,24 @@ if (!SessionUser::hasValidSession()) {
                                                                         <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme"></iconify-icon>
                                                                     </button>
                                                                 </div>
-                                                                <?php
+                                                            <?php
                                                             }
                                                             if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
-                                                                if ($intakes->num_rows > 0) {
-                                                                ?>
-                                                                    <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                        <!-- <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal" data-i18n="add-new">Add New</button> -->
-                                                                        <div class="dropdown w-100">
-                                                                            <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
-                                                                                Action
-                                                                            </button>
-                                                                            <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
-                                                                                <li><a class="dropdown-item" data-bs-target="#addIntake" data-bs-toggle="modal">Add New Intake</a></li>
-                                                                                <li><a class="dropdown-item" data-bs-target="#duplicateIntake" data-bs-toggle="modal">Duplicate Intake</a></li>
-                                                                            </ul>
-                                                                        </div>
-                                                                    </div>
-                                                                <?php
-                                                                } else {
-                                                                ?>
-                                                                    <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                        <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal">
-                                                                            Add New Intake
+                                                            ?>
+                                                                <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <!-- <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal" data-i18n="add-new">Add New</button> -->
+                                                                    <div class="dropdown w-100">
+                                                                        <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
+                                                                            Action
                                                                         </button>
+                                                                        <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
+                                                                            <li><a class="dropdown-item" data-bs-target="#addIntake" data-bs-toggle="modal">Add New Intake</a></li>
+                                                                            <li><a class="dropdown-item" data-bs-target="#duplicateIntake" data-bs-toggle="modal">Duplicate Intake</a></li>
+                                                                        </ul>
                                                                     </div>
+                                                                </div>
                                                             <?php
-                                                                }
+
                                                             }
                                                             ?>
                                                         </div>
@@ -172,9 +164,48 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <?php
                                                                         if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
+                                                                            if ($intake['total_students'] > 0) {
                                                                         ?>
-                                                                            <button class="custom-danger-btn w-100" data-i18n="edit" onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">Edit</button>
+                                                                                <button class="custom-danger-btn w-100" data-i18n="edit"
+                                                                                    onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">Edit</button>
+                                                                            <?php
+                                                                            } else {
+                                                                            ?>
+                                                                                <div class="dropdown w-100">
+                                                                                    <button
+                                                                                        class="custom-danger-btn w-100 dropdown-toggle d-flex align-items-center justify-content-center gap-2"
+                                                                                        type="button"
+                                                                                        data-bs-toggle="dropdown"
+                                                                                        aria-expanded="false">
+
+                                                                                        Actions
+                                                                                    </button>
+
+                                                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+
+                                                                                        <li>
+                                                                                            <button
+                                                                                                class="dropdown-item d-flex align-items-center gap-2"
+                                                                                                onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">
+                                                                                                <iconify-icon icon="line-md:edit-filled" width="18" height="18"></iconify-icon>
+                                                                                                Edit
+                                                                                            </button>
+                                                                                        </li>
+                                                                                        <li>
+                                                                                            <hr class="dropdown-divider">
+                                                                                        </li>
+                                                                                        <li>
+                                                                                            <button
+                                                                                                class="dropdown-item d-flex align-items-center gap-2 text-danger"
+                                                                                                onclick="confirmDeleteIntake('<?= $intake['intake_id'] ?>')">
+                                                                                                <iconify-icon icon="material-symbols:delete-outline-rounded" width="18" height="18"></iconify-icon>
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        </li>
+                                                                                    </ul>
+                                                                                </div>
                                                                         <?php
+                                                                            }
                                                                         }
                                                                         ?>
                                                                     </div>
@@ -316,7 +347,7 @@ if (!SessionUser::hasValidSession()) {
                                                     </select>
                                                     <span id="intake-feedback" class="text-dark-red text-12"></span>
                                                 </div>
-                                                
+
                                                 <div class="col-12 d-flex flex-column">
                                                     <label for="" class="text-14 main-text required">Intake Name</label>
                                                     <input type="text" class="form-control custom-input mt-2" id="duplicate-name">
@@ -443,6 +474,78 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
                     ?>
+
+                    <div class="modal fade" id="removeBatchConfirmModal" tabindex="-1"
+                        aria-labelledby="removeBatchConfirmModalTitle" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow">
+
+                                <!-- Close button -->
+                                <div class="d-flex justify-content-end pe-3 pt-3 position-relative">
+                                    <button type="button"
+                                        class="btn-close text-end"
+                                        data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+
+                                <div class="modal-body text-center p-4">
+
+                                    <!-- Warning Icon -->
+                                    <div class="mb-3">
+                                        <iconify-icon
+                                            icon="bx:error-circle"
+                                            width="48"
+                                            height="48"
+                                            class="text-danger">
+                                        </iconify-icon>
+                                    </div>
+
+                                    <!-- Title -->
+                                    <h5 class="fw-semibold mb-2" id="removeBatchConfirmModalTitle">
+                                        Confirm Batch Removal
+                                    </h5>
+
+                                    <!-- Main message -->
+                                    <p class="text-muted mb-3">
+                                        You are about to remove this <strong>Batch</strong>.
+                                    </p>
+
+                                    <!-- Detailed impact explanation -->
+                                    <div class="alert alert-warning text-start small mb-4">
+                                        <div class="d-flex align-items-start gap-2">
+                                            <iconify-icon icon="mdi:alert-outline" width="20"></iconify-icon>
+                                            <div>
+                                                <strong>This action will:</strong>
+                                                <ul class="mb-0 ps-3">
+                                                    <li>Permanently remove the selected intake</li>
+                                                    <li>Delete related intake–course associations</li>
+                                                    <li>This action <strong>cannot be undone</strong></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action buttons -->
+                                    <div class="d-flex justify-content-center gap-3">
+                                        <button type="button"
+                                            class="btn btn-outline-secondary px-4 br-0"
+                                            data-bs-dismiss="modal">
+                                            Cancel
+                                        </button>
+
+                                        <button type="button"
+                                            id="confirmRemoveBatch"
+                                            class="btn btn-danger px-4 br-0">
+                                            <iconify-icon icon="mdi:delete-outline" class="me-1"></iconify-icon>
+                                            Remove Intake
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
                     <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
                     <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>

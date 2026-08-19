@@ -571,7 +571,7 @@ function validateStudentDocuments($id)
         SELECT *
         FROM `students_identity_documents`
         WHERE `students_student_id` = '" . $id . "'
-        AND `students_identity_documents_type_id` IN (5,8)
+        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
         $notInQuery
     ");
 
@@ -591,6 +591,33 @@ function validateStudentDocuments($id)
             if ($data['students_identity_documents_type_id'] == 8) {
 
                 $key = array_search("payment_slip", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 11) {
+
+                $key = array_search("discount_approved_document", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 12) {
+
+                $key = array_search("signed_fee_structure", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 1) {
+
+                $key = array_search("aic_application", $requiredDocuments);
 
                 if ($key !== false) {
                     unset($requiredDocuments[$key]);

@@ -106,6 +106,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Account Number</th>
                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Account Name</th>
                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Branch</th>
+                                                                    <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Linked Branch</th>
                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Added By</th>
                                                                     <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Added At</th>
 
@@ -113,9 +114,11 @@ if (!SessionUser::hasValidSession()) {
                                                             </thead>
                                                             <tbody id="user-table-data">
                                                                 <?php
-                                                                $banks = Database::search("SELECT * FROM `bank`
+                                                                $banks = Database::search("SELECT *,`branches`.`branch` AS 'linked_branch',`bank`.`branch` AS 'bank_branch',`bank`.`date_added` AS 'bank_added' FROM `bank`
                                                                     INNER JOIN `users` ON `bank`.`users_user_id` = `users`.`user_id`
-                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` ORDER BY `bank`.`bank_id` DESC");
+                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                                                                    INNER JOIN `branches` ON `bank`.`branches_branch_id` = `branches`.`branch_id`
+                                                                    ORDER BY `bank`.`bank_id` DESC");
 
                                                                 if ($banks->num_rows > 0) {
                                                                     while ($data = $banks->fetch_assoc()) {
@@ -140,7 +143,8 @@ if (!SessionUser::hasValidSession()) {
                                                                             <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["bank_name"]; ?></span></td>
                                                                             <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["acc_no"]; ?></span></td>
                                                                             <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["acc_name"]; ?></span></td>
-                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["branch"]; ?></span></td>
+                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["bank_branch"]; ?></span></td>
+                                                                             <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["linked_branch"]; ?></span></td>
                                                                             <td class="px-4 py-3 pe-0 align-middle">
                                                                                 <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
                                                                                     <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?= $data['user_id']; ?>)">
@@ -162,8 +166,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                 </div>
                                                                             </td>
-                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["date_added"]; ?></span></td>
-
+                                                                            <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["bank_added"]; ?></span></td>
                                                                         </tr>
                                                                     <?php
                                                                     }
