@@ -520,44 +520,44 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <?php
 
                                                                                     $query = "SELECT
-                                                                        `students_has_assignments_id`,
-                                                                        `title`,
-                                                                        `first_name`,
-                                                                        `last_name`,
-                                                                        `profile_img`,
-                                                                        `students_has_intakes`.`student_id`,
-                                                                        `uploaded_at`,
-                                                                        `upload`,
-                                                                        `submission_id`,
-                                                                        `submission`,
-                                                                        `assignment_marks_status`,
-                                                                        `assignment_marks_status_id`,
-                                                                        `uploaded_at`
-                                                                    FROM `students_has_assignments`
-                                                                    INNER JOIN `students` 
-                                                                        ON `students_has_assignments`.`students_student_id` = `students`.`student_id`
-                                                                    INNER JOIN `login_details`
-                                                                            ON `login_details`.`login_details_id` = `students`.`login_details_login_details_id`
-                                                                    INNER JOIN `title` 
-                                                                        ON `students`.`title_title_id` = `title`.`title_id`
-                                                                    INNER JOIN `assignments` 
-                                                                        ON `students_has_assignments`.`assignments_assignment_id` = `assignments`.`assignment_id`
-                                                                    INNER JOIN `subjects` 
-                                                                        ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                                    INNER JOIN `levels` 
-                                                                        ON `subjects`.`levels_level_id` = `levels`.`level_id`
-                                                                    INNER JOIN `students_has_intakes` 
-                                                                        ON (
-                                                                            `students_has_assignments`.`students_student_id` = `students_has_intakes`.`students_student_id` 
-                                                                            AND `students_has_intakes`.`intakes_intake_id` = `levels`.`intakes_intake_id`
-                                                                        )
-                                                                    INNER JOIN `assignment_submission` 
-                                                                        ON `students_has_assignments`.`submission_submission_id` = `assignment_submission`.`submission_id`
-                                                                    INNER JOIN `assignment_marks_status` 
-                                                                        ON `students_has_assignments`.`assignment_marks_status_assignment_marks_status_id` = `assignment_marks_status`.`assignment_marks_status_id`
-                                                                    WHERE `students_has_assignments`.`assignments_assignment_id` = '" . $id . "'
-                                                                    ORDER BY `students_has_assignments`.`uploaded_at` DESC
-                                                                    ";
+                                                                                                `students_has_assignments_id`,
+                                                                                                `title`,
+                                                                                                `first_name`,
+                                                                                                `last_name`,
+                                                                                                `profile_img`,
+                                                                                                `students_has_intakes`.`student_id`,
+                                                                                                `uploaded_at`,
+                                                                                                `upload`,
+                                                                                                `submission_id`,
+                                                                                                `submission`,
+                                                                                                `assignment_marks_status`,
+                                                                                                `assignment_marks_status_id`,
+                                                                                                `uploaded_at`
+                                                                                            FROM `students_has_assignments`
+                                                                                            INNER JOIN `students` 
+                                                                                                ON `students_has_assignments`.`students_student_id` = `students`.`student_id`
+                                                                                            INNER JOIN `login_details`
+                                                                                                    ON `login_details`.`login_details_id` = `students`.`login_details_login_details_id`
+                                                                                            INNER JOIN `title` 
+                                                                                                ON `students`.`title_title_id` = `title`.`title_id`
+                                                                                            INNER JOIN `assignments` 
+                                                                                                ON `students_has_assignments`.`assignments_assignment_id` = `assignments`.`assignment_id`
+                                                                                            INNER JOIN `subjects` 
+                                                                                                ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+                                                                                            INNER JOIN `levels` 
+                                                                                                ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                                                                                            INNER JOIN `students_has_intakes` 
+                                                                                                ON (
+                                                                                                    `students_has_assignments`.`students_student_id` = `students_has_intakes`.`students_student_id` 
+                                                                                                    AND `students_has_intakes`.`intakes_intake_id` = `levels`.`intakes_intake_id`
+                                                                                                )
+                                                                                            INNER JOIN `assignment_submission` 
+                                                                                                ON `students_has_assignments`.`submission_submission_id` = `assignment_submission`.`submission_id`
+                                                                                            INNER JOIN `assignment_marks_status` 
+                                                                                                ON `students_has_assignments`.`assignment_marks_status_assignment_marks_status_id` = `assignment_marks_status`.`assignment_marks_status_id`
+                                                                                            WHERE `students_has_assignments`.`assignments_assignment_id` = '" . $id . "'
+                                                                                            ORDER BY `students_has_assignments`.`uploaded_at` DESC
+                                                                                            ";
 
                                                                                     $results = Database::search($query);
                                                                                     $pageno = 1;

@@ -100,6 +100,7 @@ class AdminDashboardSummary
             ON cpp.course_payments_course_payments_id = cp.course_payments_id
         LEFT JOIN payment_plan_has_students_has_intakes ppsi
             ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
+        WHERE c.currency_id IN (1,3,4,13)
         GROUP BY c.currency_id, {$codeCol}, {$nameCol}
         ORDER BY current_amount DESC
         LIMIT 8

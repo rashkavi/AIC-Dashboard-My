@@ -211,21 +211,25 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 Action
                                                                                             </button>
                                                                                             <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-details?student-id=<?= $data['students_has_intakes_id']; ?>">
+                                                                                                        <iconify-icon icon="grommet-icons:view" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                        View</a></li>
+                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                 <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?= $data['students_has_intakes_id']; ?>">
                                                                                                         <iconify-icon icon="hugeicons:activity-01" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         Payments</a></li>
-                                                                                                <!-- <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="">
+                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-assignments?student-id=<?= $data['students_has_intakes_id']; ?>&path=students">
                                                                                                         <iconify-icon icon="hugeicons:assignments" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         Assignments</a></li>
                                                                                                 <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="">
+                                                                                                <!-- <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-examinatios?student-id=<?= $data['students_has_intakes_id']; ?>&path=students">
                                                                                                         <iconify-icon icon="ph:exam-bold" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         Examinations</a></li>
-                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="">
+                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-attendance?student-id=<?= $data['students_has_intakes_id']; ?>&path=students">
                                                                                                         <iconify-icon icon="ph:seal-check-bold" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                        Attendnace</a></li> -->
+                                                                                                        Attendnace</a></li>
 
                                                                                             </ul>
                                                                                         </div>

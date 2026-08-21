@@ -543,16 +543,26 @@ function normalizePhoneNumber($number)
     return false;
 }
 
+
 function validateStudentDocuments()
 {
-    $maxSize = 2 * 1024 * 1024; // 2MB
+    $maxSize = 8 * 1024 * 1024; // 8MB same as JS
 
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+
+    $requiredDocuments = [
+        "passport_nic",
+        "payment_slip",
+        "signed_fee_structure",
+        "discount_approved_document",
+        "aic_application"
+    ];
 
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
     $errors = [];
+    $uploadedDocuments = [];
 
     foreach ($documentTypes as $fieldName => $config) {
 
@@ -574,7 +584,7 @@ function validateStudentDocuments()
             }
 
             if ($file["size"] > $maxSize) {
-                $errors[$fieldName] = "File size must be less than 2MB";
+                $errors[$fieldName] = "File size must be less than 8MB";
                 continue;
             }
 
@@ -584,6 +594,8 @@ function validateStudentDocuments()
                 $errors[$fieldName] = "Invalid file type";
                 continue;
             }
+
+            $uploadedDocuments[$fieldName] = true;
 
             $validFiles[] = [
                 "field_name" => $fieldName,
@@ -596,12 +608,17 @@ function validateStudentDocuments()
         }
     }
 
+    foreach ($requiredDocuments as $requiredDoc) {
+        if (!isset($uploadedDocuments[$requiredDoc])) {
+            $errors[$requiredDoc] = "This document is required";
+        }
+    }
+
     return [
         "files" => $validFiles,
         "errors" => $errors
     ];
 }
-
 function getStudentDocumentTypeConfig()
 {
     return [
@@ -659,6 +676,11 @@ function getStudentDocumentTypeConfig()
             "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }
@@ -687,7 +709,6 @@ function normalizeFilesArray($fileInput)
 function uploadStudentDocuments($studentId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
 
     foreach ($studentDocuments["files"] as $doc) {
 

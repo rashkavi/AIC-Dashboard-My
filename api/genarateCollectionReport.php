@@ -112,6 +112,7 @@ try {
     $dateFilter = isset($decoded['dateFilter']) ? Database::escape($decoded['dateFilter']) : ""; // 1=This Month, 2=Last Month, 3=Range
     $fromDate   = isset($decoded['fromDate']) ? Database::escape($decoded['fromDate']) : "";
     $toDate     = isset($decoded['toDate']) ? Database::escape($decoded['toDate']) : "";
+    $currency = isset($decoded['currency']) ? Database::escape($decoded['currency']) : ""; // filter by base OR paid currency id
 
     date_default_timezone_set('Asia/Colombo');
 
@@ -257,6 +258,10 @@ try {
         $sheet->setCellValue("D8", "All");
     }
 
+    if ($currency != 0) {
+        $query .= " AND paid_cur.currency_id = '$currency' ";
+    }
+
     $currencyLabel = "All";
     if (!empty($currency) && $currency != '0') {
         $curRow = Database::search("SELECT code FROM currencies WHERE currency_id = '$currency' LIMIT 1");
@@ -309,6 +314,7 @@ try {
     $row = $headerRow + 1;
 
     $sumLkr = 0;
+    $sumForeign = 0;
 
     while ($data = $results->fetch_assoc()) {
 
@@ -372,7 +378,7 @@ try {
         $sheet->setCellValue("D$row", $data['receipt_number']);
         $sheet->setCellValue("E$row", $studentName);
 
-        if ($isAnyForeign && $foreignAmount !== null) {
+        if ($isAnyForeign && !$paidIsLkr && $foreignAmount !== null) {
             $sheet->setCellValue("F$row", $foreignCode . ' ' . round($foreignAmount, 2));
         } else {
             $sheet->setCellValue("F$row", "");
@@ -400,6 +406,10 @@ try {
 
         $sumLkr += ($lkrAmount ?? 0);
 
+        if ($currency != 0) {
+            $sumForeign += ($foreignAmount ?? 0);
+        }
+
         $row++;
     }
 
@@ -415,9 +425,18 @@ try {
     if ($lastDataRow >= $headerRow + 1) {
         $totalRow = $lastDataRow + 1;
 
-        $sheet->mergeCells("B{$totalRow}:F{$totalRow}");
-        $sheet->setCellValue("B{$totalRow}", "Total (LKR)");
-        $sheet->setCellValue("G{$totalRow}", round($sumLkr, 2));
+
+
+        if ($currency != 0) {
+            $sheet->mergeCells("B{$totalRow}:E{$totalRow}");
+            $sheet->setCellValue("B{$totalRow}", "Total(" . $currencyLabel . ")");
+            $sheet->setCellValue("F{$totalRow}", round($sumForeign, 2));
+        } else {
+            $sheet->mergeCells("B{$totalRow}:F{$totalRow}");
+            $sheet->setCellValue("B{$totalRow}", "Total (LKR)");
+            $sheet->setCellValue("G{$totalRow}", round($sumLkr, 2));
+        }
+
 
         $sheet->getStyle("B{$totalRow}:K{$totalRow}")->getFont()->setBold(true);
         $sheet->getStyle("B{$totalRow}:K{$totalRow}")

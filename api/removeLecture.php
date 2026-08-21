@@ -55,16 +55,21 @@ if (SessionUser::hasValidSession()) {
                                     }
                                 }
 
-                                $lectureHasRecordings = Database::search("SELECT * FROM `lecture_recording` WHERE `time_table_time_table_id`='" . $lectureId . "'");
+                                $lectureHasRecordings = Database::search("SELECT * FROM `lecture_recording_has_lectures` WHERE `time_table_time_table_id`='" . $lectureId . "'");
                                 if ($lectureHasRecordings->num_rows > 0) {
                                     while ($lectureHasRecordingData = $lectureHasRecordings->fetch_assoc()) {
-                                        Database::iud("DELETE FROM `lecture_recording` WHERE `recording_id`='" . $lectureHasRecordingData["recording_id"] . "'");
-                                        if (file_exists("../assets/imgs/recording-thumbnails/" . $lectureHasRecordingData["recording_thumbnail"])) {
-                                            $isUsedAnother = Database::search("SELECT * FROM `lecture_recording` WHERE `recording_thumbnail`='" . $lectureHasRecordingData['recording_thumbnail'] . "' AND `time_table_time_table_id` != '" . $lectureId . "'");
-                                            if ($isUsedAnother->num_rows == 0) {
-                                                $recording_thumbnail_path = "../assets/imgs/recording-thumbnails/" . $lectureHasRecordingData["recording_thumbnail"];
-                                                if (file_exists($recording_thumbnail_path)) {
-                                                    unlink($recording_thumbnail_path);
+                                        Database::iud("DELETE FROM `lecture_recording_has_lectures` WHERE `time_table_time_table_id`='" . $lectureHasRecordingData["time_table_time_table_id"] . "'");
+
+                                        $recordingHasLectures = Database::search("SELECT * FROM `lecture_recording_has_lectures` WHERE `lecture_recording_lecture_recording_id`='" . $lectureHasRecordingData["lecture_recording_lecture_recording_id"] . "'");
+                                        if ($recordingHasLectures->num_rows == 0) {
+                                            Database::iud("DELETE FROM `lecture_recording` WHERE `lecture_recording_id`='" . $lectureHasRecordingData["lecture_recording_lecture_recording_id"] . "'");
+                                            if (file_exists("../assets/imgs/recording-thumbnails/" . $lectureHasRecordingData["recording_thumbnail"])) {
+                                                $isUsedAnother = Database::search("SELECT * FROM `lecture_recording` WHERE `recording_thumbnail`='" . $lectureHasRecordingData['recording_thumbnail'] . "'");
+                                                if ($isUsedAnother->num_rows == 0) {
+                                                    $recording_thumbnail_path = "../assets/imgs/recording-thumbnails/" . $lectureHasRecordingData["recording_thumbnail"];
+                                                    if (file_exists($recording_thumbnail_path)) {
+                                                        unlink($recording_thumbnail_path);
+                                                    }
                                                 }
                                             }
                                         }

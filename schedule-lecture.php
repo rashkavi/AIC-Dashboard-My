@@ -216,7 +216,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 $sort_subject = 0;
                                                                 $sort_date = 0;
 
-                                                                renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_subject, $sort_date);
+                                                                renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_subject, $sort_date, 1);
                                                                 ?>
                                                             </div>
                                                         </div>
@@ -594,6 +594,7 @@ if (!SessionUser::hasValidSession()) {
 
                     const filterCourseStructure = () => {
                         const data = {
+                            type: 1,
                             text: $("#subject-search-text").val() || "",
                             level: $("#m-level-selector").val() || "0",
                             intake: $("#ml-intake-selector").val() || "0",
@@ -811,7 +812,7 @@ if (!SessionUser::hasValidSession()) {
                                 method: "POST",
                                 body: form
                             })
-                            .then((res) => res.text())
+                            .then((res) => res.json())
                             .then((response) => {
                                 console.log(response);
                                 toggleBtnLoader(btn, false);
@@ -828,10 +829,10 @@ if (!SessionUser::hasValidSession()) {
                                     if (response.tute) {
                                         const feedback = document.getElementById('attachment-feedback');
                                         feedback.innerHTML = `
-                    <ul class="ps-3">
-                        ${response.tute.map(e => `<li>${e}</li>`).join('')}
-                    </ul>
-                    `;
+                        <ul class="ps-3">
+                            ${response.tute.map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                        `;
                                     }
                                 }
                             })

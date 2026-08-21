@@ -554,7 +554,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                     <!-- Foreign Amount: shown whenever EITHER base or paid currency is foreign -->
                                                                                     <td class="py-2 align-middle">
-                                                                                        <?php if ($isAnyForeign && $foreignAmount !== null): ?>
+                                                                                        <?php if ($isAnyForeign && !$paidIsLkr && $foreignAmount !== null): ?>
                                                                                             <span class="text-14 main-text"><?= $foreignCode . ' ' . number_format($foreignAmount, $foreignDp) ?></span>
                                                                                         <?php else: ?>
                                                                                             <span class="text-14 sub-text">—</span>

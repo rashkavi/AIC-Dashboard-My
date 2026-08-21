@@ -332,31 +332,55 @@ echo (json_encode($status));
 
 function normalizePhoneNumber($number)
 {
-    $number = preg_replace('/[\s\-()]/', '', $number);
-    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
         return $number;
     }
 
-    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
-        if ($number[0] !== '+') {
-            return '0' . $number;
-        }
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
         return $number;
     }
 
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
     return false;
 }
+
 
 function validateDateFlexible($dateString, $rowNumber)
 {
     $timezone = new DateTimeZone("Asia/Colombo");
 
     $formats = [
-        'Y/m/d',
-        'Y/m/j',
-        'd/m/Y',
-        'm/d/Y',
-        'j/m/Y',
+        'Y/m/d',   // 2025/11/02
+        'Y/m/j',   // 2025/11/2
+        'd/m/Y',   // 02/11/2025
+        'm/d/Y',   // 11/02/2025
+        'j/m/Y',   // 2/11/2025 or 24/10/2025
     ];
 
     foreach ($formats as $format) {

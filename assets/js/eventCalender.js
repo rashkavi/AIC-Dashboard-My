@@ -170,6 +170,8 @@ const getBatchStudentAttendanceData = (id) => {
         });
 }
 
+
+
 const filterLectureSchedule = () => {
     const search_text = $("#search-input").val();
     fetch('api/getLectureScheduleData?text=' + search_text)
@@ -898,7 +900,7 @@ function initAttendancePopovers() {
         const statusClass = (lecture.status || '').toLowerCase();
 
         const content = `
-        <div class="pro-pop">
+        <div class="pro-pop border-0">
           <div class="pro-pop-head">
             <div class="pro-pop-icon">
               <img src="${thumb}" onerror="this.src='https://dashboard.enviiz.com/assets/imgs/common/empty-thumbnail.webp'">

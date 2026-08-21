@@ -45,6 +45,10 @@ class load_side_menu
             $menuItems = array_merge($menuItems, [
                 ["Lecture Schedule", "eos-icons:storage-class-outlined", "lecture-schedule", "lecture-schedule"],
             ]);
+
+            $menuItems = array_merge($menuItems, [
+                ["Assignments", "carbon:assignment-action-usage", "manage-assignments", "manage-assignments"],
+            ]);
         }
 
         if (SessionUser::ifUserIsPro($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {

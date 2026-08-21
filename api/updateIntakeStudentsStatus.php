@@ -3,7 +3,8 @@ $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
-require_once("../includes/Limitation.php");
+require_once("../includes/Project.php");
+require_once("../includes/WhatsAppService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     $sessionUserObject = SessionUser::getCurrentUserObject();
@@ -17,14 +18,15 @@ if (SessionUser::hasValidSession()) {
                     if (!isset($decoded['intakeId']) || $decoded['intakeId'] == 0) {
                         $status->error = 'Invalid intake id';
                     } else {
-                        $sValidIntake = Database::search("SELECT COUNT(*) as 'count' FROM `intakes` WHERE `intake_id`='" . $decoded['intakeId'] . "'");
-                        $row = $sValidIntake->fetch_assoc();
-                        if ($row['count'] == 0) {
+                        $isValidIntake = Database::search("SELECT * FROM `intakes` WHERE `intake_id`='" . $decoded['intakeId'] . "'");
+                        if ($isValidIntake->num_rows == 0) {
                             $status->error = 'Invalid intake id';
                         } else {
+                            $intakeData = $isValidIntake->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $decoded['intakeId']))) {
-                                $status->error = 'You do not have permission to update students status to this intake';
+
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('students', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                                $status->error = 'You are not authorized to this action.';
                             } else {
                                 if (!isset($decoded['update']) && $decoded["update"] != 0) {
                                     http_response_code(400);
@@ -44,81 +46,152 @@ if (SessionUser::hasValidSession()) {
                                     $checkedStudents = $decoded['checkedStudents'];
                                     $uncheckedStudents = $decoded['uncheckedStudents'];
                                     $update = $decoded['update'];
+                                    $reson = $decoded['reson'];
+                                    $resonNote = $decoded['resonNote'];
 
-                                    if ($update == 1 || $update == 2) {
-                                        $changeStatusId = $update;
-                                        $activeStatusId = ($changeStatusId == 1 ? 2 : 1);
+                                    if (empty($update)) {
+                                        $status->error = 'Invalid user update request';
+                                    } else if (!($update == 1 || $update == 2)) {
+                                        $status->error = 'Invalid user update request';
+                                    } else {
 
-                                        if ($changeStatusId == 1) {
-                                            if (!Limitation::availableStudents()) {
-                                                $status->error = "You cannot add more students to intakes because the active student limit has been reached";
-                                                echo json_encode($status);
-                                                return;
-                                            }
-                                        }
-
-                                        $idsToUpdate = [];
-
-                                        $baseSelect = "
-                                            SELECT shi.students_has_intakes_id
-                                            FROM students_has_intakes shi
-                                            INNER JOIN students s ON shi.students_student_id = s.student_id
-                                            WHERE shi.intakes_intake_id = '$intakeId'
-                                            AND shi.status_status_id = '$activeStatusId'
-                                        ";
-
-                                        if (!empty($checkedStudents)) {
-                                            $baseSelect .= " AND shi.students_has_intakes_id IN (" . implode(',', $checkedStudents) . ")";
-                                        }
-
-                                        if (!empty($uncheckedStudents)) {
-                                            $baseSelect .= " AND shi.students_has_intakes_id NOT IN (" . implode(',', $uncheckedStudents) . ")";
-                                        }
-
-                                        if (empty($checkedStudents) && empty($uncheckedStudents)) {
-                                            $currentPage = $decoded['currentPage'];
-                                            $resultPerPage = $decoded['resultPerPage'];
-                                            $sort = $decoded['sortSelector'];
-                                            $searchText = $decoded['searchText'];
-                                            $pageResults = ($currentPage - 1) * $resultPerPage;
-
-                                            if (!empty($searchText)) {
-                                                $baseSelect .= "
-                                                    AND (
-                                                        s.first_name LIKE '%$searchText%' OR
-                                                        s.last_name  LIKE '%$searchText%' OR
-                                                        s.email      LIKE '%$searchText%' OR
-                                                        s.mobile     LIKE '%$searchText%'
-                                                    )
-                                                ";
-                                            }
-
-                                            if ($sort != 0) {
-                                                $baseSelect .= " AND shi.status_status_id = '$sort'";
-                                            }
-
-                                            $baseSelect .= " LIMIT $resultPerPage OFFSET $pageResults";
-                                        }
-
-                                        $result = Database::search($baseSelect);
-
-                                        while ($row = $result->fetch_assoc()) {
-                                            $idsToUpdate[] = $row['students_has_intakes_id'];
-                                        }
-
-                                        if (!empty($idsToUpdate)) {
-                                            if ($changeStatusId == 1 && (count($idsToUpdate) + Limitation::getActiveStudentCount()) > 100) {
-                                                $status->error = 'You cannot add more students to intakes because the active student limit has been reached';
+                                        if ($update == 2) {
+                                            if (empty($reson)) {
+                                                $status->reson = "Reson is required";
                                             } else {
-                                                $updateQuery = "
-                                                UPDATE students_has_intakes
-                                                SET status_status_id = '$changeStatusId'
-                                                WHERE students_has_intakes_id IN (" . implode(',', $idsToUpdate) . ")
-                                            ";
-
-                                                Database::iud($updateQuery);
-                                                $status->done = 'All selected Students are now' . " " . ($update == 1 ? 'activated' : 'deactivated');
+                                                $isValidReson = Database::search("SELECT COUNT(*) as 'count' FROM `students_inactive_reasons` WHERE `students_inactive_reasons_id`='" . $reson . "'");
+                                                $row = $isValidReson->fetch_assoc();
+                                                if ($row['count'] == 0) {
+                                                    $status->reson = 'Invalid Reson';
+                                                }
                                             }
+                                        }
+
+                                        if (!property_exists($status, 'reson')) {
+
+                                            $timezone = new DateTimeZone("Asia/Colombo");
+                                            $dateTime = new DateTime("now", $timezone);
+                                            $now = $dateTime->format('Y-m-d H:i:s');
+
+                                            $changeStatusId = $update;
+                                            $activeStatusId = ($changeStatusId == 1 ? 2 : 1);
+                                            if ($changeStatusId == 1) {
+                                                $template = "re_activated_to_batch";
+                                            } else {
+                                                $template = "de_activated_from_batch";
+                                            }
+
+                                            if (count($checkedStudents) > 0) {
+                                                $updatedStudents = Database::search("SELECT `students_has_intakes_id`,`whatsapp` FROM `students_has_intakes`
+                                                INNER JOIN `students` ON `students_has_intakes`.`students_student_id`=`students`.`student_id`
+                                                INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
+                                                 WHERE `students_has_intakes_id` IN (" . implode(",", $checkedStudents) . ")");
+                                                $updatedStudents = $updatedStudents->fetch_all(MYSQLI_ASSOC);
+                                                foreach ($updatedStudents as $student) {
+
+                                                    $columns = "`students_has_intakes_students_has_intakes_id`,`users_user_id`,`date_updated`";
+                                                    $values = "'" . $student['students_has_intakes_id'] . "','" . $sessionUserObject['user_id'] . "','" . $now . "'";
+
+                                                    if ($update == 2) {
+                                                        $columns .= ",`log`,`students_inactive_reasons_students_inactive_reasons_id`";
+                                                        $values .= ",'Deactivate student','" . $reson . "'";
+
+                                                        if (!empty($resonNote)) {
+                                                            $columns .= ",`note`";
+                                                            $values .= ",'" . Database::escape($resonNote) . "'";
+                                                        }
+                                                    } else {
+                                                        $columns .= ",`log`";
+                                                        $values .= ",'Activate student'";
+                                                    }
+
+                                                    Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '" . $changeStatusId . "' WHERE `students_has_intakes_id` = '" . $student['students_has_intakes_id'] . "'");
+                                                    Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
+                                                }
+                                            }
+
+                                            if (count($uncheckedStudents) > 0) {
+                                                $updatedStudents = Database::search("SELECT `students_has_intakes_id`,`whatsapp` FROM `students_has_intakes`
+                                                INNER JOIN `students` ON `students_has_intakes`.`students_student_id`=`students`.`student_id`
+                                                INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id` 
+                                                WHERE `intakes_intake_id`='" . $intakeId . "' AND `status_status_id` = '" . $activeStatusId . "' AND `students_has_intakes_id`  NOT IN (" . implode(",", $uncheckedStudents) . ")");
+                                                $updatedStudents = $updatedStudents->fetch_all(MYSQLI_ASSOC);
+                                                foreach ($updatedStudents as $student) {
+                                                    $columns = "`students_has_intakes_students_has_intakes_id`,`users_user_id`,`date_updated`";
+                                                    $values = "'" . $student['students_has_intakes_id'] . "','" . $sessionUserObject['user_id'] . "','" . $now . "'";
+
+                                                    if ($update == 2) {
+                                                        $columns .= ",`log`,`students_inactive_reasons_students_inactive_reasons_id`";
+                                                        $values .= ",'Deactivate student','" . $reson . "'";
+
+                                                        if (!empty($resonNote)) {
+                                                            $columns .= ",`note`";
+                                                            $values .= ",'" . Database::escape($resonNote) . "'";
+                                                        }
+                                                    } else {
+                                                        $columns .= ",`log`";
+                                                        $values .= ",'Activate student'";
+                                                    }
+
+                                                    Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '" . $changeStatusId . "' WHERE `students_has_intakes_id`='" . $student['students_has_intakes_id'] . "'");
+                                                    Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
+                                                }
+                                            }
+
+                                            if (count($checkedStudents) == 0 && count($uncheckedStudents) == 0) {
+                                                $currentPage = $decoded['currentPage'];
+                                                $resultPerPage = $decoded['resultPerPage'];
+                                                $sort = $decoded['sortSelector'];
+                                                $searchText = $decoded['searchText'];
+                                                $pageResults = ($currentPage - 1) * $resultPerPage;
+
+                                                $query = "SELECT `students_has_intakes_id`,`intake`,`whatsapp` FROM `students_has_intakes` INNER JOIN `students` 
+                                                                    ON `students_has_intakes`.`students_student_id`=`students`.`student_id`
+                                                                    INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
+                                                                    INNER JOIN `intakes` ON `students_has_intakes`.`intakes_intake_id`=`intakes`.`intake_id`
+
+                                                                    WHERE `intakes_intake_id`='" . $intakeId . "'";
+
+                                                if ($searchText != "") {
+                                                    $query .= " AND `first_name` LIKE '%" . $searchText . "%' OR `last_name` LIKE '%" . $searchText . "%' OR `email` LIKE '%" . $searchText . "%' OR `mobile` LIKE '%" . $searchText . "%'";
+                                                }
+
+                                                if ($sort != 0) {
+                                                    if (strpos($query, 'WHERE') == false) {
+                                                        $query .= " WHERE `students_has_intakes`.`status_status_id` = '" . $sort . "'";
+                                                    } else {
+                                                        $query .= " AND `students_has_intakes`.`status_status_id` = '" . $sort . "'";
+                                                    }
+                                                }
+
+                                                $query .= " AND `status_status_id` = '" . $activeStatusId . "'";
+
+                                                $query .= " LIMIT " . $resultPerPage . " OFFSET " . $pageResults . "";
+
+                                                $results = Database::search($query);
+                                                $results = $results->fetch_all(MYSQLI_ASSOC);
+                                                foreach ($results as $result) {
+                                                    $columns = "`students_has_intakes_students_has_intakes_id`,`users_user_id`,`date_updated`";
+                                                    $values = "'" . $result['students_has_intakes_id'] . "','" . $sessionUserObject['user_id'] . "','" . $now . "'";
+
+                                                    if ($update == 2) {
+                                                        $columns .= ",`log`,`students_inactive_reasons_students_inactive_reasons_id`";
+                                                        $values .= ",'Deactivate student','" . $reson . "'";
+
+                                                        if (!empty($resonNote)) {
+                                                            $columns .= ",`note`";
+                                                            $values .= ",'" . Database::escape($resonNote) . "'";
+                                                        }
+                                                    } else {
+                                                        $columns .= ",`log`";
+                                                        $values .= ",'Activate student'";
+                                                    }
+                                                    Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '" . $changeStatusId . "' WHERE `students_has_intakes_id`='" . $result['students_has_intakes_id'] . "'");
+                                                    Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
+                                                }
+                                            }
+
+                                            $status->done = 'All selected Students are now' . " " . ($update == 1 ? 'activated' : 'deactivated');
                                         }
                                     }
                                 }
@@ -145,3 +218,22 @@ if (SessionUser::hasValidSession()) {
 }
 
 echo (json_encode($status));
+
+function normalizePhoneNumber($number)
+{
+    $number = preg_replace('/[\s\-()]/', '', $number);
+    if (preg_match('/^0([7][0-9]{8})$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+    if (preg_match('/^94([7][0-9]{8})$/', $number)) {
+        return '+94' . substr($number, 2);
+    }
+    if (preg_match('/^\+?[1-9][0-9]{7,14}$/', $number)) {
+        if ($number[0] !== '+') {
+            return '+' . $number;
+        }
+        return $number;
+    }
+
+    return false;
+}

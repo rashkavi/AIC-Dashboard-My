@@ -219,18 +219,17 @@ if (SessionUser::hasValidSession()) {
                         $query .= " AND `cpp`.`date_paid` BETWEEN '" . $fromDateEscaped . "' AND '" . $toDateEscaped . "'";
                     }
 
+                    if ($currency != 0) {
+                        $query .= " AND `paid_cur`.`currency_id` = '" . $currency . "'";
+                    }
+
                     $query .= " GROUP BY r.course_payment_receipt_id";
 
                     /* Applied as HAVING (not a post-fetch PHP filter) so it
                        runs BEFORE LIMIT/OFFSET — otherwise pagination counts
                        would be wrong. Matches either the course's base
                        currency or the actually-paid currency. */
-                    if ($currency != 0) {
-                        $query .= " HAVING (
-                            `base_currency_id` = '" . $currency . "'
-                            OR COALESCE(`raw_paid_currency_id`, `base_currency_id`) = '" . $currency . "'
-                        )";
-                    }
+
 
                     /* ── Sorting ───────────────────────────────────────────────── */
                     if ($sortByName != 0) {
@@ -364,7 +363,7 @@ if (SessionUser::hasValidSession()) {
                                             <span class="text-14 main-text"><?= htmlspecialchars($data['title'] . '.' . $data['first_name'] . ' ' . $data['last_name']) ?></span>
                                         </td>
                                         <td class="py-2 align-middle">
-                                            <?php if ($isAnyForeign && $foreignAmount !== null): ?>
+                                            <?php if ($isAnyForeign && !$paidIsLkr && $foreignAmount !== null): ?>
                                                 <span class="text-14 main-text"><?= $foreignCode . ' ' . number_format($foreignAmount, $foreignDp) ?></span>
                                             <?php else: ?>
                                                 <span class="text-14 sub-text">—</span>

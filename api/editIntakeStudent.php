@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
@@ -272,54 +274,13 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     $studentDocuments = validateStudentDocuments($id);
+   $studentDocuments = validateStudentDocuments($id);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
                         $status->$key = $message;
                     }
 
-                    $requiredProperties = [
-                        'siid',
-                        'fname',
-                        'lname',
-                        'fullname',
-                        'nwi',
-                        'title',
-                        'gender',
-                        'marital_status',
-                        'nationality',
-                        'nic',
-                        'cob',
-                        'cor',
-                        'dob',
-                        'email',
-                        'mobile',
-                        'whatsapp',
-                        'address',
-                        'address2',
-                        'city',
-                        'pcode',
-                        'image',
-                        'gtitle',
-                        'grelationship',
-                        'gfname',
-                        'glname',
-                        'gemail',
-                        'gmobile',
-                    ];
-                    $allFieldsPresent = true;
-                    foreach ($requiredProperties as $property) {
-                        if (property_exists($status, $property)) {
-                            $allFieldsPresent = false;
-                            break; // Exit loop on the first missing property
-                        }
-                    }
-
-                    foreach ($studentDocuments["errors"] as $key => $message) {
-                        $allPropertiesExist = false;
-                        break; // Exit loop on the first missing property
-                    }
-
-                    if ($allFieldsPresent) {
+                    if (empty(get_object_vars($status))) {
                         $timezone = new DateTimeZone("Asia/Colombo");
                         $dateTime = new DateTime("now", $timezone);
                         $resetTime = $dateTime->format('Y-m-d H:i:s');
@@ -508,7 +469,7 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        uploadStudentDocuments($id, $studentDocuments);
+                        uploadStudentDocuments($student['student_id'], $studentDocuments);
 
                         Database::iud("INSERT INTO `students_logs` 
                             (`students_student_id`, `date_updated`, `users_user_id`,`log`)
@@ -572,16 +533,103 @@ function normalizePhoneNumber($number)
     return false;
 }
 
-function validateStudentDocuments()
+function validateStudentDocuments($id)
 {
-    $maxSize = 2 * 1024 * 1024; // 2MB
+    $maxSize = 8 * 1024 * 1024; // 8MB same as JS
 
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
 
+    $requiredDocuments = [
+        "passport_nic",
+        "payment_slip",
+        "discount_approved_document",
+        "signed_fee_structure",
+        "aic_application"
+    ];
+
+    $removeIds = [];
+
+    if (isset($_POST["removed_documents"]) && is_array($_POST["removed_documents"])) {
+        foreach ($_POST["removed_documents"] as $docId) {
+            $docId = (int)$docId;
+
+            if ($docId > 0) {
+                $removeIds[] = $docId;
+            }
+        }
+    }
+
+    $notInQuery = "";
+
+    if (!empty($removeIds)) {
+        $notInQuery = " AND `students_identity_document_id` NOT IN (" . implode(",", $removeIds) . ")";
+    }
+
+    $isUploadDocument = Database::search("
+        SELECT *
+        FROM `students_identity_documents`
+        WHERE `students_student_id` = '" . $id . "'
+        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
+        $notInQuery
+    ");
+
+    if ($isUploadDocument->num_rows > 0) {
+
+        while ($data = $isUploadDocument->fetch_assoc()) {
+
+            if ($data['students_identity_documents_type_id'] == 5) {
+
+                $key = array_search("passport_nic", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 8) {
+
+                $key = array_search("payment_slip", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 11) {
+
+                $key = array_search("discount_approved_document", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 12) {
+
+                $key = array_search("signed_fee_structure", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 1) {
+
+                $key = array_search("aic_application", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+        }
+    }
+
+    $requiredDocuments = array_values($requiredDocuments);
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
     $errors = [];
+    $uploadedDocuments = [];
 
     foreach ($documentTypes as $fieldName => $config) {
 
@@ -603,7 +651,7 @@ function validateStudentDocuments()
             }
 
             if ($file["size"] > $maxSize) {
-                $errors[$fieldName] = "File size must be less than 2MB";
+                $errors[$fieldName] = "File size must be less than 8MB";
                 continue;
             }
 
@@ -613,6 +661,8 @@ function validateStudentDocuments()
                 $errors[$fieldName] = "Invalid file type";
                 continue;
             }
+
+            $uploadedDocuments[$fieldName] = true;
 
             $validFiles[] = [
                 "field_name" => $fieldName,
@@ -625,12 +675,17 @@ function validateStudentDocuments()
         }
     }
 
+    foreach ($requiredDocuments as $requiredDoc) {
+        if (!isset($uploadedDocuments[$requiredDoc])) {
+            $errors[$requiredDoc] = "This document is required";
+        }
+    }
+
     return [
         "files" => $validFiles,
         "errors" => $errors
     ];
 }
-
 function getStudentDocumentTypeConfig()
 {
     return [
@@ -679,10 +734,20 @@ function getStudentDocumentTypeConfig()
             "folder" => "manager-checklists",
             "prefix" => "MANAGER_CHECKLIST"
         ],
-        "discount_approved_document" => [
+        "passport_size_photo" => [
             "type_id" => 10,
+            "folder" => "passport-size-photo",
+            "prefix" => "PASSPORT_SIZE_PHOTO"
+        ],
+        "discount_approved_document" => [
+            "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }

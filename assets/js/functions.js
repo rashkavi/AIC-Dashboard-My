@@ -465,6 +465,8 @@ const addStudent = (btn) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        signed_fee_structure: ["#doc-signed-fee-structure", "#doc-signed-fee-structure-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"],
         certificate_name: ["#certificate-name", "#certificate-name-feedback"],
         school: ["#school", "#school-feedback"],
         ol_results: ["#ol-results", "#ol-results-feedback"],
@@ -480,7 +482,6 @@ const addStudent = (btn) => {
     })
         .then((res) => res.json())
         .then((response) => {
-            console.log(response);
             applyValidation(response, validationMap, false);
             toggleBtnLoader(btn, false);
             if (response.done) {
@@ -584,6 +585,8 @@ const editStudent = (btn, id) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        signed_fee_structure: ["#doc-signed-fee-structure", "#doc-signed-fee-structure-feedback"],
+        payment_option: ["#payment-option", "#payment-option-feedback"],
         payment_option: ["#payment-option", "#payment-option-feedback"],
         certificate_name: ["#certificate-name", "#certificate-name-feedback"],
         school: ["#school", "#school-feedback"],
@@ -8004,7 +8007,7 @@ const editIntakeStudent = (btn, id) => {
     appendStudentDocumentsToFormData(form);
 
     const validationMap = {
-        id: ["#student-intake-id", "#student-intake-id-feedback"],
+        siid: ["#siid", "#siid-feedback"],
         fname: ["#first-name", "#fname-feedback"],
         lname: ["#last-name", "#lname-feedback"],
         fullname: ["#full-name", "#fullname-feedback"],
@@ -8045,6 +8048,7 @@ const editIntakeStudent = (btn, id) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        signed_fee_structure: ["#doc-signed-fee-structure", "#doc-signed-fee-structure-feedback"],
         payment_option: ["#payment-option", "#payment-option-feedback"]
     };
 
@@ -13659,6 +13663,7 @@ const filterCollectionReport = () => {
         dateFilter: $("filter-selector").val(),
         fromDate: $("#from-date").val(),
         toDate: $("#to-date").val(),
+        currency: $("#currency-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         resultPerPage: $("#show-result-selector").val(),
@@ -13705,6 +13710,7 @@ const genarateCollectionReport = (btn) => {
         dateFilter: $("filter-selector").val(),
         fromDate: $("#from-date").val(),
         toDate: $("#to-date").val(),
+        currency: $("#currency-selector").val()
 
     }
 
@@ -14042,3 +14048,137 @@ const removeIntake = (id) => {
         });
 }
 
+const filterAssignments = () => {
+    const data = {
+        text: $("#search-text").val(),
+        sort: $("#sort-selector").val(),
+        branch: $("#branch-selector").val(),
+        faculty: $("#faculty-selector").val(),
+        programme: $("#programme-selector").val(),
+        intake: $("#intake-selector").val(),
+        sortByDate: sortCondition1,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterAssignments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#assignments-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const applyIntakeStudentUpdate = (btn, id, update, studentId) => {
+    if (btn != '') {
+        toggleBtnLoader(btn, true);
+    } else {
+        toggleLoader(true);
+    }
+    selectedUsers.push(studentId);
+    const data = {
+        intakeId: id,
+        update: update,
+        checkedStudents: selectedUsers,
+        uncheckedStudents: [],
+        currentPage: selectedPage,
+        searchText: $("#search-text").val(),
+        sortSelector: $("#sort-selector").val(),
+        resultPerPage: $("#show-result-selector").val(),
+        reson: $("#reson-selector").val(),
+        resonNote: $("#reson-note").val()
+    }
+
+    const validationMap = {
+        reson: ["#reson-selector", "#reson-selector-feedback"],
+    }
+    fetch('api/updateIntakeStudentsStatus.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+    })
+        .then(res => res.json())
+        .then(response => {
+            applyValidation('', validationMap, false);
+            if (btn != '') {
+                toggleBtnLoader(btn, false);
+            } else {
+                toggleLoader(false);
+            }
+            if (response.error) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else if (response.done) {
+                if (update == 2) {
+                    $("#reson-selector").val(0)
+                    $("#reson-note").val('')
+                    $("#deactivateModal").modal("hide");
+                }
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 3000);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
+}
+
+const editIntakeStudentId = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        id: id,
+        siid: $("#siid").val(),
+        note: $("#note-siid").val(),
+    }
+
+    const validationMap = {
+        siid: ["#siid", "#siid-feedback"],
+        note: ["#note-siid", "#note-siid-feedback"]
+    }
+
+    fetch('api/editIntakeStudentId.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000);
+            } else
+                if (response.error) {
+                    showToast("error", response.error);
+                } else {
+                    applyValidation(response, validationMap);
+                }
+
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}

@@ -17,6 +17,8 @@ if (SessionUser::hasValidSession()) {
                     $sessionUserObject = SessionUser::getCurrentUserObject();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
+                    $type = isset($decoded['type']) ? $decoded['type'] : '';
+
                     $filters = [
                         'text'      => isset($decoded['text']) ? trim($decoded['text']) : '',
                         'branch'    => isset($decoded['branch']) ? (int)$decoded['branch'] : 0,
@@ -33,7 +35,7 @@ if (SessionUser::hasValidSession()) {
 
                     // Render table HTML into a buffer, exactly like filterUsers.php does inline
                     ob_start();
-                    renderCourseStructureTable($filters, $pageno, $resultPerPage, $sort_subject, $sort_date);
+                    renderCourseStructureTable($filters, $pageno, $resultPerPage, $sort_subject, $sort_date,$type);
                     $tableHtml = ob_get_clean();
 
                     // Recompute every dropdown's distinct option list against the *other* active filters,

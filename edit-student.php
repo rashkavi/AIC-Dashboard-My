@@ -83,7 +83,8 @@ if (!SessionUser::hasValidSession()) {
                             8 => "payment-slips",
                             9 => "manager-checklists",
                             10 => "passport-size-photo",
-                            11 => "discount-approved-documents"
+                            11 => "discount-approved-documents",
+                            12 => "signed-fee-structure"
                         ];
 
                         return $map[(int)$typeId] ?? "";
@@ -102,7 +103,8 @@ if (!SessionUser::hasValidSession()) {
                             8 => "Payment Slip",
                             9 => "Manager Checklist",
                             10 => "Passport Size Photo",
-                            11 => "Discount Approved Document"
+                            11 => "Discount Approved Document",
+                            12 => "Signed Fee Structure"
                         ];
 
                         return $map[(int)$typeId] ?? "Document";
@@ -120,6 +122,7 @@ if (!SessionUser::hasValidSession()) {
                         "manager_checklist" => [],
                         "passport_size_photo" => [],
                         "discount_approved_document" => [],
+                        "signed_fee_structure" => []
                     ];
 
                     $documentTypeMap = [
@@ -146,7 +149,7 @@ if (!SessionUser::hasValidSession()) {
                         5 => [
                             "key" => "passport_nic",
                             "label" => "Passport / NIC",
-                            "folder" => "passport-nic",
+                            "folder" => "nic-documents",
                         ],
                         6 => [
                             "key" => "academic_documents",
@@ -177,6 +180,11 @@ if (!SessionUser::hasValidSession()) {
                             "key" => "discount_approved_document",
                             "label" => "Discount Approved Document",
                             "folder" => "discount-approved-documents",
+                        ],
+                        12 => [
+                            "key" => "signed_fee_structure",
+                            "label" => "Signed Fee Structure",
+                            "folder" => "signed-fee-structure",
                         ],
                     ];
 
@@ -714,7 +722,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">AIC Application</span>
-                                                                            <!-- <span class="doc-required">Required</span> -->
+                                                                            <span class="doc-required">Required</span>
                                                                         </div>
 
                                                                         <div class="doc-drop-area">
@@ -1000,12 +1008,41 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </div>
 
+                                                                <!--Signed fee structure  -->
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                    <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                                                        <div class="doc-upload-header">
+                                                                            <span class="doc-title">Signed fee structure</span>
+                                                                            <span class="doc-required">Required</span>
+                                                                        </div>
+
+                                                                        <div class="doc-drop-area">
+                                                                            <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                            <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                            <span class="doc-or-text">OR</span>
+
+                                                                            <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                                Browse File
+                                                                            </button>
+
+                                                                            <input type="file"
+                                                                                class="d-none student-doc-input"
+                                                                                id="doc-signed-fee-structure"
+                                                                                data-doc-key="discount_approved_document"
+                                                                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                        </div>
+
+                                                                        <div class="doc-preview mt-2"></div>
+                                                                        <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                                                    </div>
+                                                                </div>
+
                                                                 <!-- Discount Approved Document -->
                                                                 <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                                     <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Discount Approved Document</span>
-                                                                            <!-- <span class="doc-required">Required</span> -->
+                                                                            <span class="doc-required">Required</span>
                                                                         </div>
 
                                                                         <div class="doc-drop-area">

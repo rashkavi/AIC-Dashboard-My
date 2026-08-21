@@ -16,17 +16,20 @@ if (SessionUser::hasValidSession()) {
             $end_date = isset($_POST['end_date']) ? $_POST['end_date'] : '';
             $end_time = isset($_POST['end_time']) ? $_POST['end_time'] : '';
             $plagiarism_report = isset($_POST['plagiarism_report']) ? $_POST['plagiarism_report'] : 0;
-            $attachment;
+            $attachment = '';
             if (empty($subject_id)) {
                 $status->error = 'Subject ID is required';
             } else if ($subject_id == 0) {
                 $status->error = 'Invalid Subject ID';
             } else {
-                $isValidSubject = Database::search("SELECT COUNT(*) as 'count' FROM `subjects` WHERE `subject_id` = '" . $subject_id . "'");
-                $row = $isValidSubject->fetch_assoc();
-                if ($row['count'] == 0) {
+                $isValidSubject = Database::search("SELECT * FROM `subjects` 
+                INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                WHERE `subject_id` = '" . $subject_id . "'");
+                if ($isValidSubject->num_rows == 0) {
                     $status->error = 'Invalid Subject ID';
                 } else {
+                    $subjectData = $isValidSubject->fetch_assoc();
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
                     if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 2, $subject_id))) {
                         $status->error = "You are not authorized to add assignments.";
@@ -41,7 +44,11 @@ if (SessionUser::hasValidSession()) {
                         } else if (strlen($code) > 45) {
                             $status->code = 'Assignment code should be less than 45 characters';
                         } else {
-                            $isValidCode = Database::search("SELECT COUNT(*) as 'count' FROM `assignments` WHERE `assignment_code` = '" . $code . "'");
+                            $isValidCode = Database::search("SELECT COUNT(*) as 'count' FROM `assignments` 
+                            INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+                            INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                            WHERE `assignment_code` = '" . $code . "'
+                            AND `intakes_intake_id` = '" . $subjectData['intakes_intake_id'] . "'");
                             $row = $isValidCode->fetch_assoc();
                             if ($row['count'] > 0) {
                                 $status->code = 'Assignment code already exists';
@@ -132,23 +139,8 @@ if (SessionUser::hasValidSession()) {
                                 }
                             }
                         }
-                        $requiredProperties = [
-                            'error',
-                            'file',
-                            'plagiarism_report',
-                            'end_date',
-                            'start_date',
-                            'topic',
-                            'code'
-                        ];
-                        $allPropertiesExist = true;
-                        foreach ($requiredProperties as $property) {
-                            if (property_exists($status, $property)) {
-                                $allPropertiesExist = false;
-                                break;
-                            }
-                        }
-                        if ($allPropertiesExist) {
+
+                        if (empty(get_object_vars($status))) {
                             $timezone = new DateTimeZone("Asia/Colombo");
                             $dateTime = new DateTime("now", $timezone);
                             $date = $dateTime->format('Y-m-d H:i:s');

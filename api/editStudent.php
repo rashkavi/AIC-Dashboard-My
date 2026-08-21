@@ -443,7 +443,8 @@ if (SessionUser::hasValidSession()) {
                                 8 => "payment-slips",
                                 9 => "manager-checklists",
                                 10 => "passport-size-photos",
-                                11 => "discount-approved-documents"
+                                11 => "discount-approved-documents",
+                                12 => "signed-fee-structure"
                             ];
 
                             foreach ($_POST["removed_documents"] as $docId) {
@@ -562,6 +563,9 @@ function validateStudentDocuments($id)
     $requiredDocuments = [
         "passport_nic",
         "payment_slip",
+        "discount_approved_document",
+        "signed_fee_structure",
+        "aic_application"
     ];
 
     $removeIds = [];
@@ -586,7 +590,7 @@ function validateStudentDocuments($id)
         SELECT *
         FROM `students_identity_documents`
         WHERE `students_student_id` = '" . $id . "'
-        AND `students_identity_documents_type_id` IN (5,8)
+        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
         $notInQuery
     ");
 
@@ -606,6 +610,33 @@ function validateStudentDocuments($id)
             if ($data['students_identity_documents_type_id'] == 8) {
 
                 $key = array_search("payment_slip", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 11) {
+
+                $key = array_search("discount_approved_document", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 12) {
+
+                $key = array_search("signed_fee_structure", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 1) {
+
+                $key = array_search("aic_application", $requiredDocuments);
 
                 if ($key !== false) {
                     unset($requiredDocuments[$key]);
@@ -733,6 +764,11 @@ function getStudentDocumentTypeConfig()
             "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }

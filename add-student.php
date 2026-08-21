@@ -564,7 +564,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">AIC Application</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">
@@ -680,7 +680,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="student-doc-upload-box" data-doc-key="passport_nic">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">Passport / NIC</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">
@@ -769,7 +769,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="student-doc-upload-box" data-doc-key="payment_slip">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">Payment Slip</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">
@@ -823,10 +823,69 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
                                                         <!-- Discount Approved Document -->
                                                         <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="passport_size_photo">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Passport Size Photo</span>
+                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="passport_size_photo"
+                                                                        data-doc-key="passport_size_photo"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="passport_size_photo-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <!--Signed fee structure  -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                            <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                                                <div class="doc-upload-header">
+                                                                    <span class="doc-title">Signed fee structure</span>
+                                                                    <span class="doc-required">Required</span>
+                                                                </div>
+
+                                                                <div class="doc-drop-area">
+                                                                    <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                    <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                    <span class="doc-or-text">OR</span>
+
+                                                                    <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                        Browse File
+                                                                    </button>
+
+                                                                    <input type="file"
+                                                                        class="d-none student-doc-input"
+                                                                        id="doc-signed-fee-structure"
+                                                                        data-doc-key="discount_approved_document"
+                                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                </div>
+
+                                                                <div class="doc-preview mt-2"></div>
+                                                                <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                                            </div>
+                                                        </div>
+
+
+                                                        <!-- Discount Approved Document -->
+                                                        <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                             <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                 <div class="doc-upload-header">
                                                                     <span class="doc-title">Discount Approved Document</span>
-                                                                    <!-- <span class="doc-required">Required</span> -->
+                                                                    <span class="doc-required">Required</span>
                                                                 </div>
 
                                                                 <div class="doc-drop-area">

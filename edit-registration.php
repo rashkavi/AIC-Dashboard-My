@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                         5 => [
                             "key" => "passport_nic",
                             "label" => "Passport / NIC",
-                            "folder" => "passport-nic",
+                            "folder" => "nic-documents",
                         ],
                         6 => [
                             "key" => "academic_documents",

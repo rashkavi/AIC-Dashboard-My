@@ -57,6 +57,16 @@ if (!SessionUser::hasValidSession()) {
                             $fieldsDisabled = true;
                         }
 
+                        $countries = array();
+                        $countries_rs = Database::search("SELECT * FROM `countries`");
+                        while ($data = $countries_rs->fetch_assoc()) {
+                            array_push($countries, [
+                                'id' => $data['country_id'],
+                                'name' => $data['country_name']
+                            ]);
+                        }
+
+
                         function h($value)
                         {
                             return htmlspecialchars($value ?? "", ENT_QUOTES, "UTF-8");
@@ -80,7 +90,8 @@ if (!SessionUser::hasValidSession()) {
                                 8 => "payment-slips",
                                 9 => "manager-checklists",
                                 10 => "passport-size-photo",
-                                11 => "discount-approved-documents"
+                                11 => "discount-approved-documents",
+                                12 => "signed-fee-structure"
                             ];
 
                             return $map[(int)$typeId] ?? "";
@@ -99,7 +110,8 @@ if (!SessionUser::hasValidSession()) {
                                 8 => "Payment Slip",
                                 9 => "Manager Checklist",
                                 10 => "Passport Size Photo",
-                                11 => "Discount Approved Document"
+                                11 => "Discount Approved Document",
+                                12 => "Signed Fee Structure"
                             ];
 
                             return $map[(int)$typeId] ?? "Document";
@@ -117,6 +129,7 @@ if (!SessionUser::hasValidSession()) {
                             "manager_checklist" => [],
                             "passport_size_photo" => [],
                             "discount_approved_document" => [],
+                            "signed_fee_structure" => []
                         ];
 
                         $documentTypeMap = [
@@ -175,12 +188,17 @@ if (!SessionUser::hasValidSession()) {
                                 "label" => "Discount Approved Document",
                                 "folder" => "discount-approved-documents",
                             ],
+                            12 => [
+                                "key" => "signed_fee_structure",
+                                "label" => "Signed Fee Structure",
+                                "folder" => "signed-fee-structure",
+                            ],
                         ];
 
                         $existingDocRs = Database::search("
                                         SELECT *
                                         FROM `students_identity_documents`
-                                        WHERE `students_student_id` = '" . (int)$id . "'
+                                        WHERE `students_student_id` = '" . (int)$sdata['student_id'] . "'
                                         ORDER BY `students_identity_documents_type_id` ASC, `date_added` DESC
                                     ");
 
@@ -444,19 +462,42 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <span id="dob-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
                                                                                     <div class="col-12 col-md-4 d-flex flex-column">
-                                                                                        <label class="text-14 main-text not-required" for="">Nationality</label>
-                                                                                        <input type="text" class="form-control custom-input mt-2" <?= $fieldsDisabled ? "disabled" : "" ?> id="nationality" maxlength="45" value="<?= $sdata['nationality'] != null ? $sdata['nationality'] : "Sri Lankan"; ?>">
+                                                                                        <label class="text-14 main-text required" for="">Nationality</label>
+                                                                                        <select class="form-select custom-select mt-2" id="nationality" <?= $fieldsDisabled ? "disabled" : "" ?>>
+                                                                                            <?php
+                                                                                            foreach ($countries as $country) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == $sdata['nationality'] ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
                                                                                         <span id="nationality-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
                                                                                     <div class="col-12 col-md-4 d-flex flex-column">
-                                                                                        <label class="text-14 main-text not-required" for="">Country of Birth</label>
-                                                                                        <input type="text" class="form-control custom-input mt-2" disabled id="country-of-birth" maxlength="45" value="<?= $sdata['country_of_birth'] != null ? $sdata['country_of_birth'] : "Sri Lanka"; ?>">
+                                                                                        <label class="text-14 main-text required" for="">Country of Birth</label>
+                                                                                        <select class="form-select custom-select mt-2" id="country-of-birth" <?= $fieldsDisabled ? "disabled" : "" ?>>
+                                                                                            <?php
+                                                                                            foreach ($countries as $country) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == $sdata['country_of_birth'] ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
                                                                                         <span id="cob-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
                                                                                     <div class="col-12 col-md-4 d-flex flex-column">
-                                                                                        <label class="text-14 main-text not-required" for="">Country of Residence</label>
-                                                                                        <input type="text" class="form-control custom-input mt-2" disabled id="country-of-residence" maxlength="45" value="<?= $sdata['country_of_residence'] != null ? $sdata['country_of_residence'] : "Sri Lanka"; ?>">
-                                                                                        <span id="cor-feedback" class="text-dark-red text-12"></span>
+                                                                                        <label class="text-14 main-text required" for="">Country of Residence</label>
+                                                                                        <select class="form-select custom-select mt-2" id="country-of-residence" onchange="changeCountryOfResidence(this.value)" <?= $fieldsDisabled ? "disabled" : "" ?>>
+                                                                                            <?php
+                                                                                            foreach ($countries as $country) {
+                                                                                            ?>
+                                                                                                <option value="<?php echo $country["id"]; ?>" <?= $country["id"] == $sdata['country_of_residence'] ? "selected" : "" ?>><?php echo $country["name"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select> <span id="cor-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -626,7 +667,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">AIC Application</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">
@@ -912,12 +953,41 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                     </div>
 
+                                                                    <!--Signed fee structure  -->
+                                                                    <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                        <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                                                            <div class="doc-upload-header">
+                                                                                <span class="doc-title">Signed fee structure</span>
+                                                                                <span class="doc-required">Required</span>
+                                                                            </div>
+
+                                                                            <div class="doc-drop-area">
+                                                                                <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                                <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                                <span class="doc-or-text">OR</span>
+
+                                                                                <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                                    Browse File
+                                                                                </button>
+
+                                                                                <input type="file"
+                                                                                    class="d-none student-doc-input"
+                                                                                    id="doc-signed-fee-structure"
+                                                                                    data-doc-key="discount_approved_document"
+                                                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                            </div>
+
+                                                                            <div class="doc-preview mt-2"></div>
+                                                                            <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                                                        </div>
+                                                                    </div>
+
                                                                     <!-- Discount Approved Document -->
                                                                     <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                                         <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">Discount Approved Document</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">

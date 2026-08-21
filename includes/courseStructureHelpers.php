@@ -98,7 +98,7 @@ function getCourseStructureOptionsJson($filters)
  * Renders the <table> + pagination markup for the course structure list.
  * Echoes directly (used both inline on the page and captured via ob_start() in the API).
  */
-function renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_subject, $sort_date)
+function renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_subject, $sort_date, $type)
 {
     $selectFields = "
         `subjects`.`subject_id`, `subjects`.`subject`, `subjects`.`max_course_hours`, `subjects`.`date_added`,
@@ -133,7 +133,7 @@ function renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_s
                 <th scope="col" class="px-4 py-3 bg-table-header align-content-center cursor-pointer">
 
                     <div class="d-flex align-items-center w-100">
-                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="lecTableCheckEvents()">
+                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" <?= $type == 1 ? 'onchange="lecTableCheckEvents()"' : 'onchange="assignmentTableCheckEvents()"' ?>>
 
                         <span class="text-14 main-text fw-medium">Branch</span>
                     </div>
@@ -156,7 +156,7 @@ function renderCourseStructureTable($filters, $pageno, $result_per_page, $sort_s
                 <?php while ($data = $rows->fetch_assoc()) : ?>
                     <tr>
                         <td class="px-4 py-3 align-middle">
-                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["subject_id"]; ?>" onchange="lecCheckRowEvents(<?php echo $data['subject_id']; ?>);">
+                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["subject_id"]; ?>" <?php echo $type == 1 ? 'onchange="lecCheckRowEvents(' . $data["subject_id"] . ')"' : 'onchange="assignmentCheckRowEvents(' . $data["subject_id"] . ')"' ?>>
                             <span class="text-14 main-text fw-medium"><?php echo htmlspecialchars($data["branch"]); ?></span>
                         </td>
                         <td class="py-2 align-middle"><span class="text-14 main-text"><?php echo htmlspecialchars($data["faculty"]); ?></span></td>

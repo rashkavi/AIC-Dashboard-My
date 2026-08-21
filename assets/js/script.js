@@ -7177,3 +7177,30 @@ const confirmDeleteIntake = (id) => {
     });
     $("#removeBatchConfirmModal").modal("show");
 }
+
+const handleAssignmentsPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByDate':
+            selectedPage = 1;
+            sortCondition1 = sortCondition1 == '1' ? '2' : '1';
+            break;
+    }
+
+    filterAssignments();
+}
