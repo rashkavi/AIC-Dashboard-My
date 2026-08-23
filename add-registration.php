@@ -62,7 +62,7 @@ if (!SessionUser::hasValidSession()) {
                                 <div class="col-12 p-0 m-0 g-0">
                                     <?php
                                     include "./includes/header.php";
-                                     selectItem::setSelected("Registrations");
+                                    selectItem::setSelected("Registrations");
                                     ?>
                                 </div>
                                 <div class="container p-4 m-0" id="skeleton-list">
@@ -341,7 +341,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gx-4 gy-3">
                                                         <span class="sub-topic">Advanced Profile Details</span>
 
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Branches</label>
                                                             <?php
                                                             $branchesResult = Database::search("SELECT * FROM `branches` ORDER BY `branch_id` ASC");
@@ -362,7 +362,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </select>
                                                             <span class="text-dark-red text-12" id="branch-feedback"></span>
                                                         </div>
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Faculties</label>
                                                             <?php
                                                             $facultiesResult = Database::search("SELECT * FROM `faculties` ORDER BY `faculty_id` ASC");
@@ -384,7 +384,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <span class="text-dark-red text-12" id="faculty-feedback"></span>
                                                         </div>
 
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Programmes</label>
                                                             <?php
                                                             $programmesResult = Database::search("SELECT * FROM `programmes` ORDER BY `programme_id` ASC");
@@ -398,13 +398,39 @@ if (!SessionUser::hasValidSession()) {
                                                             </select>
                                                             <span class="text-dark-red text-12" id="programme-feedback"></span>
                                                         </div>
-                                                        <div class="col-12 col-md-3 d-flex flex-column">
+                                                        <div class="col-12 col-md-4 d-flex flex-column">
                                                             <label class="text-14 main-text required" for="">Intakes</label>
 
                                                             <select id="intake-selector" disabled class="form-select custom-select mt-2">
                                                                 <option value="0">- Select -</option>
                                                             </select>
                                                             <span class="text-dark-red text-12" id="intake-feedback"></span>
+                                                        </div>
+
+                                                        <div class="col-12 col-md-4 d-flex flex-column <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'd-none' : '' ?>">
+                                                            <label class="text-14 main-text required" for="">Assign Counselor</label>
+                                                            <select name="" id="user" class="form-select custom-select mt-2">
+                                                                <option value="0" disabled <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? '' : 'selected' ?>>- Select -</option>
+                                                                <?php
+                                                                $query = "SELECT * FROM `users`
+                                                            INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                                                            WHERE `user_roles_user_role_id` = 3 AND `status_status_id`='1'";
+
+                                                                if (SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole)) {
+                                                                    $query .= " AND `user_id`='" . $sessionUserObject['user_id'] . "'";
+                                                                }
+
+                                                                $users = Database::search($query);
+
+                                                                while ($user = $users->fetch_assoc()) {
+
+                                                                ?>
+                                                                    <option value="<?php echo $user["user_id"]; ?>" <?=SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                <?php
+                                                                }
+                                                                ?>
+                                                            </select>
+                                                            <span id="user-feedback" class="text-dark-red text-12"></span>
                                                         </div>
                                                     </div>
                                                 </div>

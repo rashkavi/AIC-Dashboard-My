@@ -30,6 +30,7 @@ if (SessionUser::hasValidSession()) {
             $cob = isset($_POST['cob']) ? trim($_POST['cob']) : '';
             $cor = isset($_POST['cor']) ? trim($_POST['cor']) : '';
             $dob = isset($_POST['dob']) ? trim($_POST['dob']) : '';
+            $counselor = isset($_POST['counselor']) ? trim($_POST['counselor']) : 0;
             $email = isset($_POST['email']) ? trim($_POST['email']) : '';
             $mobile = isset($_POST['mobile']) ? trim($_POST['mobile']) : '';
             $whatsapp = isset($_POST['whatsapp']) ? trim($_POST['whatsapp']) : '';
@@ -44,8 +45,6 @@ if (SessionUser::hasValidSession()) {
             $gemail = isset($_POST['gemail']) ? trim($_POST['gemail']) : '';
             $gmobile = isset($_POST['gmobile']) ? trim($_POST['gmobile']) : '';
             $gwhatsapp = isset($_POST['gwhatsapp']) ? trim($_POST['gwhatsapp']) : '';
-            $entry_type = isset($_POST['entry_type']) ? trim($_POST['entry_type']) : 0;
-            $payment_option = isset($_POST['payment_option']) ? trim($_POST['payment_option']) : 0;
             $certificate_name = isset($_POST['certificate_name']) ? trim($_POST['certificate_name']) : '';
             $school = isset($_POST['school']) ? trim($_POST['school']) : '';
             $ol_results = isset($_POST['ol_results']) ? trim($_POST['ol_results']) : '';
@@ -132,6 +131,10 @@ if (SessionUser::hasValidSession()) {
                                         $status->passport = "Passport number already exists";
                                     }
                                 }
+                            }
+
+                            if (empty($counselor)) {
+                                $status->counselor =  "Please select student counselor";
                             }
 
                             if (empty($email)) {
@@ -228,10 +231,6 @@ if (SessionUser::hasValidSession()) {
                                         $status->gwhatsapp =  "Please enter a valid contact number";
                                     }
                                 }
-                            }
-
-                            if (empty($entry_type)) {
-                                $status->entry_type = "Please select student entry type";
                             }
 
                             if (isset($_FILES["image"])) {
@@ -369,17 +368,6 @@ if (SessionUser::hasValidSession()) {
                                     $student_table_insert_values .= ",'" . $passport . "'";
                                 }
 
-                                if (!empty($entry_type)) {
-                                    $student_table_insert_columns .= ",`entry_type`";
-                                    $student_table_insert_values .= ",'" . $entry_type . "'";
-                                }
-
-                                if (!empty($payment_option)) {
-                                    $student_table_insert_columns .= ",`payment_option`";
-                                    $student_table_insert_values .= ",'" . $payment_option . "'";
-                                }
-
-
                                 if (!empty($certificate_name)) {
                                     $student_table_insert_columns .= ",`certificate_name`";
                                     $student_table_insert_values .= ",'" . $certificate_name . "'";
@@ -435,8 +423,8 @@ if (SessionUser::hasValidSession()) {
                                     Database::iud("INSERT INTO `student_has_address` (" . $address_table_insert_columns . ") VALUES (" . $address_table_insert_values . ")");
                                 }
 
-                                $shi_table_insert_columns = "`students_student_id`, `student_id`,`addmission_date`,`status_status_id`,`users_user_id`,`intakes_intake_id`";
-                                $shi_table_insert_values = "'" . $studentId . "', '" . $id . "','" . $registerTime . "','1','" . $sessionUserObject['user_id'] . "','" . $intake_id . "'";
+                                $shi_table_insert_columns = "`students_student_id`, `student_id`,`addmission_date`,`status_status_id`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`";
+                                $shi_table_insert_values = "'" . $studentId . "', '" . $id . "','" . $registerTime . "','1','" . $sessionUserObject['user_id'] . "','" . $intake_id . "','" . $counselor . "'";
 
                                 Database::iud("INSERT INTO `students_has_intakes` (" . $shi_table_insert_columns . ") VALUES (" . $shi_table_insert_values . ")");
 
@@ -534,16 +522,26 @@ function normalizePhoneNumber($number)
     return false;
 }
 
+
 function validateStudentDocuments()
 {
-    $maxSize = 2 * 1024 * 1024; // 2MB
+    $maxSize = 8 * 1024 * 1024; // 8MB same as JS
 
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+
+    $requiredDocuments = [
+        "passport_nic",
+        "payment_slip",
+        "signed_fee_structure",
+        "discount_approved_document",
+        "aic_application"
+    ];
 
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
     $errors = [];
+    $uploadedDocuments = [];
 
     foreach ($documentTypes as $fieldName => $config) {
 
@@ -565,7 +563,7 @@ function validateStudentDocuments()
             }
 
             if ($file["size"] > $maxSize) {
-                $errors[$fieldName] = "File size must be less than 2MB";
+                $errors[$fieldName] = "File size must be less than 8MB";
                 continue;
             }
 
@@ -575,6 +573,8 @@ function validateStudentDocuments()
                 $errors[$fieldName] = "Invalid file type";
                 continue;
             }
+
+            $uploadedDocuments[$fieldName] = true;
 
             $validFiles[] = [
                 "field_name" => $fieldName,
@@ -587,12 +587,17 @@ function validateStudentDocuments()
         }
     }
 
+    foreach ($requiredDocuments as $requiredDoc) {
+        if (!isset($uploadedDocuments[$requiredDoc])) {
+            $errors[$requiredDoc] = "This document is required";
+        }
+    }
+
     return [
         "files" => $validFiles,
         "errors" => $errors
     ];
 }
-
 function getStudentDocumentTypeConfig()
 {
     return [
@@ -641,10 +646,20 @@ function getStudentDocumentTypeConfig()
             "folder" => "manager-checklists",
             "prefix" => "MANAGER_CHECKLIST"
         ],
-        "discount_approved_document" => [
+        "passport_size_photo" => [
             "type_id" => 10,
+            "folder" => "passport-size-photo",
+            "prefix" => "PASSPORT_SIZE_PHOTO"
+        ],
+        "discount_approved_document" => [
+            "type_id" => 11,
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
+        ],
+        "signed_fee_structure" => [
+            "type_id" => 12,
+            "folder" => "signed-fee-structure",
+            "prefix" => "SIGNED_FEE_STRUCTURE"
         ]
     ];
 }
@@ -673,7 +688,6 @@ function normalizeFilesArray($fileInput)
 function uploadStudentDocuments($studentId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
 
     foreach ($studentDocuments["files"] as $doc) {
 

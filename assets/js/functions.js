@@ -407,6 +407,7 @@ const addStudent = (btn) => {
     form.append("faculty", $("#faculty-selector").val());
     form.append("programme", $("#programme-selector").val());
     form.append("intake", $("#intake-selector").val());
+    form.append("counselor", $("#user").val() || 0);
     form.append("grelationship", $("#grelationship-selector").val());
     form.append("gtitle", $("#gtitle-selector").val());
     form.append("gfname", $("#guardian-fname").val());
@@ -448,6 +449,7 @@ const addStudent = (btn) => {
         faculty: ["#faculty-selector", "#faculty-feedback"],
         programme: ["#programme-selector", "#programme-feedback"],
         intake: ["#intake-selector", "#intake-feedback"],
+        counselor: ["#user", "#user-feedback"],
         grelationship: ["#grelationship-selector", "#grelationship-feedback"],
         gtitle: ["#gtitle-selector", "#gtitle-feedback"],
         gfname: ["#guardian-fname", "#gfname-feedback"],
@@ -4205,6 +4207,7 @@ const addStudentToIntake = (btn, id) => {
     form.append("cob", $("#country-of-birth").val());
     form.append("cor", $("#country-of-residence").val());
     form.append("dob", $("#dob").val());
+    form.append("counselor", $("#user").val() || 0);
     form.append("email", $("#email").val());
     form.append("mobile", $("#mobile").val());
     form.append("whatsapp", $("#whatsapp").val());
@@ -4220,8 +4223,6 @@ const addStudentToIntake = (btn, id) => {
     form.append("gemail", $("#guardian-email").val());
     form.append("gmobile", $("#guardian-mobile").val());
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
-    form.append("entry_type", $("input[name='entry_type']:checked").val());
-    form.append("payment_option", $("#payment-option").val());
     form.append("certificate_name", $("#certificate-name").val());
     form.append("school", $("#school").val());
     form.append("ol_results", $("#ol-results").val());
@@ -4246,6 +4247,7 @@ const addStudentToIntake = (btn, id) => {
         nic: ["#nic", "#nic-feedback"],
         passport: ["#passport", "#passport-feedback"],
         dob: ["#dob", "#dob-feedback"],
+        counselor: ["#user", "#user-feedback"],
         email: ["#email", "#email-feedback"],
         mobile: ["#mobile", "#mobile-feedback"],
         whatsapp: ["#whatsapp", "#whatsapp-feedback"],
@@ -4273,6 +4275,7 @@ const addStudentToIntake = (btn, id) => {
         payment_slip: ["#doc-payment-slip", "#doc-payment-slip-feedback"],
         manager_checklist: ["#doc-manager-checklist", "#doc-manager-checklist-feedback"],
         discount_approved_document: ["#doc-discount-approved-document", "#doc-discount-approved-document-feedback"],
+        signed_fee_structure: ["#doc-signed-fee-structure", "#doc-signed-fee-structure-feedback"],
         certificate_name: ["#certificate-name", "#certificate-name-feedback"],
         school: ["#school", "#school-feedback"],
         ol_results: ["#ol-results", "#ol-results-feedback"],
@@ -4288,6 +4291,7 @@ const addStudentToIntake = (btn, id) => {
     })
         .then((res) => res.json())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             if (response.done) {
                 showToast("success", response.done);
@@ -11570,6 +11574,7 @@ const addRegistration = (btn) => {
     form.append("faculty", $("#faculty-selector").val());
     form.append("programme", $("#programme-selector").val());
     form.append("intake", $("#intake-selector").val());
+    form.append("counselor", $("#user").val() || 0);
     form.append("grelationship", $("#grelationship-selector").val());
     form.append("gtitle", $("#gtitle-selector").val());
     form.append("gfname", $("#guardian-fname").val());
@@ -11579,6 +11584,7 @@ const addRegistration = (btn) => {
     form.append("gwhatsapp", $("#guardian-whatsapp").val());
     form.append("entry_type", $("input[name='entry_type']:checked").val());
     form.append("payment_option", $("#payment-option").val());
+
 
     appendStudentDocumentsToFormData(form);
 
@@ -11608,6 +11614,7 @@ const addRegistration = (btn) => {
         faculty: ["#faculty-selector", "#faculty-feedback"],
         programme: ["#programme-selector", "#programme-feedback"],
         intake: ["#intake-selector", "#intake-feedback"],
+        counselor: ["#user", "#user-feedback"],
         grelationship: ["#grelationship-selector", "#grelationship-feedback"],
         gtitle: ["#gtitle-selector", "#gtitle-feedback"],
         gfname: ["#guardian-fname", "#gfname-feedback"],
@@ -11633,8 +11640,9 @@ const addRegistration = (btn) => {
         method: "POST",
         body: form,
     })
-        .then((res) => res.json())
+        .then((res) => res.text())
         .then((response) => {
+            console.log(response);
             applyValidation(response, validationMap, false);
             toggleBtnLoader(btn, false);
             if (response.done) {

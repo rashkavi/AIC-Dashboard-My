@@ -499,6 +499,31 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ?>
                                                                                         </select> <span id="cor-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'd-none' : '' ?>">
+                                                                                        <label class="text-14 main-text required" for="">Assign Counselor</label>
+                                                                                        <select name="" id="user" class="form-select custom-select mt-2">
+                                                                                            <option value="0" disabled <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? '' : 'selected' ?>>- Select -</option>
+                                                                                            <?php
+                                                                                            $query = "SELECT * FROM `users`
+                                                                                                INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                                                                                                WHERE `user_roles_user_role_id` = 3 AND `status_status_id`='1'";
+
+                                                                                            if (SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole)) {
+                                                                                                $query .= " AND `user_id`='" . $sessionUserObject['user_id'] . "'";
+                                                                                            }
+
+                                                                                            $users = Database::search($query);
+
+                                                                                            while ($user = $users->fetch_assoc()) {
+
+                                                                                            ?>
+                                                                                                <option value="<?php echo $user["user_id"]; ?>" <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
+                                                                                        <span id="user-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>

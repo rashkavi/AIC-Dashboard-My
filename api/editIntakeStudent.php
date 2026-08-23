@@ -15,7 +15,8 @@ if (SessionUser::hasValidSession()) {
             if (empty($id)) {
                 $status->error = "Invalid student Id";
             } else {
-                $isHasId = Database::search("SELECT `students`.`student_id`,`profile_img`,`login_details_login_details_id`,`students_has_intakes`.`student_id` AS `student_intake_id` 
+                $isHasId = Database::search("SELECT `students`.`student_id`,
+                `profile_img`,`login_details_login_details_id`,`students_has_intakes`.`student_id` AS `student_intake_id` ,`counselor_user_id`
                 FROM `students_has_intakes`
                 INNER JOIN `students` ON `students_has_intakes`.`students_student_id`=`students`.`student_id` 
                 WHERE `students_has_intakes_id`='" . $id . "'");
@@ -39,6 +40,7 @@ if (SessionUser::hasValidSession()) {
                     $cob = isset($_POST['cob']) ? trim($_POST['cob']) : '';
                     $cor = isset($_POST['cor']) ? trim($_POST['cor']) : '';
                     $dob = isset($_POST['dob']) ? trim($_POST['dob']) : '';
+                    $counselor = isset($_POST['counselor']) ? trim($_POST['counselor']) : 0;
                     $email = isset($_POST['email']) ? trim($_POST['email']) : '';
                     $mobile = isset($_POST['mobile']) ? trim($_POST['mobile']) : '';
                     $whatsapp = isset($_POST['whatsapp']) ? trim($_POST['whatsapp']) : '';
@@ -136,6 +138,10 @@ if (SessionUser::hasValidSession()) {
                         $status->cor =  "Country of Residence should be less than 45 characters";
                     }
 
+                    if (empty($counselor)) {
+                        $status->counselor =  "Please select student counselor";
+                    }
+
                     if (empty($email)) {
                         $status->email =  "Please enter user email";
                     } else if (strlen($email) > 100) {
@@ -180,15 +186,11 @@ if (SessionUser::hasValidSession()) {
                         if (!empty($address)) {
                             if (!strlen($address) > 100) {
                                 $status->address1 =  "Address should be less than 100 characters";
-                            } else if (preg_match($invalid_chars, $address)) {
-                                $status->address1 =  "Address lines contain invalid characters.";
                             }
                         }
                         if (!empty($address2)) {
                             if (!strlen($address2) > 100) {
                                 $status->address2 =  "Address should be less than 100 characters";
-                            } else if (preg_match($invalid_chars, $address2)) {
-                                $status->address2 =  "Address lines contain invalid characters.";
                             }
                         }
 
@@ -274,7 +276,7 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     $studentDocuments = validateStudentDocuments($id);
-   $studentDocuments = validateStudentDocuments($id);
+                    $studentDocuments = validateStudentDocuments($id);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
                         $status->$key = $message;
@@ -331,11 +333,11 @@ if (SessionUser::hasValidSession()) {
                             if ($studentHasAddress->num_rows == 0) {
 
                                 $address_table_columns = "`students_student_id`,`address_line_1`,";
-                                $address_table_values = "'" . $student["student_id"] . "','" . $address . "'";
+                                $address_table_values = "'" . $student["student_id"] . "','" . addslashes($address) . "'";
 
                                 if (!empty($address2)) {
                                     $address_table_columns .= ",`address_line_2`";
-                                    $address_table_values .= ",'" . $address2 . "'";
+                                    $address_table_values .= ",'" . addslashes($address2) . "'";
                                 }
 
 
@@ -351,10 +353,10 @@ if (SessionUser::hasValidSession()) {
 
                                 Database::iud("INSERT INTO `student_has_address` (" . $address_table_columns . ") VALUES (" . $address_table_values . ")");
                             } else {
-                                $address_table_update = "`address_line_1`='" . $address . "',`postal_code`='" . $pcode . "'";
+                                $address_table_update = "`address_line_1`='" . addslashes($address) . "',`postal_code`='" . $pcode . "'";
 
                                 if (!empty($address2)) {
-                                    $address_table_update .= ",`address_line_2`='" . $address2 . "'";
+                                    $address_table_update .= ",`address_line_2`='" . addslashes($address2) . "'";
                                 }
                                 if (empty($city) || $city == 0) {
                                     $address_table_update .= ",`city_city_id`=NULL";
@@ -396,6 +398,24 @@ if (SessionUser::hasValidSession()) {
 
                         if ($siid != $student["student_intake_id"]) {
                             Database::iud("UPDATE `students_has_intakes` SET `student_id`='" . $siid . "' WHERE `students_has_intakes_id`='" . $id . "'");
+
+                            $log = "Intake Sudent Registration Number changed from " . $student["student_intake_id"] . " to " . $siid;
+
+                            $columns = "`students_has_intakes_students_has_intakes_id`,`users_user_id`,`date_updated`,`log`";
+                            $values = "'" . $id . "','" . $sessionUserObject['user_id'] . "','" . $resetTime . "','" . $log . "'";
+
+                            Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
+                        }
+
+                        if ($counselor != $student["counselor_user_id"]) {
+                            Database::iud("UPDATE `students_has_intakes` SET `counselor_user_id`='" . $counselor . "' WHERE `students_has_intakes_id`='" . $id . "'");
+
+                            $log = "Counselor changed from " . $student["counselor_user_id"] . " to " . $counselor;
+
+                            $columns = "`students_has_intakes_students_has_intakes_id`,`users_user_id`,`date_updated`,`log`";
+                            $values = "'" . $id . "','" . $sessionUserObject['user_id'] . "','" . $resetTime . "','" . $log . "'";
+
+                            Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
                         }
 
                         if (isset($_FILES["image"])) {
@@ -440,7 +460,7 @@ if (SessionUser::hasValidSession()) {
                                         `document`
                                     FROM `students_identity_documents`
                                     WHERE `students_identity_document_id` = '" . $docId . "'
-                                      AND `students_student_id` = '" . $id . "'
+                                      AND `students_student_id` = '" . $student['student_id'] . "'
                                     LIMIT 1
                                 ");
 

@@ -145,7 +145,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="row gx-4 gy-4">
                                                                                     <span class="sub-topic">Personal Details</span>
                                                                                     <div class="col-12 col-md-3 d-flex flex-column">
-                                                                                        <label class="text-14 main-text required" for="">Student Id</label>
+                                                                                        <label class="text-14 main-text required" for="">Student Registration Number</label>
                                                                                         <input type="text" class="form-control custom-input mt-2" id="student-intake-id">
                                                                                         <span id="student-intake-id-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
@@ -278,6 +278,31 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ?>
                                                                                         </select>
                                                                                         <span id="cor-feedback" class="text-dark-red text-12"></span>
+                                                                                    </div>
+                                                                                    <div class="col-12 col-md-4 d-flex flex-column <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'd-none' : '' ?>">
+                                                                                        <label class="text-14 main-text required" for="">Assign Counselor</label>
+                                                                                        <select name="" id="user" class="form-select custom-select mt-2">
+                                                                                            <option value="0" disabled <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? '' : 'selected' ?>>- Select -</option>
+                                                                                            <?php
+                                                                                            $query = "SELECT * FROM `users`
+                                                                                                INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                                                                                                WHERE `user_roles_user_role_id` = 3 AND `status_status_id`='1'";
+
+                                                                                            if (SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole)) {
+                                                                                                $query .= " AND `user_id`='" . $sessionUserObject['user_id'] . "'";
+                                                                                            }
+
+                                                                                            $users = Database::search($query);
+
+                                                                                            while ($user = $users->fetch_assoc()) {
+
+                                                                                            ?>
+                                                                                                <option value="<?php echo $user["user_id"]; ?>" <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        </select>
+                                                                                        <span id="user-feedback" class="text-dark-red text-12"></span>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -500,7 +525,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">AIC Application</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">
@@ -616,7 +641,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="student-doc-upload-box" data-doc-key="passport_nic">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">Passport / NIC</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">
@@ -705,7 +730,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="student-doc-upload-box" data-doc-key="payment_slip">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">Payment Slip</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">
@@ -759,10 +784,69 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                     <!-- Discount Approved Document -->
                                                                     <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                        <div class="student-doc-upload-box" data-doc-key="passport_size_photo">
+                                                                            <div class="doc-upload-header">
+                                                                                <span class="doc-title">Passport Size Photo</span>
+                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                            </div>
+
+                                                                            <div class="doc-drop-area">
+                                                                                <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                                <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                                <span class="doc-or-text">OR</span>
+
+                                                                                <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                                    Browse File
+                                                                                </button>
+
+                                                                                <input type="file"
+                                                                                    class="d-none student-doc-input"
+                                                                                    id="passport_size_photo"
+                                                                                    data-doc-key="passport_size_photo"
+                                                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                            </div>
+
+                                                                            <div class="doc-preview mt-2"></div>
+                                                                            <span class="text-dark-red text-12 doc-feedback" id="passport_size_photo-feedback"></span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <!--Signed fee structure  -->
+                                                                    <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                        <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
+                                                                            <div class="doc-upload-header">
+                                                                                <span class="doc-title">Signed fee structure</span>
+                                                                                <span class="doc-required">Required</span>
+                                                                            </div>
+
+                                                                            <div class="doc-drop-area">
+                                                                                <img src="assets/imgs/icons/cloud.png" alt="cloud" width="42">
+                                                                                <span class="doc-drop-text">Drag & Drop file here</span>
+                                                                                <span class="doc-or-text">OR</span>
+
+                                                                                <button type="button" class="custom-btn px-3 doc-browse-btn">
+                                                                                    Browse File
+                                                                                </button>
+
+                                                                                <input type="file"
+                                                                                    class="d-none student-doc-input"
+                                                                                    id="doc-signed-fee-structure"
+                                                                                    data-doc-key="discount_approved_document"
+                                                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                                                            </div>
+
+                                                                            <div class="doc-preview mt-2"></div>
+                                                                            <span class="text-dark-red text-12 doc-feedback" id="doc-signed-fee-structure-feedback"></span>
+                                                                        </div>
+                                                                    </div>
+
+
+                                                                    <!-- Discount Approved Document -->
+                                                                    <div class="col-12 col-md-6 col-lg-4 mb-3">
                                                                         <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                             <div class="doc-upload-header">
                                                                                 <span class="doc-title">Discount Approved Document</span>
-                                                                                <!-- <span class="doc-required">Required</span> -->
+                                                                                <span class="doc-required">Required</span>
                                                                             </div>
 
                                                                             <div class="doc-drop-area">
@@ -789,49 +873,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             </div>
 
-                                                            <div class="col-12 p-0 g-0 mt-5">
-                                                                <div class="row gx-4 gy-3">
-                                                                    <span class="sub-topic">Other</span>
 
-                                                                    <div class="col-12 col-md-6 col-lg-3 d-flex flex-column">
-                                                                        <label class="text-14 main-text mb-2 required">
-                                                                            Entry Type
-                                                                        </label>
-                                                                        <div class="d-flex align-items-center gap-4 mt-2">
-                                                                            <div class="form-check custom-entry-check">
-                                                                                <input class="form-check-input"
-                                                                                    type="radio"
-                                                                                    name="entry_type"
-                                                                                    id="academic-entry"
-                                                                                    value="ACADEMIC"
-                                                                                    checked>
-                                                                                <label class="form-check-label text-14 main-text"
-                                                                                    for="academic-entry">
-                                                                                    Academic Entry
-                                                                                </label>
-                                                                            </div>
-                                                                            <div class="form-check custom-entry-check">
-                                                                                <input class="form-check-input"
-                                                                                    type="radio"
-                                                                                    name="entry_type"
-                                                                                    id="other-entry"
-                                                                                    value="OTHER">
-                                                                                <label class="form-check-label text-14 main-text"
-                                                                                    for="other-entry">
-                                                                                    Other Entry
-                                                                                </label>
-                                                                            </div>
-                                                                        </div>
-                                                                        <span id="entry-type-feedback"
-                                                                            class="text-dark-red text-12"></span>
-                                                                    </div>
-                                                                    <div class="col-12 d-flex flex-column">
-                                                                        <label class="text-14 main-text" for="">Payment Option</label>
-                                                                        <textarea type="text" class="form-control custom-input mt-2" id="payment-option" rows="5"></textarea>
-                                                                        <span id="payment-option-feedback" class="text-dark-red text-12"></span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
 
                                                             <div class="col-12 p-0 g-0 mt-5">
                                                                 <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">

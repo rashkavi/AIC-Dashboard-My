@@ -42,6 +42,7 @@ if (SessionUser::hasValidSession()) {
                 $faculty = isset($_POST['faculty']) ? trim($_POST['faculty']) : 0;
                 $programme = isset($_POST['programme']) ? trim($_POST['programme']) : 0;
                 $intake = isset($_POST['intake']) ? trim($_POST['intake']) : 0;
+                $counselor = isset($_POST['counselor']) ? trim($_POST['counselor']) : 0;
                 $gtitle = isset($_POST['gtitle']) ? trim($_POST['gtitle']) : 0;
                 $grelationship = isset($_POST['grelationship']) ? trim($_POST['grelationship']) : 0;
                 $gfname = isset($_POST['gfname']) ? trim($_POST['gfname']) : '';
@@ -176,12 +177,12 @@ if (SessionUser::hasValidSession()) {
                         $status->id = "You have reached the maximum number of intake students";
                     } else {
                         if (empty($id)) {
-                            $status->id =  "Please enter student id";
+                            $status->id =  "Please enter student Registration Numbe";
                         } else {
                             $isValidStudentId = Database::search("SELECT COUNT(*) as 'count' FROM `students_has_intakes` WHERE `student_id` = '" . $id . "'");
                             $row = $isValidStudentId->fetch_assoc();
                             if ($row['count'] > 0) {
-                                $status->id =  "Student id already exists";
+                                $status->id =  "Student Registration Number already exists";
                             }
                         }
 
@@ -200,6 +201,10 @@ if (SessionUser::hasValidSession()) {
                             if ($row['count'] == 0) {
                                 $status->intake =  "Intake does not exist";
                             }
+                        }
+
+                        if (empty($counselor)) {
+                            $status->counselor =  "Please select student counselor";
                         }
                     }
                 }
@@ -421,11 +426,11 @@ if (SessionUser::hasValidSession()) {
 
                     if (!empty($address)) {
                         $address_table_insert_columns = "`address_line_1`,`students_student_id`";
-                        $address_table_insert_values = "'" . $address . "','" . $studentId . "'";
+                        $address_table_insert_values = "'" . addslashes($address) . "','" . $studentId . "'";
 
                         if (!empty($address2)) {
                             $address_table_insert_columns .= ", `address_line_2`";
-                            $address_table_insert_values .= ",'" . $address2 . "'";
+                            $address_table_insert_values .= ",'" . addslashes($address2) . "'";
                         }
 
                         if (!empty($city) && $city != 0) {
@@ -442,8 +447,8 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     if (!empty($faculty) && Limitation::availableStudents()) {
-                        $shi_table_insert_columns = "`students_student_id`, `student_id`,`addmission_date`,`status_status_id`,`users_user_id`,`intakes_intake_id`";
-                        $shi_table_insert_values = "'" . $studentId . "', '" . $id . "','" . $registerTime . "','1','" . $sessionUserObject['user_id'] . "','" . $intake . "'";
+                        $shi_table_insert_columns = "`students_student_id`, `student_id`,`addmission_date`,`status_status_id`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`";
+                        $shi_table_insert_values = "'" . $studentId . "', '" . $id . "','" . $registerTime . "','1','" . $sessionUserObject['user_id'] . "','" . $intake . "','" . $counselor . "'";
 
                         Database::iud("INSERT INTO `students_has_intakes` (" . $shi_table_insert_columns . ") VALUES (" . $shi_table_insert_values . ")");
                     }
