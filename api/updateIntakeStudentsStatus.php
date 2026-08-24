@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors',1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
@@ -164,7 +166,7 @@ if (SessionUser::hasValidSession()) {
                                                     }
                                                 }
 
-                                                $query .= " AND `status_status_id` = '" . $activeStatusId . "'";
+                                                $query .= " AND `students_has_intakes`.`status_status_id` = '" . $activeStatusId . "'";
 
                                                 $query .= " LIMIT " . $resultPerPage . " OFFSET " . $pageResults . "";
 

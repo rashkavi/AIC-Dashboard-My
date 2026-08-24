@@ -187,7 +187,7 @@ try {
             ON `branches`.`branch_id` = `faculties`.`branches_branch_id`
 
         INNER JOIN `users`
-            ON `students`.`users_user_id` = `users`.`user_id`
+            ON `students_has_intakes`.`counselor_user_id` = `users`.`user_id`
 
         INNER JOIN `title` AS `title2`
             ON `users`.`title_title_id` = `title2`.`title_id`

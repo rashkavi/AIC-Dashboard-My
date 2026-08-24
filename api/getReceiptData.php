@@ -114,7 +114,7 @@ $receiptRow = Database::search("
                                          = b.branch_id
 
     /* ── COUNSELLOR JOIN (LEFT — receipt should still render if no counsellor set) ── */
-    LEFT JOIN users               u_c ON s.users_user_id
+    LEFT JOIN users               u_c ON shi.counselor_user_id
                                           = u_c.user_id
     LEFT JOIN title                t_c ON u_c.title_title_id
                                           = t_c.title_id

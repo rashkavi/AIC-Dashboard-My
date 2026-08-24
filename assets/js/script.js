@@ -1118,10 +1118,15 @@ const updateStudentStatus = (update, id) => {
 }
 
 const updateIntakeStudentStatus = (update, intakeId, id) => {
+    console.log(update);
     selectedUsers = [];
     selectedUsers.push(id);
     unSelectedUsers = [];
-    applySelectedIntakeStudentUpdate(intakeId, update);
+    if (update == 2) {
+        $("#deactivateModal").modal("show");
+    } else {
+        applyIntakeHasStudentsUpdate('', intakeId, 1);
+    }
 }
 
 
@@ -2451,7 +2456,7 @@ const openRegisteredStudentAddIntakeModal = (id, intakeId, stuName) => {
     //console.log(id, intakeId, stuName);
     $("#student-id").val(id);
     $("#student-name").val(stuName);
-    $("#add-registered-student-to-intake").attr("onclick", `addIntakeToRegisteredStudents(${id}, ${intakeId})`);
+    $("#add-registered-student-to-intake").attr("onclick", `addIntakeToRegisteredStudents(this,${id}, ${intakeId})`);
 
     $("#studentAddIntake").modal('show');
 };
@@ -7204,3 +7209,17 @@ const handleAssignmentsPagination = (action, pageId = null, totalPages = null) =
 
     filterAssignments();
 }
+
+const updateIntakeHasStudentsStatus = (btn, id) => {
+    const update = $("#update-selector").val();
+    if (update != 0) {
+        if (update == 2) {
+            $("#deactivateModal").modal("show");
+        } else {
+            applyIntakeHasStudentsUpdate(btn, id, 1);
+        }
+    } else {
+        showToast("warning", "Please select the desired student status change option.");
+    }
+}
+

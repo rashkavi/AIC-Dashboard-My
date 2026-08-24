@@ -32,6 +32,8 @@ function writeLog(string $message, string $logFile): void
 
 try {
     $today = date("Y-m-d");
+    $todayDateTime = date("Y-m-d H:i:s");
+
 
     // ========================================================
     // 1. Get all students_has_intakes currently ACTIVE
@@ -96,7 +98,7 @@ try {
                 ON cp.course_payments_id = cpp.course_payments_course_payments_id
             WHERE `pphsi`.`students_has_intakes_students_has_intakes_id` = '$studentsHasIntakesId'
                 AND `cp`.`payment_status_payment_status_id` = '" . PAYMENT_STATUS_AWAITING . "'
-                AND `cp`.`due_date` < '$today'
+                AND DATE_ADD(`cp`.`due_date`, INTERVAL 15 DAY) = '$today'
             GROUP BY `cp`.`course_payments_id`
         ";
 
@@ -140,6 +142,13 @@ try {
                 SET `status_status_id` = '" . STATUS_OVERDUE . "'
                 WHERE `students_has_intakes_id` = '$studentsHasIntakesId'
             ");
+
+            $logMessage = "Deactiavated (Payment Due - " . implode(" ; ", $overdueDetails) . ")";
+
+            $columns = "`students_has_intakes_students_has_intakes_id`,`date_updated`,`log`";
+            $values = "'" . $studentsHasIntakesId . "','" . $todayDateTime . "','" . $logMessage . "'";
+
+            Database::iud("INSERT INTO `students_has_intakes_logs`(" . $columns . ") VALUES(" . $values . ")");
 
             $totalFlaggedOverdue++;
 

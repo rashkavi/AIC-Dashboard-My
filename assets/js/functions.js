@@ -1347,47 +1347,64 @@ const filterIntakeHasStudents = (id) => {
         });
 }
 
-const applyIntakeHasStudentsUpdate = (id) => {
-    const update = $("#update-selector").val();
-    if (update != 0) {
-        const data = {
-            intakeId: id,
-            update: update,
-            checkedStudents: selectedUsers,
-            uncheckedStudents: unSelectedUsers,
-            currentPage: selectedPage,
-            searchText: $("#search-text").val(),
-            sortSelector: $("#sort-selector").val(),
-            resultPerPage: $("#show-result-selector").val(),
-        }
-        fetch('api/updateIntakeStudentsStatus.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data),
-        })
-            .then(response => response.text())
-            .then(data => {
-                console.log(data);
-                const response = JSON.parse(data);
-                if (response.error) {
-                    setTimeout(() => { showToast("error", response.error); }, 1000);
-                } else if (response.warning) {
-                    showToast("warning", response.warning);
-                } else {
-                    setTimeout(() => { showToast("success", response.done); }, 1000);
-                    filterIntakeHasStudents(id);
-                    setDefault();
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                showToast("error", "Something went wrong");
-            });
+const applyIntakeHasStudentsUpdate = (btn, id, update) => {
+    if (btn != '') {
+        toggleBtnLoader(btn, true);
     } else {
-        showToast("warning", "Please select the desired student status change option.");
+        toggleLoader(true);
     }
+    const data = {
+        intakeId: id,
+        update: update,
+        checkedStudents: selectedUsers,
+        uncheckedStudents: unSelectedUsers,
+        currentPage: selectedPage,
+        searchText: $("#search-text").val(),
+        sortSelector: $("#sort-selector").val(),
+        resultPerPage: $("#show-result-selector").val(),
+        reson: $("#reson-selector").val(),
+        resonNote: $("#reson-note").val()
+    }
+
+    const validationMap = {
+        reson: ["#reson-selector", "#reson-selector-feedback"],
+    }
+    fetch('api/updateIntakeStudentsStatus.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+    })
+        .then(res => res.json())
+        .then(response => {
+            applyValidation('', validationMap, false);
+            if (btn != '') {
+                toggleBtnLoader(btn, false);
+            } else {
+                toggleLoader(false);
+            }
+            if (response.error) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.warning) {
+                showToast("warning", response.warning);
+            } else if (response.done) {
+                if (update == 2) {
+                    $("#reson-selector").val(0)
+                    $("#reson-note").val('')
+                    $("#deactivateModal").modal("hide");
+                }
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                filterIntakeHasStudents(id);
+                setDefault();
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            showToast("error", "Something went wrong");
+        });
 }
 
 const applySelectedIntakeStudentUpdate = (id, update) => {
@@ -5717,12 +5734,13 @@ const filterSubjectHasLecturers = (id) => {
             setTimeout(() => { showToast("error", "An error occured. Please try again later."); }, 1000);
         });
 }
-const addIntakeToRegisteredStudents = (studentId, intakeId) => {
-    ////console.log(studentId, intakeId);
+const addIntakeToRegisteredStudents = (btn, studentId, intakeId) => {
+    toggleBtnLoader(btn, true);
     const data = {
         studentId: studentId,
         intakeId: intakeId,
-        intakeStudentId: $("#student-intake-id").val()
+        intakeStudentId: $("#student-intake-id").val(),
+        user: $("#user").val(),
     }
     fetch('api/addIntakeToRegisteredStudents.php', {
         method: "POST",
@@ -5731,10 +5749,9 @@ const addIntakeToRegisteredStudents = (studentId, intakeId) => {
         },
         body: JSON.stringify(data),
     })
-        .then((response) => response.text())
-        .then((data) => {
-            ////console.log(data);
-            const response = JSON.parse(data);
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
             if (response.done) {
                 setTimeout(() => { showToast("success", response.done); }, 1000);
                 filterRegisteredStudents(intakeId);

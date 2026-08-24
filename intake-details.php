@@ -407,7 +407,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         </select>
                                                                                                     </div>
                                                                                                     <div class="col-12 col-md-2 col-lg-2 d-flex flex-column justify-content-end">
-                                                                                                        <button class="custom-btn w-100" type="button" onclick="applyIntakeHasStudentsUpdate(<?= $id ?>)">Apply</button>
+                                                                                                        <button class="custom-btn w-100" type="button" onclick="updateIntakeHasStudentsStatus(<?= $id ?>)">Apply</button>
                                                                                                     </div>
                                                                                                 <?php
                                                                                                 }
@@ -1304,6 +1304,47 @@ if (!SessionUser::hasValidSession()) {
                     <?php
                     }
                     ?>
+
+                    <div class="modal fade" id="deactivateModal" tabindex="-1" role="dialog" aria-labelledby="deactivateModalTitle" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLongTitle">Deactivate Students</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="col-12 p-0 g-0">
+                                        <div class="row gx-4 gy-3">
+                                            <div class="col-12 d-flex flex-column">
+                                                <label class="text-14 main-text required" for="">Deactivate Reson</label>
+                                                <select class="form-select custom-select mt-2" id="reson-selector">
+                                                    <option value="0">- Select -</option>
+                                                    <?php
+                                                    $status = Database::search("SELECT * FROM `students_inactive_reasons`");
+                                                    while ($data = $status->fetch_assoc()) {
+                                                    ?>
+                                                        <option value="<?= $data["students_inactive_reasons_id"]; ?>"><?= $data["students_inactive_reason"]; ?></option>
+                                                    <?php
+                                                    }
+                                                    ?>
+                                                </select>
+                                                <span id="reson-selector-feedback" class="text-dark-red text-12"></span>
+                                            </div>
+
+                                            <div class="col-12 d-flex flex-column">
+                                                <label class="text-14 main-text" for="">Note</label>
+                                                <textarea class="form-control custom-input mt-2" id="reson-note" rows="5"></textarea>
+                                                <span id="reson-note-feedback" class="text-dark-red text-12"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="col-12 col-md-4 custom-btn" onclick="applyIntakeHasStudentsUpdate(this,<?= $id ?>,2);">Update</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                     <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
