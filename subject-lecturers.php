@@ -496,6 +496,7 @@ if (!SessionUser::hasValidSession()) {
                                                             $lecturers = Database::search("SELECT `user_id`,`title`,`user_fname`,`user_lname` FROM `users`
                                                                                             INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
                                                                                             WHERE `status_status_id`='1'
+                                                                                            AND `users`.`user_roles_user_role_id` != 1
                                                                                             AND `user_id` NOT IN (SELECT `users_user_id` FROM `lecturers` WHERE `subjects_subject_id`='" . $id . "')");
                                                             while ($data = $lecturers->fetch_assoc()) {
                                                             ?>

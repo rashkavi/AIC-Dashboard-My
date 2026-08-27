@@ -12,6 +12,107 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+        $query = "
+                                                                            SELECT
+                                                                                `students`.`student_id` AS `sId`,
+                                                                                `login_details`.`first_name`,
+                                                                                `login_details`.`last_name`,
+                                                                                `login_details`.`email`,
+                                                                                `students`.`mobile`,
+                                                                                `login_details`.`whatsapp`,
+                                                                                `students`.`profile_img`,
+                                                                                `login_details`.`date_registered`,
+                                                                                `title`.`title`,
+
+                                                                                `lead_student_status`.`lead_student_status`,
+                                                                                `lead_student_status`.`lead_student_status_id`,
+
+                                                                                `login_details`.`verification`,
+                                                                                `login_details`.`reset_time`,
+
+                                                                                `users`.`user_fname`,
+                                                                                `users`.`user_lname`,
+
+                                                                                `title2`.`title`                                           AS `user_title`,
+
+                                                                                `students_logs`.`students_log_id`,
+                                                                                `students_logs`.`date_updated`,
+                                                                                `students_logs`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`,
+
+                                                                                `programmes`.`programme`,
+                                                                                `students_has_intakes`.`students_has_intakes_id`,
+
+                                                                                CASE
+                                                                                    WHEN `payment`.`students_has_intakes_students_has_intakes_id` IS NOT NULL
+                                                                                        THEN 1
+                                                                                    ELSE 0
+                                                                                END AS `has_due_payment`
+
+                                                                            FROM `students`
+
+                                                                            INNER JOIN `login_details`
+                                                                                ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
+
+                                                                            INNER JOIN `title`
+                                                                                ON `students`.`title_title_id` = `title`.`title_id`
+
+                                                                            INNER JOIN `lead_student_status`
+                                                                                ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+
+                                                                            INNER JOIN `students_has_intakes`
+                                                                                ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                                                                            INNER JOIN `intakes`
+                                                                                ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
+
+                                                                            INNER JOIN `programmes`
+                                                                                ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
+
+                                                                            INNER JOIN `faculties`
+                                                                                ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
+
+                                                                            INNER JOIN `users`
+                                                                                ON `students_has_intakes`.`counselor_user_id` = `users`.`user_id`
+
+                                                                            INNER JOIN `title` AS `title2`
+                                                                                ON `users`.`title_title_id` = `title2`.`title_id`
+
+                                                                            LEFT JOIN `students_logs`
+                                                                                ON `students_logs`.`students_log_id` = (
+                                                                                    SELECT `sl2`.`students_log_id`
+                                                                                    FROM `students_logs` `sl2`
+                                                                                    WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                                    ORDER BY `sl2`.`date_updated` DESC, `sl2`.`students_log_id` DESC
+                                                                                    LIMIT 1
+                                                                                )
+
+                                                                            LEFT JOIN (
+                                                                                SELECT DISTINCT `pshi`.`students_has_intakes_students_has_intakes_id`
+                                                                                FROM `course_payments` AS `cp`
+                                                                                INNER JOIN `payment_plan_has_students_has_intakes` AS `pshi`
+                                                                                    ON `cp`.`payment_plan_has_students_has_intakes_id` = `pshi`.`payment_plan_has_students_has_intakes_id`
+                                                                                WHERE `cp`.`payment_status_payment_status_id` = '1'
+                                                                                AND `cp`.`due_date` < '" . date("Y-m-d") . "'
+                                                                            ) AS `payment`
+                                                                                ON `payment`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
+                                                                        ";
+
+        if ($sessionUserRole == "Counselor") {
+            $query .= " WHERE `users`.`user_id`='" . $sessionUserObject['user_id'] . "'";
+        } else if ($sessionUserRole == "Branch Manager") {
+            $userData = Database::search("SELECT * FROM `users` WHERE `user_id`='" . $sessionUserObject['user_id'] . "'")->fetch_assoc();
+
+            $query .= " WHERE (`users`.`user_id`='" . $sessionUserObject['user_id'] . "' 
+                                                                OR `faculties`.`branches_branch_id`='" . $userData['branches_branch_id'] . "')
+                                                                ";
+        }
+
+        $query .= "  ORDER BY 
+                                                               `students_logs`.`date_updated` DESC,
+                                                               `students`.`student_id` DESC";
+
+        $results = Database::search($query);
 ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -99,12 +200,8 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
                                                     <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
                                                         <div class="d-flex custom-div align-items-center justify-content-center">
-                                                            <?php
-                                                            $studentCount = Database::search("SELECT COUNT(DISTINCT `student_id`) AS unique_student_count FROM 
-                                                            `students`");
-                                                            $data = $studentCount->fetch_assoc();
-                                                            ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
+                                                           
+                                                            <span class="text-14 dark-theme fw-medium"><?php echo $results->num_rows; ?> <span data-i18n="students">Students</span></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-8 col-md-8 col-lg-7 d-flex flex-column">
@@ -132,9 +229,8 @@ if (!SessionUser::hasValidSession()) {
                                                                         <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleInquiryPagination('filter');">
                                                                             <option value="0" selected>- Select Branch -</option>
                                                                             <?php
-                                                                            $query = "SELECT * FROM `branches`";
 
-                                                                            $branches = Database::search($query);
+                                                                            $branches = Database::search("SELECT * FROM `branches`");
                                                                             while ($data = $branches->fetch_assoc()) {
                                                                             ?>
                                                                                 <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
@@ -253,106 +349,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </thead>
                                                         <tbody id="user-table-data">
                                                             <?php
-                                                            $query = "
-                                                                            SELECT
-                                                                                `students`.`student_id` AS `sId`,
-                                                                                `login_details`.`first_name`,
-                                                                                `login_details`.`last_name`,
-                                                                                `login_details`.`email`,
-                                                                                `students`.`mobile`,
-                                                                                `login_details`.`whatsapp`,
-                                                                                `students`.`profile_img`,
-                                                                                `login_details`.`date_registered`,
-                                                                                `title`.`title`,
 
-                                                                                `lead_student_status`.`lead_student_status`,
-                                                                                `lead_student_status`.`lead_student_status_id`,
-
-                                                                                `login_details`.`verification`,
-                                                                                `login_details`.`reset_time`,
-
-                                                                                `users`.`user_fname`,
-                                                                                `users`.`user_lname`,
-
-                                                                                `title2`.`title`                                           AS `user_title`,
-
-                                                                                `students_logs`.`students_log_id`,
-                                                                                `students_logs`.`date_updated`,
-                                                                                `students_logs`.`lead_student_status_lead_student_status_id` AS `latest_log_status_id`,
-
-                                                                                `programmes`.`programme`,
-                                                                                `students_has_intakes`.`students_has_intakes_id`,
-
-                                                                                CASE
-                                                                                    WHEN `payment`.`students_has_intakes_students_has_intakes_id` IS NOT NULL
-                                                                                        THEN 1
-                                                                                    ELSE 0
-                                                                                END AS `has_due_payment`
-
-                                                                            FROM `students`
-
-                                                                            INNER JOIN `login_details`
-                                                                                ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
-
-                                                                            INNER JOIN `title`
-                                                                                ON `students`.`title_title_id` = `title`.`title_id`
-
-                                                                            INNER JOIN `lead_student_status`
-                                                                                ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
-
-                                                                            INNER JOIN `students_has_intakes`
-                                                                                ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-
-                                                                            INNER JOIN `intakes`
-                                                                                ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
-
-                                                                            INNER JOIN `programmes`
-                                                                                ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
-
-                                                                            INNER JOIN `faculties`
-                                                                                ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
-
-                                                                            INNER JOIN `users`
-                                                                                ON `students_has_intakes`.`counselor_user_id` = `users`.`user_id`
-
-                                                                            INNER JOIN `title` AS `title2`
-                                                                                ON `users`.`title_title_id` = `title2`.`title_id`
-
-                                                                            LEFT JOIN `students_logs`
-                                                                                ON `students_logs`.`students_log_id` = (
-                                                                                    SELECT `sl2`.`students_log_id`
-                                                                                    FROM `students_logs` `sl2`
-                                                                                    WHERE `sl2`.`students_student_id` = `students`.`student_id`
-                                                                                    ORDER BY `sl2`.`date_updated` DESC, `sl2`.`students_log_id` DESC
-                                                                                    LIMIT 1
-                                                                                )
-
-                                                                            LEFT JOIN (
-                                                                                SELECT DISTINCT `pshi`.`students_has_intakes_students_has_intakes_id`
-                                                                                FROM `course_payments` AS `cp`
-                                                                                INNER JOIN `payment_plan_has_students_has_intakes` AS `pshi`
-                                                                                    ON `cp`.`payment_plan_has_students_has_intakes_id` = `pshi`.`payment_plan_has_students_has_intakes_id`
-                                                                                WHERE `cp`.`payment_status_payment_status_id` = '1'
-                                                                                AND `cp`.`due_date` < '" . date("Y-m-d") . "'
-                                                                            ) AS `payment`
-                                                                                ON `payment`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
-                                                                        ";
-
-                                                            if ($sessionUserRole == "Counselor") {
-                                                                $query .= " WHERE `users`.`user_id`='" . $sessionUserObject['user_id'] . "'";
-                                                            } else if ($sessionUserRole == "Branch Manager") {
-                                                                $userData = Database::search("SELECT * FROM `users` WHERE `user_id`='" . $sessionUserObject['user_id'] . "'")->fetch_assoc();
-
-                                                                $query .= " WHERE (`users`.`user_id`='" . $sessionUserObject['user_id'] . "' 
-                                                                OR `faculties`.`branches_branch_id`='" . $userData['branches_branch_id'] . "')
-                                                                ";
-                                                            }
-
-                                                            $query .= "  ORDER BY 
-                                                               `students_logs`.`date_updated` DESC,
-                                                               `students`.`student_id` DESC";
-
-                                                            $results = Database::search($query);
                                                             $pageno = 1;
                                                             $results_count = $results->num_rows;
                                                             $result_per_page = 10;  // Consistent variable name

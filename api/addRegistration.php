@@ -372,7 +372,7 @@ if (SessionUser::hasValidSession()) {
                     $studentId = Database::$connection->insert_id;
 
                     $shi_table_insert_columns = "`students_student_id`,`addmission_date`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`";
-                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $intake . "'";
+                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $intake . "','" . $counselor . "'";
 
                     Database::iud("INSERT INTO `students_has_intakes` (" . $shi_table_insert_columns . ") VALUES (" . $shi_table_insert_values . ")");
 
@@ -412,7 +412,7 @@ if (SessionUser::hasValidSession()) {
                         move_uploaded_file($_FILES["image"]["tmp_name"], $qimg_path);
                     }
 
-                    $status->done =  "Lead Added Successfully";
+                    $status->done =  "Registration Added Successfully";
                 }
             }
         } else {

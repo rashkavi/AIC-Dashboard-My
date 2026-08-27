@@ -170,19 +170,39 @@ class AdminDashboardSummary
                 WHERE `login_details`.`status_status_id` = 1
             ) AS student_count,
 
-            (
+                    (
                 SELECT COUNT(*)
-                FROM `students`
-                WHERE MONTH(`date_added`) = MONTH(CURDATE())
-                  AND YEAR(`date_added`) = YEAR(CURDATE())
+                FROM (
+                    SELECT
+                        students_has_intakes.students_has_intakes_id,
+                        MIN(course_payment_receipts.date_added) AS first_receipt_date
+                    FROM students_has_intakes
+                    INNER JOIN course_payment_receipts
+                        ON students_has_intakes.students_has_intakes_id =
+                        course_payment_receipts.students_has_intakes_students_has_intakes_id
+                    GROUP BY students_has_intakes.students_has_intakes_id
+                ) AS first_payments
+                WHERE MONTH(first_payments.first_receipt_date) = MONTH(CURDATE())
+                AND YEAR(first_payments.first_receipt_date) = YEAR(CURDATE())
             ) AS monthly_registrations,
 
             (
-                SELECT COUNT(*)
-                FROM `students`
-                WHERE MONTH(`date_added`) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-                  AND YEAR(`date_added`) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-            ) AS previous_month_registrations,
+    SELECT COUNT(*)
+    FROM (
+        SELECT
+            students_has_intakes.students_has_intakes_id,
+            MIN(course_payment_receipts.date_added) AS first_receipt_date
+        FROM students_has_intakes
+        INNER JOIN course_payment_receipts
+            ON students_has_intakes.students_has_intakes_id =
+               course_payment_receipts.students_has_intakes_students_has_intakes_id
+        GROUP BY students_has_intakes.students_has_intakes_id
+    ) AS first_payments
+    WHERE MONTH(first_payments.first_receipt_date) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+      AND YEAR(first_payments.first_receipt_date) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+) AS previous_month_registrations,
+
+           
 
             (
                 SELECT COUNT(DISTINCT shi.students_student_id)

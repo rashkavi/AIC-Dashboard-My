@@ -104,6 +104,65 @@ if (!SessionUser::hasValidSession()) {
             }
             return $lkrAmount; // no rate resolvable
         }
+
+        // ---- Initial vs Subsequent payment, per branch (this currency) ----
+        // Initial payment = payment_type 20 when payment_category = 4, else payment_type 18.
+        // Everything else is treated as a subsequent (installment) payment.
+        $initialVsSubsequentRs = Database::search("
+    SELECT
+        b.branch_id,
+        b.branch AS branch_name,
+        CASE
+            WHEN (pc.payment_category_id = 4 AND cp.payment_type_payment_type_id = 20)
+              OR (pc.payment_category_id != 4 AND cp.payment_type_payment_type_id = 18)
+            THEN 'initial'
+            ELSE 'subsequent'
+        END AS payment_bucket,
+        SUM(cpp.paid_amount) AS total
+    FROM course_payment_has_payments cpp
+    INNER JOIN course_payments cp
+        ON cpp.course_payments_course_payments_id = cp.course_payments_id
+    INNER JOIN payment_plan_has_students_has_intakes ppsi
+        ON cp.payment_plan_has_students_has_intakes_id = ppsi.payment_plan_has_students_has_intakes_id
+    INNER JOIN payment_category pc
+        ON ppsi.payment_category_payment_category_id = pc.payment_category_id
+    INNER JOIN students_has_intakes shi
+        ON ppsi.students_has_intakes_students_has_intakes_id = shi.students_has_intakes_id
+    INNER JOIN intakes i
+        ON shi.intakes_intake_id = i.intake_id
+    INNER JOIN programmes p
+        ON i.programmes_programme_id = p.programme_id
+    INNER JOIN faculties f
+        ON p.faculties_faculty_id = f.faculty_id
+    INNER JOIN branches b
+        ON f.branches_branch_id = b.branch_id
+    WHERE cpp.payment_status_payment_status_id = 3
+      AND cpp.currencies_currency_id = " . $currencyId . "
+    GROUP BY b.branch_id, b.branch, payment_bucket
+");
+
+        // Zero-fill every branch so bars always render even with no data yet.
+        $initialSubsequentTotals = [];
+        $allBranchesRs2 = Database::search("SELECT branch_id, branch FROM branches ORDER BY branch");
+        while ($b = $allBranchesRs2->fetch_assoc()) {
+            $initialSubsequentTotals[$b['branch']] = ['initial' => 0, 'subsequent' => 0];
+        }
+
+        while ($row = $initialVsSubsequentRs->fetch_assoc()) {
+            $branchName = $row['branch_name'];
+            if (!isset($initialSubsequentTotals[$branchName])) {
+                $initialSubsequentTotals[$branchName] = ['initial' => 0, 'subsequent' => 0];
+            }
+            $initialSubsequentTotals[$branchName][$row['payment_bucket']] = (float)$row['total'];
+        }
+
+        $initSubBranchNames = array_keys($initialSubsequentTotals);
+        $initialPaymentData    = [];
+        $subsequentPaymentData = [];
+        foreach ($initSubBranchNames as $bName) {
+            $initialPaymentData[]    = $initialSubsequentTotals[$bName]['initial'];
+            $subsequentPaymentData[] = $initialSubsequentTotals[$bName]['subsequent'];
+        }
 ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -510,10 +569,18 @@ if (!SessionUser::hasValidSession()) {
                                                     <canvas id="branchBreakdownChart" class="w-100 mt-3"></canvas>
                                                 </div>
                                             </div>
+
                                         </div>
                                     </div>
 
-                                    <div class="col-12 p-4 component-theme mb-4">
+                                    <div class="col-12 p-4 component-theme">
+                                        <div class="row">
+                                            <span class="sub-topic">Initial vs Subsequent Payments (<?= htmlspecialchars($currencyCode) ?>)</span>
+                                            <canvas id="initialVsSubsequentChart" class="w-100 mt-3"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 p-4 component-theme my-4">
                                         <span class="sub-topic">Branch-wise Breakdown (<?= htmlspecialchars($currencyCode) ?>)</span>
 
                                         <div class="table-responsive-wrapper mt-4">
@@ -628,7 +695,7 @@ if (!SessionUser::hasValidSession()) {
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                         <select name="" id="currency-selector" class="form-select custom-select mt-2" disabled onchange="handleCollectionReportPagination('filter')">
                                                                             <option value="<?= $currencyId ?>" selected><?= $currencyCode ?></option>
-                                                                           
+
                                                                         </select>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
@@ -1009,6 +1076,71 @@ if (!SessionUser::hasValidSession()) {
                                 max: branchChartMax,
                                 ticks: {
                                     stepSize: branchChartStepSize
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const initSubLabels = <?= json_encode($initSubBranchNames) ?>;
+                const initialPaymentData = <?= json_encode($initialPaymentData) ?>;
+                const subsequentPaymentData = <?= json_encode($subsequentPaymentData) ?>;
+
+                const initSubAllValues = [...initialPaymentData, ...subsequentPaymentData];
+                const initSubDataMax = Math.max(...initSubAllValues, 0);
+                const initSubBuffer = initSubDataMax * 0.1;
+                const initSubChartMax = Math.ceil(initSubDataMax + initSubBuffer) || 5;
+                const initSubChartStepSize = Math.ceil(initSubChartMax / 5);
+
+                new Chart(document.getElementById('initialVsSubsequentChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: initSubLabels,
+                        datasets: [{
+                                label: 'Initial Payment',
+                                data: initialPaymentData,
+                                backgroundColor: '#02708E',
+                                borderRadius: 4,
+                                maxBarThickness: 40
+                            },
+                            {
+                                label: 'Subsequent Payment',
+                                data: subsequentPaymentData,
+                                backgroundColor: '#F2A93B',
+                                borderRadius: 4,
+                                maxBarThickness: 40
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    boxWidth: 10,
+                                    boxHeight: 10
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (item) => ' ' + item.dataset.label + ': ' + item.formattedValue + ' <?= htmlspecialchars($currencyCode) ?>'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: initSubChartMax,
+                                ticks: {
+                                    stepSize: initSubChartStepSize
                                 }
                             }
                         }
