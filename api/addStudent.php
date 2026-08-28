@@ -151,6 +151,10 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
+                if(empty($counselor)){
+                    $status->counselor =  "Please select student counselor";
+                }
+
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
                         $status->address1 =  "Address should be less than 100 characters";

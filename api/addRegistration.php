@@ -148,6 +148,10 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
+                  if(empty($counselor)){
+                    $status->counselor =  "Please select student counselor";
+                }
+
                 $invalid_chars = '/[\'\";\-]/';
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
@@ -193,9 +197,7 @@ if (SessionUser::hasValidSession()) {
                     $status->intake =  "Please select student intake";
                 }
 
-                if (empty($counselor)) {
-                    $status->counselor =  "Please select student counselor";
-                }
+              
 
                 if ($gtitle != 0 || $grelationship != 0 || !empty($gfname) || !empty($glname) || !empty($gemail) || !empty($gmobile) || !empty($gwhatsapp)) {
                     if ($gtitle == 0) {
