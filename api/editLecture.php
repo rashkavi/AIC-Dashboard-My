@@ -1,10 +1,11 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
-require_once("../includes/WhatsAppService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -41,7 +42,7 @@ if (SessionUser::hasValidSession()) {
                     $subject_id = $lectureData['subjects_subject_id'];
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
                         $status->error = "You are not authorized to this action.";
                     } else {
 

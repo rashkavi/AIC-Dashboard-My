@@ -174,10 +174,10 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                $hasPermissionEditPermission = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionConfirmLecturerPayment = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionMarkAttendance = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionUploadRecording = SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule');
+                $hasPermissionEditPermission = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionConfirmLecturerPayment = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionMarkAttendance = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionUploadRecording = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule');
 
                 // programme-level block (one per programme sharing this session)
                 // programme-level block (one per programme sharing this session)
