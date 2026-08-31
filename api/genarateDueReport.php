@@ -329,6 +329,8 @@ try {
     $row = $headerRow + 1;
 
     $sumDue = 0;
+    $sumTotal = 0;
+    $sumTax = 0;
     $sumPenaltyLkr = 0;
     $rowCount = 0;
 
@@ -338,6 +340,27 @@ try {
        always LKR (see penalty_lkr note above), so it can always be
        totalled regardless of the currency filter. */
     $singleCurrencyActive = (!empty($currency) && $currency != '0');
+
+
+    $latestTaxRate = 2.5;
+    $rate = Database::search("SELECT * FROM tax_rates ORDER BY tax_rate_id DESC LIMIT 1");
+    if ($rate && $rate->num_rows > 0) {
+        $latestTaxRate = (float)$rate->fetch_assoc()['tax_rate'];
+    }
+
+    function calculateTaxInclusiveAmount($base, $taxRate)
+    {
+        $base = (float)$base;
+        $taxRate = (float)$taxRate;
+        if ($taxRate <= 0 || $base <= 0) {
+            return $base;
+        }
+        $basePortion = 1 - ($taxRate / 100);
+        if ($basePortion <= 0) {
+            return $base;
+        }
+        return round($base / $basePortion, 2);
+    }
 
     while ($data = $results->fetch_assoc()) {
 
@@ -359,6 +382,9 @@ try {
         $payableAmount = (float)$data['amount'] - $totalDiscount + $totalPenalty + $totalTax;
         $dueAmount = $payableAmount - $settled;
 
+        $dueAmountWithTax = calculateTaxInclusiveAmount($dueAmount, $latestTaxRate);
+        $dueAmountSchouldPaidTax = $dueAmountWithTax - $dueAmount;
+
         if ($dueAmount <= 0.009) {
             continue;
         }
@@ -374,17 +400,21 @@ try {
         $sheet->setCellValue("D$row", $data['branch']);
         $sheet->setCellValue("E$row", $studentName);
         $sheet->setCellValue("F$row", $data['currency_code'] . ' ' . round($dueAmount, 2));
+        $sheet->setCellValue("G$row", $data['currency_code'] . ' ' . round($dueAmountSchouldPaidTax, 2));
+        $sheet->setCellValue("H$row", $data['currency_code'] . ' ' . round($dueAmountWithTax, 2));
         /* Penalty column: mirrors due-report.php — penalty_lkr (LOG
            table total, always LKR), NOT $totalPenalty. */
-        $sheet->setCellValue("G$row", $penaltyLkr > 0 ? 'LKR ' . number_format($penaltyLkr, 2) : "");
-        $sheet->setCellValue("H$row", $counsellorName);
+        $sheet->setCellValue("I$row", $penaltyLkr > 0 ? 'LKR ' . number_format($penaltyLkr, 2) : "");
+        $sheet->setCellValue("J$row", $counsellorName);
 
-        $sheet->getStyle("B$row:H$row")
+        $sheet->getStyle("B$row:J$row")
             ->getBorders()
             ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
 
         $sumDue        += $dueAmount;
+        $sumTotal += $dueAmountWithTax;
+        $sumTax += $dueAmountSchouldPaidTax;
         $sumPenaltyLkr += $penaltyLkr;
         $rowCount++;
 
@@ -408,22 +438,24 @@ try {
 
         if ($singleCurrencyActive) {
             $sheet->setCellValue("F{$totalRow}", $currencyLabel . ' ' . round($sumDue, 2));
+            $sheet->setCellValue("G{$totalRow}", $currencyLabel . ' ' . round($sumTax, 2));
+            $sheet->setCellValue("H{$totalRow}", $currencyLabel . ' ' . round($sumTotal, 2));
         } else {
             $sheet->setCellValue("F{$totalRow}", "Mixed currencies");
         }
         /* Always LKR, regardless of the currency filter. */
-        $sheet->setCellValue("G{$totalRow}", 'LKR ' . number_format($sumPenaltyLkr, 2));
+        $sheet->setCellValue("I{$totalRow}", 'LKR ' . number_format($sumPenaltyLkr, 2));
 
-        $sheet->getStyle("B{$totalRow}:H{$totalRow}")->getFont()->setBold(true);
-        $sheet->getStyle("B{$totalRow}:H{$totalRow}")
+        $sheet->getStyle("B{$totalRow}:J{$totalRow}")->getFont()->setBold(true);
+        $sheet->getStyle("B{$totalRow}:J{$totalRow}")
             ->getBorders()
             ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
         $sheet->getStyle("B{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setAutoFilter("B{$headerRow}:H{$lastDataRow}");
+        $sheet->setAutoFilter("B{$headerRow}:J{$lastDataRow}");
     } else {
-        $sheet->setAutoFilter("B{$headerRow}:H{$headerRow}");
+        $sheet->setAutoFilter("B{$headerRow}:J{$headerRow}");
     }
 
     $fileName = "due_report_" . date('Ymd_His') . ".xlsx";

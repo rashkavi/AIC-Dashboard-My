@@ -52,6 +52,8 @@ if (!SessionUser::hasValidSession()) {
                first place to optimize.
                ================================================================ */
 
+
+
             function resolveExchangeRate(array $row, int $courseCurrencyId): ?float
             {
                 $paidCurrId = (int)($row['currencies_currency_id'] ?? 0);
@@ -136,6 +138,20 @@ if (!SessionUser::hasValidSession()) {
                     'settled'     => $settled,
                     'penalty_lkr' => $penaltyLkr,
                 ];
+            }
+
+            function calculateTaxInclusiveAmount($base, $taxRate)
+            {
+                $base = (float)$base;
+                $taxRate = (float)$taxRate;
+                if ($taxRate <= 0 || $base <= 0) {
+                    return $base;
+                }
+                $basePortion = 1 - ($taxRate / 100);
+                if ($basePortion <= 0) {
+                    return $base;
+                }
+                return round($base / $basePortion, 2);
             }
 
             /* ── Fetch every matching installment, compute due amounts,
@@ -252,6 +268,12 @@ if (!SessionUser::hasValidSession()) {
 
                 $query .= " ORDER BY cp.course_payments_id DESC ";
 
+                $latestTaxRate = 2.5;
+                $rate = Database::search("SELECT * FROM tax_rates ORDER BY tax_rate_id DESC LIMIT 1");
+                if ($rate && $rate->num_rows > 0) {
+                    $latestTaxRate = (float)$rate->fetch_assoc()['tax_rate'];
+                }
+
                 $rows = [];
                 $results = Database::search($query);
                 if ($results && $results->num_rows > 0) {
@@ -273,11 +295,16 @@ if (!SessionUser::hasValidSession()) {
                         $payableAmount = (float)$data['amount'] - $totalDiscount + $totalPenalty + $totalTax;
                         $dueAmount = $payableAmount - $settled;
 
+                        $dueAmountWithTax = calculateTaxInclusiveAmount($dueAmount, $latestTaxRate);
+                        $dueAmountSchouldPaidTax = $dueAmountWithTax - $dueAmount;
+
                         if ($dueAmount <= 0.009) {
                             continue;
                         }
 
                         $data['due_amount']    = $dueAmount;
+                        $data['due_amount_with_tax'] = $dueAmountWithTax;
+                        $data['due_amount_should_paid_tax'] = $dueAmountSchouldPaidTax;
                         /* Penalty column shows the panelty_payments LOG total —
                            raw LKR, unrelated to the penalty component already
                            folded into $dueAmount above. */
@@ -525,6 +552,8 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <iconify-icon icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                                 </div>
                                                                             </th>
+                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Tax Amount (Foreign Currency)</th>
+                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Total Amount (Foreign Currency)</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Penalty</th>
                                                                             <th class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Counsellor</th>
                                                                         </tr>
@@ -542,7 +571,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text"><?= htmlspecialchars($data['intake']) ?></span></td>
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text"><?= htmlspecialchars($data['branch']) ?></span></td>
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text"><?= htmlspecialchars($data['student_name']) ?></span></td>
-                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text fw-medium"><?= htmlspecialchars($data['currency_code']) . ' ' . number_format($data['due_amount'], (int)$data['decimal_places']) ?></span></td>
+                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text fw-medium"><?= htmlspecialchars($data['currency_code']) . ' ' . number_format($data['due_amount'], $data['decimal_places']) ?></span></td>
+                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text fw-medium"><?= htmlspecialchars($data['currency_code']) . ' ' . number_format($data['due_amount_should_paid_tax'], $data['decimal_places']) ?></span></td>
+                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text fw-medium"><?= htmlspecialchars($data['currency_code']) . ' ' . number_format($data['due_amount_with_tax'], $data['decimal_places']) ?></span></td>
                                                                                     <td class="py-2 align-middle">
                                                                                         <?php if ($data['penalty_amount'] > 0): ?>
                                                                                             <span class="text-14 main-text">LKR <?= number_format($data['penalty_amount'], 2) ?></span>
