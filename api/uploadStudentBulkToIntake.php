@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
@@ -274,14 +276,14 @@ if (SessionUser::hasValidSession()) {
                                                 $login_details_id = Database::$connection->insert_id;
 
                                                 $student_table_insert_columns = "`full_name`,`name_with_initials`,`title_title_id`,`mobile`,`date_added`,`gender_gender_id`,`users_user_id`,`login_details_login_details_id`";
-                                                $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $marital_status . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "'";
+                                                $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $formattedMobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "'";
 
                                                 $student_table_insert_columns .= ", `nationality`, `country_of_birth`, `country_of_residence`";
-                                                $student_table_insert_values .= ",'Sri Lanka','Sri Lanka','Sri Lanka'";
+                                                $student_table_insert_values .= ",'69','69','69'";
 
                                                 if ($marital_status != 0) {
                                                     $student_table_insert_columns .= ",`marital_status_marital_status_id`";
-                                                    $student_table_insert_values .= "'" . $marital_status . "'";
+                                                    $student_table_insert_values .= ",'" . $marital_status . "'";
                                                 }
 
                                                 if (!empty($dob)) {
@@ -298,7 +300,7 @@ if (SessionUser::hasValidSession()) {
                                                     $student_table_insert_columns .= ",`passport`";
                                                     $student_table_insert_values .= ",'" . $passport . "'";
                                                 }
-
+                                             
                                                 Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
 
                                                 $studentId = Database::$connection->insert_id;
