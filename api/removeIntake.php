@@ -163,7 +163,7 @@ if (SessionUser::hasValidSession()) {
                                                     $paymentPanelties = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id`='" . $payment['intake_payments_plan_has_payment_id'] . "'");
                                                     if ($paymentPanelties->num_rows > 0) {
                                                         while ($panelty = $paymentPanelties->fetch_assoc()) {
-                                                            Database::iud("DELETE FROM `intake_has_payments_has_penalties` WHERE `intake_payments_penalty_id`='" . $panelty['intake_payments_penalty_id'] . "'");
+                                                            Database::iud("DELETE FROM `intake_has_payments_has_penalties` WHERE `intake_has_payments_has_penalty_id`='" . $panelty['intake_has_payments_has_penalty_id'] . "'");
                                                         }
                                                     }
                                                     Database::iud("DELETE FROM `intake_payments_plan_has_payments` WHERE `intake_payments_plan_has_payment_id`='" . $payment['intake_payments_plan_has_payment_id'] . "'");
