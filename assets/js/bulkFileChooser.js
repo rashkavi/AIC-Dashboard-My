@@ -44,6 +44,7 @@ let uploadedFiles = [];
 
 function uploadSingleFile(file) {
     uploadedFiles = [file];
+    syncFileInput();
     listSection.innerHTML = '';
 
     const template = `
@@ -88,6 +89,7 @@ function appendFileTemplate(template, fileName) {
 
 function removeFile(fileName) {
     uploadedFiles = uploadedFiles.filter((file) => file.name !== fileName);
+    syncFileInput();
 
     const fileInput = document.getElementById('file-selector-input');
     const dataTransfer = new DataTransfer();
@@ -105,4 +107,11 @@ function removeFile(fileName) {
 function iconSelector(type) {
     const splitType = type.split('/')[1] || type.split('/')[0];
     return `${splitType}.png`;
+}
+
+// Sync the uploadedFiles array back into the actual <input type="file">
+function syncFileInput() {
+    const dataTransfer = new DataTransfer();
+    uploadedFiles.forEach((file) => dataTransfer.items.add(file));
+    fileSelectorInput.files = dataTransfer.files;
 }

@@ -71,6 +71,7 @@ let uploadedFiles = [];
 // Upload and display multiple files
 function uploadMultipleFile(file) {
     uploadedFiles.push(file);
+    syncFileInput();
 
     let fileType = file.type.split('/')[0] == 'image' ? 'image' : 'pdf';
 
@@ -103,6 +104,7 @@ function uploadMultipleFile(file) {
 function uploadSingleFile(file) {
     // Clear the previously uploaded file
     uploadedFiles = [file];
+    syncFileInput();
     listSection.innerHTML = '';
 
     const template = `
@@ -146,6 +148,7 @@ function appendFileTemplate(template, fileName) {
 // Remove a file
 function removeFile(fileName) {
     uploadedFiles = uploadedFiles.filter((file) => file.name !== fileName);
+    syncFileInput();
 
     const fileInput = document.getElementById('file-selector-input');
     const dataTransfer = new DataTransfer();
@@ -186,7 +189,7 @@ function iconSelector(type, name) {
         "bmp": "image.png",
         "webp": "image.png",
         "svg": "image.png",
-        'csv' : 'text/csv'
+        'csv': 'text/csv'
     };
 
     // Check MIME type first
@@ -202,7 +205,7 @@ function iconSelector(type, name) {
         if (extensionIconMap[extension]) return extensionIconMap[extension];
     }
 
-   
+
 }
 
 function getFileType(type, name) {
@@ -255,7 +258,7 @@ function getFileType(type, name) {
         'svg': 'image/svg+xml',
         'mp3': 'audio/mpeg',
         'mp4': 'video/mp4',
-        'csv' : 'text/csv'
+        'csv': 'text/csv'
     };
 
     // Check MIME type first
@@ -279,4 +282,11 @@ function formatFileSize(bytes) {
     } else {
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
+}
+
+// Sync the uploadedFiles array back into the actual <input type="file">
+function syncFileInput() {
+    const dataTransfer = new DataTransfer();
+    uploadedFiles.forEach((file) => dataTransfer.items.add(file));
+    fileSelectorInput.files = dataTransfer.files;
 }
