@@ -148,8 +148,12 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                  if(empty($counselor)){
-                    $status->counselor =  "Please select student counselor";
+                if (empty($counselor)) {
+                    if (SessionUser::ifUserIsCounsiler($sessionUserRole)) {
+                        $counselor = $sessionUserObject['user_id'];
+                    } else {
+                        $status->counselor =  "Please select student counselor";
+                    }
                 }
 
                 $invalid_chars = '/[\'\";\-]/';
@@ -197,7 +201,7 @@ if (SessionUser::hasValidSession()) {
                     $status->intake =  "Please select student intake";
                 }
 
-              
+
 
                 if ($gtitle != 0 || $grelationship != 0 || !empty($gfname) || !empty($glname) || !empty($gemail) || !empty($gmobile) || !empty($gwhatsapp)) {
                     if ($gtitle == 0) {

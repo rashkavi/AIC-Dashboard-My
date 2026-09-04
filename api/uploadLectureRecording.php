@@ -88,8 +88,7 @@ if (SessionUser::hasValidSession()) {
                                 $recordingLink
                             )
                         ) {
-
-                            $status->recording_link = "Recording link must be a valid SharePoint iframe embed code";
+                            $status->recording_link = "Recording embeded code must be a valid SharePoint iframe embed code";
                         }
 
                         $requiredProperties = [

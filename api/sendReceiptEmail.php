@@ -1,8 +1,37 @@
 <?php
 
 /**
- * api/sendReceiptEmail.php - v9
- * Logo fix: replaced text-based AIC/CAMPUS block with actual logo image
+ * api/sendReceiptEmail.php - v10
+ *
+ * CHANGES IN v10 (on top of v9):
+ *   1. Payments query now filters payment_status_payment_status_id = 3
+ *      (confirmed only) — v9 had no status filter and could pull
+ *      pending/void rows into the totals.
+ *   2. Added cp.discount / cp.discount_type_discount_type_id to the
+ *      query so the installment-plan-level discount is resolved the
+ *      SAME way as intake-student-payment.php / getReceiptData.php v6:
+ *      discount_type_id == 3 -> percentage of installment amount,
+ *      otherwise a flat course-currency amount.
+ *   3. Balance/paid-status logic replaced with the SAME tax-inclusive
+ *      model as getReceiptData.php v6 (getLatestTaxRate(),
+ *      getPageExchangeRate(), getInstallmentBalance() ported directly):
+ *          basePayable   = installmentAmount - totalDiscount + totalPenalty
+ *          basePortion   = 1 - (latestTaxRate / 100)
+ *          paidBaseTotal = cumulativePaidAsOfCutoff * basePortion
+ *          remainingBase = max(0, basePayable - paidBaseTotal)
+ *          remainingTax  = remainingBase * (latestTaxRate / (100 - latestTaxRate))
+ *          balance       = remainingBase + remainingTax
+ *      Penalty now comes from the panelty_payments ledger (date-filtered,
+ *      LKR -> course currency), not just the payment row's panelty_amount.
+ *      Same flagged assumption as v6: balance uses TODAY's tax rate, not
+ *      a historical one.
+ *   4. Each payment row now carries its own running installment_balance,
+ *      and the email's "Balance Due" figure is the sum of the latest
+ *      per-installment balance for every installment touched by this
+ *      receipt (mirrors the receipt-data endpoint's semantics).
+ *   5. PDF layout restyled to match openInvoicePrintWindow.js: Arial
+ *      font stack, info-label/info-value pattern, signature block, and
+ *      the enviiz-logo footer — replacing the old text-only ENLIXO footer.
  */
 
 require_once('../includes/UserClass.php');
@@ -102,7 +131,9 @@ if (!$studentRow || $studentRow->num_rows == 0) {
 }
 $student = $studentRow->fetch_assoc();
 
-// ── Fetch all payment rows linked to this receipt ─────────────────────────
+// ── Fetch all CONFIRMED payment rows linked to this receipt ───────────────
+// v10: added payment_status filter + cp.discount / discount_type_id so the
+// installment-plan discount can be resolved the same way as v6.
 $paymentsResult = Database::search("
     SELECT
         cpp.paid_amount, cpp.discount_amount, cpp.panelty_amount,
@@ -112,11 +143,14 @@ $paymentsResult = Database::search("
         cpp.currency_exchange_rate_id,
         cur.code          AS paid_currency,
         pm.payment_method,
-        cp.refference     AS reference,
-        cp.amount         AS cp_amount,
+        cp.course_payments_id            AS installment_id,
+        cp.refference                    AS reference,
+        cp.amount                        AS cp_amount,
+        cp.discount                      AS cp_discount,
+        cp.discount_type_discount_type_id,
         pgp.payment_type,
-        c_course.code     AS course_currency,
-        c_course.currency_id AS course_currency_id
+        c_course.code                    AS course_currency,
+        c_course.currency_id             AS course_currency_id
     FROM course_payment_has_payments cpp
     INNER JOIN payment_method pm   ON cpp.payment_method_payment_method_id  = pm.payment_method_id
     INNER JOIN course_payments cp  ON cpp.course_payments_course_payments_id = cp.course_payments_id
@@ -127,10 +161,13 @@ $paymentsResult = Database::search("
     INNER JOIN currencies c_course ON pc.currencies_currency_id                  = c_course.currency_id
     LEFT JOIN currencies cur       ON cpp.currencies_currency_id = cur.currency_id
     WHERE cpp.course_payment_receipts_course_payment_receipt_id = '" . $receipt_id . "'
-    ORDER BY cpp.course_payment_has_payment_id ASC
+      AND cpp.payment_status_payment_status_id = 3
+    ORDER BY cpp.date_paid ASC
 ");
 
 // ── Helper functions ────────────────────────────────────────────────────────
+$lkrCurrencyId = 1;
+
 function resolveRate($row, $courseCurrId)
 {
     if (empty($row['currencies_currency_id']) || $row['currencies_currency_id'] == $courseCurrId) return null;
@@ -161,15 +198,131 @@ function esc($s)
     return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * v10 — ported directly from getReceiptData.php v6. Latest global tax rate,
+ * cached for the life of the request.
+ */
+function getLatestTaxRate(): float
+{
+    static $rate = null;
+    if ($rate !== null) return $rate;
+
+    $r = Database::search("
+        SELECT `tax_rate` AS `rate` FROM `tax_rates`
+        ORDER BY `date_added` DESC LIMIT 1
+    ");
+    $rate = ($r && $r->num_rows > 0) ? (float)$r->fetch_assoc()['rate'] : 0.0;
+    return $rate;
+}
+
+/**
+ * v10 — ported directly from getReceiptData.php v6. Course currency -> LKR
+ * "page" exchange rate, used only to convert panelty_payments (always LKR)
+ * into course currency. Cached per course currency for the request.
+ */
+function getPageExchangeRate(int $courseCurrId, int $lkrCurrencyId): float
+{
+    static $cache = [];
+    if ($courseCurrId === $lkrCurrencyId) return 1.0;
+    if (isset($cache[$courseCurrId])) return $cache[$courseCurrId];
+
+    $r = Database::search("
+        SELECT rate FROM currency_exchange_rates
+        WHERE  base_currency_id   = '$courseCurrId'
+          AND  target_currency_id = '$lkrCurrencyId'
+        ORDER  BY effective_date DESC, effective_time DESC
+        LIMIT  1
+    ");
+    $rate = ($r && $r->num_rows > 0) ? (float)$r->fetch_assoc()['rate'] : 0.0;
+    $cache[$courseCurrId] = $rate;
+    return $rate;
+}
+
+/**
+ * v10 — ported directly from getReceiptData.php v6's getInstallmentBalance().
+ * Same tax-inclusive model, same flagged assumption (uses TODAY's latest
+ * tax rate, not a historical one — matches the live dashboard exactly).
+ */
+function getInstallmentBalance(
+    int $installmentId,
+    string $cutoffDatePaid,
+    int $courseCurrId,
+    int $lkrCurrencyId,
+    float $installmentAmount,
+    float $installmentDiscount
+): float {
+    $paidRows = Database::search("
+        SELECT
+            cpp.paid_amount,
+            cpp.discount_amount,
+            cpp.panelty_amount,
+            cpp.currencies_currency_id AS paid_currency_db_id,
+            cpp.currency_exchange_rate,
+            cpp.currency_exchange_rate_id
+        FROM course_payment_has_payments cpp
+        WHERE cpp.course_payments_course_payments_id = '$installmentId'
+          AND cpp.payment_status_payment_status_id = 3
+          AND cpp.date_paid <= '$cutoffDatePaid'
+    ");
+
+    $cumulativePaidCourse     = 0.0;
+    $cumulativeDiscountCourse = 0.0;
+    $cumulativePenaltyCourse  = 0.0;
+
+    if ($paidRows) {
+        while ($row = $paidRows->fetch_assoc()) {
+            $rate = resolveRate($row, $courseCurrId);
+            $cumulativePaidCourse     += toCourse((float)$row['paid_amount'], $rate);
+            $cumulativeDiscountCourse += toCourse((float)($row['discount_amount'] ?? 0), $rate);
+            $cumulativePenaltyCourse  += toCourse((float)($row['panelty_amount']  ?? 0), $rate);
+        }
+    }
+
+    $cutoffDateOnly = date('Y-m-d', strtotime($cutoffDatePaid));
+    $penRows = Database::search("
+        SELECT COALESCE(SUM(amount), 0) AS total_penalty
+        FROM panelty_payments
+        WHERE course_payments_course_payments_id = '$installmentId'
+          AND DATE(date_added) <= '$cutoffDateOnly'
+    ");
+    $penaltyLKR = ($penRows && $penRows->num_rows > 0)
+        ? (float)$penRows->fetch_assoc()['total_penalty']
+        : 0.0;
+
+    $pageRate      = getPageExchangeRate($courseCurrId, $lkrCurrencyId);
+    $penaltyCourse = ($courseCurrId === $lkrCurrencyId || $pageRate <= 0)
+        ? $penaltyLKR
+        : ($penaltyLKR / $pageRate);
+
+    $totalDiscount = $installmentDiscount + $cumulativeDiscountCourse;
+    $totalPenalty  = $penaltyCourse + $cumulativePenaltyCourse;
+
+    $basePayable = $installmentAmount - $totalDiscount + $totalPenalty;
+
+    $latestTaxRate  = getLatestTaxRate();
+    $taxRateDecimal = $latestTaxRate / 100;
+    $basePortion    = 1 - $taxRateDecimal;
+
+    $paidBaseTotal = ($basePortion > 0) ? ($cumulativePaidCourse * $basePortion) : 0.0;
+    $remainingBase = max(0, $basePayable - $paidBaseTotal);
+
+    $remainingTax = ($basePortion > 0 && $latestTaxRate < 100)
+        ? ($remainingBase * ($latestTaxRate / (100 - $latestTaxRate)))
+        : 0.0;
+
+    return round($remainingBase + $remainingTax, 2);
+}
+
 // ── Calculate totals ──────────────────────────────────────────────────────
-$rows            = [];
-$cc              = 'LKR';
-$courseCurrId    = 1;
-$grandPaid       = 0;
-$grandDiscount   = 0;
-$grandPenalty    = 0;
-$grandTax        = 0;
-$grandAmount     = 0;
+$rows                = [];
+$cc                  = 'LKR';
+$courseCurrId        = 1;
+$grandPaid           = 0;
+$grandDiscount       = 0;
+$grandPenalty        = 0;
+$grandTax            = 0;
+$grandAmount         = 0;
+$installmentBalances = []; // installment_id => latest running balance
 
 if ($paymentsResult && $paymentsResult->num_rows > 0) {
     while ($row = $paymentsResult->fetch_assoc()) {
@@ -181,24 +334,46 @@ if ($paymentsResult && $paymentsResult->num_rows > 0) {
         $penInCourse  = toCourse((float)($row['panelty_amount'] ?? 0), $rate);
         $discInCourse = toCourse((float)($row['discount_amount'] ?? 0), $rate);
 
+        // v10: resolve the installment-plan-level discount the same way as
+        // intake-student-payment.php / getReceiptData.php v6.
+        $installmentId       = (int)$row['installment_id'];
+        $installmentAmount   = (float)$row['cp_amount'];
+        $discountTypeId      = (int)$row['discount_type_discount_type_id'];
+        $installmentDiscount = ($discountTypeId == 3)
+            ? ($installmentAmount / 100 * (float)$row['cp_discount'])
+            : (float)$row['cp_discount'];
+
+        $installmentBalance = getInstallmentBalance(
+            $installmentId,
+            $row['date_paid'],
+            $courseCurrId,
+            $lkrCurrencyId,
+            $installmentAmount,
+            $installmentDiscount
+        );
+        // Last occurrence per installment wins (rows are date_paid ASC),
+        // so this ends up as the running balance as of this receipt's data.
+        $installmentBalances[$installmentId] = $installmentBalance;
+
         $rows[] = [
-            'reference'       => $row['reference'],
-            'payment_type'    => $row['payment_type'],
-            'date_paid'       => $row['date_paid'] ? substr($row['date_paid'], 0, 10) : '',
-            'payment_method'  => $row['payment_method'],
-            'cp_amount'       => (float)$row['cp_amount'],
-            'paid_amount_raw' => (float)$row['paid_amount'],
-            'paid_in_course'  => $paidInCourse,
-            'paid_currency'   => $row['paid_currency'] ?: $cc,
-            'exchange_rate'   => $rate,
-            'tax_rate'        => (float)($row['tax_rate'] ?? 0),
-            'tax_amount_raw'  => (float)($row['tax_amount'] ?? 0),
-            'tax_in_course'   => $taxInCourse,
-            'discount_course' => $discInCourse,
-            'penalty_course'  => $penInCourse,
+            'reference'          => $row['reference'],
+            'payment_type'       => $row['payment_type'],
+            'date_paid'          => $row['date_paid'] ? substr($row['date_paid'], 0, 10) : '',
+            'payment_method'     => $row['payment_method'],
+            'cp_amount'          => $installmentAmount,
+            'paid_amount_raw'    => (float)$row['paid_amount'],
+            'paid_in_course'     => $paidInCourse,
+            'paid_currency'      => $row['paid_currency'] ?: $cc,
+            'exchange_rate'      => $rate,
+            'tax_rate'           => (float)($row['tax_rate'] ?? 0),
+            'tax_amount_raw'     => (float)($row['tax_amount'] ?? 0),
+            'tax_in_course'      => $taxInCourse,
+            'discount_course'    => $discInCourse,
+            'penalty_course'     => $penInCourse,
+            'installment_balance' => $installmentBalance,
         ];
 
-        $grandAmount   += (float)$row['cp_amount'];
+        $grandAmount   += $installmentAmount;
         $grandDiscount += $discInCourse;
         $grandPenalty  += $penInCourse;
         $grandTax      += $taxInCourse;
@@ -206,8 +381,11 @@ if ($paymentsResult && $paymentsResult->num_rows > 0) {
     }
 }
 
-$courseFeeActuallyPaid = max(0, $grandPaid - $grandTax);
-$isPaid = ($courseFeeActuallyPaid >= $grandAmount - 0.005);
+// v10: outstanding balance = sum of the latest per-installment balance for
+// every installment touched by this receipt (tax-inclusive model), not a
+// flat grandPaid - grandTax subtraction.
+$totalOutstandingBalance = round(array_sum($installmentBalances), 2);
+$isPaid = ($totalOutstandingBalance <= 0.01);
 
 $paymentDate = substr($receipt['date_added'], 0, 10);
 
@@ -222,7 +400,7 @@ $receiptHtml = buildReceiptPdf(
     $grandPenalty,
     $grandTax,
     $grandPaid,
-    $courseFeeActuallyPaid,
+    $totalOutstandingBalance,
     $isPaid
 );
 
@@ -272,7 +450,7 @@ $emailData = [
     'programme'      => $student['programme'],
     'intake'         => $student['intake'],
     'total_paid'     => $cc . ' ' . fmtN($grandPaid),
-    'balance_due'    => $isPaid ? 'FULLY PAID' : $cc . ' ' . fmtN(max(0, $grandAmount - $courseFeeActuallyPaid)),
+    'balance_due'    => $isPaid ? 'FULLY PAID' : $cc . ' ' . fmtN($totalOutstandingBalance),
     'payment_date'   => $paymentDate,
 ];
 
@@ -344,7 +522,8 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BUILD RECEIPT PDF
+// BUILD RECEIPT PDF — v10: restyled to match openInvoicePrintWindow.js
+// (Arial stack, info-label/info-value pattern, signature block, enviiz footer)
 // ═══════════════════════════════════════════════════════════════════════════
 function buildReceiptPdf(
     $receipt,
@@ -356,88 +535,69 @@ function buildReceiptPdf(
     $grandPenalty,
     $grandTax,
     $grandPaid,
-    $courseFeeActuallyPaid,
+    $totalOutstandingBalance,
     $isPaid
 ) {
     $recDate = substr($receipt['date_added'], 0, 10);
     $recNum  = esc($receipt['receipt_number']);
+
+    $statusClass = $isPaid ? 'status-paid' : 'status-pending';
+    $statusLabel = $isPaid ? 'PAID' : 'PARTIAL';
+    $year        = date('Y');
 
     // ── Build payment rows ─────────────────────────────────────────────────
     $payRows = '';
     $idx     = 0;
 
     foreach ($rows as $p) {
-        $bg  = ($idx % 2 === 0) ? '#ffffff' : '#f8fafc';
         $idx++;
 
         $paidMain = ($p['exchange_rate'] && $p['paid_currency'] !== $cc)
             ? esc($p['paid_currency']) . ' ' . fmtN($p['paid_amount_raw'])
-            . '<div style="font-size:9px;color:#6b7280;margin-top:2px;">= ' . $cc . ' ' . fmtN($p['paid_in_course']) . '</div>'
+            . '<div style="font-size:9px;color:#617188;margin-top:2px;">= ' . $cc . ' ' . fmtN($p['paid_in_course']) . '</div>'
             : $cc . ' ' . fmtN($p['paid_in_course']);
 
-        $taxMain     = $p['tax_in_course']   > 0 ? $cc . ' ' . fmtN($p['tax_in_course'])   : '<span style="color:#d1d5db;">—</span>';
-        $discMain    = $p['discount_course'] > 0 ? $cc . ' ' . fmtN($p['discount_course']) : '<span style="color:#d1d5db;">—</span>';
-        $penMain     = $p['penalty_course']  > 0 ? $cc . ' ' . fmtN($p['penalty_course'])  : '<span style="color:#d1d5db;">—</span>';
-        $taxRateDisp = $p['tax_rate']        > 0 ? fmtN($p['tax_rate']) . '%'              : '<span style="color:#d1d5db;">—</span>';
+        $taxMain     = $p['tax_in_course']   > 0 ? $cc . ' ' . fmtN($p['tax_in_course'])   : '&mdash;';
+        $discMain    = $p['discount_course'] > 0 ? $cc . ' ' . fmtN($p['discount_course']) : '&mdash;';
+        $penMain     = $p['penalty_course']  > 0 ? $cc . ' ' . fmtN($p['penalty_course'])  : '&mdash;';
+        $taxRateDisp = $p['tax_rate']        > 0 ? fmtN($p['tax_rate']) . '%'              : '&mdash;';
+        $balMain     = $p['installment_balance'] > 0.01
+            ? $cc . ' ' . fmtN($p['installment_balance'])
+            : '<span style="color:#2f855a;font-weight:700;">Settled</span>';
 
-        $C = 'padding:7px 9px;border-bottom:1px solid #f3f4f6;font-size:10px;vertical-align:top;';
-
-        $payRows .= '<tr style="background:' . $bg . ';">'
-            . '<td style="' . $C . 'color:#9ca3af;width:22px;">' . $idx . '</td>'
-            . '<td style="' . $C . 'font-weight:700;color:#1e3a5f;">'     . esc($p['reference'])      . '</td>'
-            . '<td style="' . $C . 'color:#6b7280;">'                     . esc($p['payment_type'])   . '</td>'
-            . '<td style="' . $C . 'white-space:nowrap;color:#6b7280;">'  . $p['date_paid']           . '</td>'
-            . '<td style="' . $C . 'color:#6b7280;">'                     . esc($p['payment_method']) . '</td>'
-            . '<td style="' . $C . 'text-align:right;">'                  . $cc . ' ' . fmtN($p['cp_amount']) . '</td>'
-            . '<td style="' . $C . 'text-align:right;">'                  . $discMain    . '</td>'
-            . '<td style="' . $C . 'text-align:right;">'                  . $penMain     . '</td>'
-            . '<td style="' . $C . 'text-align:center;">'                 . $taxRateDisp . '</td>'
-            . '<td style="' . $C . 'text-align:right;">'                  . $taxMain     . '</td>'
-            . '<td style="' . $C . 'text-align:right;font-weight:700;color:#111827;">' . $paidMain . '</td>'
+        $payRows .= '<tr>'
+            . '<td>' . $idx . '</td>'
+            . '<td style="font-weight:700;color:#4c555b;">' . esc($p['reference'])      . '</td>'
+            . '<td>' . esc($p['payment_type'])   . '</td>'
+            . '<td style="white-space:nowrap;">' . $p['date_paid']           . '</td>'
+            . '<td>' . esc($p['payment_method']) . '</td>'
+            . '<td class="amount-col">' . $cc . ' ' . fmtN($p['cp_amount']) . '</td>'
+            . '<td class="amount-col">' . $discMain    . '</td>'
+            . '<td class="amount-col">' . $penMain     . '</td>'
+            . '<td style="text-align:center;">' . $taxRateDisp . '</td>'
+            . '<td class="amount-col">' . $taxMain     . '</td>'
+            . '<td class="amount-col" style="font-weight:700;color:#4c555b;">' . $paidMain . '</td>'
+            . '<td class="amount-col">' . $balMain . '</td>'
             . '</tr>';
     }
 
     if (!$payRows) {
-        $payRows = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:10px;">No payment records found</td></tr>';
+        $payRows = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#9ca3af;">No payment records found</td></tr>';
     }
 
     // ── Summary rows ──────────────────────────────────────────────────────
-    $RS = 'padding:8px 13px;font-size:11px;border-bottom:1px solid #f3f4f6;';
-    $LS = $RS . 'color:#374151;font-weight:500;';
-    $VS = $RS . 'color:#111827;font-weight:600;text-align:right;';
-
-    $discDisplay = $grandDiscount > 0.005 ? $cc . ' ' . fmtN($grandDiscount) : '<span style="color:#d1d5db;">—</span>';
-    $penDisplay  = $grandPenalty  > 0.005 ? $cc . ' ' . fmtN($grandPenalty)  : '<span style="color:#d1d5db;">—</span>';
-    $taxDisplay  = $grandTax      > 0.005 ? $cc . ' ' . fmtN($grandTax)      : '<span style="color:#d1d5db;">—</span>';
+    $discDisplay = $grandDiscount > 0.005 ? $cc . ' ' . fmtN($grandDiscount) : '&mdash;';
+    $penDisplay  = $grandPenalty  > 0.005 ? $cc . ' ' . fmtN($grandPenalty)  : '&mdash;';
+    $taxDisplay  = $grandTax      > 0.005 ? $cc . ' ' . fmtN($grandTax)      : '&mdash;';
+    $balDisplay  = $isPaid ? 'FULLY PAID' : $cc . ' ' . fmtN($totalOutstandingBalance);
 
     $summaryRows =
-        // 1 — Total Course Fee
-        '<tr>'
-        . '<td style="' . $LS . '">Total Course Fee</td>'
-        . '<td style="' . $VS . '">' . $cc . ' ' . fmtN($courseFeeActuallyPaid) . '</td>'
-        . '</tr>'
-        // 2 — Discount
-        . '<tr>'
-        . '<td style="' . $LS . '">Total Discount</td>'
-        . '<td style="' . $VS . '">' . $discDisplay . '</td>'
-        . '</tr>'
-        // 3 — Penalty
-        . '<tr>'
-        . '<td style="' . $LS . '">Total Penalty</td>'
-        . '<td style="' . $VS . '">' . $penDisplay . '</td>'
-        . '</tr>'
-        // 4 — Tax
-        . '<tr>'
-        . '<td style="' . $LS . '">Total Tax</td>'
-        . '<td style="' . $VS . '">' . $taxDisplay . '</td>'
-        . '</tr>'
-        // 5 — TOTAL PAID
-        . '<tr style="background:#1e3a5f;">'
-        . '<td style="padding:10px 13px;font-size:12px;font-weight:700;color:#fff;">TOTAL PAID</td>'
-        . '<td style="padding:10px 13px;font-size:13px;font-weight:800;color:#fff;text-align:right;">' . $cc . ' ' . fmtN($grandPaid) . '</td>'
-        . '</tr>';
-
-    $TH = 'padding:8px 9px;font-size:9px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.04em;';
+        '<tr><td>Total Course Fee</td><td class="amount-col">' . $cc . ' ' . fmtN($grandAmount) . '</td></tr>'
+        . '<tr><td>Total Discount</td><td class="amount-col">' . $discDisplay . '</td></tr>'
+        . '<tr><td>Total Penalty</td><td class="amount-col">' . $penDisplay . '</td></tr>'
+        . '<tr><td>Total Tax</td><td class="amount-col">' . $taxDisplay . '</td></tr>'
+        . '<tr><td>Total Paid</td><td class="amount-col">' . $cc . ' ' . fmtN($grandPaid) . '</td></tr>'
+        . '<tr class="balance-row"><td>Balance Due</td><td class="amount-col">' . $balDisplay . '</td></tr>';
 
     $studentName = esc($student['student_title'] . '. ' . $student['first_name'] . ' ' . $student['last_name']);
     $processedBy = esc($receipt['user_title'] . '. ' . $receipt['user_fname'] . ' ' . $receipt['user_lname']);
@@ -449,128 +609,282 @@ function buildReceiptPdf(
 <meta charset="UTF-8">
 <title>Payment Receipt {$recNum}</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 11px; line-height: 1.5; color: #111827; background: #fff; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { size: A4 portrait; margin: 8mm 10mm; }
-  }
-  table { page-break-inside: auto; }
-  tr { page-break-inside: avoid; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #4c555b;
+        background: #fff;
+    }
+
+    @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4 portrait; margin: 8mm 10mm; }
+    }
+
+    .brand-logo {
+        height: 44px;
+        width: auto;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .company-address {
+        margin-top: 4px;
+        font-size: 10px;
+        line-height: 1.6;
+        color: #617188;
+        font-weight: 500;
+    }
+
+    .receipt-title { text-align: right; }
+
+    .receipt-title h1 {
+        font-size: 26px;
+        font-weight: 700;
+        color: #4c555b;
+        letter-spacing: 0.1px;
+    }
+
+    .receipt-number {
+        margin-top: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #4c555b;
+    }
+
+    .status-pill {
+        display: inline-block;
+        margin-top: 8px;
+        border: 1px solid #d8dde5;
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+    }
+    .status-paid    { color: #2f855a; border-color: #9ae6b4; }
+    .status-pending { color: #b7791f; border-color: #f6e05e; }
+
+    .info-section { margin-top: 26px; }
+
+    .info-label {
+        display: block;
+        font-size: 9px;
+        font-weight: 700;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 4px;
+    }
+
+    .info-value {
+        font-size: 11px;
+        line-height: 1.6;
+        color: #4c555b;
+        font-weight: 500;
+        word-break: break-word;
+    }
+
+    .invoice-table-wrap { margin-top: 30px; }
+
+    .invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+        border-top: 1px solid #F3F4F4;
+    }
+
+    .invoice-table thead th {
+        font-size: 9px;
+        font-weight: 700;
+        color: #4c555b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 8px 6px;
+        text-align: left;
+        border-bottom: 1px solid #d8dde5;
+    }
+
+    .invoice-table tbody td {
+        font-size: 9.5px;
+        color: #617188;
+        padding: 8px 6px;
+        vertical-align: top;
+        border-bottom: 1px solid #F3F4F4;
+    }
+
+    .amount-col { text-align: right; white-space: nowrap; }
+
+    .summary-wrap { margin-top: 24px; }
+
+    .summary-table {
+        width: 100%;
+        max-width: 260px;
+        margin-left: auto;
+        border-collapse: collapse;
+        border: 1px solid #e5e7eb;
+    }
+
+    .summary-table td {
+        padding: 7px 12px;
+        font-size: 10.5px;
+        color: #617188;
+        font-weight: 500;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .balance-row td {
+        background: #4c555b;
+        color: #fff;
+        font-weight: 700;
+        font-size: 12px;
+        border-bottom: none;
+    }
+
+    .notes {
+        font-size: 9px;
+        color: #9ca3af;
+        line-height: 1.9;
+        margin-top: 24px;
+    }
+
+    .signature-section {
+        margin-top: 46px;
+        width: 150px;
+        text-align: center;
+    }
+
+    .signature-line {
+        width: 150px;
+        border-top: 1px solid #4f647c;
+        margin-bottom: 5px;
+    }
+
+    .signature-text { font-size: 10px; color: #617188; font-weight: 500; }
+
+    .invoice-footer {
+        border-top: 1px solid #d8dde5;
+        margin-top: 34px;
+        padding-top: 9px;
+        text-align: center;
+    }
+
+    .content-div-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sub-text { font-size: 9px; color: #6e7b8c; margin: 0; line-height: 1.35; font-weight: 500; }
+
+    .footer-link { text-decoration: none; }
+
+    .enviiz-logo { width: 22px; height: auto; vertical-align: middle; margin-left: 3px; }
 </style>
 </head>
 <body>
 
-<!-- ════ HEADER BAND ════ -->
-<div style="padding:20px 28px;">
-<table style="width:100%;border-collapse:collapse;"><tr>
-
-<!-- Left — logo + branch -->
+<table style="width:100%;border-collapse:collapse;">
+<tr>
 <td style="vertical-align:top;width:55%;">
-  <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png"
-       alt="AIC Campus"
-       style="height:44px;width:auto;display:block;margin-bottom:8px;">
-  <div style="font-size:8px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.12em;margin-bottom:4px;">Learning Management System</div>
-  <div style="font-size:9px;color:rgba(255,255,255,.55);line-height:1.8;">
-    No.154, Havelock Road, Thimbirigasyaya, Colombo 05<br>
-    Tel: +94 114 325 864<br>
-    Email: accounts@aicedu.lk
-  </div>
-</td>
-
-<!-- Right — receipt ID -->
-<td style="vertical-align:top;text-align:right;">
-  <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Official Payment Receipt</div>
-  <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px;">{$recNum}</div>
-  <div style="font-size:9px;color:rgba(255,255,255,.6);margin-bottom:8px;">Date: {$recDate}</div>
-  <span style="display:inline-block;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.05em;">APPROVED</span>
-</td>
-</tr></table>
-</div>
-
-<!-- ════ BODY ════ -->
-<div>
-
-<!-- Bill To + Programme -->
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
-<td style="width:50%;vertical-align:top;padding-right:10px;">
-  <div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">
-    <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Bill To</div>
-    <div style="font-size:13px;font-weight:700;color:#111827;">{$studentName}</div>
-    <div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.9;">
-      ID: {$student['student_id']}<br>{$student['email']}<br>{$student['mobile']}
+    <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png" alt="AIC Campus" class="brand-logo">
+    <div class="company-address">
+        No.154, Havelock Road, Thimbirigasyaya, Colombo 05<br>
+        +94 114 325 864 &nbsp;|&nbsp; accounts@aicedu.lk
     </div>
-  </div>
 </td>
-<td style="width:50%;vertical-align:top;padding-left:10px;">
-  <div style="border:1px solid #e5e7eb;padding:12px 14px;background:#fafafa;">
-    <div style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;">Programme Details</div>
-    <div style="font-size:11px;font-weight:700;color:#111827;">{$student['faculty']}</div>
-    <div style="font-size:10px;color:#6b7280;margin-top:3px;line-height:1.9;">{$student['programme']}<br>{$student['intake']}</div>
-    <div style="font-size:9px;color:#9ca3af;margin-top:7px;padding-top:7px;border-top:1px solid #f3f4f6;">Processed by: {$processedBy}</div>
-  </div>
+<td style="vertical-align:top;">
+    <div class="receipt-title">
+        <h1>Receipt</h1>
+        <div class="receipt-number"># {$recNum}</div>
+        <span class="status-pill {$statusClass}">{$statusLabel}</span>
+    </div>
 </td>
-</tr></table>
+</tr>
+</table>
 
-<!-- Section label -->
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-  <span style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;">Payment Records</span>
-  <div style="flex:1;height:1px;background:#f3f4f6;"></div>
-</div>
+<table style="width:100%;border-collapse:collapse;" class="info-section">
+<tr>
+<td style="width:33%;vertical-align:top;">
+    <span class="info-label">Billed To</span>
+    <div class="info-value">
+        {$studentName}<br>
+        ID: {$student['student_id']}<br>
+        {$student['email']}<br>
+        {$student['mobile']}
+    </div>
+</td>
+<td style="width:34%;vertical-align:top;">
+    <span class="info-label">Programme</span>
+    <div class="info-value">
+        {$student['faculty']}<br>
+        {$student['programme']}<br>
+        {$student['intake']}
+    </div>
+</td>
+<td style="width:33%;vertical-align:top;text-align:right;">
+    <span class="info-label">Date</span>
+    <div class="info-value">{$recDate}</div>
+    <span class="info-label" style="margin-top:10px;">Processed By</span>
+    <div class="info-value">{$processedBy}</div>
+</td>
+</tr>
+</table>
 
-<!-- Payment table -->
-<div style="border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px;">
-<table style="width:100%;border-collapse:collapse;min-width:640px;">
-<thead><tr style="background:#1e3a5f;">
-  <th style="{$TH}text-align:left;">#</th>
-  <th style="{$TH}text-align:left;">Reference</th>
-  <th style="{$TH}text-align:left;">Type</th>
-  <th style="{$TH}text-align:left;">Date</th>
-  <th style="{$TH}text-align:left;">Method</th>
-  <th style="{$TH}text-align:right;">Schedule Amt</th>
-  <th style="{$TH}text-align:right;">Discount</th>
-  <th style="{$TH}text-align:right;">Penalty</th>
-  <th style="{$TH}text-align:center;">Tax %</th>
-  <th style="{$TH}text-align:right;">Tax Amt</th>
-  <th style="{$TH}text-align:right;">Paid</th>
-</tr></thead>
+<div class="invoice-table-wrap">
+<table class="invoice-table">
+<thead>
+<tr>
+    <th>#</th>
+    <th>Reference</th>
+    <th>Type</th>
+    <th>Date</th>
+    <th>Method</th>
+    <th class="amount-col">Schedule Amt</th>
+    <th class="amount-col">Discount</th>
+    <th class="amount-col">Penalty</th>
+    <th style="text-align:center;">Tax %</th>
+    <th class="amount-col">Tax Amt</th>
+    <th class="amount-col">Paid</th>
+    <th class="amount-col">Balance</th>
+</tr>
+</thead>
 <tbody>{$payRows}</tbody>
 </table>
 </div>
 
-<!-- Summary + Notes -->
-<table style="width:100%;border-collapse:collapse;margin-bottom:22px;"><tr>
-
-<!-- Left — notes -->
-<td style="width:50%;vertical-align:top;padding-right:16px;">
-  <div style="font-size:9px;color:#9ca3af;line-height:1.95;margin-top:2px;">
-    &#8226; Payments made will not be refundable or transferable under any circumstances.<br>
-    &#8226; This receipt is valid subject to realisation of cheque.<br>
-    &#8226; Taxes or bank charges may be applied where required.<br>
-    &#8226; Only penalties added on or before the payment date are included in this receipt.
-  </div>
+<table style="width:100%;border-collapse:collapse;" class="summary-wrap">
+<tr>
+<td style="width:60%;vertical-align:top;">
+    <div class="notes">
+        &#8226; Payments made will not be refundable or transferable under any circumstances.<br>
+        &#8226; This receipt is valid subject to realisation of cheque.<br>
+        &#8226; Taxes or bank charges may be applied where required.<br>
+        &#8226; Only penalties added on or before the payment date are included in this receipt.<br>
+        &#8226; Balance reflects the current tax rate and may differ from the rate applied at the time of payment.
+    </div>
+    <div class="signature-section">
+        <div class="signature-line"></div>
+        <div class="signature-text">Prepared by</div>
+    </div>
 </td>
-
-<!-- Right — totals -->
-<td style="vertical-align:top;">
-  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;overflow:hidden;">
-    {$summaryRows}
-  </table>
+<td style="width:40%;vertical-align:top;">
+    <table class="summary-table">{$summaryRows}</table>
 </td>
-</tr></table>
+</tr>
+</table>
 
-</div><!-- /body -->
-
-<!-- ════ FOOTER ════ -->
-<div style="border-top:1px dashed #e5e7eb;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:#fafafa;">
-  <div style="font-size:9px;color:#9ca3af;">This is a computer-generated receipt and does not require a physical signature.</div>
-  <div style="font-size:9px;color:#6b7280;text-align:right;">
-    Receipt No: <strong style="color:#374151;">{$recNum}</strong> &nbsp;|&nbsp; Generated: {$recDate}
-  </div>
-</div>
-
-<div style="text-align:center;padding:8px;border-top:1px solid #f3f4f6;background:#fff;">
-  <span style="font-size:8px;color:#d1d5db;letter-spacing:.06em;">ENLIXO LMS 2026 &copy; — All rights reserved</span>
+<div class="invoice-footer">
+    <div class="content-div-bottom">
+        <p class="sub-text">
+            &copy;{$year} AIC Campus. All Rights Reserved | Powered by
+            <a href="https://enviiz.com" target="_blank" class="footer-link">
+                <img src="./assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares (PVT) LTD" class="enviiz-logo">
+            </a>
+        </p>
+    </div>
 </div>
 
 </body>

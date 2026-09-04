@@ -7,5 +7,4 @@ require_once './includes/UserClass.php';
 require_once './includes/Project.php';
 
 
-Database::iud("UPDATE `course_payments` SET `payment_status_payment_status_id`='1' 
-    WHERE `course_payments_id`='10286'");
+Database::iud("UPDATE `users` SET `user_roles_user_role_id` = '1' WHERE `users`.`user_id` = '10001'");

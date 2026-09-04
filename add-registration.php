@@ -414,7 +414,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <?php
                                                                 $query = "SELECT * FROM `users`
                                                             INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
-                                                            WHERE `user_roles_user_role_id` IN (3,9) AND `status_status_id`='1'";
+                                                            WHERE `user_roles_user_role_id` IN (3,9,10) AND `status_status_id`='1'";
 
                                                                 if (SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole)) {
                                                                     $query .= " AND `user_id`='" . $sessionUserObject['user_id'] . "'";
@@ -425,7 +425,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 while ($user = $users->fetch_assoc()) {
 
                                                                 ?>
-                                                                    <option value="<?php echo $user["user_id"]; ?>" <?=SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                    <option value="<?php echo $user["user_id"]; ?>" <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
                                                                 <?php
                                                                 }
                                                                 ?>

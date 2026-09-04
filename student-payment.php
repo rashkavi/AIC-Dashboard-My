@@ -742,7 +742,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 INNER JOIN course_payment_receipts cpr
                                                                     ON cpp.course_payment_receipts_course_payment_receipt_id = cpr.course_payment_receipt_id
                                                                 WHERE cpp.course_payment_has_payment_id = '" . $coursepaymentData['course_payment_has_payment_id'] . "'
-                                                                AND cpr.is_enable = 1
+                                                                
                                                                 LIMIT 1
                                                             ");
                                                             if ($receiptCheck && $receiptCheck->num_rows > 0):
