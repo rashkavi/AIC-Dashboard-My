@@ -368,7 +368,7 @@ if (SessionUser::hasValidSession()) {
 
 
                     $shi_table_insert_columns = "`students_student_id`,`addmission_date`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`,`lead_student_status_lead_student_status_id`";
-                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $counselor . "','" . $intake . "','1'";
+                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $intake . "','" . $counselor . "','1'";
 
                     if (!empty($entry_type)) {
                         $shi_table_insert_columns .= ",`entry_type`";

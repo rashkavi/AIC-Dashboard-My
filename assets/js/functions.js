@@ -11688,9 +11688,8 @@ const addRegistration = (btn) => {
         method: "POST",
         body: form,
     })
-        .then((res) => res.text())
+        .then((res) => res.json())
         .then((response) => {
-            console.log(response);
             applyValidation(response, validationMap, false);
             toggleBtnLoader(btn, false);
             if (response.done) {
