@@ -1,5 +1,7 @@
 <?php
 
+use GuzzleHttp\Cookie\SessionCookieJar;
+
 require_once './includes/UserClass.php';
 require_once './includes/UserPermissionsClass.php';
 require_once "./includes/connection.php";
@@ -102,7 +104,7 @@ if (!SessionUser::hasValidSession()) {
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id == 0 ? UserPermissions::validPermisisonType('course_overview') : UserPermissions::validPermisisonType('lecture_schedule')))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || ($subject_id == 0 ? UserPermissions::validPermisisonType('course_overview') : UserPermissions::validPermisisonType('lecture_schedule')))) {
                         header("Location: ./dashboard");
                     } else {
 
@@ -202,7 +204,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
                                                             <?php
                                                             if ($isHasRecording->num_rows > 0) {
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
                                                             ?>
                                                                     <div class="col-12 col-lg-2">
                                                                         <div class="row align-items-center">
@@ -249,7 +251,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="d-flex flex-column align-items-center justify-content-center">
                                                                     <img src="./assets/imgs/common/emty-video.png" class="no-data-icon" alt="No data" />
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
                                                                         if ($subject_id == 0) {
                                                                     ?>
                                                                             <button class="custom-btn px-5" data-i18n="upload-lecture-recording" onclick="window.location = 'upload-lecture-recording?lecture-id=<?= $lecture_id ?>'">Upload Recording</button>
@@ -318,7 +320,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </div>
                                                                                     </div>
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || ($subject_id != 0 ? UserPermissions::validPermisisonType('course_overview', 0) : UserPermissions::validPermisisonType('lecture_schedule', 0))) {
                                                                                     ?>
                                                                                         <div class="col-12 p-0 mt-3 m-lg-0">
                                                                                             <div class="row gx-3 mt-3 h-100 align-content-center justify-content-end">

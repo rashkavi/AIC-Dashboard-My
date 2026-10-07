@@ -148,10 +148,6 @@ if (!SessionUser::hasValidSession()) {
                                                                             <iconify-icon icon="lets-icons:check-fill" class="dark-theme" width="20" height="20" />
                                                                         </span>
 
-                                                                        <div class="d-flex flex-row align-items-center">
-                                                                            <span class="text-14 highlight-theme fw-medium">@<?= $newsData["user_role"] ?></span>
-                                                                           
-                                                                        </div>
                                                                     </div>
                                                                     <div class="col-auto d-flex flex-column justify-content-center align-items-end">
                                                                         <span class="text-16 sub-text bg-light-theme px-2 py-1">About <?= $publishAt ?></span>

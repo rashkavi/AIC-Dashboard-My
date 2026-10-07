@@ -17,6 +17,25 @@ if (!SessionUser::hasValidSession()) {
 
             $lecture_id = $_GET['lecture-id'];
             $subject_id = 0;
+            // SCOPE JOINS: subjects/levels/intakes/programmes/faculties/branches are
+            // now LEFT JOINed straight off `time_table`'s own FK columns
+            // (branches_branch_id, faculties_faculty_id, programmes_programme_id,
+            // intakes_intake_id, subjects_subject_id - all nullable) instead of
+            // being derived by walking up from `lec.subjects_subject_id` (the
+            // lecturer's subject binding). Two reasons this matters:
+            //   1. A broad-scope lecture (Single Branch schedule with "Entire X"
+            //      wildcarded) has lecturers_lecturers_id = NULL, so deriving
+            //      anything via `lec` breaks entirely.
+            //   2. Even for a lecturer-bound lecture, subjects_subject_id on
+            //      time_table can itself be NULL (subject wildcarded), which
+            //      previously made the whole subject->level->intake->programme->
+            //      faculty chain collapse to NULL - including intake_id, which
+            //      the attendance roster query below depends on to find students.
+            //      intake/programme/faculty/branch now resolve directly off
+            //      time_table's own columns instead of being derived through
+            //      subject, so they stay correct even when subject is NULL.
+            // There's no levels_level_id column on time_table, so `level` still
+            // only resolves when a concrete subject is set - same as elsewhere.
             $query = "
             SELECT 
                 `tt`.`time_table_id`,
@@ -26,6 +45,8 @@ if (!SessionUser::hasValidSession()) {
                 `tts`.`time_table_status`,
                 `f`.`faculty`,
                 `f`.`faculty_id`,
+                `b`.`branch`,
+                `b`.`branch_id`,
                 `p`.`programme`,
                 `p`.`programme_id`,
                 `i`.`intake_id`,
@@ -49,23 +70,24 @@ if (!SessionUser::hasValidSession()) {
                 ON `tt`.`lecture_type_lecture_type_id` = `lt`.`lecture_type_id`
             INNER JOIN `time_table_status` AS `tts`
                 ON `tt`.`time_table_status_time_table_status_id` = `tts`.`time_table_status_id`  
-            INNER JOIN `lecturers` AS `lec`
+            LEFT JOIN `lecturers` AS `lec`
                 ON `tt`.`lecturers_lecturers_id` = `lec`.`lecturers_id`
             INNER JOIN `users` AS `u`
-                ON `lec`.`users_user_id` = `u`.`user_id`
+                ON `u`.`user_id` = COALESCE(`lec`.`users_user_id`, `tt`.`broad_lecturer_user_id`)
             INNER JOIN `title` AS `t`
                 ON `u`.`title_title_id` = `t`.`title_id`
-            INNER JOIN `subjects` AS `s`
-                ON `lec`.`subjects_subject_id` = `s`.`subject_id`
-            INNER JOIN `levels` AS `l`
+            LEFT JOIN `subjects` AS `s`
+                ON `tt`.`subjects_subject_id` = `s`.`subject_id`
+            LEFT JOIN `levels` AS `l`
                 ON `s`.`levels_level_id` = `l`.`level_id`
-            INNER JOIN `intakes` AS `i`
-                ON `l`.`intakes_intake_id` = `i`.`intake_id`
-            INNER JOIN `programmes` AS `p`
-                ON `i`.`programmes_programme_id` = `p`.`programme_id`
-          
-            INNER JOIN `faculties` AS `f`
-                ON `p`.`faculties_faculty_id` = `f`.`faculty_id`
+            LEFT JOIN `intakes` AS `i`
+                ON `tt`.`intakes_intake_id` = `i`.`intake_id`
+            LEFT JOIN `programmes` AS `p`
+                ON `tt`.`programmes_programme_id` = `p`.`programme_id`
+            LEFT JOIN `faculties` AS `f`
+                ON `tt`.`faculties_faculty_id` = `f`.`faculty_id`
+            LEFT JOIN `branches` AS `b`
+                ON `tt`.`branches_branch_id` = `b`.`branch_id`
             WHERE 
              `tt`.`time_table_status_time_table_status_id` = 1
             AND `tt`.`time_table_id` = '" . $lecture_id . "'
@@ -104,6 +126,20 @@ if (!SessionUser::hasValidSession()) {
                     $todayDate = $today->format('Y-m-d');
                     $nowTime = $today->format('H:i:s');
 
+                    $query_condition = "1 = 1";
+                    if (!empty($lectureData["subject_id"])) {
+                        $query_condition = "`subjects`.`subject_id` = '" . $lectureData["subject_id"] . "'";
+                    } elseif (!empty($lectureData["intake_id"])) {
+                        $query_condition = "`intakes`.`intake_id` = '" . $lectureData["intake_id"] . "'";
+                    } elseif (!empty($lectureData["programme_id"])) {
+                        $query_condition = "`programmes`.`programme_id` = '" . $lectureData["programme_id"] . "'";
+                    } elseif (!empty($lectureData["faculty_id"])) {
+                        $query_condition = "`faculties`.`faculty_id` = '" . $lectureData["faculty_id"] . "'";
+                    } elseif (!empty($lectureData["branch_id"])) {
+                        $query_condition = "`branches`.`branch_id` = '" . $lectureData["branch_id"] . "'";
+                    }
+
+
                     $query = "SELECT 
                             COUNT(CASE WHEN `attendance`.`attendance_status_attendance_status_id` = 2 THEN 1 END) AS present_count,
                             COUNT(CASE WHEN `attendance`.`attendance_status_attendance_status_id` = 4 THEN 1 END) AS watch_count,
@@ -113,6 +149,10 @@ if (!SessionUser::hasValidSession()) {
                         INNER JOIN `title` ON `students`.`title_title_id` = `title`.`title_id`
                         INNER JOIN `status` ON `login_details`.`status_status_id` = `status`.`status_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                        INNER JOIN `intakes` ON `students_has_intakes`.`intakes_intake_id` = `intakes`.`intake_id`
+                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+                        INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
                         " . ($lectureData["subject_type_subject_type_id"] == 2 ? "
                         INNER JOIN `students_has_subjects` ON `students`.`student_id` = `students_has_subjects`.`students_student_id`
                         " : "") . "
@@ -120,7 +160,7 @@ if (!SessionUser::hasValidSession()) {
                             `students`.`student_id` = `attendance`.`students_student_id`
                             AND `attendance`.`time_table_time_table_id` = '" . $lectureData["time_table_id"] . "'
                         )
-                        WHERE `students_has_intakes`.`intakes_intake_id` = '" . $lectureData["intake_id"] . "'
+                        WHERE '" . $query_condition . "'
                         AND `students_has_intakes`.`status_status_id` = '1'
                         " . ($lectureData["subject_type_subject_type_id"] == 2 ? "
                         AND `students_has_subjects`.`subjects_subject_id` = '" . $lectureData["subject_id"] . "'
@@ -320,7 +360,8 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <option value="3">Present</option>
                                                                                             <option value="4">Absent</option>
                                                                                             <?php
-                                                                                            $isHaveRecording = Database::search("SELECT * FROM `lecture_recording` WHERE `time_table_time_table_id`='" . $lecture_id . "'");
+                                                                                            $isHaveRecording = Database::search("SELECT * FROM `lecture_recording_has_lectures` 
+                                                                                            WHERE `time_table_time_table_id`='" . $lecture_id . "'");
                                                                                             if ($isHaveRecording->num_rows > 0) {
                                                                                             ?>
                                                                                                 <option value="5">View Recording</option>
@@ -385,7 +426,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         </div>
                                                                                     </th>
                                                                                     <?php
-                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 27) || UserPermissions::hasPermission("lecture_schedule", 27, $lectureData['subejcts_subject_id'])) {
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('super_lecture_schedule', 27) || UserPermissions::hasPermission("lecture_schedule", 27, $lectureData['subject_id'] ?? 0)) {
                                                                                         if ($lectureData['lecture_type_id'] != 3 && $dateTime > $lectureDateTime && $dateTime < $lectureEndDateTime) {
                                                                                     ?>
                                                                                             <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium align-content-center">Action</th>
@@ -413,7 +454,11 @@ if (!SessionUser::hasValidSession()) {
                                                                         INNER JOIN `login_details` ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
                                                                         INNER JOIN `title` ON `students`.`title_title_id` = `title`.`title_id`
                                                                         INNER JOIN `status` ON `login_details`.`status_status_id` = `status`.`status_id`
-                                                                        INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`";
+                                                                        INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                                                                        INNER JOIN `intakes` ON `students_has_intakes`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                                        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+                                                                        INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`";
 
                                                                                 if ($lectureData["subject_type_subject_type_id"] == 2) {
                                                                                     $query .= " 
@@ -421,7 +466,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 }
 
                                                                                 $query .= " 
-                                                                        WHERE `students_has_intakes`.`intakes_intake_id` = '" . $lectureData["intake_id"] . "' 
+                                                                        WHERE '" . $query_condition . "'
                                                                         AND `students_has_intakes`.`status_status_id` = '1'";
 
                                                                                 if ($lectureData["subject_type_subject_type_id"] == 2) {
@@ -521,7 +566,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                             </td>
                                                                                             <?php
                                                                                             if ($lectureData['lecture_type_id'] != 3) {
-
                                                                                                 if ($dateTime > $lectureDateTime && $dateTime < $lectureEndDateTime) {
                                                                                             ?>
                                                                                                     <td class="px-4 py-2 align-middle">

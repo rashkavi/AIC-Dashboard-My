@@ -20,7 +20,7 @@ if (!SessionUser::hasValidSession()) {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <meta name="robots" content="noindex, nofollow">
-            <title>Inquiries Registration Payments - Admin Dashboard | <?= Project::getBaseName() ?></title>
+            <title>Registration Payments - Admin Dashboard | <?= Project::getBaseName() ?></title>
 
             <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
             <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
@@ -263,7 +263,7 @@ if (!SessionUser::hasValidSession()) {
                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                                                          
                                                          INNER JOIN `lead_student_status`
-                                                             ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                             ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
                                                          
                                                          INNER JOIN `users`
                                                              ON `students`.`users_user_id` = `users`.`user_id`
@@ -275,7 +275,7 @@ if (!SessionUser::hasValidSession()) {
                                                              ON `sl`.`students_log_id` = (
                                                                  SELECT `sl2`.`students_log_id`
                                                                  FROM `students_logs` AS `sl2`
-                                                                 WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                 WHERE `sl2`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
                                                                    AND `sl2`.`lead_student_status_lead_student_status_id` IN (2,3,4)
                                                                  ORDER BY `sl2`.`date_updated` DESC
                                                                  LIMIT 1
@@ -287,8 +287,8 @@ if (!SessionUser::hasValidSession()) {
                                                          LEFT JOIN `title` AS `updated_user_title`
                                                              ON `updated_user`.`title_title_id` = `updated_user_title`.`title_id`
                                                          
-                                                            GROUP BY `students`.`student_id`
-                                                         ORDER BY `students`.`student_id` DESC
+                                                            GROUP BY `students_has_intakes`.`students_has_intakes_id`
+                                                         ORDER BY `students_has_intakes`.`students_has_intakes_id` DESC
                                                          ";
 
                                                             $results = Database::search($query);
@@ -358,7 +358,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="dropdown">
                                                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                     <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-registration-payment?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-payment?registration-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 View</a></li>
 
@@ -378,7 +378,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                             <li>
                                                                                                 <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                    onclick="openAccountsConfirmModal(<?= $data['sId']; ?>)">
+                                                                                                    onclick="openAccountsConfirmModal(<?= $data['shiId']; ?>)">
                                                                                                     <iconify-icon icon="solar:verified-check-bold"
                                                                                                         width="20"
                                                                                                         height="20"

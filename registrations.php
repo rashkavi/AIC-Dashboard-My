@@ -16,13 +16,15 @@ if (!SessionUser::hasValidSession()) {
         $query = "
                                                                             SELECT
                                                                                 `students`.`student_id` AS `sId`,
+                                                                                `students`.`ms_team_username` AS `ms_team_username`,
+                                                                                `students_has_intakes`.`students_has_intakes_id` AS `shiId`,
                                                                                 `login_details`.`first_name`,
                                                                                 `login_details`.`last_name`,
                                                                                 `login_details`.`email`,
                                                                                 `students`.`mobile`,
                                                                                 `login_details`.`whatsapp`,
                                                                                 `students`.`profile_img`,
-                                                                                `login_details`.`date_registered`,
+                                                                                `students_has_intakes`.`addmission_date` AS`date_registered`,
                                                                                 `title`.`title`,
 
                                                                                 `lead_student_status`.`lead_student_status`,
@@ -56,12 +58,12 @@ if (!SessionUser::hasValidSession()) {
 
                                                                             INNER JOIN `title`
                                                                                 ON `students`.`title_title_id` = `title`.`title_id`
-
-                                                                            INNER JOIN `lead_student_status`
-                                                                                ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
-
+                                                                            
                                                                             INNER JOIN `students_has_intakes`
                                                                                 ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                                                                            INNER JOIN `lead_student_status`
+                                                                                ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
 
                                                                             INNER JOIN `intakes`
                                                                                 ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
@@ -82,7 +84,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 ON `students_logs`.`students_log_id` = (
                                                                                     SELECT `sl2`.`students_log_id`
                                                                                     FROM `students_logs` `sl2`
-                                                                                    WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                                    WHERE `sl2`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
                                                                                     ORDER BY `sl2`.`date_updated` DESC, `sl2`.`students_log_id` DESC
                                                                                     LIMIT 1
                                                                                 )
@@ -110,7 +112,7 @@ if (!SessionUser::hasValidSession()) {
 
         $query .= "  ORDER BY 
                                                                `students_logs`.`date_updated` DESC,
-                                                               `students`.`student_id` DESC";
+                                                               `students_has_intakes`.`students_has_intakes_id` DESC";
 
         $results = Database::search($query);
 ?>
@@ -170,21 +172,19 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="col-12 col-md-12 col-xxl-4 mt-3 mt-xxl-0">
                                                 <div class="row gx-3 justify-content-end">
                                                     <?php
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
-                                                    ?>
-                                                        <!-- <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="bg-transparent border-0" onclick="window.location = 'students-permissions'">
-                                                                <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme"></iconify-icon>
-                                                            </button>
-                                                        </div> -->
-                                                    <?php
-                                                    }
+
                                                     if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
                                                     ?>
                                                         <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="custom-btn w-100" onclick="window.location = 'add-registration'">
-                                                                Add New Registration
-                                                            </button>
+                                                            <div class="dropdown w-100">
+                                                                <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
+                                                                    Action
+                                                                </button>
+                                                                <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
+                                                                    <li><a class="dropdown-item" href="add-registration" data-i18n="add-registration">Add New Registration</a></li>
+                                                                    <li><a class="dropdown-item" href="existing-student-registration" data-i18n="existing-student-registration">Existing Student Registration</a></li>
+                                                                </ul>
+                                                            </div>
                                                         </div>
                                                     <?php
                                                     }
@@ -200,7 +200,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
                                                     <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
                                                         <div class="d-flex custom-div align-items-center justify-content-center">
-                                                           
+
                                                             <span class="text-14 dark-theme fw-medium"><?php echo $results->num_rows; ?> <span data-i18n="students">Students</span></span>
                                                         </div>
                                                     </div>
@@ -339,9 +339,8 @@ if (!SessionUser::hasValidSession()) {
                                                                         <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                     </div>
                                                                 </th>
-                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Added By</th>
+                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Assigned Counselor</th>
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
-
 
                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
 
@@ -377,7 +376,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         Due
                                                                                     </span>
 
-                                                                                    <div class="d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                                                    <div class="d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['shiId']; ?>)">
                                                                                         <?php
                                                                                         if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
                                                                                         ?>
@@ -398,7 +397,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             } else {
                                                                             ?>
-                                                                                <div class="d-flex align-items-center cursor-pointer px-4" onclick="toggleCheckbox(<?php echo $data['sId']; ?>)">
+                                                                                <div class="d-flex align-items-center cursor-pointer px-4" onclick="toggleCheckbox(<?php echo $data['shiId']; ?>)">
                                                                                     <?php
                                                                                     if (!empty($data["profile_img"]) && file_exists('./assets/imgs/students/' . $data["profile_img"])) {
                                                                                     ?>
@@ -429,8 +428,6 @@ if (!SessionUser::hasValidSession()) {
 
                                                                         $displayStatusId = $data['lead_student_status_id'];
                                                                         $displayStatus = $data['lead_student_status'];
-
-
                                                                         ?>
 
                                                                         <td class="py-2 align-middle">
@@ -439,23 +436,22 @@ if (!SessionUser::hasValidSession()) {
                                                                             </button>
                                                                         </td>
 
-
                                                                         <td class="py-3 align-middle">
                                                                             <div class="dropdown">
                                                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                 <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-view?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-view?registration-id=<?php echo $data['shiId']; ?>">
                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             View</a></li>
                                                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-update-history?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-update-history?registration-id=<?php echo $data['shiId']; ?>">
                                                                                             <iconify-icon icon="ic:baseline-history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             Update History</a></li>
                                                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                     <?php
                                                                                     if ($displayStatusId != 17) {
                                                                                     ?>
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?registration-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Edit</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -463,7 +459,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     }
                                                                                     if ($displayStatusId == 2 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                                                     ?>
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="material-symbols-light:upload-2-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Re-Upload Registration Payment Slip</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -472,7 +468,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     if ($displayStatusId >= 5) {
                                                                                     ?>
 
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="upload-other-documents?inquiry-id=<?php echo $data['sId']; ?>">
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="upload-other-documents?registration-id=<?php echo $data['shiId']; ?>">
                                                                                                 <iconify-icon icon="solar:document-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 Other Documents</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
@@ -487,7 +483,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
                                                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                onclick="openRegistrationVerificationModal(<?= $data['sId']; ?>)">
+                                                                                                onclick="openRegistrationVerificationModal(<?= $data['shiId']; ?>)">
                                                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                                                     width="20"
                                                                                                     height="20"
@@ -502,7 +498,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
                                                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                onclick="openRegistrationVerificationModal(<?= $data['sId']; ?>)">
+                                                                                                onclick="openRegistrationVerificationModal(<?= $data['shiId']; ?>)">
                                                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                                                     width="20"
                                                                                                     height="20"
@@ -518,7 +514,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
                                                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                onclick="openAcademicAdministrationRejectModal(<?= $data['sId']; ?>)">
+                                                                                                onclick="openAcademicAdministrationRejectModal(<?= $data['shiId']; ?>)">
                                                                                                 <iconify-icon icon="solar:close-circle-bold"
                                                                                                     width="20"
                                                                                                     height="20"
@@ -529,7 +525,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
                                                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                onclick="openAcademicAdministrationConfirmModal(<?= $data['sId']; ?>)">
+                                                                                                onclick="openAcademicAdministrationConfirmModal(<?= $data['shiId']; ?>,'<?= $data['ms_team_username'] ?>')">
                                                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                                                     width="20"
                                                                                                     height="20"
@@ -537,7 +533,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 Confirm Academic Completion
                                                                                             </a>
                                                                                         </li>
-
                                                                                     <?php
                                                                                     }
                                                                                     if ($displayStatusId == 14 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcdemicDepartment($sessionUserRole))) {
@@ -545,7 +540,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                         <li>
                                                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                                                onclick="openAcademicDepartmentConfirmModal(<?= $data['sId']; ?>)">
+                                                                                                onclick="openAcademicDepartmentConfirmModal(<?= $data['shiId']; ?>)">
                                                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                                                     width="20"
                                                                                                     height="20"

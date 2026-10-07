@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="row gx-3 h-100 align-content-center">
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
 
                                                                             if ($programme['total_intakes'] > 0) {
                                                                         ?>
@@ -173,7 +173,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                     </button>
                                                                                     <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                                                                                         <?php
-                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
+                                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
                                                                                         ?>
                                                                                             <li>
                                                                                                 <button

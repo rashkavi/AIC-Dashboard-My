@@ -52,7 +52,7 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `programmes` ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
                         INNER JOIN `faculties` ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
                         INNER JOIN `branches` ON `branches`.`branch_id` = `faculties`.`branches_branch_id`
-                        WHERE `students`.`student_id` = '" . $leadId . "'");
+                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $leadId . "'");
                         if ($isValidLead->num_rows == 0) {
                             $status->error = 'Invalid Lead Id';
                         } else {
@@ -225,7 +225,7 @@ if (SessionUser::hasValidSession()) {
                                                             Database::iud("INSERT INTO `payment_logs`(" . $payment_log_columns . ") VALUES(" . $payment_log_values . ")");
 
                                                             Database::iud("INSERT INTO `students_logs` 
-                                                        (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`,`note`)
+                                                        (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`,`note`)
                                                          VALUES ('" . $leadId . "', '" . $addTime . "', '" . $sessionUserObject['user_id'] . "','Registration Fee Approved','3','" . Database::escape($markAsPaidPayment['note']) . "')");
 
                                                             $encodedPaymentId = base64_encode($paymentId);
@@ -301,7 +301,7 @@ if (SessionUser::hasValidSession()) {
                                     INNER JOIN faculties f
                                         ON f.faculty_id = prog.faculties_faculty_id
 
-                                    WHERE s.student_id = '" . $leadId . "'
+                                    WHERE shi.students_has_intakes_id = '" . $leadId . "'
                                 ")->fetch_assoc();
 
                                         // ── Fetch course payments with tax rates ───────────────────────────────
@@ -467,10 +467,10 @@ if (SessionUser::hasValidSession()) {
                                         }
 
                                         // ── Update student status ────────────────────────────────────────────
-                                        Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '4' WHERE `student_id` = '" . $leadId . "'");
+                                        Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '4' WHERE `students_has_intakes_id` = '" . $leadId . "'");
 
                                         Database::iud("INSERT INTO `students_logs` 
-                                    (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                    (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                      VALUES ('" . $leadId . "', '" . $addTime . "', '" . $sessionUserObject['user_id'] . "','Payment Plan Created','4')");
 
 

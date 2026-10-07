@@ -1,4 +1,4 @@
-﻿
+
 RTE_DefaultConfig.plugin_insertemoji = RTE_Plugin_InsertEmoji;
 
 function RTE_Plugin_InsertEmoji() {
@@ -43,7 +43,7 @@ function RTE_Plugin_InsertEmoji() {
 			}
 			emojidata.push(emojigroup);
 		}
-		////console.log(emojidata);
+		//console.log(emojidata);
 	}
 
 	var obj = this;
@@ -72,12 +72,84 @@ function RTE_Plugin_InsertEmoji() {
 					if (e.target.nodeName == "GSPAN") {
 						editor.closeCurrentPopup();
 						var htmlcode = e.target.getAttribute("htmlcode");
-						//console.log("insert emoji", htmlcode)
 						editor.insertHTML(htmlcode);
 						editor.collapse(false);
 						editor.focus();
 					}
 				}
+
+				// Keyboard access for the emoji grid.
+				//
+				// The grid is <gspan> cells, which no browser makes focusable and
+				// which the editor's own keyboard layer does not recognise (it
+				// finds menu items by tag name, and these are not on that list).
+				// Until the cells were given a role and a tab stop, the only
+				// keyboard-reachable thing in this whole panel was the search box:
+				// the picker announced itself as a menu and then could not be
+				// operated without a mouse.
+				function cells() {
+					var visible = resultpanel.style.display !== "none" ? resultpanel : grouppanel;
+					return [].slice.call(visible.querySelectorAll("gspan"));
+				}
+
+				// The grid wraps, so "up" and "down" mean the nearest cell on the
+				// adjacent visual row — computed from geometry rather than assuming
+				// a fixed column count, which changes with the panel width.
+				function step(list, from, dir) {
+					var here = from.getBoundingClientRect();
+					var candidates = list.filter(function (c) {
+						var r = c.getBoundingClientRect();
+						return dir < 0 ? r.bottom <= here.top + 1 : r.top >= here.bottom - 1;
+					});
+					if (!candidates.length) return null;
+					var rowEdge = null;
+					candidates.forEach(function (c) {
+						var r = c.getBoundingClientRect();
+						if (rowEdge === null) rowEdge = r.top;
+						else if (dir < 0 ? r.top > rowEdge : r.top < rowEdge) rowEdge = r.top;
+					});
+					var row = candidates.filter(function (c) {
+						return Math.abs(c.getBoundingClientRect().top - rowEdge) < 2;
+					});
+					var best = row[0], bestDx = Infinity;
+					row.forEach(function (c) {
+						var dx = Math.abs(c.getBoundingClientRect().left - here.left);
+						if (dx < bestDx) { bestDx = dx; best = c; }
+					});
+					return best;
+				}
+
+				panel.addEventListener("keydown", function (e) {
+					var target = e.target;
+					if (!target || target.nodeName !== "GSPAN") return;
+					var list = cells();
+					var at = list.indexOf(target);
+					var next = null;
+
+					if (e.key === "ArrowRight") next = list[at + 1];
+					else if (e.key === "ArrowLeft") next = list[at - 1];
+					else if (e.key === "ArrowDown") next = step(list, target, 1);
+					else if (e.key === "ArrowUp") next = step(list, target, -1);
+					else if (e.key === "Home") next = list[0];
+					else if (e.key === "End") next = list[list.length - 1];
+					else if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+						e.preventDefault();
+						e.stopPropagation();
+						target.click();
+						return;
+					}
+					else if (e.key === "Escape") {
+						e.preventDefault();
+						e.stopPropagation();
+						editor.closeCurrentPopup();
+						return;
+					}
+					else return;
+
+					e.preventDefault();
+					e.stopPropagation();
+					if (next) next.focus();
+				}, true);
 
 				var selecteditem = null;
 				var toselectitem = null;
@@ -121,6 +193,26 @@ function RTE_Plugin_InsertEmoji() {
 					clearTimeout(tid_key);
 					tid_key = setTimeout(show_result, 100);
 				}
+				// 2026-05-11 quick-load rewrite: bulk-build via innerHTML and
+				// only render the active category. Previous version eagerly
+				// built ~4000 DOM nodes for 1,037 emojis on every panel open,
+				// noticeably slow on low-end machines. New flow:
+				//   - panel opens → render first category only (~125 nodes)
+				//   - tab click → swap to that category's HTML
+				//   - search → bulk innerHTML build of filtered results
+				function buildCategoryHTML(group) {
+					var parts = [];
+					parts.push('<div style="padding:3px;margin-top:5px;color:darkblue;">' + group.name[0].toUpperCase() + group.name.substring(1) + '</div>');
+					parts.push('<div style="display:flex;flex-direction:row;flex-wrap:wrap;">');
+					for (var i = 0; i < group.items.length; i++) {
+						var item = group.items[i];
+						var htmlcode = CharToHTMLCode(item.emoji);
+						parts.push('<gitem class="rte-flex-column-center" style="width:32px;height:32px;margin:2px"><gspan role="menuitem" tabindex="0" aria-label="' + (item.keyword || item.emoji).replace(/"/g, '') + '" htmlcode="' + htmlcode + '" title="' + item.emoji + ' ' + (item.keyword || '').replace(/"/g, '') + '">' + htmlcode + '</gspan></gitem>');
+					}
+					parts.push('</div>');
+					return parts.join('');
+				}
+
 				function show_result() {
 					var keyword = searchbox.value.trim().toLowerCase();
 					if (!keyword) {
@@ -133,38 +225,22 @@ function RTE_Plugin_InsertEmoji() {
 					tabpanel.style.display =
 						grouppanel.style.display = "none";
 					resultpanel.style.display = "flex";
-					resultpanel.innerHTML = "";
 
-					var resultline = __Append(resultpanel, "div", "width:100%;padding:3px;margin-top:5px;color:darkblue;text-align:center;");
-
+					var hitsHtml = [];
 					var itemindex = 0;
-
-
 					for (var gi = 0; gi < emojidata.length; gi++) {
 						var group = emojidata[gi];
 						for (var ii = 0; ii < group.items.length; ii++) {
 							var item = group.items[ii];
-
 							if (!item.keyword || item.keyword.indexOf(keyword) == -1)
 								continue;
-
 							itemindex++;
-
-							//if (itemindex > 20)break;
-							var gitem = __Append(resultpanel, "gitem", "width:32px;height:32px;margin:2px", "rte-flex-column-center")
-							var gspan = __Append(gitem, "gspan", "");
 							var htmlcode = CharToHTMLCode(item.emoji);
-							gspan.setAttribute("title", item.emoji + " " + item.keyword)
-							gspan.setAttribute("htmlcode", htmlcode)
-							gspan.innerHTML = htmlcode;
+							hitsHtml.push('<gitem class="rte-flex-column-center" style="width:32px;height:32px;margin:2px"><gspan role="menuitem" tabindex="0" aria-label="' + (item.keyword || item.emoji).replace(/"/g, '') + '" htmlcode="' + htmlcode + '" title="' + item.emoji + ' ' + (item.keyword || '').replace(/"/g, '') + '">' + htmlcode + '</gspan></gitem>');
 						}
 					}
-
-					resultline.innerText = itemindex + " items";
-
+					resultpanel.innerHTML = '<div style="width:100%;padding:3px;margin-top:5px;color:darkblue;text-align:center;">' + itemindex + ' items</div>' + hitsHtml.join('');
 				}
-
-				searchbox.focus();
 
 				panel.setAttribute("id", "emoji-picker");
 
@@ -174,25 +250,14 @@ function RTE_Plugin_InsertEmoji() {
 
 				var grouppanel = __Append(panel, "div", "overflow-y:scroll;padding-bottom:55px;flex:999");
 
-				var groupdivs = [];
-
-				for (var gi = 0; gi < emojidata.length; gi++) {
-					var group = emojidata[gi];
-					var gdiv = __Append(grouppanel, "div", "padding:3px;margin-top:5px;color:darkblue;");
-					groupdivs.push(gdiv);
-					gdiv.innerText = group.name[0].toUpperCase() + group.name.substring(1);
-
-					gdiv = __Append(grouppanel, "div", "display:flex;flex-direction:row;flex-wrap:wrap;");
-
-					for (var itemindex = 0; itemindex < group.items.length; itemindex++) {
-						var item = group.items[itemindex];
-						//if (itemindex > 20)break;
-						var gitem = __Append(gdiv, "gitem", "width:32px;height:32px;margin:2px", "rte-flex-column-center")
-						var gspan = __Append(gitem, "gspan", "");
-						var htmlcode = CharToHTMLCode(item.emoji);
-						gspan.setAttribute("title", item.emoji + " " + item.keyword)
-						gspan.setAttribute("htmlcode", htmlcode)
-						gspan.innerHTML = htmlcode;
+				// Lazy-render: only build the active category. Each tab click swaps the html.
+				var activeGroupIndex = 0;
+				function renderCategory(gi) {
+					activeGroupIndex = gi;
+					grouppanel.innerHTML = buildCategoryHTML(emojidata[gi]);
+					grouppanel.scrollTop = 0;
+					for (var bi = 0; bi < tabuibtns.length; bi++) {
+						tabuibtns[bi].className = bi === gi ? "rte-ui-active" : "";
 					}
 				}
 
@@ -200,41 +265,20 @@ function RTE_Plugin_InsertEmoji() {
 				tabui.setAttribute("id", "emoji-picker");
 				var tabuitoolbar = __Append(tabui, "rte-tabui-toolbar");
 				var tabuibtns = [];
-				function CreateTabBtn(group) {
-					var btn = __Append(tabuitoolbar, "rte-tabui-toolbar-button", "width:32px;text-align:center;margin:4px")
-					tabuibtns.push(btn);
-					btn.setAttribute("title", group.name);
-					btn.innerHTML = group.items[0].emoji
-					btn.onclick = function () {
-						grouppanel.scrollTop = groupdivs[group.index].getBoundingClientRect().top - grouppanel.getBoundingClientRect().top + grouppanel.scrollTop;
-						grouppanel.onscroll();
-					}
-					btn.group = group;
-				}
 				for (var gi = 0; gi < emojidata.length; gi++) {
-					var group = emojidata[gi];
-					CreateTabBtn(group)
+					(function (group) {
+						var btn = __Append(tabuitoolbar, "rte-tabui-toolbar-button", "width:32px;text-align:center;margin:4px");
+						btn.setAttribute("title", group.name);
+						btn.innerHTML = group.items[0].emoji;
+						btn.onclick = function () { renderCategory(group.index); };
+						tabuibtns.push(btn);
+					})(emojidata[gi]);
 				}
 
-				var lastactivebtn = null;
-				grouppanel.onscroll = function () {
-					var ptop = grouppanel.getBoundingClientRect().top;
-					//console.log(ptop);
-					if (lastactivebtn) lastactivebtn.className = "";
-					for (var bi = 0; bi < tabuibtns.length; bi++) {
-						var btn = tabuibtns[bi];
-						var gdiv = groupdivs[btn.group.index];
-						if (gdiv.getBoundingClientRect().top > ptop) {
-							lastactivebtn = tabuibtns[btn.group.index - 1] || btn;
-							lastactivebtn.className = "rte-ui-active";
-							return;
-						}
-					}
+				// Initial render: just the first category (~125 emojis instead of all 1037).
+				renderCategory(0);
 
-					lastactivebtn = tabuibtns[tabuibtns.length - 1];
-					lastactivebtn.className = "rte-ui-active";
-				}
-				grouppanel.onscroll();
+				searchbox.focus();
 
 
 			})

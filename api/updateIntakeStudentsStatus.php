@@ -6,7 +6,6 @@ require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
-require_once("../includes/WhatsAppService.php");
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     $sessionUserObject = SessionUser::getCurrentUserObject();

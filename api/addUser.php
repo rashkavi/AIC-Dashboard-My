@@ -76,10 +76,10 @@ if (SessionUser::hasValidSession()) {
                 }
                 if (empty($contact)) {
                     $status->contact =  "Please enter user Contact Number";
-                } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $contact)) {
+                } else if (!normalizePhoneNumber($contact)) {
                     $status->contact =  "Please enter a valid contact number";
                 } else {
-                    $user = Database::search("SELECT * FROM `users` WHERE `user_mobile`='" . $contact . "'");
+                    $user = Database::search("SELECT * FROM `users` WHERE `user_mobile`='" . $contact . "' OR `user_mobile`='" . normalizePhoneNumber($contact) . "'");
                     if ($user->num_rows > 0) {
                         $status->contact =  "User already exists";
                     }
@@ -196,8 +196,10 @@ if (SessionUser::hasValidSession()) {
                     $password = rand(1000, 9999);
                     $hashPassword = password_hash($password, PASSWORD_BCRYPT);
 
+                    $formattedMobile = normalizePhoneNumber($contact);
+
                     $users_table_insert_columns = "`title_title_id`, `user_fname`, `user_lname`, `user_email`, `user_mobile`, `user_password`, `user_reg_date`, `status_status_id`, `user_roles_user_role_id`,`gender_gender_id`, `user_verification`, `user_reset_time`,`added_by`";
-                    $users_table_insert_values = "'" . $title . "','" . $fname . "','" . $lname . "','" . $email . "','" . $contact . "','" . $hashPassword . "','" . $registerTime . "','1','" . $role . "','" . $gender . "','" . $token . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "'";
+                    $users_table_insert_values = "'" . $title . "','" . $fname . "','" . $lname . "','" . $email . "','" . $formattedMobile . "','" . $hashPassword . "','" . $registerTime . "','1','" . $role . "','" . $gender . "','" . $token . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "'";
 
                     if (isset($_FILES["image"])) {
                         $users_table_insert_columns .= ", `profile_img`";
@@ -285,3 +287,44 @@ if (SessionUser::hasValidSession()) {
 }
 
 echo (json_encode($status));
+
+
+function normalizePhoneNumber($number)
+{
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
+    return false;
+}

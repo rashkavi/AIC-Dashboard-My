@@ -244,7 +244,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </div>
                                                                                 <div class="col-12 col-md-4 d-flex flex-column">
                                                                                     <label class="text-14 main-text required" for="">Contact Number</label>
-                                                                                    <input type="text" class="form-control custom-input mt-2" id="user-contact-number" maxlength="10" onkeypress="checkDigit(event)" value="<?= $udata["user_mobile"]; ?>" <?= $fieldsDisabled ? "disabled" : "" ?>>
+                                                                                    <input type="text" class="form-control custom-input mt-2" id="user-contact-number" value="<?= $udata["user_mobile"]; ?>" <?= $fieldsDisabled ? "disabled" : "" ?>>
                                                                                     <span id="contact-feedback" class="text-dark-red text-12"></span>
                                                                                 </div>
                                                                                 <div class="col-12 col-md-6 col-xxl-4 d-flex flex-column">

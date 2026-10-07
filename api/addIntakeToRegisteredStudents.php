@@ -4,18 +4,14 @@ require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
-require_once("../includes/WhatsAppService.php");
-require_once("../includes/phpmailer/mail-process.php");
-require_once("../includes/phpmailer/EmailLayoutRenderer.php");
-require_once("../includes/phpmailer/EmailTemplateContent.php");
-require_once("../includes/phpmailer/EmailNotificationService.php");
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0))) {
+            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0))) {
                 $status->error = "You are not authorized to this action.";
             } else {
                 if ($_SERVER['CONTENT_TYPE'] == 'application/json') {
@@ -69,7 +65,8 @@ if (SessionUser::hasValidSession()) {
                                         }
 
                                         if (!empty($user)) {
-                                            $isValidUser = Database::search("SELECT COUNT(*) as 'count' FROM `users` WHERE `user_id` = '" . $user . "' AND `user_roles_user_role_id` = 3 AND `status_status_id`='1'");
+                                            $isValidUser = Database::search("SELECT COUNT(*) as 'count' FROM `users` WHERE `user_id` = '" . $user . "' 
+                                            AND `user_roles_user_role_id` IN (3,9,10) AND `status_status_id`='1'");
 
                                             $row = $isValidUser->fetch_assoc();
                                             if ($row['count'] == 0) {

@@ -1,14 +1,16 @@
 ﻿
 /* TODO: use @import for your css */
 
+/* Kept in step with the editing surface (runtime/richtexteditor_content.css) so
+   a previewed document looks like what was authored. */
 body, table, p, div {
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #414141;
-	font-size: 14px;
-	line-height: 1.6;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	color: #1f2328;
+	font-size: 16px;
+	line-height: 1.7;
 }
 a {
-	color: #377dff;
+	color: #0969da;
 	text-decoration: none;
 	-webkit-transition: color 0.2s ease 0s, text-decoration 0.2s ease 0s;
 	-moz-transition: color 0.2s ease 0s, text-decoration 0.2s ease 0s;

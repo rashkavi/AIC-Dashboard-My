@@ -12,12 +12,37 @@ if (SessionUser::hasValidSession()) {
 
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        // NOTE: SQL/JOINS unchanged from the original query - only the GROUP BY
-        // and downstream PHP processing changed. GROUP BY still includes
-        // programme_id here on purpose: MySQL can't cleanly nest two levels of
-        // JSON_ARRAYAGG (programme -> batches), so we aggregate batches per
-        // programme in SQL as before, then merge same-session rows across
-        // programmes together in PHP below.
+        // NOTE: GROUP BY and downstream PHP processing unchanged from
+        // before - GROUP BY still includes programme_id on purpose: MySQL
+        // can't cleanly nest two levels of JSON_ARRAYAGG (programme ->
+        // batches), so we aggregate batches per programme in SQL, then
+        // merge same-session rows across programmes together in PHP below.
+        //
+        // SCOPE JOIN CHANGE (per time_table's schema): branches_branch_id,
+        // faculties_faculty_id, programmes_programme_id, intakes_intake_id
+        // and subjects_subject_id are ALL nullable on time_table - a
+        // single-branch schedule saved with "Entire X" wildcarded leaves
+        // the corresponding column (and everything below it) NULL. The old
+        // query derived branch/faculty/programme/intake by INNER JOINing a
+        // chain from `subjects` upward, so the moment subjects_subject_id
+        // was NULL the whole chain broke and the row disappeared - even
+        // though time_table already stores the resolved branch/faculty/
+        // programme/intake directly. Each scope table is now LEFT JOINed
+        // straight off time_table's own FK column instead of being chained
+        // through subject. There's no levels_level_id column on
+        // time_table, so `level` still only resolves when a concrete
+        // subject is set (matches the frontend's own note that "Entire
+        // Intake" collapses to the same stored scope as wildcarding Level).
+        //
+        // LECTURER JOIN CHANGE: a lecture scheduled through the broad-scope
+        // flow (Single Branch schedule with "Entire X" wildcarded) is saved
+        // with lecturers_lecturers_id = NULL and broad_lecturer_user_id set
+        // instead (see scheduleLecture.php / loadLecturersByScope.php).
+        // The old INNER JOIN through `lecturers` required a real
+        // lecturers_id, so every broad-scheduled lecture was silently
+        // dropped from this whole listing. `lec` is now a LEFT JOIN, and
+        // the teaching user is resolved from whichever of
+        // lec.users_user_id / tt.broad_lecturer_user_id is populated.
         $totalLecSchedule = "
         SELECT 
             `p`.`programme_id`,
@@ -63,32 +88,33 @@ if (SessionUser::hasValidSession()) {
                 'faculty_id', `f`.`faculty_id`,
                 'branch',`b`.`branch`,
                 'lecturer_id', `lec`.`lecturers_id`,
+                'lecturer_user_id', COALESCE(`lec`.`users_user_id`, `tt`.`broad_lecturer_user_id`),
                 'lecturer_name', `u`.`user_fname`
             )
         ) AS batch_list,
          COUNT(DISTINCT `tt`.`time_table_id`) AS timetable_count
         FROM                    
             `time_table` AS `tt`
-        INNER JOIN 
+        LEFT JOIN 
             `subjects` AS `subj` ON `tt`.`subjects_subject_id` = `subj`.`subject_id`
-        INNER JOIN 
+        LEFT JOIN 
             `levels` AS `lv` ON `subj`.`levels_level_id` = `lv`.`level_id`
-        INNER JOIN 
-            `intakes` AS `i` ON `lv`.`intakes_intake_id` = `i`.`intake_id`
-        INNER JOIN 
-            `programmes` AS `p` ON `i`.`programmes_programme_id` = `p`.`programme_id`
-        INNER JOIN
-            `faculties` AS `f` ON `p`.`faculties_faculty_id` = `f`.`faculty_id`
-        INNER JOIN 
-            `branches` AS `b` ON `f`.`branches_branch_id` = `b`.`branch_id`                 
+        LEFT JOIN 
+            `intakes` AS `i` ON `tt`.`intakes_intake_id` = `i`.`intake_id`
+        LEFT JOIN 
+            `programmes` AS `p` ON `tt`.`programmes_programme_id` = `p`.`programme_id`
+        LEFT JOIN
+            `faculties` AS `f` ON `tt`.`faculties_faculty_id` = `f`.`faculty_id`
+        LEFT JOIN 
+            `branches` AS `b` ON `tt`.`branches_branch_id` = `b`.`branch_id`                 
         INNER JOIN
             `time_table_status` AS `tts` ON `tt`.`time_table_status_time_table_status_id` = `tts`.`time_table_status_id`
         INNER JOIN
             `lecture_type` AS `lt` ON `tt`.`lecture_type_lecture_type_id` = `lt`.`lecture_type_id`        
-        INNER JOIN 
+        LEFT JOIN 
             `lecturers` AS `lec` ON `tt`.`lecturers_lecturers_id` = `lec`.`lecturers_id`
         INNER JOIN 
-            `users` AS `u` ON `lec`.`users_user_id` = `u`.`user_id`
+            `users` AS `u` ON `u`.`user_id` = COALESCE(`lec`.`users_user_id`, `tt`.`broad_lecturer_user_id`)
         INNER JOIN 
             `title` AS `t` ON `u`.`title_title_id` = `t`.`title_id`
            WHERE 1=1
@@ -150,6 +176,13 @@ if (SessionUser::hasValidSession()) {
                     $hasProgrammeCover = false;
                 }
 
+                // Any of these can now be NULL — the lecture was scheduled with
+                // that level (and everything below it) wildcarded to "Entire X".
+                $programmeLabel = $row['programme'] !== null ? htmlspecialchars($row['programme']) : 'All Programmes';
+                $facultyLabel = $row['faculty'] !== null ? htmlspecialchars($row['faculty']) : 'All Faculties';
+                $branchLabel = $row['branch'] !== null ? htmlspecialchars($row['branch']) : 'All Branches';
+                $subjectLabel = $row['subject'] !== null ? $row['subject'] : 'All Subjects';
+
                 $lectureStatus = $row['time_table_status'];
 
                 // attendance is counted per timetable row group (this programme's
@@ -174,19 +207,19 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                $hasPermissionEditPermission = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionConfirmLecturerPayment = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionMarkAttendance = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0);
-                $hasPermissionUploadRecording = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule');
+                $hasPermissionEditPermission = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionConfirmLecturerPayment = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionMarkAttendance = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0);
+                $hasPermissionUploadRecording = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule');
 
                 // programme-level block (one per programme sharing this session)
                 // programme-level block (one per programme sharing this session)
                 $programmeEntry = [
                     'programmeId' => $row['programme_id'],
-                    'programme' => htmlspecialchars($row['programme']),
+                    'programme' => $programmeLabel,
                     'programmeImage' => $hasProgrammeCover ? $programmeCover : $defaultImage,
-                    'faculty' => htmlspecialchars($row['faculty']),
-                    'branch' => htmlspecialchars($row['branch']),        // <-- NEW
+                    'faculty' => $facultyLabel,
+                    'branch' => $branchLabel,        // <-- NEW
                     'branchId' => $row['branch_id'],                     // <-- NEW
                     'batchList' => $batchListDecoded,
                     'timetableCount' => (int) $row['timetable_count'],
@@ -224,9 +257,9 @@ if (SessionUser::hasValidSession()) {
                         'attendanceCount' => 0,
                         // kept for backward compatibility with any older frontend code
                         // reading a flat 'subject' / 'batchList' / 'programme' off a lecture
-                        'subject' => $row['subject'],
-                        'programme' => htmlspecialchars($row['programme']),
-                        'branch' => htmlspecialchars($row['branch']),
+                        'subject' => $subjectLabel,
+                        'programme' => $programmeLabel,
+                        'branch' => $branchLabel,
                         'programmeImage' => $hasProgrammeCover ? $programmeCover : $defaultImage,
                         'batchList' => [],
                     ];

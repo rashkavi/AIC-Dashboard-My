@@ -146,7 +146,7 @@ if (SessionUser::hasValidSession()) {
 
 
                                                 if ($studentPlanPayments->num_rows > 0) {
-                                                    while ($payment = $studentPlanPayments->fetch_assoc()) {
+                                                    foreach ($studentPlanPayments as $payment) {
                                                         $insert_col = "`payment_status_payment_status_id`,`payment_type_payment_type_id`,`refference`,`discount`,
                                                         `amount`,`discount_type_discount_type_id`,`discount_note`,`payment_plan_has_students_has_intakes_id`,
                                                         `panelty_payment_option_panelty_payment_option_id`,`intake_payments_plan_has_payment_id`";

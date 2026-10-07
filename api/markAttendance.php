@@ -35,7 +35,8 @@ if (SessionUser::hasValidSession()) {
                                 $timeTableData = $isLectureValid->fetch_assoc();
                                 $dateTime = new DateTime("now", new DateTimeZone("Asia/Colombo"));
 
-                                if ($timeTableData['lecture_type_lecture_type_id'] == 2) {
+                                $haveRecord = Database::search("SELECT * FROM `attendance` WHERE `time_table_time_table_id`='" . $lectureId . "' AND `students_student_id`='" . $studentId . "'");
+                                if ($haveRecord->num_rows > 0) {
                                     try {
                                         $update = "`attendance_status_attendance_status_id` = '" . $attendStatus . "',`updated_at` = '" . $dateTime->format('Y-m-d H:i:s') . "',`users_user_id` = '" . $sessionUserObject['user_id'] . "'";
                                         Database::iud("UPDATE `attendance` SET " . $update . " WHERE `time_table_time_table_id`='" . $lectureId . "' AND `students_student_id`='" . $studentId . "'");

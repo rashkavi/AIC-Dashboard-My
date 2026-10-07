@@ -72,15 +72,8 @@ if (SessionUser::hasValidSession()) {
                         $recorrectionEndTime = $recorrectionEnddateTime->format('H:i');
 
                         if (!empty($code) && strlen($code) > 45) {
-
                             $status->code = 'Assignment code should be less than 45 characters';
-                        } else {
-                            $isValidCode = Database::search("SELECT COUNT(*) as 'count' FROM `assignments` WHERE `assignment_code` = '" . $code . "'  AND `assignment_id` != '" . $assignment_id . "'");
-                            $row = $isValidCode->fetch_assoc();
-                            if ($row['count'] > 0) {
-                                $status->code = 'Assignment code already exists';
-                            }
-                        }
+                        } 
 
                         if (!empty($start_date) || !empty($start_time) || !empty($end_date) || !empty($end_time)) {
                             if (empty($start_date)) {

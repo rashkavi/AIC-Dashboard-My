@@ -32,7 +32,7 @@ if (SessionUser::hasValidSession()) {
                         $programmeData = $programme->fetch_assoc();
                         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0))) {
                             $status->error = 'You are not authorized to this action.';
                         } else {
                             if ($programmeData['total_intakes'] == 0) {

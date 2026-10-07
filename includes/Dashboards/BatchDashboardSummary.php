@@ -70,6 +70,11 @@ class BatchDashboardSummary
             (
                 SELECT COUNT(*)
                 FROM `students_has_intakes`
+                INNER JOIN `students` AS `s`
+                    ON `s`.`student_id` = `students_has_intakes`.`students_student_id`
+                WHERE `s`.`enrolled_status` = 'ENROLLED'
+                AND (`shi`.`lead_student_status_lead_student_status_id` IS NULL OR `shi`.`lead_student_status_lead_student_status_id` = '17')
+
                 WHERE `intakes_intake_id` = '" . $intakeId . "'
             ) AS total_students,
 

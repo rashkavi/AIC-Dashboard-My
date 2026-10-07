@@ -60,6 +60,9 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `status` AS `st`
                             ON `shi`.`status_status_id` = `st`.`status_id`
                         WHERE `shi`.`intakes_intake_id` = '" . $intake_id . "'
+                        AND `s`.`enrolled_status` = 'ENROLLED'
+                        AND (`shi`.`lead_student_status_lead_student_status_id` IS NULL OR `shi`.`lead_student_status_lead_student_status_id` = '17')
+
                     ";
 
 
@@ -186,7 +189,7 @@ if (SessionUser::hasValidSession()) {
 
                                     <?php
                                     }
-                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
+                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $intake_id) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
                                     ?>
                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                     <?php
@@ -279,31 +282,32 @@ if (SessionUser::hasValidSession()) {
                                                 </td>
                                             <?php
                                             }
-                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
+                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 10, $intake_id) || UserPermissions::hasPermission('intake_payments', 12, $intake_id) || UserPermissions::hasPermission('intake_payments', 13, $intake_id)) {
                                             ?>
                                                 <td class="py-3 align-middle">
                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                     <div class="dropdown">
                                                         <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                           
+
                                                             <?php
-                                                            if (!empty($data['verification']) && empty($data['reset_time'])) {
-                                                            ?>
-                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
-                                                                        <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                        Resend Registration Link</a></li>
-                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                            <?php
-                                                            } else {
-                                                            ?>
-                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
-                                                                        <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                        Resend Password Reset Link</a></li>
-                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                            <?php
-                                                            }
+
                                                             if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {
+                                                                if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                             ?>
+                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                                            <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                            Resend Registration Link</a></li>
+                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                <?php
+                                                                } else {
+                                                                ?>
+                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?php echo $data['sId']; ?>')">
+                                                                            <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                            Resend Password Reset Link</a></li>
+                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                <?php
+                                                                }
+                                                                ?>
                                                                 <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="edit-intake-student?student-id=<?php echo $data['shiId']; ?>">
                                                                         <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                         Edit</a></li>
@@ -319,7 +323,7 @@ if (SessionUser::hasValidSession()) {
                                                                 <?php
                                                             }
 
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $intake_id)) {
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $intake_id)) {
 
                                                                 if ($data["status"] == "Active") {
                                                                 ?>

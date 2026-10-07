@@ -45,7 +45,7 @@ if (SessionUser::hasValidSession()) {
                         $bio = isset($_POST['bio']) ? $_POST['bio'] : '';
                         $achivements = isset($_POST['achivements']) ? $_POST['achivements'] : '';
                         $experience = isset($_POST['experience']) ? $_POST['experience'] : '';
-                        $image;
+                        $image = "";
                         $cv_file_name;
 
                         if (empty($fname)) {
@@ -77,10 +77,10 @@ if (SessionUser::hasValidSession()) {
                         }
                         if (empty($contact)) {
                             $status->contact =  "Please enter user Contact Number";
-                        } else if (!preg_match('/^[0]{1}[7]{1}[01245678]{1}[0-9]{7}$/', $contact)) {
+                        } else if (!normalizePhoneNumber($contact)) {
                             $status->contact =  "Please enter a valid contact number";
                         } else {
-                            $isValidUser = Database::search("SELECT COUNT(*) as 'count' FROM `users` WHERE `user_mobile`='" . $contact . "' AND `user_id` != '" . $id . "'");
+                            $isValidUser = Database::search("SELECT COUNT(*) as 'count' FROM `users` WHERE (`user_mobile`='" . $contact . "' OR `user_mobile`='" . normalizePhoneNumber($contact) . "') AND `user_id` != '" . $id . "'");
                             $row = $isValidUser->fetch_assoc();
                             if ($row['count'] > 0) {
                                 $status->contact =  "User contact number already exists";
@@ -203,10 +203,13 @@ if (SessionUser::hasValidSession()) {
 
                         if (empty(get_object_vars($status))) {
 
+                            $formattedMobile = normalizePhoneNumber($contact);
+
+
                             $user = Database::search("SELECT * FROM `users` WHERE `user_id` = '" . $id . "'");
                             $user_data = $user->fetch_assoc();
 
-                            $users_table_update_query = "`title_title_id`='" . $title . "',`user_fname`='" . $fname . "',`user_lname`='" . $lname . "',`user_email`='" . $email . "',`user_mobile`='" . $contact . "',`user_roles_user_role_id`='" . $role . "'";
+                            $users_table_update_query = "`title_title_id`='" . $title . "',`user_fname`='" . $fname . "',`user_lname`='" . $lname . "',`user_email`='" . $email . "',`user_mobile`='" . $formattedMobile . "',`user_roles_user_role_id`='" . $role . "'";
 
                             if (!empty($image)) {
                                 $users_table_update_query .= ",`profile_img`='" . $image . "'";
@@ -332,3 +335,43 @@ if (SessionUser::hasValidSession()) {
 }
 
 echo (json_encode($status));
+
+function normalizePhoneNumber($number)
+{
+    // Remove spaces, dashes, brackets, etc. (keep +)
+    $number = trim($number);
+    $number = preg_replace('/[^\d+]/', '', $number);
+
+    // Already in international format
+    if (preg_match('/^\+\d{8,15}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: +947XXXXXXXX
+    if (preg_match('/^\+947\d{8}$/', $number)) {
+        return $number;
+    }
+
+    // Sri Lanka: 947XXXXXXXX
+    if (preg_match('/^947\d{8}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Sri Lanka: 07XXXXXXXX
+    if (preg_match('/^07\d{8}$/', $number)) {
+        return '+94' . substr($number, 1);
+    }
+
+    // Sri Lanka: 7XXXXXXXX
+    if (preg_match('/^7\d{8}$/', $number)) {
+        return '+94' . $number;
+    }
+
+    // Any other international number (8-15 digits)
+    if (preg_match('/^\d{8,15}$/', $number)) {
+        return '+' . $number;
+    }
+
+    // Invalid phone number
+    return false;
+}

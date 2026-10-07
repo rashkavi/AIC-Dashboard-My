@@ -2,7 +2,7 @@
 
 class SessionUser
 {
-    private static array $proRoles = ['Developer', 'Super Admin'];
+    private static array $proRoles = ['Developer', 'Super Admin', 'Chief Academic officer'];
     private static array $userRoles = [];
 
     private static function ensureSessionStarted(): void
@@ -116,7 +116,7 @@ class SessionUser
     {
         return in_array(
             $userRole,
-            ["Academic", "Head of Admission", "Academic Admin"],
+            ["Academic", "Head of Admission", "Academic Admin", "Chief Academic officer"],
             true
         );
     }

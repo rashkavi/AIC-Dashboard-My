@@ -53,7 +53,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || ($subject_id == 0 ? UserPermissions::validPermisisonType('lecture_schedule', 0) : UserPermissions::validPermisisonType('course_overview', 0)))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || ($subject_id == 0 ? UserPermissions::validPermisisonType('lecture_schedule', 0) : UserPermissions::validPermisisonType('course_overview', 0)))) {
                     header("Location: ./dashboard");
                 } else {
 

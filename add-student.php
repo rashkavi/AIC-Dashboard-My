@@ -388,7 +388,7 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
 
                                                         <div class="col-12 col-md-3 d-flex flex-column">
-                                                            <label class="text-14 main-text">MS Team Username</label>
+                                                            <label class="text-14 main-text">MS Teams Username</label>
                                                             <input type="text"
                                                                 class="form-control custom-input mt-2"
 
@@ -458,11 +458,10 @@ if (!SessionUser::hasValidSession()) {
                                                                     $programmes[] = $data;
                                                                 }
                                                                 ?>
-                                                                <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                                <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes(2);">
                                                                     <option value="0">- Select -</option>
                                                                 </select>
                                                                 <span class="text-dark-red text-12" id="programme-feedback"></span>
-
                                                             </div>
                                                             <div class="col-12 col-md-4 d-flex flex-column">
                                                                 <label class="text-14 main-text" for="">Intakes</label>

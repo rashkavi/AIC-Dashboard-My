@@ -14,7 +14,7 @@ if (!SessionUser::hasValidSession()) {
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['programe-id']) && !empty($_GET['programe-id']))) {
             header("Location: ./programes");
         } else {
-            $id = $_GET['programe-id'];
+            $id = (int)$_GET['programe-id']; // cast: prevents SQL injection via the URL
             $programme = Database::search("SELECT * FROM `programmes` INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id` WHERE `programme_id` = '" . $id . "'");
             if ($programme->num_rows == 0) {
                 header("Location: ./programes");
@@ -22,20 +22,24 @@ if (!SessionUser::hasValidSession()) {
                 $programmeData = $programme->fetch_assoc();
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
+                // i.* already includes intake_status and closed_date
                 $query = "
-                                            SELECT 
-                                                i.*, 
-                                                COUNT(s.intakes_intake_id) AS total_students,
-                                                COUNT(s.intakes_intake_id) AS active_students
-                                            FROM intakes i
-                                            LEFT JOIN students_has_intakes s 
-                                                ON s.intakes_intake_id = i.intake_id
-                                                AND s.status_status_id = '1'
-                                            WHERE i.programmes_programme_id = '" . $id . "'
-                                            GROUP BY i.intake_id
-                                        ";
+                    SELECT 
+                        i.*, 
+                        COUNT(s.intakes_intake_id) AS total_students,
+                        COUNT(s.intakes_intake_id) AS active_students
+                    FROM intakes i
+                    LEFT JOIN students_has_intakes s 
+                        ON s.intakes_intake_id = i.intake_id
+                        AND s.status_status_id = '1'
+                    WHERE i.programmes_programme_id = '" . $id . "'
+                    GROUP BY i.intake_id
+                ";
 
                 $intakes = Database::search($query);
+
+                $canAdd  = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id);
+                $canEdit = SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id);
 ?>
                 <!DOCTYPE html>
                 <html lang="en">
@@ -107,10 +111,9 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
                                                             <?php
                                                             }
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
+                                                            if ($canAdd) {
                                                             ?>
                                                                 <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                    <!-- <button class="custom-btn w-100" data-bs-target="#addIntake" data-bs-toggle="modal" data-i18n="add-new">Add New</button> -->
                                                                     <div class="dropdown w-100">
                                                                         <button class="custom-btn w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" data-i18n="action" aria-expanded="false">
                                                                             Action
@@ -122,7 +125,6 @@ if (!SessionUser::hasValidSession()) {
                                                                     </div>
                                                                 </div>
                                                             <?php
-
                                                             }
                                                             ?>
                                                         </div>
@@ -131,12 +133,18 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
 
                                             <?php
-
                                             if ($intakes->num_rows > 0) {
                                                 while ($intake = $intakes->fetch_assoc()) {
+                                                    $isClosed   = (($intake['intake_status'] ?? 'ONGOING') === 'CLOSED');
+                                                    $canDelete  = ($intake['total_students'] == 0);
+                                                    $intakeJs   = htmlspecialchars($intake['intake'], ENT_QUOTES);
+                                                    $coverJs    = htmlspecialchars((string)$intake['intake_cover'], ENT_QUOTES);
                                             ?>
-                                                    <div class="col-12 px-4 py-3 component-theme mb-10">
-                                                        <div class="row p-0 m-0 g-0 align-content-center" id="intake-row" data-intake-id="<?= $intake['intake_id'] ?>">
+                                                    <div class="col-12 px-4 py-3 component-theme mb-10 position-relative intake-card <?= $isClosed ? 'intake-closed' : '' ?>" data-intake-card="<?= $intake['intake_id'] ?>">
+                                                        <?php if ($isClosed) { ?>
+                                                            <div class="closed-ribbon"><span>Closed</span></div>
+                                                        <?php } ?>
+                                                        <div class="row p-0 m-0 g-0 align-content-center intake-row-inner" id="intake-row" data-intake-id="<?= $intake['intake_id'] ?>">
                                                             <div class="col-12 col-md-2 col-lg-1 d-flex align-items-center p-0 m-0 g-0">
                                                                 <?php
                                                                 $intake_cover = "./assets/imgs/intakes-covers/" . $intake['intake_cover'];
@@ -151,63 +159,65 @@ if (!SessionUser::hasValidSession()) {
                                                                 }
                                                                 ?>
                                                             </div>
-                                                            <div class="col-12 col-md-7 col-lg-8 px-0 px-md-3 mt-3 mt-md-0 g-0 d-flex flex-column justify-content-center">
+                                                            <div class="col-12 col-md-7 col-lg-8 px-0 px-md-3 mt-3 mt-md-0 g-0 d-flex flex-column justify-content-center intake-info">
                                                                 <h6 class="text-15 text-dark-color fw-semibold lh-lg mb-0">
                                                                     <?= htmlspecialchars($intake['intake']) ?>
                                                                 </h6>
                                                                 <p class="text-14 main-text lh-lg mb-0">
                                                                     Total Active Students in Intake : <?= htmlspecialchars($intake['active_students']) ?>
                                                                 </p>
+                                                                <?php if ($isClosed && !empty($intake['closed_date'])) { ?>
+                                                                    <p class="text-12 sub-text mb-0 closed-date-line">Closed on : <?= date('Y-m-d', strtotime($intake['closed_date'])) ?></p>
+                                                                <?php } ?>
                                                             </div>
                                                             <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                                 <div class="row gx-3 h-100 align-content-center">
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                        <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
-                                                                            if ($intake['total_students'] > 0) {
-                                                                        ?>
-                                                                                <button class="custom-danger-btn w-100" data-i18n="edit"
-                                                                                    onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">Edit</button>
-                                                                            <?php
-                                                                            } else {
-                                                                            ?>
-                                                                                <div class="dropdown w-100">
-                                                                                    <button
-                                                                                        class="custom-danger-btn w-100 dropdown-toggle d-flex align-items-center justify-content-center gap-2"
-                                                                                        type="button"
-                                                                                        data-bs-toggle="dropdown"
-                                                                                        aria-expanded="false">
-
-                                                                                        Actions
-                                                                                    </button>
-
-                                                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-
+                                                                        <?php if ($canEdit) { ?>
+                                                                            <div class="dropdown w-100">
+                                                                                <button class="custom-danger-btn w-100 dropdown-toggle d-flex align-items-center justify-content-center gap-2"
+                                                                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                                    Actions
+                                                                                </button>
+                                                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                                                                    <li>
+                                                                                        <button class="dropdown-item d-flex align-items-center gap-2"
+                                                                                            onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intakeJs ?>','<?= $coverJs ?>')">
+                                                                                            <iconify-icon icon="line-md:edit-filled" width="18" height="18"></iconify-icon>
+                                                                                            Edit
+                                                                                        </button>
+                                                                                    </li>
+                                                                                    <?php if (!$isClosed && SessionUser::ifUserIsPro($sessionUserRole)) { ?>
                                                                                         <li>
-                                                                                            <button
-                                                                                                class="dropdown-item d-flex align-items-center gap-2"
-                                                                                                onclick="loadIntakeEditModel('<?= $intake['intake_id'] ?>','<?= $intake['intake'] ?>','<?= $intake['intake_cover'] ?>')">
-                                                                                                <iconify-icon icon="line-md:edit-filled" width="18" height="18"></iconify-icon>
-                                                                                                Edit
+                                                                                            <button class="dropdown-item d-flex align-items-center gap-2 close-intake-item"
+                                                                                                onclick="confirmCloseIntake('<?= $intake['intake_id'] ?>','<?= $intakeJs ?>')">
+                                                                                                <iconify-icon icon="mdi:lock-outline" width="18" height="18"></iconify-icon>
+                                                                                                Close Intake
                                                                                             </button>
                                                                                         </li>
+                                                                                    <?php } ?>
+                                                                                    <!-- <li>
+                                                                                        <button class="dropdown-item d-flex align-items-center gap-2"
+                                                                                            onclick="viewIntakeLogs('<?= $intake['intake_id'] ?>','<?= $intakeJs ?>')">
+                                                                                            <iconify-icon icon="mdi:history" width="18" height="18"></iconify-icon>
+                                                                                            History
+                                                                                        </button>
+                                                                                    </li> -->
+                                                                                    <?php if ($canDelete) { ?>
                                                                                         <li>
                                                                                             <hr class="dropdown-divider">
                                                                                         </li>
                                                                                         <li>
-                                                                                            <button
-                                                                                                class="dropdown-item d-flex align-items-center gap-2 text-danger"
+                                                                                            <button class="dropdown-item d-flex align-items-center gap-2 text-danger"
                                                                                                 onclick="confirmDeleteIntake('<?= $intake['intake_id'] ?>')">
                                                                                                 <iconify-icon icon="material-symbols:delete-outline-rounded" width="18" height="18"></iconify-icon>
                                                                                                 Delete
                                                                                             </button>
                                                                                         </li>
-                                                                                    </ul>
-                                                                                </div>
-                                                                        <?php
-                                                                            }
-                                                                        }
-                                                                        ?>
+                                                                                    <?php } ?>
+                                                                                </ul>
+                                                                            </div>
+                                                                        <?php } ?>
                                                                     </div>
                                                                     <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-btn w-100" data-i18n="view" onclick="window.location.href='intake-details?intake-id=<?= $intake['intake_id']; ?>'">View</button>
@@ -228,8 +238,6 @@ if (!SessionUser::hasValidSession()) {
                                             <?php
                                             }
                                             ?>
-
-
                                         </div>
                                         <div class="flex-grow-1"></div>
                                         <footer>
@@ -241,9 +249,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
                     </div>
 
-                    <?php
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id)) {
-                    ?>
+                    <?php if ($canAdd) { ?>
                         <!-- intake Add Model => Start -->
                         <div class="modal fade br-0" id="addIntake" aria-hidden="true" aria-labelledby="addIntakeLabel" tabindex="-1">
                             <div class="modal-dialog modal-xl modal-dialog-centered br-0">
@@ -272,14 +278,12 @@ if (!SessionUser::hasValidSession()) {
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Select intake cover here.</p>
                                                                     <p class="text-14 sub-topic g-0 p-0 m-0">Important guidelines:</p>
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Image size must be 2MB or less, with a 16:9 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
-
                                                                 </div>
                                                                 <div class="col-12 d-flex justify-content-end mt-1 mt-md-3">
                                                                     <button class="custom-btn d-flex align-items-center justify-content-center w-100" onclick="uploadCover('cover-input','intake-cover');">
                                                                         Select Image
                                                                         <iconify-icon icon="ic:sharp-upload" width="20" height="20" class="mx-3"></iconify-icon>
                                                                     </button>
-                                                                    <!-- Hidden file input -->
                                                                     <input type="file" id="cover-input" class="d-none" accept="image/*" />
                                                                 </div>
                                                             </div>
@@ -298,6 +302,7 @@ if (!SessionUser::hasValidSession()) {
                         </div>
                         <!-- intake Add Model => End -->
 
+                        <!-- intake Duplicate Modal => Start -->
                         <div class="modal fade br-0" id="duplicateIntake" aria-hidden="true" aria-labelledby="duplicateIntakeLabel" tabindex="-1">
                             <div class="modal-dialog modal-xl modal-dialog-centered br-0">
                                 <div class="modal-content p-4">
@@ -313,9 +318,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties();">
                                                         <option value="0" selected>- Select -</option>
                                                         <?php
-                                                        $query = "SELECT * FROM `branches`";
-
-                                                        $branches = Database::search($query);
+                                                        $branches = Database::search("SELECT * FROM `branches`");
                                                         while ($data = $branches->fetch_assoc()) {
                                                         ?>
                                                             <option value="<?php echo $data["branch_id"]; ?>"><?php echo $data["branch"]; ?></option>
@@ -329,7 +332,6 @@ if (!SessionUser::hasValidSession()) {
                                                     <label class="text-16 main-text required" for="">Select Faculty</label>
                                                     <select name="" id="faculty-selector" disabled class="form-select custom-select mt-2" onchange="loadProgrammes();">
                                                         <option value="0" selected>- Select -</option>
-
                                                     </select>
                                                     <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                 </div>
@@ -366,14 +368,12 @@ if (!SessionUser::hasValidSession()) {
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Select intake cover here.</p>
                                                                     <p class="text-14 sub-topic g-0 p-0 m-0">Important guidelines:</p>
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Image size must be 2MB or less, with a 16:9 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
-
                                                                 </div>
                                                                 <div class="col-12 d-flex justify-content-end mt-1 mt-md-3">
                                                                     <button class="custom-btn d-flex align-items-center justify-content-center w-100" onclick="uploadCover('duplicate-cover-input','duplicate-cover');">
                                                                         Select Image
                                                                         <iconify-icon icon="ic:sharp-upload" width="20" height="20" class="mx-3"></iconify-icon>
                                                                     </button>
-                                                                    <!-- Hidden file input -->
                                                                     <input type="file" id="duplicate-cover-input" class="d-none" accept="image/*" />
                                                                 </div>
                                                             </div>
@@ -390,11 +390,10 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                             </div>
                         </div>
-                    <?php
-                    }
+                        <!-- intake Duplicate Modal => End -->
+                    <?php } ?>
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 10, $id)) {
-                    ?>
+                    <?php if ($canEdit) { ?>
                         <!-- intake Edit Modal => Start -->
                         <div class="modal fade br-0" id="editIntake" aria-hidden="true" aria-labelledby="editIntakeLabel" tabindex="-1">
                             <div class="modal-dialog modal-xl modal-dialog-centered br-0">
@@ -423,13 +422,11 @@ if (!SessionUser::hasValidSession()) {
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Select intake cover here.</p>
                                                                     <p class="text-14 sub-topic g-0 p-0 m-0">Important guidelines:</p>
                                                                     <p class="text-14 sub-text g-0 p-0 m-0">Image size must be 2MB or less, with a 16:9 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
-
                                                                 </div>
                                                                 <div class="col-12 d-flex justify-content-end mt-3">
                                                                     <button class="custom-btn d-flex align-items-center justify-content-center w-100" onclick="uploadCover('edit-cover-input','edit-intake-cover');">
                                                                         Select another Image
                                                                         <iconify-icon icon="ic:sharp-upload" width="20" height="20" class="mx-3"></iconify-icon>
-                                                                        <!-- Hidden file input -->
                                                                         <input type="file" id="edit-cover-input" class="d-none" accept="image/*" />
                                                                     </button>
                                                                 </div>
@@ -448,11 +445,79 @@ if (!SessionUser::hasValidSession()) {
                             </div>
                         </div>
                         <!-- intake Edit Modal => End -->
-                    <?php
-                    }
 
-                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('programme', 2, $id) || UserPermissions::hasPermission('programme', 2, $id)) {
-                    ?>
+                        <!-- Close Intake Modal => Start -->
+                        <div class="modal fade" id="closeIntakeModal" tabindex="-1" aria-labelledby="closeIntakeModalTitle" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content border-0 shadow">
+                                    <div class="d-flex justify-content-end pe-3 pt-3 position-relative">
+                                        <button type="button" class="btn-close text-end" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body text-center p-4">
+                                        <div class="mb-3">
+                                            <iconify-icon icon="mdi:lock-outline" width="48" height="48" class="text-warning"></iconify-icon>
+                                        </div>
+                                        <h5 class="fw-semibold mb-2" id="closeIntakeModalTitle">Close Intake</h5>
+                                        <p class="text-muted mb-3">
+                                            Are you sure you want to close <strong id="close-intake-name"></strong>?
+                                        </p>
+                                        <div class="alert alert-warning text-start small mb-4">
+                                            <div class="d-flex align-items-start gap-2">
+                                                <iconify-icon icon="mdi:alert-outline" width="20"></iconify-icon>
+                                                <div>
+                                                    <strong>This action will:</strong>
+                                                    <ul class="mb-0 ps-3">
+                                                        <li>Mark the intake as <strong>Closed</strong></li>
+                                                        <li>Record today's date as the closed date</li>
+                                                        <li>Be saved in the intake history log</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-center gap-3">
+                                            <button type="button" class="btn btn-outline-secondary px-4 br-0" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="button" id="confirmCloseIntakeBtn" class="btn btn-danger px-4 br-0">
+                                                <iconify-icon icon="mdi:lock-outline" class="me-1"></iconify-icon>
+                                                Close Intake
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Close Intake Modal => End -->
+
+                        <!-- Intake History Modal => Start -->
+                        <div class="modal fade" id="intakeLogsModal" tabindex="-1" aria-labelledby="intakeLogsModalTitle" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-content p-3">
+                                    <div class="modal-header border-0">
+                                        <h5 class="modal-title text-16 text-dark-color" id="intakeLogsModalTitle">Intake History</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body pt-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle text-14">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Action</th>
+                                                        <th>Status</th>
+                                                        <th>Details</th>
+                                                        <th>By</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="intake-logs-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Intake History Modal => End -->
+                    <?php } ?>
+
+                    <?php if ($canAdd) { ?>
                         <!-- cover crop modal => Start -->
                         <div id="crop-modal" tabindex="-1" aria-hidden="true" class="modal fade" data-backdrop="static">
                             <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -471,46 +536,21 @@ if (!SessionUser::hasValidSession()) {
                             </div>
                         </div>
                         <!-- cover crop modal => End -->
-                    <?php
-                    }
-                    ?>
+                    <?php } ?>
 
                     <div class="modal fade" id="removeBatchConfirmModal" tabindex="-1"
                         aria-labelledby="removeBatchConfirmModalTitle" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content border-0 shadow">
-
-                                <!-- Close button -->
                                 <div class="d-flex justify-content-end pe-3 pt-3 position-relative">
-                                    <button type="button"
-                                        class="btn-close text-end"
-                                        data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
+                                    <button type="button" class="btn-close text-end" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
-
                                 <div class="modal-body text-center p-4">
-
-                                    <!-- Warning Icon -->
                                     <div class="mb-3">
-                                        <iconify-icon
-                                            icon="bx:error-circle"
-                                            width="48"
-                                            height="48"
-                                            class="text-danger">
-                                        </iconify-icon>
+                                        <iconify-icon icon="bx:error-circle" width="48" height="48" class="text-danger"></iconify-icon>
                                     </div>
-
-                                    <!-- Title -->
-                                    <h5 class="fw-semibold mb-2" id="removeBatchConfirmModalTitle">
-                                        Confirm Batch Removal
-                                    </h5>
-
-                                    <!-- Main message -->
-                                    <p class="text-muted mb-3">
-                                        You are about to remove this <strong>Batch</strong>.
-                                    </p>
-
-                                    <!-- Detailed impact explanation -->
+                                    <h5 class="fw-semibold mb-2" id="removeBatchConfirmModalTitle">Confirm Batch Removal</h5>
+                                    <p class="text-muted mb-3">You are about to remove this <strong>Batch</strong>.</p>
                                     <div class="alert alert-warning text-start small mb-4">
                                         <div class="d-flex align-items-start gap-2">
                                             <iconify-icon icon="mdi:alert-outline" width="20"></iconify-icon>
@@ -524,23 +564,13 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- Action buttons -->
                                     <div class="d-flex justify-content-center gap-3">
-                                        <button type="button"
-                                            class="btn btn-outline-secondary px-4 br-0"
-                                            data-bs-dismiss="modal">
-                                            Cancel
-                                        </button>
-
-                                        <button type="button"
-                                            id="confirmRemoveBatch"
-                                            class="btn btn-danger px-4 br-0">
+                                        <button type="button" class="btn btn-outline-secondary px-4 br-0" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" id="confirmRemoveBatch" class="btn btn-danger px-4 br-0">
                                             <iconify-icon icon="mdi:delete-outline" class="me-1"></iconify-icon>
                                             Remove Intake
                                         </button>
                                     </div>
-
                                 </div>
                             </div>
                         </div>
@@ -550,6 +580,7 @@ if (!SessionUser::hasValidSession()) {
                     <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
                     <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
                     <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                    <script src="./assets/js/intake-actions.js?v=<?= Project::getVersion() ?>"></script>
                 </body>
 
                 </html>

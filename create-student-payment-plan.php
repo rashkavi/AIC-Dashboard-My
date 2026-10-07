@@ -13,15 +13,15 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id']))) {
+        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['registration-id']) && !empty($_GET['registration-id']))) {
             header("Location: ./students");
         } else {
-            $leadId = (int) $_GET["inquiry-id"];
+            $leadId = (int) $_GET["registration-id"];
 
             $lead = Database::search("
     SELECT 
                                                              `students`.`student_id` AS 'sId', 
-                                                         
+                                                            `students_has_intakes`.`students_has_intakes_id` AS 'shiId',
                                                              `login_details`.`first_name`, 
                                                              `login_details`.`last_name`, 
                                                              `login_details`.`email`, 
@@ -49,12 +49,12 @@ if (!SessionUser::hasValidSession()) {
                                                          
                                                          INNER JOIN `title`
                                                              ON `students`.`title_title_id` = `title`.`title_id`
-                                                         
-                                                         INNER JOIN `lead_student_status`
-                                                             ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
                                                          INNER JOIN `students_has_intakes`
-                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`                                                      
-                                                         WHERE `students`.`student_id` = '" . $leadId . "'
+                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                                                         INNER JOIN `lead_student_status`
+                                                             ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                                                                             
+                                                         WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $leadId . "'
                                                          AND `lead_student_status_lead_student_status_id`='1'
                                                             GROUP BY `students`.`student_id`
                                                          ORDER BY `students`.`student_id` DESC
@@ -531,7 +531,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                             <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
                                                                 <button class="custom-btn w-100"
-                                                                    onclick="createStudentPaymentPlan(this, <?= (int)$lead['sId'] ?>);">
+                                                                    onclick="createStudentPaymentPlan(this, <?= (int)$lead['shiId'] ?>);">
                                                                     Save Payment Plan
                                                                 </button>
                                                             </div>
@@ -755,7 +755,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                             <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
                                                                 <button class="custom-btn w-100"
-                                                                    onclick="createCustomStudentPaymentPlan(this, <?= (int)$lead['sId'] ?>);">
+                                                                    onclick="createCustomStudentPaymentPlan(this, <?= (int)$lead['shiId'] ?>);">
                                                                     Save Payment Plan
                                                                 </button>
                                                             </div>

@@ -297,14 +297,12 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </td>
 
                                                                                 <?php
-
                                                                                 if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 4) || UserPermissions::hasPermission('users', 10)) {
                                                                                 ?>
                                                                                     <td class="py-3 align-middle">
                                                                                         <div class="dropdown">
                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                             <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-
                                                                                                 <?php
                                                                                                 if (!empty($data['user_verification']) && empty($data['user_reset_time'])) {
                                                                                                 ?>
@@ -438,31 +436,6 @@ if (!SessionUser::hasValidSession()) {
                 </div>
             </div>
 
-            <!-- Confirmation Modal=>Start -->
-            <div class="modal fade  confirmation " id="confirmation" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content p-4">
-                        <div class="modal-header p-0 border-0">
-                            <h1 class="modal-title text-16 text-dark-color" id="editPaymentLabel">Confirmation Message</h1>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="model-body p-0 mt-3">
-                            <div class="col-12 container-fluid p-0">
-                                <div class="d-flex flex-row align-items-center">
-                                    <iconify-icon icon="fluent:question-circle-16-filled" class="dark-blue" width="40" height="40"></iconify-icon>
-                                    <p class="text-16 main-text px-2 m-0">Would you like to remove selected
-                                        examination ?</p>
-                                </div>
-                                <div class="col-12 d-flex flex-row align-items-center justify-content-end mt-3">
-                                    <button class="custom-btn px-5 pe-5 me-3">Yes</button>
-                                    <button class="custom-btn component-theme bl-solid main-text px-5 pe-5">No</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- Confirmation Modal => End -->
 
             <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
             <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>

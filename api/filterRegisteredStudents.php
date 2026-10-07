@@ -40,10 +40,15 @@ if (SessionUser::hasValidSession()) {
                 LEFT JOIN `students_has_intakes` AS `shi`
                     ON `s`.`student_id` = `shi`.`students_student_id` 
                     AND `shi`.`intakes_intake_id` = '" . $intake_id . "'
-                WHERE `shi`.`students_student_id` IS NULL";
+                WHERE `shi`.`students_student_id` IS NULL
+                AND `s`.`enrolled_status` = 'ENROLLED'";
                           
                     if ($search_text != "") {
-                        $query .= " AND (`first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                        $query .= " AND (`first_name` LIKE '%" . $search_text . "%' 
+                        OR `last_name` LIKE '%" . $search_text . "%' 
+                        OR CONCAT(`first_name`, ' ', `last_name`) LIKE '%" . $search_text . "%'
+                        OR `email` LIKE '%" . $search_text . "%' 
+                        OR `mobile` LIKE '%" . $search_text . "%')";
                     }
 
                     if ($sort != 0) {

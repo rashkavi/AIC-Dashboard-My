@@ -109,14 +109,14 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row align-items-center justify-content-center">
                                                         <img src="./assets/imgs/common/setup.png" class="no-data-icon" alt="No data" />
                                                         <span class="sub-topic text-center d-block">
-                                                            Payment Group Not Configured
+                                                            Payment Plan Not Configured
                                                         </span>
                                                         <span class="text-center d-block mt-1">
-                                                            This intake does not have any payment group assigned yet.
-                                                            Please create or assign a payment group to proceed with managing student payments.
+                                                            This intake does not have any payment plan assigned yet.
+                                                            Please create or assign a payment plan to proceed with managing student payments.
                                                         </span>
                                                         <div class="text-center">
-                                                            <button class="custom-btn mt-3 px-5" onclick="window.location.href='add-intake-payment-plan?intake-id=<?= $id ?>'">Add Payment Group</button>
+                                                            <button class="custom-btn mt-3 px-5" onclick="window.location.href='add-intake-payment-plan?intake-id=<?= $id ?>'">Add Payment Plan</button>
                                                         </div>
                                                     </div>
                                                 </div>

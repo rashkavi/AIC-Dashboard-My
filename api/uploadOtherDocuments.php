@@ -18,7 +18,7 @@ if (SessionUser::hasValidSession()) {
                 INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
                 INNER JOIN `title` ON `students`.`title_title_id`=`title`.`title_id`
                 INNER JOIN `students_has_intakes` ON `students`.`student_id`=`students_has_intakes`.`students_student_id`
-                WHERE `students`.`student_id`='" . $id . "'");
+                WHERE `students_has_intakes`.`students_has_intakes_id`='" . $id . "'");
 
                 if ($isHasId->num_rows == 0) {
                     $status->error = "Invalid student Id";
@@ -103,13 +103,12 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        uploadStudentDocuments($student["sId"], $studentDocuments);
+                        uploadStudentDocuments($student["sId"], $id, $studentDocuments);
 
-                      
-                            Database::iud("INSERT INTO `students_logs` 
-                            (`students_student_id`, `date_updated`, `users_user_id`,`log`)
+                        Database::iud("INSERT INTO `students_logs` 
+                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`,`log`)
                              VALUES ('" . $id . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Upload Other Documents')");
-                        
+
 
 
                         $status->done =  "Other Documents Uploaded Successfully";
@@ -159,7 +158,10 @@ function validateStudentDocuments($id)
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
 
     $requiredDocuments = [
-        "passport_nic",
+        "payment_slip",
+        "discount_approved_document",
+        "signed_fee_structure",
+        "aic_application"
     ];
 
     $removeIds = [];
@@ -183,8 +185,8 @@ function validateStudentDocuments($id)
     $isUploadDocument = Database::search("
         SELECT *
         FROM `students_identity_documents`
-        WHERE `students_student_id` = '" . $id . "'
-        AND `students_identity_documents_type_id` IN (5,8)
+        WHERE `students_has_intakes_students_has_intakes_id` = '" . $id . "'
+        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
         $notInQuery
     ");
 
@@ -209,12 +211,37 @@ function validateStudentDocuments($id)
                     unset($requiredDocuments[$key]);
                 }
             }
+
+            if ($data['students_identity_documents_type_id'] == 11) {
+
+                $key = array_search("discount_approved_document", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 12) {
+
+                $key = array_search("signed_fee_structure", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
+
+            if ($data['students_identity_documents_type_id'] == 1) {
+
+                $key = array_search("aic_application", $requiredDocuments);
+
+                if ($key !== false) {
+                    unset($requiredDocuments[$key]);
+                }
+            }
         }
     }
 
     $requiredDocuments = array_values($requiredDocuments);
-
-
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
@@ -334,7 +361,7 @@ function getStudentDocumentTypeConfig()
             "folder" => "discount-approved-documents",
             "prefix" => "DISCOUNT_APPROVED_DOCUMENT"
         ],
-          "signed_fee_structure" => [
+        "signed_fee_structure" => [
             "type_id" => 12,
             "folder" => "signed-fee-structure",
             "prefix" => "SIGNED_FEE_STRUCTURE"
@@ -363,14 +390,20 @@ function normalizeFilesArray($fileInput)
     return $files;
 }
 
-function uploadStudentDocuments($studentId, $studentDocuments)
+function uploadStudentDocuments($studentId, $studentHasIntakeId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
+
+    // Load is_common flag for each document type
+    $commonMap = [];
+    $typeResult = Database::search("SELECT `students_identity_documents_type_id`, `is_common` FROM `students_identity_documents_type`");
+    while ($t = $typeResult->fetch_assoc()) {
+        $commonMap[(int)$t['students_identity_documents_type_id']] = (int)$t['is_common'];
+    }
 
     foreach ($studentDocuments["files"] as $doc) {
 
-        $typeId = $doc["type_id"];
+        $typeId = (int)$doc["type_id"];
         $folder = $doc["folder"];
         $prefix = $doc["prefix"];
         $file = $doc["file"];
@@ -383,26 +416,30 @@ function uploadStudentDocuments($studentId, $studentDocuments)
         }
 
         $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
-
         $serverPath = $uploadDir . $newFileName;
 
         if (move_uploaded_file($file["tmp_name"], $serverPath)) {
 
-            $dbPath = $newFileName;
+            $isCommon = isset($commonMap[$typeId]) ? $commonMap[$typeId] : 1;
+
+            // Common docs belong to the student only; other docs are tied to the intake
+            $shiValue = $isCommon ? "NULL" : "'" . (int)$studentHasIntakeId . "'";
 
             Database::iud("
                 INSERT INTO `students_identity_documents`
                 (
                     `students_student_id`,
+                    `students_has_intakes_students_has_intakes_id`,
                     `students_identity_documents_type_id`,
                     `document`,
                     `date_added`
                 )
                 VALUES
                 (
-                    '" . $studentId . "',
+                    '" . (int)$studentId . "',
+                    " . $shiValue . ",
                     '" . $typeId . "',
-                    '" . $dbPath . "',
+                    '" . $newFileName . "',
                     NOW()
                 )
             ");

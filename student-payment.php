@@ -521,6 +521,7 @@ if (!SessionUser::hasValidSession()) {
                             <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
                             <script src="./assets/js/translations.js?= Project::getVersion() ?>"></script>
                             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
                         </head>
 
                         <style>
@@ -1695,7 +1696,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <button class="table-btn table-btn-primary py-2 px-3" onclick="downloadReceipt()">
                                                         <iconify-icon icon="mdi:download" width="14" style="vertical-align:-2px;margin-right:4px;"></iconify-icon>Download PDF
                                                     </button>
-                                                    <button class="table-btn table-btn-success py-2 px-3" onclick="sendReceiptEmail()" id="send-invoice-btn">
+                                                    <button class="table-btn table-btn-success py-2 px-3" id="send-invoice-btn">
                                                         <iconify-icon icon="mdi:email-send-outline" width="14" style="vertical-align:-2px;margin-right:4px;"></iconify-icon>Send Invoice
                                                     </button>
                                                 </div>
@@ -1712,6 +1713,42 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                             <?php endif; ?>
 
+
+                            <div class="modal fade" id="sendReceiptStatusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+                                <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+                                    <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+                                        <div class="modal-body" style="padding:28px 26px 22px;">
+                                            <div style="text-align:center;margin-bottom:18px;">
+                                                <div id="srs-header-icon" style="width:48px;height:48px;border-radius:50%;background:var(--light-theme);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;transition:background .25s ease;">
+                                                    <iconify-icon icon="mdi:email-fast-outline" width="24" height="24" style="color:var(--dark-theme);"></iconify-icon>
+                                                </div>
+                                                <div id="srs-title" style="font-size:15px;font-weight:700;color:var(--dark-theme);">Sending Receipt</div>
+                                                <div id="srs-subtext" style="font-size:11px;color:#6b7280;margin-top:2px;">Please wait, this only takes a moment.</div>
+                                            </div>
+
+                                            <div id="srs-steps" style="display:flex;flex-direction:column;gap:14px;"></div>
+
+                                            <div id="srs-footer" style="display:none;text-align:center;margin-top:22px;">
+                                                <button type="button" class="custom-btn px-4" data-bs-dismiss="modal">Close</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <style>
+                                .srs-spin {
+                                    animation: srsSpin 0.8s linear infinite;
+                                    display: inline-block;
+                                }
+
+                                @keyframes srsSpin {
+                                    to {
+                                        transform: rotate(360deg);
+                                    }
+                                }
+                            </style>
+
                             <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
                             <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
                             <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
@@ -1722,6 +1759,7 @@ if (!SessionUser::hasValidSession()) {
                                 const COURSE_AMOUNT = <?= (float)$paymentData['amount'] ?>;
                                 const EXISTING_TOTAL_DISCOUNT = <?= (float)$totalDiscount ?>;
                                 const EXISTING_TOTAL_PENALTY = <?= (float)$totalPenaltyCC ?>;
+                                const EXISTING_TOTAL_PENALTY_LKR = <?= (float)$totalPenaltyLKR ?>; // ground truth — always LKR, never reconvert
                                 const EXISTING_PAID_TOTAL = <?= (float)$convertedPaidTotal ?>;
                                 const baseCurrencyId = <?= (int)$paymentData['currency_id'] ?>;
                                 const lkrCurrencyId = <?= (int)$lkrCurrencyId ?>;
@@ -1843,7 +1881,6 @@ if (!SessionUser::hasValidSession()) {
 
                                     setVal('lkr-amount', COURSE_AMOUNT);
                                     setVal('lkr-discount', EXISTING_TOTAL_DISCOUNT);
-                                    setVal('lkr-penalty', EXISTING_TOTAL_PENALTY);
                                     setVal('lkr-tax', result.taxOnPayable);
                                     setVal('lkr-payable', result.payableAmount);
                                     setVal('lkr-paid', EXISTING_PAID_TOTAL);
@@ -1852,6 +1889,13 @@ if (!SessionUser::hasValidSession()) {
                                     if (balLkrEl) balLkrEl.textContent = 'LKR ' + fmt(result.balance * exchangeRate);
                                     const balSubEl = document.getElementById('lkr-balance-sub');
                                     if (balSubEl) balSubEl.textContent = currencyCode + ' ' + fmt(result.balance);
+                                    // Penalty is stored in LKR — it must stay fixed, never re-derived via CC × exchangeRate
+                                    const penValEl = document.getElementById('lkr-penalty-val');
+                                    if (penValEl) penValEl.textContent = 'LKR ' + fmt(EXISTING_TOTAL_PENALTY_LKR);
+
+                                    const penSubEl = document.getElementById('lkr-penalty-sub');
+                                    if (penSubEl) penSubEl.textContent = currencyCode + ' ' +
+                                        fmt(exchangeRate > 0 ? EXISTING_TOTAL_PENALTY_LKR / exchangeRate : EXISTING_TOTAL_PENALTY);
                                 }
 
                                 function showOverpaymentMessage(currentPayable, paidAmount, overpayTotal, overpayBase, overpayTax) {

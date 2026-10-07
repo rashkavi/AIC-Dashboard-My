@@ -29,7 +29,7 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
                         INNER JOIN `title` ON `title_title_id` = `title_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-                        WHERE `students`.`student_id` = '" . $student_id . "'");
+                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
@@ -39,8 +39,9 @@ if (SessionUser::hasValidSession()) {
                             if (empty($ms_teams_username)) {
                                 $status->ms_uname = 'Please enter student Microsoft Teams username';
                             } else {
-                                $isValidUserName = Database::search("SELECT * FROM `students` WHERE `ms_team_username` = '" . $ms_teams_username . "' 
-                                AND `student_id` != '" . $student_id . "'");
+                                $isValidUserName = Database::search("SELECT * FROM `students` 
+                                WHERE `ms_team_username` = '" . $ms_teams_username . "' 
+                                AND `student_id` != '" . $studentData['student_id'] . "'");
 
                                 if ($isValidUserName->num_rows > 0) {
                                     $status->ms_uname = 'Microsoft Teams username already exists';
@@ -53,19 +54,21 @@ if (SessionUser::hasValidSession()) {
                                 $dateTime = new DateTime("now", $timezone);
                                 $now = $dateTime->format('Y-m-d H:i:s');
 
+                                Database::iud("UPDATE `students` SET `ms_team_username` = '" . $ms_teams_username . "' WHERE `student_id` = '" . $studentData['student_id'] . "'");
+
                                 Database::iud("
-                                    UPDATE `students`
-                                    SET `lead_student_status_lead_student_status_id` = '14',
-                                    `ms_team_username` = '" . $ms_teams_username . "'
-                                    WHERE `student_id` = '" . $studentData['students_student_id'] . "'
+                                    UPDATE `students_has_intakes`
+                                    SET `lead_student_status_lead_student_status_id` = '14'
+                                 
+                                    WHERE `students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'
                                 ");
 
                                 Database::iud("
                             INSERT INTO `students_logs`
-                            (`students_student_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
+                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
                             VALUES
                             (
-                                '" . $studentData['students_student_id'] . "',
+                                '" . $studentData['students_has_intakes_id'] . "',
                                 '" . $now . "',
                                 '" . $sessionUserObject['user_id'] . "',
                                 'Confirm Academic Completion',

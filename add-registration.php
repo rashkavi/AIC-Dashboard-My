@@ -393,7 +393,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 $programmes[] = $data;
                                                             }
                                                             ?>
-                                                            <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                            <select id="programme-selector" disabled class="form-select custom-select mt-2" onchange="loadIntakes(2);">
                                                                 <option value="0">- Select -</option>
                                                             </select>
                                                             <span class="text-dark-red text-12" id="programme-feedback"></span>

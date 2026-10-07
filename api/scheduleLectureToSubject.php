@@ -147,7 +147,9 @@ if (SessionUser::hasValidSession()) {
 
                     if (!empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
                         $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
-                                                                                                                  WHERE `subjects_subject_id` NOT IN (SELECT `subjects_subject_id` FROM `subjects` WHERE `subject_group_subject_group_id` = '" . $subjectData['subject_group_subject_group_id'] . "' AND `levels_level_id`='" . $subjectData['levels_level_id'] . "') 
+                                                                                                                  WHERE `subjects_subject_id` IN (SELECT `subjects_subject_id` FROM `subjects` 
+                                                                                                                  WHERE `subject_group_subject_group_id` = '" . $subjectData['subject_group_subject_group_id'] . "' 
+                                                                                                                  AND `levels_level_id`='" . $subjectData['levels_level_id'] . "') 
                                                                                           AND `date` = '" . $lecture_date . "'
                                                                                           AND ((`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
                                                                                           OR (`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))

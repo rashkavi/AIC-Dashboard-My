@@ -380,6 +380,15 @@
     background-color: var(--light-blue);
     color: var(--dark-blue);
 }
+.status-physical {
+    background-color: var(--light-blue);
+    color: var(--dark-blue);
+}
+
+.status-hybrid {
+    background-color: var(--light-pink);
+    color: var(--dark-pink);
+}
 
 .status-upcoming {
     background-color: var(--light-blue);

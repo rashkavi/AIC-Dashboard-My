@@ -27,7 +27,7 @@ if (SessionUser::hasValidSession()) {
                         $student = Database::search("SELECT * FROM `students` 
                         INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-                        WHERE `students`.`student_id` = '" . $student_id . "'");
+                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
@@ -79,16 +79,16 @@ if (SessionUser::hasValidSession()) {
                                         $date = $dateTime->format('Y-m-d H:i:s');
 
                                         if ($paidData['payment_status_payment_status_id'] == 2) {
-                                            Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '8' WHERE `student_id` = '" . $student_id . "'");
+                                            Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '8' WHERE `students_has_intakes_id` = '" . $student_id . "'");
 
                                             Database::iud("INSERT INTO `students_logs` 
-                                        (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                        (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                          VALUES ('" . $student_id . "',  '" . $date . "', '" . $sessionUserObject['user_id'] . "','Confirm Accounts','8')");
                                         } else {
-                                            Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '11' WHERE `student_id` = '" . $student_id . "'");
+                                            Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '11' WHERE `students_has_intakes_id` = '" . $student_id . "'");
 
                                             Database::iud("INSERT INTO `students_logs` 
-                                            (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                            (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                              VALUES ('" . $student_id . "',  '" . $date . "', '" . $sessionUserObject['user_id'] . "','Confirm Accounts','11')");
                                         }
 

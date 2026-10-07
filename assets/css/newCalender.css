@@ -361,6 +361,11 @@
     color: var(--dark-blue);
 }
 
+.status-hybrid {
+    background-color: var(--light-pink);
+    color: var(--dark-pink);
+}
+
 .status-upcoming {
     background-color: var(--light-blue);
     color: var(--dark-blue);
@@ -387,7 +392,7 @@
     color: var(--dark-yellow);
 }
 
-.pro-pop-pill.watched,
+.pro-pop-pill.watched.hybrid,
 .status-postponed,
 .status-watched {
     background-color: var(--light-pink);
@@ -408,6 +413,11 @@
 .pro-pop-pill.online {
     background-color: var(--light-yellow);
     color: var(--dark-yellow);
+}
+
+.pro-pop-pill.hybrid {
+    background-color: var(--light-pink);
+    color: var(--dark-pink);
 }
 
 .pro-pop-pill.ongoing {

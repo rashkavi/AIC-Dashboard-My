@@ -70,9 +70,9 @@ if (SessionUser::hasValidSession()) {
 
                             $query = "SELECT `students`.`student_id` AS 'sId',`students_has_intakes`.`student_id` AS 'shId', `login_details`.`first_name`, `login_details`.`last_name`, `login_details`.`email`, `students`.`mobile`,`students`.`profile_img`,`title`.`title`, `status`.`status`";
 
-                            if ($lectureData["lecture_type_id"] == 2) {
-                                $query .= ", `attendance`.`attendance_id`,`attendance`.`attendance_status_attendance_status_id`";
-                            }
+                            // if ($lectureData["lecture_type_id"] == 2) {
+                            //     $query .= ", `attendance`.`attendance_id`,`attendance`.`attendance_status_attendance_status_id`";
+                            // }
 
                             $query .= "FROM `students` 
                                         INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
@@ -86,9 +86,9 @@ if (SessionUser::hasValidSession()) {
                                 ";
                             }
 
-                            if ($lectureData["lecture_type_id"] == 2) {
-                                $query .= " INNER JOIN `attendance` ON (`students`.`student_id`=`attendance`.`students_student_id` AND `attendance`.`time_table_time_table_id`='" . $lectureData["time_table_id"] . "')";
-                            }
+                            // if ($lectureData["lecture_type_id"] == 2) {
+                            //     $query .= " INNER JOIN `attendance` ON (`students`.`student_id`=`attendance`.`students_student_id` AND `attendance`.`time_table_time_table_id`='" . $lectureData["time_table_id"] . "')";
+                            // }
 
                             $query .= " WHERE `students_has_intakes`.`intakes_intake_id`='" . $lectureData["intake_id"] . "' AND `students_has_intakes`.`status_status_id`='1'";
 
@@ -202,25 +202,17 @@ if (SessionUser::hasValidSession()) {
                                                 <?php
                                                 $attendStatus = "Pending";
                                                 $attendanceId = 0;
-                                                if ($lectureData["lecture_type_id"] == 1) {
-                                                    $alreadyMarkAttendance = Database::search("SELECT `attendance_status_attendance_status_id`,`attendance_id` FROM `attendance` WHERE `students_student_id`='" . $data["sId"] . "' AND `time_table_time_table_id`='" . $lectureData["time_table_id"] . "'");
-                                                    if ($alreadyMarkAttendance->num_rows > 0) {
-                                                        $alreadyMarkAttendanceData = $alreadyMarkAttendance->fetch_assoc();
-                                                        $attendanceId = $alreadyMarkAttendanceData["attendance_id"];
-                                                        if ($alreadyMarkAttendanceData["attendance_status_attendance_status_id"] == 2) {
-                                                            $attendStatus = "Present";
-                                                        } else if ($alreadyMarkAttendanceData["attendance_status_attendance_status_id"] == 3) {
-                                                            $attendStatus = "Absent";
-                                                        }
-                                                    }
-                                                } else {
-                                                    $attendanceId = $data["attendance_id"];
-                                                    if ($data["attendance_status_attendance_status_id"] == 2) {
+                                                $alreadyMarkAttendance = Database::search("SELECT `attendance_status_attendance_status_id`,`attendance_id` FROM `attendance` WHERE `students_student_id`='" . $data["sId"] . "' AND `time_table_time_table_id`='" . $lectureData["time_table_id"] . "'");
+                                                if ($alreadyMarkAttendance->num_rows > 0) {
+                                                    $alreadyMarkAttendanceData = $alreadyMarkAttendance->fetch_assoc();
+                                                    $attendanceId = $alreadyMarkAttendanceData["attendance_id"];
+                                                    if ($alreadyMarkAttendanceData["attendance_status_attendance_status_id"] == 2) {
                                                         $attendStatus = "Present";
-                                                    } else if ($data["attendance_status_attendance_status_id"] == 3) {
+                                                    } else if ($alreadyMarkAttendanceData["attendance_status_attendance_status_id"] == 3) {
                                                         $attendStatus = "Absent";
                                                     }
                                                 }
+
                                                 ?>
                                                 <td class="px-4 py-2 align-middle">
                                                     <?php
@@ -261,7 +253,7 @@ if (SessionUser::hasValidSession()) {
                                         <tr class="justify-content-center align-middle">
                                             <td colspan="13" class="align-middle justify-content-center">
                                                 <div class="d-flex flex-column align-items-center">
-                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data"/>
+                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
                                                 </div>
                                             </td>
                                         </tr>

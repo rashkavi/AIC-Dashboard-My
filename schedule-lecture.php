@@ -233,6 +233,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <label class="text-16 main-text required" for="">Select Branch</label>
                                                             <select name="" id="branch-selector" class="form-select custom-select mt-2" onchange="loadFaculties();">
                                                                 <option value="0" selected>- Select -</option>
+                                                                <option value="-1">— Entire Institution (All Branches) —</option>
                                                                 <?php
                                                                 $query = "SELECT * FROM `branches`";
 
@@ -460,6 +461,10 @@ if (!SessionUser::hasValidSession()) {
                                                                     <input class="form-check-input text-20 mt-0 mb-0 me-2" type="checkbox" name="lectureType" id="online-check-box">
                                                                     <label class="text-16 sub-text mx-2">Online</label>
                                                                 </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input text-20 mt-0 mb-0 me-2" type="checkbox" name="lectureType" id="hybrid-check-box">
+                                                                    <label class="text-16 sub-text mx-2">Hybrid</label>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div class="col-12 d-flex flex-column mb-4 d-none" id="lecture-link-area">
@@ -496,9 +501,31 @@ if (!SessionUser::hasValidSession()) {
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
                 <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
-                <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                <!-- <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script> -->
                 <script src="./assets/js/fileChooser.js"></script>
                 <script>
+                    const applyValidation = (response, validationMap, showMsg = true) => {
+                        if (showMsg) {
+                            showToast('error', 'Something went wrong.Check data fields and try again');
+                        }
+                        $('.contentBodyArea').animate({
+                            scrollTop: 0
+                        }, 'fast');
+                        Object.entries(validationMap).forEach(([key, selectors]) => {
+                            const [input, feedback] = selectors;
+
+                            if (response[key]) {
+                                $(input).addClass("is-invalid");
+                                $(feedback).text(response[key]);
+                            } else {
+                                $(input).removeClass("is-invalid");
+                                $(feedback).text("");
+                            }
+                        });
+                    }
+
+
+
                     const oneTime = document.getElementById("oneTimeLecture");
                     const recurring = document.getElementById("recurringLecture");
                     const recurringSection = document.getElementById("recurring-section");
@@ -767,6 +794,7 @@ if (!SessionUser::hasValidSession()) {
                         form.append("title", $("#title").val());
                         form.append("physical", $("#physical-check-box").is(":checked") ? true : false);
                         form.append("online", $("#online-check-box").is(":checked") ? true : false);
+                        form.append("hybrid", $("#hybrid-check-box").is(":checked") ? true : false);
                         form.append("link", $("#link-input").val());
                         form.append("one_time", $("#oneTimeLecture").is(":checked") ? true : false);
                         form.append("recurring", $("#recurringLecture").is(":checked") ? true : false);
@@ -843,6 +871,390 @@ if (!SessionUser::hasValidSession()) {
                     };
                 </script>
 
+
+                <script>
+                    /* =====================================================================
+                     * Single-branch lecture schedule — cascading selectors with
+                     * "Entire X" wildcard support at every level (branch → subject).
+                     *
+                     * WILDCARD_VALUE ("-1") means "don't narrow further, apply to the
+                     * whole parent scope". Value "0" still means "nothing chosen yet"
+                     * (invalid — same as before).
+                     *
+                     * Because Lecturer is always required (you always need a real person
+                     * to run the lecture), it has two population modes:
+                     *   - "subject" mode: populated from api/loadLecturers.php?id=<subject>,
+                     *     value = a subject-bound `lecturers_id` row (unchanged behavior).
+                     *   - "broad" mode: populated from api/loadLecturersByScope.php,
+                     *     value = `users_user_id`. Used whenever Subject (or anything above
+                     *     it in the cascade) was wildcarded, or a wildcard higher up left
+                     *     Subject at its unselected placeholder.
+                     * The selected mode is tracked via a data-lecturer-mode attribute and
+                     * read in scheduleLecture() to decide which POST field to send.
+                     *
+                     * IMPORTANT: loadLecturers() decides "broad vs subject" mode by whether
+                     * Subject holds a CONCRETE value (not "0", not WILDCARD_VALUE) — not by
+                     * checking for WILDCARD_VALUE alone. That's because resetDownstreamFrom()
+                     * (called whenever an ancestor selector is wildcarded) clears Subject back
+                     * to the "0" placeholder, not to WILDCARD_VALUE. Checking only for the
+                     * literal wildcard value would miss that case entirely.
+                     * ===================================================================== */
+
+                    const WILDCARD_VALUE = "-1";
+                    const PLACEHOLDER_OPTION_HTML = "<option value='0'>- Select -</option>";
+
+                    // Order matters — this is the cascade chain used for disabling/clearing
+                    // everything "downstream" of a given selector.
+                    const scheduleChain = [
+                        "branch-selector",
+                        "faculty-selector",
+                        "programme-selector",
+                        "intake-selector",
+                        "level-selector",
+                        "subject-selector",
+                        "lecturer-selector",
+                    ];
+
+                    // e.g. "faculty-selector" -> "faculty-feedback"
+                    const feedbackIdFor = (selectorId) => selectorId.replace("-selector", "-feedback");
+
+                    /**
+                     * Disable + clear every selector strictly AFTER `fromSelectorId` in the
+                     * chain. Called whenever a parent selector changes (fresh data invalidates
+                     * whatever was picked further down) or when a wildcard is chosen (nothing
+                     * below a wildcard is meaningful anymore).
+                     */
+                    const resetDownstreamFrom = (fromSelectorId) => {
+                        const idx = scheduleChain.indexOf(fromSelectorId);
+                        if (idx === -1) return;
+
+                        for (let i = idx + 1; i < scheduleChain.length; i++) {
+                            const id = scheduleChain[i];
+                            $(`#${id}`)
+                                .html(PLACEHOLDER_OPTION_HTML)
+                                .attr("disabled", true)
+                                .removeClass("is-invalid")
+                                .removeAttr("data-lecturer-mode");
+                            $(`#${feedbackIdFor(id)}`).text("");
+                        }
+                    };
+
+                    /**
+                     * Prepend an "— Entire {label} —" option to a raw <option> list returned
+                     * by the loadX.php endpoints (which currently just return the "- Select -"
+                     * option plus the real rows). Inserted right after the first </option> so
+                     * it sits directly under the placeholder.
+                     */
+                    const insertWildcardOption = (optionsHtml, wildcardLabel) => {
+                        const wildcardOption = `<option value="${WILDCARD_VALUE}">— ${wildcardLabel} —</option>`;
+                        const firstCloseTag = optionsHtml.indexOf("</option>");
+                        if (firstCloseTag === -1) return wildcardOption + optionsHtml;
+                        const insertAt = firstCloseTag + "</option>".length;
+                        return optionsHtml.slice(0, insertAt) + wildcardOption + optionsHtml.slice(insertAt);
+                    };
+
+                    /**
+                     * Walks the chain from Subject up to Branch and returns the deepest
+                     * concretely-selected (non-zero, non-wildcard) scope. Used to figure out
+                     * what to scope the "broad" lecturer list by once Subject is wildcarded
+                     * (or left unselected because an ancestor was wildcarded).
+                     * Returns null if even Branch is wildcarded/unselected (entire institution).
+                     */
+                    const findDeepestConcreteScope = () => {
+                        const scopeOrder = [{
+                                type: "level",
+                                id: "#level-selector"
+                            },
+                            {
+                                type: "intake",
+                                id: "#intake-selector"
+                            },
+                            {
+                                type: "programme",
+                                id: "#programme-selector"
+                            },
+                            {
+                                type: "faculty",
+                                id: "#faculty-selector"
+                            },
+                            {
+                                type: "branch",
+                                id: "#branch-selector"
+                            },
+                        ];
+                        for (const scope of scopeOrder) {
+                            const val = $(scope.id).val();
+                            if (val && val !== "0" && val !== WILDCARD_VALUE) {
+                                return {
+                                    type: scope.type,
+                                    id: val
+                                };
+                            }
+                        }
+                        return null;
+                    };
+
+                    const loadFaculties = () => {
+                        const branch = $("#branch-selector").val();
+                        $("#branch-selector").removeClass("is-invalid");
+                        $("#branch-feedback").text("");
+
+                        if (branch === WILDCARD_VALUE) {
+                            resetDownstreamFrom("branch-selector");
+                            loadLecturers();
+                            return;
+                        }
+
+                        fetch(`api/loadFaculties.php?id=${branch}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#faculty-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('branch')) {
+                                        $("#faculty-selector").attr("disabled", true);
+                                        $("#faculty-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#branch-selector").addClass("is-invalid");
+                                        $("#branch-feedback").text(response.branch);
+                                    }
+                                } catch (error) {
+                                    $("#branch-selector").removeClass("is-invalid");
+                                    $("#branch-feedback").text("");
+                                    $("#faculty-selector").removeAttr("disabled");
+                                    $("#faculty-selector").html(insertWildcardOption(data, "Entire Branch (All Faculties)"));
+                                    resetDownstreamFrom("faculty-selector");
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+
+                    const loadProgrammes = () => {
+                        const faculty = $("#faculty-selector").val();
+                        $("#faculty-selector").removeClass("is-invalid");
+                        $("#faculty-feedback").text("");
+
+                        if (faculty === WILDCARD_VALUE) {
+                            resetDownstreamFrom("faculty-selector");
+                            loadLecturers();
+                            return;
+                        }
+
+                        fetch(`api/loadProgrammes.php?id=${faculty}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#programme-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('faculty')) {
+                                        $("#programme-selector").attr("disabled", true);
+                                        $("#programme-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#faculty-selector").addClass("is-invalid");
+                                        $("#faculty-feedback").text(response.faculty);
+                                    }
+                                } catch (error) {
+                                    $("#faculty-selector").removeClass("is-invalid");
+                                    $("#faculty-feedback").text("");
+                                    $("#programme-selector").removeAttr("disabled");
+                                    $("#programme-selector").html(insertWildcardOption(data, "Entire Faculty (All Programmes)"));
+                                    resetDownstreamFrom("programme-selector");
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+
+                    const loadIntakes = () => {
+                        const programme = $("#programme-selector").val();
+                        $("#programme-selector").removeClass("is-invalid");
+                        $("#programme-feedback").text("");
+
+                        if (programme === WILDCARD_VALUE) {
+                            resetDownstreamFrom("programme-selector");
+                            loadLecturers();
+                            return;
+                        }
+
+                        fetch(`api/loadIntakes.php?id=${programme}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#intake-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('programme')) {
+                                        $("#intake-selector").attr("disabled", true);
+                                        $("#intake-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#programme-selector").addClass("is-invalid");
+                                        $("#programme-feedback").text(response.programme);
+                                    }
+                                } catch (error) {
+                                    $("#programme-selector").removeClass("is-invalid");
+                                    $("#programme-feedback").text("");
+                                    $("#intake-selector").removeAttr("disabled");
+                                    $("#intake-selector").html(insertWildcardOption(data, "Entire Programme (All Intakes)"));
+                                    resetDownstreamFrom("intake-selector");
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+
+                    const loadLevels = () => {
+                        const intake = $("#intake-selector").val();
+                        $("#intake-selector").removeClass("is-invalid");
+                        $("#intake-feedback").text("");
+
+                        if (intake === WILDCARD_VALUE) {
+                            resetDownstreamFrom("intake-selector");
+                            loadLecturers();
+                            return;
+                        }
+
+                        fetch(`api/loadLevels.php?id=${intake}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#level-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('intake')) {
+                                        $("#level-selector").attr("disabled", true);
+                                        $("#level-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#intake-selector").addClass("is-invalid");
+                                        $("#intake-feedback").text(response.intake);
+                                    }
+                                } catch (error) {
+                                    $("#intake-selector").removeClass("is-invalid");
+                                    $("#intake-feedback").text("");
+                                    $("#level-selector").removeAttr("disabled");
+                                    // NOTE: Level has no dedicated column on `time_table` — choosing
+                                    // "Entire Intake" here collapses to the same stored scope as
+                                    // wildcarding Intake itself. It's offered anyway for UX symmetry.
+                                    $("#level-selector").html(insertWildcardOption(data, "Entire Intake (All Levels)"));
+                                    resetDownstreamFrom("level-selector");
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+
+                    const loadSubjects = () => {
+                        const level = $("#level-selector").val();
+                        $("#level-selector").removeClass("is-invalid");
+                        $("#level-feedback").text("");
+
+                        if (level === WILDCARD_VALUE) {
+                            resetDownstreamFrom("level-selector");
+                            loadLecturers();
+                            return;
+                        }
+
+                        fetch(`api/loadSubjects.php?id=${level}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#subject-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('level')) {
+                                        $("#subject-selector").attr("disabled", true);
+                                        $("#subject-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#level-selector").addClass("is-invalid");
+                                        $("#level-feedback").text(response.level);
+                                    }
+                                } catch (error) {
+                                    $("#level-selector").removeClass("is-invalid");
+                                    $("#level-feedback").text("");
+                                    $("#subject-selector").removeAttr("disabled");
+                                    $("#subject-selector").html(insertWildcardOption(data, "Entire Level (All Subjects)"));
+                                    resetDownstreamFrom("subject-selector");
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+
+                    const loadLecturers = () => {
+                        const subject = $("#subject-selector").val();
+                        $("#subject-selector").removeClass("is-invalid");
+                        $("#subject-feedback").text("");
+
+                        // "Broad" mode applies whenever Subject isn't a concrete pick — either it
+                        // was explicitly wildcarded, OR it's sitting at the "0" placeholder because
+                        // resetDownstreamFrom() cleared it after an ancestor (branch, faculty,
+                        // programme, intake, level) was wildcarded. Checking the literal value
+                        // against WILDCARD_VALUE alone misses that second, much more common case.
+                        const subjectIsConcrete = subject && subject !== "0" && subject !== WILDCARD_VALUE;
+
+                        if (!subjectIsConcrete) {
+                            const scope = findDeepestConcreteScope();
+
+                            // No ancestor concretely selected → entire institution. Fetch every
+                            // active lecturer via type=all instead of disabling the field.
+                            const scopeType = scope ? scope.type : "all";
+                            const scopeId = scope ? scope.id : "0";
+
+                            fetch(`api/loadLecturersByScope.php?type=${scopeType}&id=${scopeId}`)
+                                .then((response) => response.text())
+                                .then((data) => {
+                                    try {
+                                        const response = JSON.parse(data);
+                                        if (response.hasOwnProperty('error')) {
+                                            showToast("error", response.error);
+                                            $("#lecturer-selector").attr("disabled", true);
+                                        }
+                                    } catch (error) {
+                                        $("#lecturer-selector")
+                                            .removeAttr("disabled")
+                                            .attr("data-lecturer-mode", "broad")
+                                            .html(data);
+                                    }
+                                })
+                                .catch(() => showToast("error", "An error occured. Please try again later."));
+                            return;
+                        }
+
+                        fetch(`api/loadLecturers.php?id=${subject}`)
+                            .then((response) => response.text())
+                            .then((data) => {
+                                try {
+                                    const response = JSON.parse(data);
+                                    if (response.hasOwnProperty('error')) {
+                                        showToast("error", response.error);
+                                        $("#lecturer-selector").attr("disabled", true);
+                                    } else if (response.hasOwnProperty('subject')) {
+                                        $("#lecturer-selector").attr("disabled", true);
+                                        $("#lecturer-selector").html(PLACEHOLDER_OPTION_HTML);
+                                        $("#subject-selector").addClass("is-invalid");
+                                        $("#subject-feedback").text(response.subject);
+                                    }
+                                } catch (error) {
+                                    $("#subject-selector").removeClass("is-invalid");
+                                    $("#subject-feedback").text("");
+                                    $("#lecturer-selector")
+                                        .removeAttr("disabled")
+                                        .attr("data-lecturer-mode", "subject")
+                                        .html(data);
+                                }
+                            })
+                            .catch((error) => {
+                                showToast("error", "An error occured. Please try again later.");
+                            });
+                    }
+                </script>
             </body>
 
             </html>

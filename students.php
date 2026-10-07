@@ -12,6 +12,45 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+        $squery = "
+                                                           SELECT 
+                                                               `students`.`student_id` AS 'sId', 
+                                                               `first_name`, 
+                                                               `last_name`, 
+                                                               `email`, 
+                                                               `mobile`, 
+                                                               `whatsapp`, 
+                                                               `students`.`profile_img`, 
+                                                               `date_registered`, 
+                                                               `title`.`title`, 
+                                                               `status`.`status`,
+                                                               `verification`,
+                                                               `reset_time`,
+                                                               `users`.`user_fname`,
+                                                               `users`.`user_lname`,
+                                                               `title2`.`title` AS `user_title`
+                                                           FROM 
+                                                               `students`
+                                                           INNER JOIN 
+                                                               `login_details` 
+                                                               ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
+                                                           INNER JOIN 
+                                                               `title` 
+                                                               ON `students`.`title_title_id` = `title`.`title_id`
+                                                           INNER JOIN 
+                                                               `status` 
+                                                               ON `login_details`.`status_status_id` = `status`.`status_id`
+                                                            LEFT JOIN `users`
+                                                                ON `students`.`users_user_id` = `users`.`user_id`
+                                                            LEFT JOIN `title` AS `title2`
+                                                                ON `users`.`title_title_id` = `title2`.`title_id`
+                                                            WHERE `enrolled_status` = 'ENROLLED'
+                                                           ORDER BY 
+                                                               `students`.`student_id` DESC
+                                                       ";
+
+        $results = Database::search($squery);
 ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -117,13 +156,8 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
                                                     <div class="col-4 col-md-2 d-flex flex-column justify-content-start">
                                                         <div class="d-flex custom-div align-items-center justify-content-center">
-                                                            <?php
-                                                            $studentCount = Database::search("SELECT COUNT(DISTINCT `student_id`) AS unique_student_count FROM `students`
-                                                            INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
-                                                            INNER JOIN `status` ON `login_details`.`status_status_id` = `status`.`status_id`");
-                                                            $data = $studentCount->fetch_assoc();
-                                                            ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?= $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
+
+                                                            <span class="text-14 dark-theme fw-medium" id="student-count"><?= $results->num_rows; ?> <span data-i18n="students">Students</span></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">
@@ -142,7 +176,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12">
                                                                 <div class="row justify-content-end">
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                        <select name="" id="branch-selector" class="form-select custom-select" onchange="loadFaculties(),handleStudentsPagination('filter');">
+                                                                        <select name="" id="branch-selector" class="form-select custom-select" onchange="handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Branch -</option>
                                                                             <?php
                                                                             $query = "SELECT * FROM `branches`";
@@ -150,7 +184,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             $branches = Database::search($query);
                                                                             while ($data = $branches->fetch_assoc()) {
                                                                             ?>
-                                                                                <option value="<?= $data["branch_id"]; ?>"><?= $data["branch"]; ?></option>
+                                                                                <option value="<?= $data["branch"]; ?>"><?= $data["branch"]; ?></option>
                                                                             <?php
                                                                             }
                                                                             ?>
@@ -158,15 +192,15 @@ if (!SessionUser::hasValidSession()) {
                                                                         <span id="branch-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                        <select name="" id="faculty-selector" class="form-select custom-select" onchange="loadProgrammes(),handleStudentsPagination('filter');">
+                                                                        <select name="" id="faculty-selector" class="form-select custom-select" onchange="handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Faculty -</option>
                                                                             <?php
-                                                                            $query = "SELECT * FROM `faculties`";
+                                                                            $query = "SELECT DISTINCT(`faculty`) FROM `faculties`";
 
                                                                             $faculties = Database::search($query);
                                                                             while ($data = $faculties->fetch_assoc()) {
                                                                             ?>
-                                                                                <option value="<?= $data["faculty_id"]; ?>"><?= $data["faculty"]; ?></option>
+                                                                                <option value="<?= $data["faculty"]; ?>"><?= $data["faculty"]; ?></option>
                                                                             <?php
                                                                             }
                                                                             ?>
@@ -174,15 +208,15 @@ if (!SessionUser::hasValidSession()) {
                                                                         <span id="faculty-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                        <select name="" id="programme-selector" disabled class="form-select custom-select" onchange="loadIntakes(),handleStudentsPagination('filter');">
+                                                                        <select name="" id="programme-selector" class="form-select custom-select" onchange="handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Programme -</option>
                                                                             <?php
-                                                                            $query = "SELECT * FROM `programmes`";
+                                                                            $query = "SELECT DISTINCT(`programme`) FROM `programmes`";
 
                                                                             $programmes = Database::search($query);
                                                                             while ($data = $programmes->fetch_assoc()) {
                                                                             ?>
-                                                                                <option value="<?= $data["programme_id"]; ?>"><?= $data["programme"]; ?></option>
+                                                                                <option value="<?= $data["programme"]; ?>"><?= $data["programme"]; ?></option>
                                                                             <?php
                                                                             }
                                                                             ?>
@@ -190,15 +224,15 @@ if (!SessionUser::hasValidSession()) {
                                                                         <span id="programme-feedback" class="text-dark-red text-12"></span>
                                                                     </div>
                                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                        <select name="" id="intake-selector" disabled class="form-select custom-select" onchange="handleStudentsPagination('filter');">
+                                                                        <select name="" id="intake-selector" class="form-select custom-select" onchange="handleStudentsPagination('filter');">
                                                                             <option value="0" selected>- Select Intake -</option>
                                                                             <?php
-                                                                            $query = "SELECT * FROM `intakes`";
+                                                                            $query = "SELECT DISTINCT(`intake`) FROM `intakes`";
 
                                                                             $intakes = Database::search($query);
                                                                             while ($data = $intakes->fetch_assoc()) {
                                                                             ?>
-                                                                                <option value="<?= $data["intake_id"]; ?>"><?= $data["intake"]; ?></option>
+                                                                                <option value="<?= $data["intake"]; ?>"><?= $data["intake"]; ?></option>
                                                                             <?php
                                                                             }
                                                                             ?>
@@ -285,45 +319,9 @@ if (!SessionUser::hasValidSession()) {
                                                                 ?>
                                                             </tr>
                                                         </thead>
-                                                        <tbody id="user-table-data">
+                                                        <tbody id="students-table-data" data-student-count="<?= $results->num_rows ?>">
                                                             <?php
-                                                            $query = "
-                                                           SELECT 
-                                                               `students`.`student_id` AS 'sId', 
-                                                               `first_name`, 
-                                                               `last_name`, 
-                                                               `email`, 
-                                                               `mobile`, 
-                                                               `whatsapp`, 
-                                                               `students`.`profile_img`, 
-                                                               `date_registered`, 
-                                                               `title`.`title`, 
-                                                               `status`.`status`,
-                                                               `verification`,
-                                                               `reset_time`,
-                                                               `users`.`user_fname`,
-                                                               `users`.`user_lname`,
-                                                               `title2`.`title` AS `user_title`
-                                                           FROM 
-                                                               `students`
-                                                           INNER JOIN 
-                                                               `login_details` 
-                                                               ON `students`.`login_details_login_details_id` = `login_details`.`login_details_id`
-                                                           INNER JOIN 
-                                                               `title` 
-                                                               ON `students`.`title_title_id` = `title`.`title_id`
-                                                           INNER JOIN 
-                                                               `status` 
-                                                               ON `login_details`.`status_status_id` = `status`.`status_id`
-                                                            LEFT JOIN `users`
-                                                                ON `students`.`users_user_id` = `users`.`user_id`
-                                                            LEFT JOIN `title` AS `title2`
-                                                                ON `users`.`title_title_id` = `title2`.`title_id`
-                                                           ORDER BY 
-                                                               `students`.`student_id` DESC
-                                                       ";
 
-                                                            $results = Database::search($query);
                                                             $pageno = 1;
                                                             $results_count = $results->num_rows;
                                                             $result_per_page = 10;  // Consistent variable name
@@ -335,12 +333,12 @@ if (!SessionUser::hasValidSession()) {
                                                             }
 
                                                             $page_results = ($pageno - 1) * $result_per_page;
-                                                            $users = Database::search("" . $query . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
+                                                            $users = Database::search("" . $squery . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
 
                                                             if ($users->num_rows > 0) {
                                                                 while ($data = $users->fetch_assoc()) {
                                                             ?>
-                                                                    <tr>
+                                                                    <tr id="student-data-row">
                                                                         <td class="px-4 py-3 pe-0 align-middle">
                                                                             <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
                                                                                 <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?= $data["sId"]; ?>" onchange="checkRowEvents(<?= $data['sId']; ?>);">
@@ -395,23 +393,25 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 Download Student ID Card</a></li>
                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
                                                                                         <?php
-                                                                                        if (!empty($data['verification']) && empty($data['reset_time'])) {
-                                                                                        ?>
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
-                                                                                                    <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                    Resend Registration Link</a></li>
-                                                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                        <?php
-                                                                                        } else {
-                                                                                        ?>
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
-                                                                                                    <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                    Send Password Reset Link</a></li>
-                                                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                                                        <?php
-                                                                                        }
+
                                                                                         if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                                            if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                                                         ?>
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
+                                                                                                        <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                        Resend Registration Link</a></li>
+                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                            <?php
+                                                                                            } else {
+                                                                                            ?>
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
+                                                                                                        <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                        Send Password Reset Link</a></li>
+                                                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                            <?php
+                                                                                            }
+
+                                                                                            ?>
                                                                                             <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?= $data['sId']; ?>">
                                                                                                     <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     Edit</a></li>

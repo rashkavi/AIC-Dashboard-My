@@ -15,14 +15,15 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id']))) {
+        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['registration-id']) && !empty($_GET['registration-id']))) {
             header("Location: ./students");
         } else {
-            $leadId = (int) $_GET["inquiry-id"];
+            $leadId = (int) $_GET["registration-id"];
 
             $lead = Database::search("
     SELECT 
                                                              `students`.`student_id` AS 'sId', 
+                                                             `students_has_intakes`.`payment_option`,
                                                          
                                                              `login_details`.`first_name`, 
                                                              `login_details`.`last_name`, 
@@ -73,10 +74,10 @@ if (!SessionUser::hasValidSession()) {
                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                                                          
                                                          INNER JOIN `lead_student_status`
-                                                             ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                             ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
                                                          
                                                          INNER JOIN `users`
-                                                             ON `students`.`users_user_id` = `users`.`user_id`
+                                                             ON `students_has_intakes`.`counselor_user_id` = `users`.`user_id`
                                                          
                                                          INNER JOIN `title` AS `title2`
                                                              ON `users`.`title_title_id` = `title2`.`title_id`
@@ -85,7 +86,7 @@ if (!SessionUser::hasValidSession()) {
                                                              ON `sl`.`students_log_id` = (
                                                                  SELECT `sl2`.`students_log_id`
                                                                  FROM `students_logs` AS `sl2`
-                                                                 WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                 WHERE `sl2`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
                                                                    AND `sl2`.`lead_student_status_lead_student_status_id` IN (1,2,3,4)
                                                                  ORDER BY `sl2`.`date_updated` DESC
                                                                  LIMIT 1
@@ -96,9 +97,9 @@ if (!SessionUser::hasValidSession()) {
                                                          
                                                          LEFT JOIN `title` AS `updated_user_title`
                                                              ON `updated_user`.`title_title_id` = `updated_user_title`.`title_id`
-                                                         WHERE `students`.`student_id` = '" . $leadId . "'
-                                                            GROUP BY `students`.`student_id`
-                                                         ORDER BY `students`.`student_id` DESC
+                                                         WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $leadId . "'
+                                                            GROUP BY `students_has_intakes`.`students_has_intakes_id`
+                                                         ORDER BY `students_has_intakes`.`students_has_intakes_id` DESC
 ");
 
             if ($lead->num_rows == 0) {
@@ -178,7 +179,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </div>
 
                                                             <div class="col-6 mt-3 mt-lg-0 m-md-0">
-                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='create-student-payment-plan?inquiry-id=<?= $leadId ?>'">
+                                                                <button class="custom-btn w-100" type="button" onclick="window.location.href='create-student-payment-plan?registration-id=<?= $leadId ?>'">
                                                                     Create Payment Plan
                                                                 </button>
                                                             </div>
@@ -275,6 +276,13 @@ if (!SessionUser::hasValidSession()) {
                                                             }
                                                             ?>
                                                         </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 p-0 g-0 mt-3">
+                                                    <div class="row py-2 px-4 m-0 bl-solid bg-light-theme" style="border-left: 5px solid var(--dark-theme);">
+                                                        <span class="text-16 dark-theme fw-medium p-0">Payment Option (Marked by Counselor During Student Registration)</span>
+                                                        <p class="text-14 sub-text fw-medium p-0 mt-2"><?= $lead['payment_option'] ? $lead['payment_option'] : 'N/A'; ?></p>
                                                     </div>
                                                 </div>
 
@@ -453,14 +461,14 @@ if (!SessionUser::hasValidSession()) {
 
                                                 ?>
 
-                                                <div class="col-12 p-0 g-0 mt-5">
+                                                <div class="col-12 p-0 g-0 mt-3">
                                                     <div class="row p-4 m-0 bl-solid">
                                                         <span class="sub-topic p-0">Other Documents</span>
 
                                                         <?php
 
                                                         $studentIdentityDocuments = Database::search("SELECT * FROM `students_identity_documents` 
-                                                        WHERE `students_student_id` = '" . $lead['sId'] . "' AND `students_identity_documents_type_id` IN (11,12)");
+                                                        WHERE `students_has_intakes_students_has_intakes_id` = '" . $lead['shiId'] . "' AND `students_identity_documents_type_id` IN (11,12)");
                                                         if ($studentIdentityDocuments->num_rows > 0) {
                                                         ?>
                                                             <div class="col-12 mt-2">
@@ -527,7 +535,6 @@ if (!SessionUser::hasValidSession()) {
                                                                     ?>
                                                                 </div>
                                                             </div>
-
                                                         <?php
                                                         } else {
                                                         ?>
@@ -539,11 +546,8 @@ if (!SessionUser::hasValidSession()) {
                                                         <?php
                                                         }
                                                         ?>
-
                                                     </div>
                                                 </div>
-
-
 
                                                 <div class="col-12 mt-4">
                                                     <div class="row p-0 m-0 g-0">
@@ -552,12 +556,16 @@ if (!SessionUser::hasValidSession()) {
                                                                 <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                                     <div class="d-flex custom-div align-items-center justify-content-center">
                                                                         <?php
-                                                                        $logs_count = Database::search("SELECT COUNT(*) as 'count' FROM `students_logs` 
-                                                                                    WHERE `students_student_id`='" . $lead['sId'] . "'
-                                                                                    ");
-                                                                        $data = $logs_count->fetch_assoc();
+                                                                        $query = "SELECT * FROM `students_logs`
+                                                                                    INNER JOIN `users` ON `students_logs`.`users_user_id` = `users`.`user_id`
+                                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                                                                                    LEFT JOIN `lead_student_status` ON `students_logs`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                                                    WHERE `students_has_intakes_students_has_intakes_id`='" . $lead['shiId'] . "' ORDER BY `date_updated` DESC
+                                                                                    ";
+
+                                                                        $logs = Database::search($query);
                                                                         ?>
-                                                                        <span class="text-14 dark-theme fw-medium"><?= $data['count']; ?> Logs</span>
+                                                                        <span class="text-14 dark-theme fw-medium"><?= $logs->num_rows; ?> Logs</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -583,16 +591,9 @@ if (!SessionUser::hasValidSession()) {
                                                                             </thead>
                                                                             <tbody id="user-table-data">
                                                                                 <?php
-                                                                                $query = "SELECT * FROM `students_logs`
-                                                                                    INNER JOIN `users` ON `students_logs`.`users_user_id` = `users`.`user_id`
-                                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
-                                                                                    LEFT JOIN `lead_student_status` ON `students_logs`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
-                                                                                    WHERE `students_student_id`='" . $lead['sId'] . "' ORDER BY `date_updated` DESC
-                                                                                    ";
 
-                                                                                $users = Database::search($query);
-                                                                                if ($users->num_rows > 0) {
-                                                                                    while ($data = $users->fetch_assoc()) {
+                                                                                if ($logs->num_rows > 0) {
+                                                                                    while ($data = $logs->fetch_assoc()) {
                                                                                         $sbutton_class = "label-role-" . $data["lead_student_status_id"];
                                                                                 ?>
                                                                                         <tr>

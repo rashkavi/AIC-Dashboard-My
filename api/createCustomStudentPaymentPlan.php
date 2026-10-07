@@ -47,9 +47,9 @@ if (SessionUser::hasValidSession()) {
                         http_response_code(400);
                         $status->error = 'Lead is required';
                     } else {
-                        $lead = Database::search("SELECT * FROM `students_has_intakes` WHERE `students_student_id`='" . $leadId . "'");
+                        $lead = Database::search("SELECT * FROM `students_has_intakes` WHERE `students_has_intakes_id`='" . $leadId . "'");
                         if ($lead->num_rows == 0) {
-                            $status->error = 'Lead not found';
+                            $status->error = 'Registration not found';
                         } else {
                             $lead = $lead->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
@@ -559,10 +559,10 @@ if (SessionUser::hasValidSession()) {
                                     }
 
                                     // ── Update student status ────────────────────────────────────────────
-                                    Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '4' WHERE `student_id` = '" . $leadId . "'");
+                                    Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '4' WHERE `students_has_intakes_id` = '" . $leadId . "'");
 
                                     Database::iud("INSERT INTO `students_logs` 
-                                    (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                    (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                      VALUES ('" . $leadId . "', '" . $addTime . "', '" . $sessionUserObject['user_id'] . "','Payment Plan Created','4')");
 
 
@@ -654,6 +654,8 @@ if (SessionUser::hasValidSession()) {
                                                 WHERE cp.payment_plan_has_students_has_intakes_id = '" . $planId . "'
                                                 LIMIT 1
                                             ");
+
+
 
                                         $status->done = 'Payment Plan Created Successfully and emailed to ' . $studentData['email'];
                                     } catch (Exception $e) {

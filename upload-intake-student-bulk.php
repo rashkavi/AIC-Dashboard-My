@@ -19,7 +19,7 @@ if (!SessionUser::hasValidSession()) {
             $intake = Database::search("SELECT * FROM `intakes` INNER JOIN 
             `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id` 
             INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id` 
-            WHERE `intake_id` = '" . $id . "'");
+            WHERE `intake_id` = '" . $id . "' AND `intake_status` = 'ONGOING'");
             if ($intake->num_rows == 0) {
                 header("Location: ./intakes");
             } else {

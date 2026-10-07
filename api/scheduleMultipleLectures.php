@@ -41,6 +41,7 @@ if (SessionUser::hasValidSession()) {
                 $title = isset($_POST['title']) ? trim($_POST['title']) : '';
                 $physical = isset($_POST['physical']) && $_POST['physical'] === 'true' ? true : false;
                 $online = isset($_POST['online']) && $_POST['online'] === 'true' ? true : false;
+                $hybrid = isset($_POST['hybrid']) && $_POST['hybrid'] === 'true' ? true : false;
                 $link = isset($_POST['link']) ? trim($_POST['link']) : '';
                 $one_time = isset($_POST['one_time']) && $_POST['one_time'] === 'true' ? true : false;
                 $recurring = isset($_POST['recurring']) && $_POST['recurring'] === 'true' ? true : false;
@@ -104,7 +105,7 @@ if (SessionUser::hasValidSession()) {
                         $status->end_time = 'The selected date and end time is in the past';
                     }
                 }
-                if ($online && empty($link)) {
+                if (($online || $hybrid) && empty($link)) {
                     $status->link = 'Please enter a link';
                 }
 
@@ -229,7 +230,7 @@ if (SessionUser::hasValidSession()) {
                         $levelId = $lecturerInfo['levels_level_id'];
 
                         if ($one_time) {
-                            
+
                             $lecture_title = ($title !== '' ? $title . ' - ' : '') . $subjectName;
 
                             $time_table_insert_columns = "`date`,`start_time`,`end_time`,`duration`,`subjects_subject_id`,`date_added`,`lecturers_lecturers_id`,`users_user_id`,`time_table_status_time_table_status_id`,`lecture_title`";
@@ -242,6 +243,10 @@ if (SessionUser::hasValidSession()) {
                             if ($online) {
                                 $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
                                 $time_table_insert_values .= ",'2','" . Database::escape($link) . "'";
+                            }
+                            if ($hybrid) {
+                                $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
+                                $time_table_insert_values .= ",'4','" . Database::escape($link) . "'";
                             }
 
                             Database::iud("INSERT INTO `time_table` (" . $time_table_insert_columns . ") VALUES (" . $time_table_insert_values . ")");
@@ -303,6 +308,10 @@ if (SessionUser::hasValidSession()) {
                                 if ($online) {
                                     $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
                                     $time_table_insert_values .= ",'2','" . Database::escape($link) . "'";
+                                }
+                                if ($hybrid) {
+                                    $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
+                                    $time_table_insert_values .= ",'4','" . Database::escape($link) . "'";
                                 }
 
                                 Database::iud("INSERT INTO `time_table` (" . $time_table_insert_columns . ") VALUES (" . $time_table_insert_values . ")");

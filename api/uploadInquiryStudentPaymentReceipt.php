@@ -138,7 +138,9 @@ if (SessionUser::hasValidSession()) {
                                 $slipHash    = hash_file('sha256', $_FILES["slips"]["tmp_name"][$key]);
                                 $isDuplicate = Database::search(
                                     "SELECT `course_payment_slip_id` FROM `course_payment_slips`
-                                     WHERE `slip_hash` = '" . $slipHash . "'"
+                                    INNER JOIN `course_payment_has_payments` AS `cpp`
+                                        ON `course_payment_slips`.`course_payment_has_payment_id` = `cpp`.`course_payment_has_payment_id`
+                                     WHERE `slip_hash` = '" . $slipHash . "' AND `cpp`.`payment_status_payment_status_id` IN (2,3)"
                                 );
                                 if ($isDuplicate->num_rows > 0) {
                                     $status->slip[] = "$slip_name — Duplicate receipt detected. This slip was already used.";

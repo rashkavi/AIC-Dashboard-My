@@ -71,7 +71,7 @@ if (!SessionUser::hasValidSession()) {
                                         <?php
                                         include "includes/side-menu.php";
                                         if ($intake_param == 0) {
-                                            load_side_menu::load("Sudents");
+                                            load_side_menu::load("Students");
                                         } else {
                                             load_side_menu::load("Course Overview");
                                         }
@@ -84,7 +84,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <?php
                                                 include "./includes/header.php";
                                                 if ($intake_param == 0) {
-                                                    selectItem::setSelected("Sudents");
+                                                    selectItem::setSelected("Students");
                                                 } else {
                                                     selectItem::setSelected("Course Overview");
                                                 }
@@ -136,8 +136,8 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <ul class="dropdown-menu dropdown-menu-end w-100" style="min-width: max-content;">
                                                                                     <li><a class="dropdown-item" href="./intake-student-payments?student-id=<?= $id ?>">Student Payments</a></li>
                                                                                     <li><a class="dropdown-item" href="./intake-student-assignments?student-id=<?= $id ?>">Assignments</a></li>
-                                                                                    <li><a class="dropdown-item" href="./intake-student-examinations?student-id=<?= $id ?>">Examinations</a></li>
-                                                                                    <li><a class="dropdown-item" href="./intake-student-quizes?student-id=<?= $id ?>">Quizes</a></li>
+                                                                                    <!-- <li><a class="dropdown-item" href="./intake-student-examinations?student-id=<?= $id ?>">Examinations</a></li>
+                                                                                    <li><a class="dropdown-item" href="./intake-student-quizes?student-id=<?= $id ?>">Quizes</a></li> -->
                                                                                     <li><a class="dropdown-item" href="./intake-student-attendance?student-id=<?= $id ?>">Attendance</a></li>
                                                                                     <!-- <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#changedDeactiveDate">Edit Deactivate Date</a></li> -->
                                                                                     <!-- <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#assignedUser">Reassign User</a></li> -->

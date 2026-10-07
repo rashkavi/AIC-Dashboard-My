@@ -1151,8 +1151,10 @@ const initializeScheduleLecture = () => {
     $("#physical-check-box").on("change", function () {
         if ($(this).is(":checked")) {
             $("#online-check-box").prop("checked", false);
+            $("#hybrid-check-box").prop("checked", false);
         } else {
             $("#online-check-box").prop("checked", true);
+
         }
         if ($("#lecture-link-area").hasClass("d-none") == false) {
             $("#lecture-link-area").addClass("d-none");
@@ -1162,6 +1164,19 @@ const initializeScheduleLecture = () => {
     $("#online-check-box").on("change", function () {
         if ($(this).is(":checked")) {
             $("#physical-check-box").prop("checked", false);
+            $("#hybrid-check-box").prop("checked", false);
+            $("#lecture-link-area").removeClass("d-none");
+        } else {
+            $("#physical-check-box").prop("checked", true);
+            $("#hybrid-check-box").prop("checked", false);
+            $("#lecture-link-area").addClass("d-none");
+        }
+    });
+
+    $("#hybrid-check-box").on("change", function () {
+        if ($(this).is(":checked")) {
+            $("#physical-check-box").prop("checked", false);
+            $("#online-check-box").prop("checked", false);
             $("#lecture-link-area").removeClass("d-none");
         } else {
             $("#physical-check-box").prop("checked", true);
@@ -6536,13 +6551,17 @@ function hideRegistrationVerificationError() {
     area.classList.add("d-none");
 }
 
-function openAcademicAdministrationConfirmModal(studentId) {
+function openAcademicAdministrationConfirmModal(studentId,userName) {
 
     hideAcademicCompletionError();
 
     document.getElementById(
         "academicAdministrationStudentId"
     ).value = studentId;
+
+    document.getElementById(
+        "academicAdministrationTeamsUsername"
+    ).value = userName;
 
     const modal = new bootstrap.Modal(
         document.getElementById(
@@ -7222,4 +7241,102 @@ const updateIntakeHasStudentsStatus = (btn, id) => {
         showToast("warning", "Please select the desired student status change option.");
     }
 }
+
+function loadIntakeDetails(selectElement) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+    if (!selectedOption.value || selectedOption.value === '0') {
+        // reset / clear whatever fields you're populating
+        return;
+    }
+
+    const intakeName = selectedOption.getAttribute('data-name');
+    const startDate = selectedOption.getAttribute('data-start');
+    const endDate = selectedOption.getAttribute('data-end');
+
+    $("#duplicate-name").val(intakeName);
+    $("#duplicate-start-date").val(startDate);
+    $("#duplicate-end-date").val(endDate);
+
+    console.log(intakeName, startDate, endDate);
+}
+
+
+// intake close
+
+/* assets/js/intake-actions.js
+                        * Close intake + intake history. Load AFTER functions.js and bootstrap.
+                        */
+
+let closeIntakeId = null;
+
+// Uses your own notification helper if one exists, otherwise falls back to alert()
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : String(str);
+    return div.innerHTML;
+}
+
+/* ---------- Close intake ---------- */
+
+function confirmCloseIntake(intakeId, intakeName) {
+    closeIntakeId = intakeId;
+    document.getElementById("close-intake-name").textContent = intakeName;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("closeIntakeModal")).show();
+}
+
+document.getElementById("confirmCloseIntakeBtn")?.addEventListener("click", async function () {
+    if (!closeIntakeId) return;
+
+    const btn = this;
+    btn.disabled = true;
+
+    try {
+        const formData = new FormData();
+        formData.append("intake_id", closeIntakeId);
+
+        const res = await fetch("api/closeIntake.php", {
+            method: "POST",
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("closeIntakeModal")).hide();
+            applyClosedState(closeIntakeId, data.closed_date);
+            showToast("success", data.message);
+            closeIntakeId = null;
+        } else {
+            showToast("error", data.message);
+        }
+    } catch (e) {
+        showToast("error", "Something went wrong. Please try again.");
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Update the card in place, no reload
+function applyClosedState(intakeId, closedDate) {
+    const card = document.querySelector(`[data-intake-card="${intakeId}"]`);
+    if (!card) return;
+
+    card.classList.add("intake-closed");
+
+    if (!card.querySelector(".closed-ribbon")) {
+        card.insertAdjacentHTML("afterbegin", '<div class="closed-ribbon"><span>Closed</span></div>');
+    }
+
+    // closed date line under the student count
+    const info = card.querySelector(".intake-info");
+    if (info && !info.querySelector(".closed-date-line")) {
+        const d = closedDate ? closedDate.substring(0, 10) : new Date().toISOString().substring(0, 10);
+        info.insertAdjacentHTML("beforeend", `<p class="text-12 sub-text mb-0 closed-date-line">Closed on : ${escapeHtml(d)}</p>`);
+    }
+
+    // remove "Close Intake" from this card's dropdown
+    card.querySelector(".close-intake-item")?.closest("li")?.remove();
+}
+
+/* ---------- Intake history ---------- */
 

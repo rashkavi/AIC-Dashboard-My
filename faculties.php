@@ -153,7 +153,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="col-12 col-md-3 p-0 mt-3 m-md-0 m-lg-0">
                                                                 <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                                     <?php
-                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
+                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('course_overview', 0)) {
                                                                         if ($faculty['total_programmes'] > 0) {
                                                                     ?>
                                                                             <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">

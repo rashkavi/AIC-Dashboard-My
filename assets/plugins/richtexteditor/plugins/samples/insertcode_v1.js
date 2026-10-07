@@ -22,13 +22,13 @@ function RTE_Plugin_InsertCode() {
 		editor = argeditor;
 
 		editor.attachEvent("exec_command_insertcode", function (state, cmd, value) {
-			//console.log(state, cmd, value);
+			console.log(state, cmd, value);
 			obj.DoInsertCode();
 			state.returnValue = true;
 		});
 
 		editor.toolbarFactoryMap["insertcode"] = function (cmd) {
-			//console.log(cmd);
+			console.log(cmd);
 			var span = editor.createToolbarButton(cmd);
 			span.style.backgroundColor = ''
 			return span;

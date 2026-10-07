@@ -50,7 +50,7 @@ if (!SessionUser::hasValidSession()) {
 
                 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0))) {
                     header("Location: ./faculties");
                 } else {
 
@@ -342,6 +342,19 @@ if (!SessionUser::hasValidSession()) {
                                                                                     data-dependent-field="lecture-link-darea"
                                                                                     data-dependent-action="show">
                                                                                 <label class="text-14 sub-text mx-2">Online</label>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-6 col-md-3 d-flex flex-column">
+                                                                            <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
+                                                                                <input type="checkbox"
+                                                                                    id="hybrid-checkbox"
+                                                                                    name="lecture_type[]"
+                                                                                    value="hybrid"
+                                                                                    <?= $lectureData['lecture_type_lecture_type_id'] == "4" ? "checked" : '' ?>
+                                                                                    class="form-check-input text-20 mt-0 mb-0 me-2 lecture-type-checkbox"
+                                                                                    data-dependent-field="lecture-link-darea"
+                                                                                    data-dependent-action="show">
+                                                                                <label class="text-14 sub-text mx-2">Hybrid</label>
                                                                             </div>
                                                                         </div>
 

@@ -20,7 +20,6 @@ if (SessionUser::hasValidSession()) {
 
                     $student_id = isset($decoded['student_id']) ? $decoded['student_id'] : '';
 
-
                     if ($student_id == '') {
                         http_response_code(400);
                         $status->error = 'Please select a student';
@@ -28,7 +27,7 @@ if (SessionUser::hasValidSession()) {
                         $student = Database::search("SELECT * FROM `students` 
                         INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-                        WHERE `students`.`student_id` = '" . $student_id . "'");
+                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
@@ -36,7 +35,7 @@ if (SessionUser::hasValidSession()) {
 
                             $paymentPlanCreate = Database::search("SELECT * FROM `payment_plan_has_students_has_intakes` 
                             INNER JOIN `students_has_intakes` ON `payment_plan_has_students_has_intakes`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
-                            WHERE `students_student_id` = '" . $student_id . "'");
+                            WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
                             if ($paymentPlanCreate->num_rows == 0) {
                                 http_response_code(400);
                                 $status->error = 'Payment plan not created for this student';
@@ -44,28 +43,43 @@ if (SessionUser::hasValidSession()) {
 
                                 $paymentPlanCreateData = $paymentPlanCreate->fetch_assoc();
 
-                                $paymentType = 18;
+                                $paymentType = [18, 19];
                                 if ($paymentPlanCreateData['payment_category_payment_category_id'] == 4) {
-                                    $paymentType = 20;
+                                    $paymentType[] = 20;
                                 }
-                                $registrationPaymentApprove = Database::search("SELECT * FROM course_payment_has_payments
-                                INNER JOIN course_payments ON course_payment_has_payments.course_payments_course_payments_id = course_payments.course_payments_id
-                                INNER JOIN payment_plan_has_students_has_intakes ON course_payments.payment_plan_has_students_has_intakes_id=payment_plan_has_students_has_intakes.payment_plan_has_students_has_intakes_id
-                                INNER JOIN students_has_intakes ON payment_plan_has_students_has_intakes.students_has_intakes_students_has_intakes_id=students_has_intakes.students_has_intakes_id
-                                WHERE `payment_type_payment_type_id` = '" . $paymentType . "' AND `course_payment_has_payments`.`payment_status_payment_status_id` = '3' AND `students_has_intakes`.`students_student_id` = '" . $student_id . "'");
+
+                                // Build a safe IN clause (integers only)
+                                $paymentTypeIn = implode(',', array_map('intval', $paymentType));
+                                $studentIdSafe = (int) $student_id;
+
+                                $registrationPaymentApprove = Database::search("SELECT course_payment_has_payments.*
+                                        FROM course_payment_has_payments
+                                        INNER JOIN course_payments
+                                            ON course_payment_has_payments.course_payments_course_payments_id = course_payments.course_payments_id
+                                        INNER JOIN payment_plan_has_students_has_intakes
+                                            ON course_payments.payment_plan_has_students_has_intakes_id = payment_plan_has_students_has_intakes.payment_plan_has_students_has_intakes_id
+                                        INNER JOIN students_has_intakes
+                                            ON payment_plan_has_students_has_intakes.students_has_intakes_students_has_intakes_id = students_has_intakes.students_has_intakes_id
+                                        WHERE `payment_type_payment_type_id` IN ($paymentTypeIn)
+                                        AND `course_payment_has_payments`.`payment_status_payment_status_id` = 3
+                                        AND `students_has_intakes`.`students_has_intakes_id` = $studentIdSafe
+                                        LIMIT 1");
 
                                 if ($registrationPaymentApprove->num_rows == 0) {
                                     http_response_code(400);
-                                    $status->error = $paymentType == 18 ? 'Registration payment not approved yet' : '1st installment not approved yet';
+                                    $status->error = ($paymentPlanCreateData['payment_category_payment_category_id'] == 4)
+                                        ? 'Registration payment or 1st installment not approved yet'
+                                        : 'Registration payment not approved yet';
                                 } else {
+
                                     $timezone = new DateTimeZone("Asia/Colombo");
                                     $dateTime = new DateTime("now", $timezone);
                                     $date = $dateTime->format('Y-m-d H:i:s');
 
-                                    Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '5' WHERE `student_id` = '" . $student_id . "'");
+                                    Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '5' WHERE `students_has_intakes_id` = '" . $student_id . "'");
 
                                     Database::iud("INSERT INTO `students_logs` 
-                                    (`students_student_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                    (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                      VALUES ('" . $student_id . "',  '" . $date . "', '" . $sessionUserObject['user_id'] . "','Confirm Accounts','5')");
 
                                     http_response_code(200);

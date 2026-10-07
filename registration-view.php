@@ -25,12 +25,12 @@ if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsil
     exit;
 }
 
-if (!isset($_GET["inquiry-id"]) || !is_numeric($_GET["inquiry-id"])) {
+if (!isset($_GET["registration-id"]) || !is_numeric($_GET["registration-id"])) {
     header("Location: ./registrations");
     exit;
 }
 
-$leadId = (int) $_GET["inquiry-id"];
+$leadId = (int) $_GET["registration-id"];
 
 function h($value)
 {
@@ -55,7 +55,8 @@ function getDocFolderByType($typeId)
         8 => "payment-slips",
         9 => "manager-checklists",
         10 => "passport-size-photo",
-        11 => "discount-approved-documents"
+        11 => "discount-approved-documents",
+        12 => "signed-fee-structure"
     ];
 
     return $map[(int)$typeId] ?? "";
@@ -74,7 +75,8 @@ function getDocTitleByType($typeId)
         8 => "Payment Slip",
         9 => "Manager Checklist",
         10 => "Passport Size Photo",
-        11 => "Discount Approved Document"
+        11 => "Discount Approved Document",
+        12 => "Signed Fee Structure"
     ];
 
     return $map[(int)$typeId] ?? "Document";
@@ -83,6 +85,7 @@ function getDocTitleByType($typeId)
 $leadRs = Database::search("
     SELECT 
         s.*,
+        shi.*,
         ld.first_name AS login_first_name,
         ld.last_name AS login_last_name,
         ld.email,
@@ -114,13 +117,15 @@ $leadRs = Database::search("
         ON s.country_of_residence = cor.country_id
     INNER JOIN students_has_intakes shi
         ON s.student_id = shi.students_student_id
+    INNER JOIN lead_student_status lss
+        ON shi.lead_student_status_lead_student_status_id = lss.lead_student_status_id
     INNER JOIN intakes i 
         ON shi.intakes_intake_id = i.intake_id
     INNER JOIN programmes p
         ON i.programmes_programme_id = p.programme_id
     LEFT JOIN users u 
         ON s.users_user_id = u.user_id
-    WHERE s.student_id = '" . $leadId . "'
+    WHERE shi.students_has_intakes_id = '" . $leadId . "'
     LIMIT 1
 ");
 
@@ -146,7 +151,7 @@ $addressRs = Database::search("
         ON c.district_district_id = d.district_id
     LEFT JOIN province pr 
         ON d.province_province_id = pr.province_id
-    WHERE sha.students_student_id = '" . $leadId . "'
+    WHERE sha.students_student_id = '" . $lead["student_id"] . "'
     LIMIT 1
 ");
 
@@ -166,7 +171,7 @@ $guardianRs = Database::search("
         ON gd.guardian_relation_guardian_relation_id = gr.guardian_relation_id
     LEFT JOIN title t 
         ON gd.title_title_id = t.title_id
-    WHERE gd.students_student_id = '" . $leadId . "'
+    WHERE gd.students_student_id = '" . $lead["student_id"] . "'
     LIMIT 1
 ");
 
@@ -177,8 +182,21 @@ if ($guardianRs->num_rows > 0) {
 $documentsRs = Database::search("
     SELECT *
     FROM students_identity_documents
-    WHERE students_student_id = '" . $leadId . "'
-    ORDER BY students_identity_documents_type_id ASC, date_added DESC
+    INNER JOIN students_identity_documents_type sidt 
+        ON students_identity_documents.students_identity_documents_type_id = sidt.students_identity_documents_type_id
+    WHERE students_student_id = '" . $lead["student_id"] . "'
+    AND sidt.is_common = 1
+    ORDER BY students_identity_documents.students_identity_documents_type_id ASC, date_added DESC
+");
+
+$intakeDocumentsRs = Database::search("
+    SELECT *
+    FROM students_identity_documents
+    INNER JOIN students_identity_documents_type sidt 
+        ON students_identity_documents.students_identity_documents_type_id = sidt.students_identity_documents_type_id
+    WHERE students_has_intakes_students_has_intakes_id = '" . $lead["students_has_intakes_id"] . "'
+    AND sidt.is_common = 0
+    ORDER BY students_identity_documents.students_identity_documents_type_id ASC, date_added DESC
 ");
 
 $profileImage = "./assets/imgs/common/empty-img.png";
@@ -197,7 +215,7 @@ if (!empty($lead["profile_img"])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
 
-    <title>Inquiry View | <?= Project::getBaseName(); ?></title>
+    <title>Registration View | <?= Project::getBaseName(); ?></title>
 
     <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
     <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
@@ -229,7 +247,7 @@ if (!empty($lead["profile_img"])) {
                     <div class="col-12 p-0 m-0 g-0">
                         <?php
                         include "./includes/header.php";
-                         selectItem::setSelected("Registrations");
+                        selectItem::setSelected("Registrations");
                         ?>
                     </div>
 
@@ -239,11 +257,11 @@ if (!empty($lead["profile_img"])) {
                                 <div class="row p-0 m-0 g-0">
                                     <div class="col-12 col-md-8">
                                         <div class="row">
-                                            <span class="main-topic lh-lg" data-i18n="">Inquiry View</span>
+                                            <span class="main-topic lh-lg" data-i18n="">Registration View</span>
                                             <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                 <ol class="breadcrumb m-0">
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./payments">Inquiries</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Inquiry View</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./registrations">Registrations</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none">Registration View</a></li>
                                                 </ol>
                                             </nav>
                                         </div>
@@ -391,15 +409,10 @@ if (!empty($lead["profile_img"])) {
                                                                     <div class="lead-detail-label"><?= h($label) ?></div>
                                                                     <div class="lead-detail-value"><?= showValue($value) ?></div>
                                                                 </div>
-
                                                             <?php } ?>
-
                                                         </div>
-
                                                     </div>
-
                                                 </div>
-
                                             </div>
 
                                             <!-- CONTACT -->
@@ -622,7 +635,7 @@ if (!empty($lead["profile_img"])) {
                                                             width="20"
                                                             class="me-2"></iconify-icon>
 
-                                                        Uploaded Documents
+                                                        Student Identity Documents
                                                     </button>
                                                 </h2>
 
@@ -635,6 +648,84 @@ if (!empty($lead["profile_img"])) {
                                                         <div class="row g-3">
 
                                                             <?php while ($doc = $documentsRs->fetch_assoc()) {
+
+                                                                $folder = getDocFolderByType($doc["students_identity_documents_type_id"]);
+
+                                                                $docPath = "./assets/uploads/student-identity-documents/" . $folder . "/" . $doc["document"];
+                                                            ?>
+
+                                                                <div class="col-12 col-md-6">
+
+                                                                    <div class="lead-doc-card p-3">
+
+                                                                        <div class="d-flex align-items-center gap-3">
+
+                                                                            <div class="lead-doc-icon">
+                                                                                <iconify-icon icon="solar:file-text-bold"
+                                                                                    width="24"></iconify-icon>
+                                                                            </div>
+
+                                                                            <div class="flex-grow-1">
+
+                                                                                <div class="main-text fw-semibold text-14">
+                                                                                    <?= h(getDocTitleByType($doc["students_identity_documents_type_id"])) ?>
+                                                                                </div>
+
+                                                                                <div class="sub-text text-12">
+                                                                                    <?= showValue($doc["date_added"]) ?>
+                                                                                </div>
+
+                                                                            </div>
+
+                                                                            <a href="<?= h($docPath) ?>"
+                                                                                target="_blank"
+                                                                                class="custom-btn lead-view-btn text-decoration-none d-flex align-items-center">
+
+                                                                                View
+
+                                                                            </a>
+
+                                                                        </div>
+
+                                                                    </div>
+
+                                                                </div>
+
+                                                            <?php } ?>
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                            <!-- Intake STUDENT DOCUMENTS -->
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button collapsed"
+                                                        type="button"
+                                                        data-bs-toggle="collapse"
+                                                        data-bs-target="#intakedocumentsDetails">
+
+                                                        <iconify-icon icon="iconmind:water-intake-outline-bold"
+                                                            width="20"
+                                                            class="me-2"></iconify-icon>
+
+                                                        Intake-Specific Documents
+                                                    </button>
+                                                </h2>
+
+                                                <div id="intakedocumentsDetails"
+                                                    class="accordion-collapse collapse"
+                                                    data-bs-parent="#leadAccordion">
+
+                                                    <div class="accordion-body p-4">
+
+                                                        <div class="row g-3">
+
+                                                            <?php while ($doc = $intakeDocumentsRs->fetch_assoc()) {
 
                                                                 $folder = getDocFolderByType($doc["students_identity_documents_type_id"]);
 

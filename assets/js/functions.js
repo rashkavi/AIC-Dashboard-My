@@ -714,6 +714,9 @@ const filterStudents = () => {
                 showToast("error", result.error);
             } else {
                 $("#students-table-container").html(result);
+                const count = document.getElementById('students-table-data').dataset.studentCount;
+                $("#student-count").text(count + ' Students');
+
             }
         })
         .catch((error) => {
@@ -951,6 +954,11 @@ const addIntake = (btn, id) => {
     form.append("intake_cover", $("#cover-input").prop("files")[0]);
     form.append("programme_id", id);
 
+    const validationMap = {
+        name: ["#intake-name", "#ai-name-feedback"],
+        cover: ["#intake-cover", "#ai-cover-feedback"],
+    };
+
     fetch("api/addIntake.php", {
         method: "POST",
         body: form,
@@ -966,10 +974,7 @@ const addIntake = (btn, id) => {
                 toggleBtnLoader(btn, false);
                 showToast("error", response.error);
             } else {
-                const validationMap = {
-                    name: ["#intake-name", "#ai-name-feedback"],
-                    cover: ["#intake-cover", "#ai-cover-feedback"],
-                };
+
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
             }
@@ -983,8 +988,15 @@ const editIntake = (btn, id) => {
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("intake_name", $("#edit-intake-name").val());
+
     form.append("intake_cover", $("#edit-cover-input").prop("files")[0]);
     form.append("intake_id", id);
+
+    const validationMap = {
+        name: ["#edit-intake-name", "#ei-name-feedback"],
+        cover: ["#edit-intake-cover", "#ei-cover-feedback"],
+
+    };
 
     fetch("api/editIntake.php", {
         method: "POST",
@@ -1000,10 +1012,7 @@ const editIntake = (btn, id) => {
                 toggleBtnLoader(btn, false);
                 showToast("error", response.error);
             } else {
-                const validationMap = {
-                    name: ["#edit-intake-name", "#ei-name-feedback"],
-                    cover: ["#edit-intake-cover", "#ei-cover-feedback"],
-                };
+
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
             }
@@ -1223,9 +1232,9 @@ const loadProgrammes = () => {
             showToast("error", "An error occured. Please try again later.");
         });
 }
-const loadIntakes = () => {
+const loadIntakes = (type = 1) => {
     const programme = $("#programme-selector").val();
-    fetch(`api/loadIntakes.php?id=${programme}`)
+    fetch(`api/loadIntakes.php?id=${programme}&type=${type}`)
         .then((response) => response.text())
         .then((data) => {
             try {
@@ -1643,6 +1652,12 @@ const loadLecturers = () => {
 }
 
 const scheduleLecture = (btn) => {
+    const lecturerVal = $("#lecturer-selector").val();
+    if (!lecturerVal || lecturerVal === "0") {
+        showToast("error", "Please select a lecturer.");
+        return;
+    }
+
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("branch", $("#branch-selector").val());
@@ -1651,12 +1666,22 @@ const scheduleLecture = (btn) => {
     form.append("intake_id", $("#intake-selector").val());
     form.append("level_id", $("#level-selector").val());
     form.append("subject_id", $("#subject-selector").val());
-    form.append("lecturer_id", $("#lecturer-selector").val());
+
+    const lecturerMode = $("#lecturer-selector").attr("data-lecturer-mode") || "subject";
+    if (lecturerMode === "broad") {
+        form.append("lecturer_id", "0");
+        form.append("broad_lecturer_user_id", lecturerVal);
+    } else {
+        form.append("lecturer_id", lecturerVal);
+        form.append("broad_lecturer_user_id", "0");
+    }
+
     form.append("lecture-date", $("#lecture-date").val());
 
     form.append("title", $("#title").val());
     form.append("physical", $("#physical-check-box").is(":checked") ? true : false);
     form.append("online", $("#online-check-box").is(":checked") ? true : false);
+    form.append("hybrid", $("#hybrid-check-box").is(":checked") ? true : false);
     form.append("link", $("#link-input").val());
     form.append("one_time", $("#oneTimeLecture").is(":checked") ? true : false);
     form.append("recurring", $("#recurringLecture").is(":checked") ? true : false);
@@ -1673,14 +1698,13 @@ const scheduleLecture = (btn) => {
     form.append("days", selectedDays);
     form.append("skip_poya_days", $("#skip-poya").is(":checked") ? true : false);
     form.append("skip_holidays", $("#skip-holidays").is(":checked") ? true : false);
-    form.append("tutes", $("#file-selector-input")[0].files[0]);
     var files = $("#file-selector-input")[0].files;
     for (var i = 0; i < files.length; i++) {
         form.append("tutes[]", files[i]);
     }
 
-
     const validationMap = {
+        branch: ["#branch-selector", "#branch-feedback"],
         faculty: ["#faculty-selector", "#faculty-feedback"],
         programme: ["#programme-selector", "#programme-feedback"],
         intake: ["#intake-selector", "#intake-feedback"],
@@ -1708,15 +1732,18 @@ const scheduleLecture = (btn) => {
         method: "POST",
         body: form
     })
-        .then((res) => res.json())
+        .then((res) => res.text())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             applyValidation(response, validationMap, false);
             if (response.error) {
                 showToast("error", response.error);
             } else if (response.done) {
                 showToast("success", response.done);
-                setTimeout(() => { window.location.reload() }, 3000);
+                setTimeout(() => {
+                    window.location.reload()
+                }, 3000);
             } else {
                 applyValidation(response, validationMap);
                 if (response.tute) {
@@ -1734,7 +1761,6 @@ const scheduleLecture = (btn) => {
             showToast("error", "Something went wrong.Please try again later");
         });
 }
-
 const filterScheduledLectures = () => {
     const data = {
         faculty: $("#faculty-selector").val(),
@@ -5013,7 +5039,8 @@ const filterSubjectScheduledLectures = (id) => {
         });
 }
 
-const editLecture = (btn, id, programme, status, confirmation = false) => {
+const editLecture = (btn, id, programme, status = 1, confirmation = false) => {
+    console.log(id);
     toggleBtnLoader(btn, true);
     const form = new FormData();
     form.append("lecture_id", id);
@@ -5027,6 +5054,7 @@ const editLecture = (btn, id, programme, status, confirmation = false) => {
     form.append("status", $("#status-selector").val());
     form.append("physical", $("#physical-checkbox").is(":checked"));
     form.append("online", $("#online-checkbox").is(":checked"));
+    form.append("hybrid", $("#hybrid-checkbox").is(":checked"));
     form.append("recording", $("#recording-checkbox").is(":checked"));
     form.append("link", $("#link-input").val());
     form.append("tutes", $("#file-selector-input")[0].files[0]);
@@ -5040,9 +5068,10 @@ const editLecture = (btn, id, programme, status, confirmation = false) => {
         method: "POST",
         body: form
     })
-        .then((res) => res.text())
-        .then((data) => {
-            const response = JSON.parse(data);
+        .then((res) => res.json())
+        .then((response) => {
+            console.log(response);
+            // const response = JSON.parse(data);
             $("#scheduleConfirmModal").modal('hide');
             if (response.done) {
                 toggleBtnLoader(btn, 'done');
@@ -5090,6 +5119,7 @@ const editLecture = (btn, id, programme, status, confirmation = false) => {
             }
         })
         .catch((error) => {
+            console.log(error);
             toggleBtnLoader(btn, false);
             showToast("error", "An error occured. Please try again later.");
         });
@@ -5751,6 +5781,7 @@ const addIntakeToRegisteredStudents = (btn, studentId, intakeId) => {
     })
         .then((res) => res.json())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             if (response.done) {
                 setTimeout(() => { showToast("success", response.done); }, 1000);
@@ -11657,8 +11688,9 @@ const addRegistration = (btn) => {
         method: "POST",
         body: form,
     })
-        .then((res) => res.json())
+        .then((res) => res.text())
         .then((response) => {
+            console.log(response);
             applyValidation(response, validationMap, false);
             toggleBtnLoader(btn, false);
             if (response.done) {
@@ -12016,6 +12048,7 @@ const editRegistration = (btn, id) => {
     form.append("faculty", $("#faculty-selector").val());
     form.append("programme", $("#programme-selector").val());
     form.append("intake", $("#intake-selector").val());
+    form.append("counselor", $("#user").val() || 0);
     form.append("grelationship", $("#grelationship-selector").val());
     form.append("gtitle", $("#gtitle-selector").val());
     form.append("gfname", $("#guardian-fname").val());
@@ -12053,6 +12086,7 @@ const editRegistration = (btn, id) => {
         faculty: ["#faculty-selector", "#faculty-feedback"],
         programme: ["#programme-selector", "#programme-feedback"],
         intake: ["#intake-selector", "#intake-feedback"],
+        counselor: ["#user", "#user-feedback"],
         grelationship: ["#grelationship-selector", "#grelationship-feedback"],
         gtitle: ["#gtitle-selector", "#gtitle-feedback"],
         gfname: ["#guardian-fname", "#gfname-feedback"],
@@ -12766,8 +12800,6 @@ const duplicateIntake = (btn, programme) => {
     const validationMap = {
         intake: ["#intake-selector", "#intake-selector-feedback"],
         name: ["#intake_name", "#intake_name-feedback"],
-        start: ["#duplicate-start-date", "#duplicate-start-date-feedback"],
-        end: ["#duplicate-end-date", "#duplicate-end-date-feedback"],
         cover: ["#duplicate-cover-input", "#duplicate-cover-input-feedback"]
     }
 

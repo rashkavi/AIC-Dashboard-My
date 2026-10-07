@@ -1,14 +1,22 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   paymentReceiptRenderer.js  — v8 COUNSELLOR + INSTALLMENT BALANCE
+   paymentReceiptRenderer.js  — v10 SEND-STATUS MODAL
 
-   NEW IN THIS VERSION (on top of v7):
-   1. "Counsellor" line added to Programme Details box (next to Processed by).
-   2. New "Balance" column in Payment Records table — shows the running
-      balance for THAT installment as of THAT payment's date/time
-      (pulled from data.payments[i].installment_balance / balance_as_of,
-      computed server-side in getReceiptData.php v5).
-      - Balance > 0.005  -> shown in amber, "as of <date time>"
-      - Balance <= 0.005 -> shown as "Fully Paid" in green
+   NEW IN THIS VERSION (on top of v9):
+   1. sendReceiptEmail() now drives a step-by-step status modal
+      (#sendReceiptStatusModal — markup lives in your page HTML, not
+      here) instead of a single toast: Fetching data -> Rendering ->
+      Generating PDF -> Sending email, each step turning into a green
+      check as it completes, or red on failure at that step. Final
+      state stays on screen (with a Close button) instead of
+      auto-dismissing, so the person can see whether it actually sent.
+   2. Added the modal controller: openSendStatusModal(),
+      setSendStepStatus(key, status), finishSendStatusModal(success, msg).
+
+   CARRIED FROM v9:
+   - buildReceiptHTML(data) returns the receipt markup string;
+     renderReceiptHTML(data) is a thin wrapper that injects it into the
+     modal. Both the on-screen receipt and the emailed PDF render from
+     this single function.
 ════════════════════════════════════════════════════════════════════════════ */
 
 var mGet = function (id) { return document.getElementById(id); };
@@ -41,6 +49,8 @@ function openReceiptModal(receiptId) {
         body.style.overflow = 'hidden';
         body.innerHTML = spinner();
     }
+
+    $("#send-invoice-btn").on("click", function () { sendReceiptEmail(receiptId); });
     var modal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
     modal.show();
     fetch('api/getReceiptData.php?receipt_id=' + receiptId)
@@ -82,30 +92,6 @@ function downloadReceipt() {
     win.document.close();
 }
 
-function sendReceiptEmail() {
-    if (!currentReceiptId) return;
-    var btn = document.querySelector('#receiptPreviewModal .table-btn-success');
-    var origHtml = btn ? btn.innerHTML : '';
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<iconify-icon icon="mdi:loading" width="13" style="vertical-align:-2px;margin-right:4px;animation:rcptSpin .7s linear infinite;display:inline-block;"></iconify-icon>Sending…';
-    }
-    fetch('api/sendReceiptEmail.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receipt_id: currentReceiptId })
-    })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-            if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
-            if (res.done) showToast('success', res.done);
-            else showToast('error', res.error || 'Failed to send email.');
-        })
-        .catch(function () {
-            if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
-            showToast('error', 'Network error — could not send email.');
-        });
-}
-
 /* ════════════════════════════════════════════════════════════════════════════
    HELPERS
 ════════════════════════════════════════════════════════════════════════════ */
@@ -122,11 +108,22 @@ function dash() { return '<span style="color:#d1d5db;">—</span>'; }
 function subNote(t) { return '<div style="font-size:9px;color:#6b7280;margin-top:2px;">' + t + '</div>'; }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   MAIN RENDERER
+   MODAL WRAPPER — thin, just injects the built markup into the modal body.
 ════════════════════════════════════════════════════════════════════════════ */
 function renderReceiptHTML(data) {
     var body = mGet('receipt-modal-body');
+    var html = buildReceiptHTML(data);
+    if (body) {
+        body.style.overflow = 'hidden';
+        body.innerHTML = html;
+    }
+}
 
+/* ════════════════════════════════════════════════════════════════════════════
+   BUILDER — returns the receipt markup as a string. This is the single
+   source of truth used by BOTH the on-screen modal and the emailed PDF.
+════════════════════════════════════════════════════════════════════════════ */
+function buildReceiptHTML(data) {
     var cc = (data.course_currency || 'LKR').trim();
     var recDate = data.date_added ? data.date_added.substring(0, 10) : '';
     var recNum = esc(data.receipt_number || '');
@@ -158,7 +155,7 @@ function renderReceiptHTML(data) {
         var penMain = parseFloat(p.penalty_course || 0) > 0 ? cc + ' ' + fmt(p.penalty_course) : dash();
         var bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
-        /* ── NEW: per-installment balance cell ── */
+        /* per-installment balance cell */
         var balMain;
         var balVal = parseFloat(p.installment_balance);
         if (isNaN(balVal)) {
@@ -247,7 +244,6 @@ function renderReceiptHTML(data) {
     var studentName = esc((data.student_title || '') + '. ' + (data.first_name || '') + ' ' + (data.last_name || ''));
     var processedBy = esc((data.user_title || '') + '. ' + (data.user_fname || '') + ' ' + (data.user_lname || ''));
 
-    /* NEW: counsellor line — falls back gracefully if not set */
     var counsellorLine = '';
     if (data.counsellor_fname || data.counsellor_lname) {
         var counsellorName = esc((data.counsellor_title || '') + '. ' + (data.counsellor_fname || '') + ' ' + (data.counsellor_lname || ''));
@@ -380,10 +376,7 @@ function renderReceiptHTML(data) {
         '</div>' +
         '</div>';
 
-    if (body) {
-        body.style.overflow = 'hidden';
-        body.innerHTML = html;
-    }
+    return html;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -441,4 +434,190 @@ function sectionLabel(t) {
         '<span style="font-size:8px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;">' + t + '</span>' +
         '<div style="flex:1;height:1px;background:#f3f4f6;"></div>' +
         '</div>';
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SEND-STATUS MODAL CONTROLLER
+   Markup lives in your page HTML as #sendReceiptStatusModal (see the modal
+   snippet). These functions just drive its state — build the step rows,
+   flip a step to active/done/error, and set the final success/error state.
+════════════════════════════════════════════════════════════════════════════ */
+var SEND_RECEIPT_STEPS = [
+    { key: 'fetch', label: 'Fetching receipt data' },
+    { key: 'render', label: 'Rendering receipt' },
+    { key: 'pdf', label: 'Generating PDF' },
+    { key: 'upload', label: 'Sending email' }
+];
+
+var srsModalInstance = null;
+
+function srsStepRowHTML(step) {
+    return (
+        '<div class="srs-step" data-step="' + step.key + '" style="display:flex;align-items:center;gap:10px;">' +
+        '<span class="srs-step-icon" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;">' +
+        '<iconify-icon icon="mdi:circle-outline" width="18" height="18" style="color:#d1d5db;"></iconify-icon>' +
+        '</span>' +
+        '<span class="srs-step-label" style="font-size:12.5px;color:#6b7280;transition:color .2s ease;">' + step.label + '</span>' +
+        '</div>'
+    );
+}
+
+function openSendStatusModal() {
+    var stepsWrap = mGet('srs-steps');
+    var footer = mGet('srs-footer');
+    var headerIcon = mGet('srs-header-icon');
+    var title = mGet('srs-title');
+    var subtext = mGet('srs-subtext');
+
+    if (stepsWrap) stepsWrap.innerHTML = SEND_RECEIPT_STEPS.map(srsStepRowHTML).join('');
+    if (footer) footer.style.display = 'none';
+    if (headerIcon) {
+        headerIcon.style.background = 'var(--custom-white, #f1f5f9)';
+        headerIcon.innerHTML = '<iconify-icon icon="mdi:email-fast-outline" width="24" height="24" style="color:var(--primary-color,#1e3a5f);"></iconify-icon>';
+    }
+    if (title) { title.textContent = 'Sending Receipt'; title.style.color = 'var(--primary-color,#1e3a5f)'; }
+    if (subtext) { subtext.textContent = 'Please wait, this only takes a moment.'; subtext.style.color = '#6b7280'; }
+
+    var modalEl = document.getElementById('sendReceiptStatusModal');
+    if (!modalEl) return; // caller falls back to toasts if the modal markup isn't on this page
+    srsModalInstance = new bootstrap.Modal(modalEl);
+    srsModalInstance.show();
+}
+
+function setSendStepStatus(stepKey, status) {
+    // status: 'active' | 'done' | 'error'
+    var row = document.querySelector('.srs-step[data-step="' + stepKey + '"]');
+    if (!row) return;
+    var iconWrap = row.querySelector('.srs-step-icon');
+    var label = row.querySelector('.srs-step-label');
+
+    if (status === 'active') {
+        iconWrap.innerHTML = '<iconify-icon icon="mdi:loading" width="18" height="18" class="srs-spin" style="color:var(--primary-color,#1e3a5f);"></iconify-icon>';
+        label.style.color = 'var(--primary-color,#1e3a5f)';
+        label.style.fontWeight = '600';
+    } else if (status === 'done') {
+        iconWrap.innerHTML = '<iconify-icon icon="mdi:check-circle" width="18" height="18" style="color:#16a34a;"></iconify-icon>';
+        label.style.color = '#16a34a';
+        label.style.fontWeight = '600';
+    } else if (status === 'error') {
+        iconWrap.innerHTML = '<iconify-icon icon="mdi:close-circle" width="18" height="18" style="color:#dc2626;"></iconify-icon>';
+        label.style.color = '#dc2626';
+        label.style.fontWeight = '600';
+    }
+}
+
+function finishSendStatusModal(success, message) {
+    var headerIcon = mGet('srs-header-icon');
+    var title = mGet('srs-title');
+    var subtext = mGet('srs-subtext');
+    var footer = mGet('srs-footer');
+
+    if (headerIcon) {
+        headerIcon.style.background = success ? '#e6f5ed' : '#fdecea';
+        headerIcon.innerHTML = success
+            ? '<iconify-icon icon="mdi:check-circle" width="24" height="24" style="color:#16a34a;"></iconify-icon>'
+            : '<iconify-icon icon="mdi:alert-circle" width="24" height="24" style="color:#dc2626;"></iconify-icon>';
+    }
+    if (title) title.style.color = success ? '#16a34a' : '#dc2626';
+    if (subtext) {
+        subtext.textContent = message;
+        subtext.style.color = success ? '#16a34a' : '#dc2626';
+    }
+    if (footer) footer.style.display = 'block';
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SEND RECEIPT EMAIL — renders the SAME markup as the modal into a hidden
+   off-DOM container, converts #receipt-print-area to a PDF client-side, and
+   uploads it. Progress is shown in the send-status modal above; each step
+   turns green as it completes, red on the step that failed.
+════════════════════════════════════════════════════════════════════════════ */
+async function sendReceiptEmail(receiptId) {
+    var hasStatusModal = !!document.getElementById('sendReceiptStatusModal');
+    if (hasStatusModal) {
+        openSendStatusModal();
+    } else {
+        showToast('info', 'Preparing receipt...'); // fallback if the modal markup isn't present
+    }
+
+    var container = null;
+
+    try {
+        // 1. Same data source the modal uses.
+        if (hasStatusModal) setSendStepStatus('fetch', 'active');
+        const res = await fetch('api/getReceiptData.php?receipt_id=' + receiptId);
+        const data = await res.json();
+        if (data.error) {
+            if (hasStatusModal) { setSendStepStatus('fetch', 'error'); finishSendStatusModal(false, data.error); }
+            else showToast('error', data.error);
+            return;
+        }
+        if (hasStatusModal) setSendStepStatus('fetch', 'done');
+
+        // 2. Build the exact same markup the modal renders — single
+        //    source of truth (buildReceiptHTML, not a re-implementation).
+        if (hasStatusModal) setSendStepStatus('render', 'active');
+        container = document.createElement('div');
+        container.style.cssText =
+            'width:210mm;position:fixed;top:0;left:0;z-index:-1;opacity:0.01;pointer-events:none;background:#fff;';
+        document.body.appendChild(container);
+        container.innerHTML = buildReceiptHTML(data);
+
+        // Only the print area itself should go into the PDF — the modal's
+        // scroll wrapper/style block around it are UI chrome, not content.
+        var printArea = container.querySelector('#receipt-print-area');
+        if (!printArea) {
+            throw new Error('Could not locate receipt content to render.');
+        }
+        if (hasStatusModal) setSendStepStatus('render', 'done');
+
+        // 3. DOM -> PDF Blob, client-side, no print dialog.
+        //    scrollX/scrollY:0 avoids html2canvas mis-capturing an
+        //    off-screen-positioned element as blank.
+        if (hasStatusModal) setSendStepStatus('pdf', 'active');
+        const pdfBlob = await html2pdf()
+            .set({
+                margin: 0,
+                filename: 'Receipt-' + data.receipt_number + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            })
+            .from(printArea)
+            .outputPdf('blob');
+
+        document.body.removeChild(container);
+        container = null;
+        if (hasStatusModal) setSendStepStatus('pdf', 'done');
+
+        // 4. Upload the exact rendered PDF — backend does zero re-derivation.
+        if (hasStatusModal) setSendStepStatus('upload', 'active');
+        const formData = new FormData();
+        formData.append('receipt_id', receiptId);
+        formData.append('pdf', pdfBlob, 'Receipt-' + data.receipt_number + '.pdf');
+        formData.append('total_paid', data.grand_total_paid);
+        formData.append('balance_due', Math.max(0, (data.grand_total_amount || 0) - (data.grand_total_paid || 0)));
+
+        const sendRes = await fetch('api/sendReceiptEmail.php', { method: 'POST', body: formData });
+        const result = await sendRes.json();
+
+        if (result.error) {
+            if (hasStatusModal) { setSendStepStatus('upload', 'error'); finishSendStatusModal(false, result.error); }
+            else showToast('error', result.error);
+            return;
+        }
+
+        if (hasStatusModal) {
+            setSendStepStatus('upload', 'done');
+            finishSendStatusModal(true, result.done || 'Receipt emailed successfully.');
+        } else {
+            showToast('success', result.done || 'Receipt emailed successfully.');
+        }
+    } catch (err) {
+        console.error(err);
+        if (hasStatusModal) finishSendStatusModal(false, 'Failed to generate or send the receipt PDF.');
+        else showToast('error', 'Failed to generate or send the receipt PDF.');
+    } finally {
+        if (container && container.parentNode) document.body.removeChild(container);
+    }
 }

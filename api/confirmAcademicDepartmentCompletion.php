@@ -31,7 +31,7 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                         INNER JOIN `intakes` ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
                         INNER JOIN `programmes` ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
-                        WHERE `students`.`student_id` = '" . $student_id . "'");
+                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
@@ -50,20 +50,16 @@ if (SessionUser::hasValidSession()) {
                             $url = Project::getBasePortalUrl() . "/setup-password?token=" . $token;
 
                             Database::iud("UPDATE `login_details` SET `status_status_id` = '1',`verification`='" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
-                            Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '1' WHERE `students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'");
+                            Database::iud("UPDATE `students_has_intakes` SET `status_status_id` = '1',`lead_student_status_lead_student_status_id` = '17' WHERE `students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'");
+                            Database::iud("UPDATE `students` SET `enrolled_status` = 'Enrolled' WHERE `student_id` = '" . $studentData['student_id'] . "'");
 
-                            Database::iud("
-                            UPDATE `students`
-                            SET `lead_student_status_lead_student_status_id` = '17'
-                            WHERE `student_id` = '" . $studentData['students_student_id'] . "'
-                        ");
 
                             Database::iud("
                             INSERT INTO `students_logs`
-                            (`students_student_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
+                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`, `lead_student_status_lead_student_status_id`)
                             VALUES
                             (
-                                '" . $studentData['students_student_id'] . "',
+                                '" . $studentData['students_has_intakes_id'] . "',
                                 '" . $now . "',
                                 '" . $sessionUserObject['user_id'] . "',
                                 'Academic department completion confirmed',
@@ -72,23 +68,24 @@ if (SessionUser::hasValidSession()) {
                             )
                                 ");
 
-                            try {
-                                $mail = EmailNotificationService::build(
-                                    EmailTemplateContent::STUDENT_WELCOME_EMAIL,
-                                    [
-                                        'student_name' => $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'],
-                                        'email' => $studentData['email'],
-                                        'login_url' => $url,
-                                        'programme_name' => $studentData['programme'],
-                                    ]
-                                );
+                            if ($studentData['enrolled_status'] == 'ENROLLED') {
+                                try {
+                                    $mail = EmailNotificationService::build(
+                                        EmailTemplateContent::STUDENT_WELCOME_EMAIL,
+                                        [
+                                            'student_name' => $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'],
+                                            'email' => $studentData['email'],
+                                            'login_url' => $url,
+                                            'programme_name' => $studentData['programme'],
+                                        ]
+                                    );
 
-                                $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
+                                    $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
 
-                                // Fetch added-by user email + counsellor email for CC
-                                $ccEmails = [];
+                                    // Fetch added-by user email + counsellor email for CC
+                                    $ccEmails = [];
 
-                                $ccQuery = Database::search("
+                                    $ccQuery = Database::search("
                                         SELECT
                                           
                                             counsellorUser.user_email AS counsellor_email,
@@ -101,21 +98,22 @@ if (SessionUser::hasValidSession()) {
                                         WHERE `students`.`student_id` = '" . $studentData['students_student_id'] . "'
                                     ");
 
-                                if ($ccQuery && $ccQuery->num_rows > 0) {
-                                    $ccData = $ccQuery->fetch_assoc();
+                                    if ($ccQuery && $ccQuery->num_rows > 0) {
+                                        $ccData = $ccQuery->fetch_assoc();
 
-                                    if (!empty($ccData['counsellor_email'])) {
-                                        $ccEmails[$ccData['counsellor_email']] = trim($ccData['counsellor_first_name'] . ' ' . $ccData['counsellor_last_name']);
+                                        if (!empty($ccData['counsellor_email'])) {
+                                            $ccEmails[$ccData['counsellor_email']] = trim($ccData['counsellor_first_name'] . ' ' . $ccData['counsellor_last_name']);
+                                        }
                                     }
+
+                                    $ccEmails[$sessionUserObject['user_email']] = trim($sessionUserObject['user_fname'] . ' ' . $sessionUserObject['user_lname']);
+
+                                    // Send with CC
+                                    sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
+                                    $status->done = 'Academic department completion confirmed';
+                                } catch (Exception $e) {
+                                    $status->error = "Academic department completion confirmed but mail not sent";
                                 }
-
-                                $ccEmails[$sessionUserObject['user_email']] = trim($sessionUserObject['user_fname'] . ' ' . $sessionUserObject['user_lname']);
-
-                                // Send with CC
-                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
-                                $status->done = 'Academic department completion confirmed';
-                            } catch (Exception $e) {
-                                $status->error = "Academic department completion confirmed but mail not sent";
                             }
                         }
                     }

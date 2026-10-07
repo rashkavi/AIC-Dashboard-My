@@ -333,31 +333,71 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 </div>
                                                 <?php
-                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_students', $id)) {
+                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_students', $id)) {
                                                 ?>
                                                     <div class="accordion-item mb-3 border-0">
                                                         <h2 class="accordion-header d-flex justify-content-between align-items-center border-0 p-4 table-btn-yellow">
                                                             <button class="accordion-button collapsed border-0 py-3 px-0 bg-transparent shadow-none flex-grow-1 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseTwo" aria-expanded="false" aria-controls="flush-collapseTwo">
                                                                 <span class="sub-topic">Students</span>
                                                             </button>
+
                                                             <?php
-                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 2, $id)) {
-                                                            ?> <div class="d-flex align-items-center w-15">
+                                                            if (
+                                                                SessionUser::ifUserIsPro($sessionUserRole) ||
+                                                                SessionUser::ifUserIsAcademic($sessionUserRole) ||
+                                                                UserPermissions::hasPermission('intake_students', 2, $id)
+                                                            ) {
+                                                                $isIntakeClosed = ($intakeData['intake_status'] === 'CLOSED');
+                                                            ?>
+                                                                <div class="d-flex align-items-center w-15">
                                                                     <div class="dropdown w-100">
-                                                                        <div class="d-flex align-items-center justify-content-center custom-btn fw-normal w-100 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+
+                                                                        <div class="d-flex align-items-center justify-content-center custom-btn fw-normal w-100 dropdown-toggle"
+                                                                            <?php if ($isIntakeClosed) { ?>
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#intakeClosedModal"
+                                                                            <?php } else { ?>
+                                                                            data-bs-toggle="dropdown"
+                                                                            aria-expanded="false"
+                                                                            <?php } ?>>
                                                                             Add New
                                                                         </div>
 
-                                                                        <ul class="dropdown-menu w-100" style="min-width: max-content;">
-                                                                            <li><a class="dropdown-item" href="add-intake-to-registered-students?intake-id=<?= $id; ?>">Add Registered Student</a></li>
-                                                                            <li><a class="dropdown-item" href="add-student-to-intake?intake-id=<?= $id; ?>">Add New Student</a></li>
-                                                                            <li><a class="dropdown-item" href="upload-intake-student-bulk?intake-id=<?= $id; ?>">Add New Students Bulk</a></li>
-                                                                        </ul>
+                                                                        <?php if (!$isIntakeClosed) { ?>
+                                                                            <ul class="dropdown-menu w-100"
+                                                                                style="min-width: max-content;">
+
+                                                                                <li>
+                                                                                    <a class="dropdown-item"
+                                                                                        href="add-intake-to-registered-students?intake-id=<?= $id; ?>">
+                                                                                        Add Registered Student
+                                                                                    </a>
+                                                                                </li>
+
+                                                                                <li>
+                                                                                    <a class="dropdown-item"
+                                                                                        href="add-student-to-intake?intake-id=<?= $id; ?>">
+                                                                                        Add New Student
+                                                                                    </a>
+                                                                                </li>
+
+                                                                                <li>
+                                                                                    <a class="dropdown-item"
+                                                                                        href="upload-intake-student-bulk?intake-id=<?= $id; ?>">
+                                                                                        Add New Students Bulk
+                                                                                    </a>
+                                                                                </li>
+
+                                                                            </ul>
+                                                                        <?php } ?>
+
                                                                     </div>
                                                                 </div>
                                                             <?php
                                                             }
                                                             ?>
+
+
                                                         </h2>
                                                         <div id="flush-collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionFlush">
                                                             <div class="accordion-body p-4">
@@ -474,7 +514,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Action</th>
                                                                                             <?php
                                                                                             }
-                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
+                                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
                                                                                             ?>
                                                                                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                                                                             <?php
@@ -515,6 +555,8 @@ if (!SessionUser::hasValidSession()) {
                                                                         INNER JOIN `status` AS `st` 
                                                                             ON `shi`.`status_status_id` = `st`.`status_id`
                                                                         WHERE `shi`.`intakes_intake_id` = '" . $id . "'
+                                                                        AND `s`.`enrolled_status` = 'ENROLLED'
+                                                                        AND (`shi`.`lead_student_status_lead_student_status_id` IS NULL OR `shi`.`lead_student_status_lead_student_status_id` = '17')
                                                                         ORDER BY `shi`.`students_has_intakes_id` DESC";
 
                                                                                         $results = Database::search($query);
@@ -578,7 +620,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                         </td>
                                                                                                     <?php
                                                                                                     }
-                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
+                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id) || UserPermissions::hasPermission('intake_students', 10, $id)) {
                                                                                                     ?>
                                                                                                         <td class="py-3 align-middle">
                                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
@@ -609,7 +651,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                                     <?php
                                                                                                                     }
-                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
+                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('intake_payments', $id)) {
                                                                                                                     ?>
                                                                                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payments?student-id=<?= $data['shiId']; ?>">
                                                                                                                                 <iconify-icon icon="iconoir:wallet" width="20" height="20" class="sub-text me-3"></iconify-icon>
@@ -1342,6 +1384,40 @@ if (!SessionUser::hasValidSession()) {
                                 <div class="modal-footer">
                                     <button type="button" class="col-12 col-md-4 custom-btn" onclick="applyIntakeHasStudentsUpdate(this,<?= $id ?>,2);">Update</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div><!-- Closed Intake Modal -->
+                    <div class="modal fade" id="intakeClosedModal"
+                        tabindex="-1" aria-labelledby="intakeClosedModalLabel"
+                        aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+
+                                <div class="modal-header">
+                                    <h5 class="modal-title text-danger" id="intakeClosedModalLabel">
+                                        Intake Closed
+                                    </h5>
+                                    <button type="button" class="btn-close"
+                                        data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    <p class="text-14 main-text">
+                                        This intake is currently closed. You cannot add
+                                        new students or register existing students
+                                        to a closed intake.
+                                    </p>
+
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">
+                                        OK
+                                    </button>
+                                </div>
+
                             </div>
                         </div>
                     </div>

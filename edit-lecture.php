@@ -291,6 +291,19 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <label class="text-14 sub-text mx-2">Online</label>
                                                                             </div>
                                                                         </div>
+                                                                        <div class="col-6 col-md-3 d-flex flex-column">
+                                                                            <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
+                                                                                <input type="checkbox"
+                                                                                    id="hybrid-checkbox"
+                                                                                    name="lecture_type[]"
+                                                                                    value="hybrid"
+                                                                                    <?= $lectureData['lecture_type_lecture_type_id'] == "4" ? "checked" : '' ?>
+                                                                                    class="form-check-input text-20 mt-0 mb-0 me-2 lecture-type-checkbox"
+                                                                                    data-dependent-field="lecture-link-darea"
+                                                                                    data-dependent-action="show">
+                                                                                <label class="text-14 sub-text mx-2">Hybrid</label>
+                                                                            </div>
+                                                                        </div>
 
                                                                     </div>
                                                                 </div>
@@ -314,6 +327,61 @@ if (!SessionUser::hasValidSession()) {
                                                 <?php include './includes/footer.php' ?>
                                             </footer>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                         <div class="modal fade" id="scheduleConfirmModal" tabindex="-1"
+                            aria-labelledby="scheduleConfirmModalTitle" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content border-0 shadow">
+
+                                    <div class="d-flex justify-content-end pe-3 pt-3">
+                                        <button type="button"
+                                            class="btn-close"
+                                            data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+
+                                    <div class="modal-body text-center p-4">
+
+                                        <div class="mb-3">
+                                            <iconify-icon
+                                                icon="mdi:alert-circle-outline"
+                                                width="48"
+                                                height="48"
+                                                class="text-warning">
+                                            </iconify-icon>
+                                        </div>
+
+                                        <h5 class="fw-semibold mb-2" id="scheduleConfirmModalTitle">
+                                            Schedule Conflict Detected
+                                        </h5>
+
+                                        <p class="text-muted mb-3" id="scheduleConfirmModalMessage">
+                                            A scheduling conflict was found.
+                                        </p>
+
+                                        <div class="alert alert-warning text-start small mb-4" id="scheduleConfirmDetails">
+                                        </div>
+
+                                        <div class="d-flex justify-content-center gap-3">
+                                            <button type="button"
+                                                class="btn btn-outline-secondary px-4 br-0"
+                                                data-bs-dismiss="modal">
+                                                Cancel
+                                            </button>
+
+                                            <button type="button"
+                                                id="confirmScheduleSave"
+                                                class="btn btn-danger px-4 br-0">
+                                                <iconify-icon icon="mdi:check-circle-outline" class="me-1"></iconify-icon>
+                                                Continue Anyway
+                                            </button>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>

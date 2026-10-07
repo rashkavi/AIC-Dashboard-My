@@ -37,7 +37,7 @@ if (SessionUser::hasValidSession()) {
                             `students`.`mobile`,
                             `login_details`.`whatsapp`,
                             `students`.`profile_img`,
-                            `login_details`.`date_registered`,
+                            `students_has_intakes`.`addmission_date` AS`date_registered`,
                             `title`.`title`,
 
                             `lead_student_status`.`lead_student_status`,
@@ -71,12 +71,12 @@ if (SessionUser::hasValidSession()) {
 
                         INNER JOIN `title`
                             ON `students`.`title_title_id` = `title`.`title_id`
-
-                        INNER JOIN `lead_student_status`
-                            ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
-
+                        
                         INNER JOIN `students_has_intakes`
                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                        INNER JOIN `lead_student_status`
+                            ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
 
                         INNER JOIN `intakes`
                             ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
@@ -97,7 +97,7 @@ if (SessionUser::hasValidSession()) {
                             ON `students_logs`.`students_log_id` = (
                                 SELECT `sl2`.`students_log_id`
                                 FROM `students_logs` `sl2`
-                                WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                WHERE `sl2`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
                                 ORDER BY `sl2`.`date_updated` DESC, `sl2`.`students_log_id` DESC
                                 LIMIT 1
                             )
@@ -129,7 +129,7 @@ if (SessionUser::hasValidSession()) {
                     } else if ($faculty != 0) {
                         $query .= " AND `faculty_id`='" . $faculty . "' ";
                     } else if ($branch != 0) {
-                        $query .= " AND `branches_branch_id`='" . $branch . "' ";
+                        $query .= " AND `faculties`.`branches_branch_id`='" . $branch . "' ";
                     }
 
                     if ($paymentStatus == 1) {
@@ -166,7 +166,7 @@ if (SessionUser::hasValidSession()) {
 
                     if ($sortByName == 0 && $sortByDate == 0) {
                         $query .= " " . $order_key . "  `students_logs`.`date_updated` DESC,
-                                        `students`.`student_id` DESC";
+                                        `students_has_intakes`.`students_has_intakes_id` DESC";
                     }
 
                     $results = Database::search($query);
@@ -203,7 +203,7 @@ if (SessionUser::hasValidSession()) {
                                         <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                     </div>
                                 </th>
-                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Added By</th>
+                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Assigned Counselor</th>
                                 <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center">Status</th>
 
 

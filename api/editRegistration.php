@@ -53,6 +53,7 @@ if (SessionUser::hasValidSession()) {
                     $faculty = isset($_POST['faculty']) ? trim($_POST['faculty']) : 0;
                     $programme = isset($_POST['programme']) ? trim($_POST['programme']) : 0;
                     $intake = isset($_POST['intake']) ? trim($_POST['intake']) : 0;
+                    $counselor = isset($_POST['counselor']) ? trim($_POST['counselor']) : 0;
                     $entry_type = isset($_POST['entry_type']) ? trim($_POST['entry_type']) : 0;
                     $payment_option = isset($_POST['payment_option']) ? trim($_POST['payment_option']) : 0;
                     $image = '';
@@ -162,6 +163,14 @@ if (SessionUser::hasValidSession()) {
                         WHERE `whatsapp` = '" . $whatsapp . "' AND `student_id` != '" . $student["student_id"] . "'");
                         if ($whatsappHasStudent->num_rows > 0) {
                             $status->whatsapp =  "Whatsapp number already exists";
+                        }
+                    }
+
+                    if (empty($counselor)) {
+                        if (SessionUser::ifUserIsCounsiler($sessionUserRole)) {
+                            $counselor = $sessionUserObject['user_id'];
+                        } else {
+                            $status->counselor =  "Please select student counselor";
                         }
                     }
 
@@ -349,7 +358,7 @@ if (SessionUser::hasValidSession()) {
                         Database::iud("UPDATE `login_details` SET " . $login_table_update . " WHERE `login_details_id` = '" . $student["login_details_login_details_id"] . "'");
                         Database::iud("UPDATE `students` SET " . $student_table_update . " WHERE `student_id` = '" . $student["student_id"] . "'");
 
-                        Database::iud("UPDATE `students_has_intakes` SET `intakes_intake_id`='" . $intake . "' WHERE `students_student_id`='" . $student["student_id"] . "'");
+                        Database::iud("UPDATE `students_has_intakes` SET `intakes_intake_id`='" . $intake . "',`counselor_user_id`='" . $counselor . "' WHERE `students_student_id`='" . $student["student_id"] . "'");
                         if (!empty($address)) {
                             $studentHasAddress = Database::search("SELECT * FROM `student_has_address` WHERE `students_student_id`='" . $student["student_id"] . "'");
                             if ($studentHasAddress->num_rows == 0) {

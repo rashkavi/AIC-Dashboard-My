@@ -25,12 +25,12 @@ if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademi
     exit;
 }
 
-if (!isset($_GET["inquiry-id"]) || !is_numeric($_GET["inquiry-id"])) {
+if (!isset($_GET["registration-id"]) || !is_numeric($_GET["registration-id"])) {
     header("Location: ./registrations");
     exit;
 }
 
-$leadId = (int) $_GET["inquiry-id"];
+$leadId = (int) $_GET["registration-id"];
 
 function h($value)
 {
@@ -120,7 +120,7 @@ $leadRs = Database::search("
         ON i.programmes_programme_id = p.programme_id
     LEFT JOIN users u 
         ON s.users_user_id = u.user_id
-    WHERE s.student_id = '" . $leadId . "'
+    WHERE shi.students_has_intakes_id = '" . $leadId . "'
     LIMIT 1
 ");
 
@@ -206,7 +206,7 @@ $documentTypeMap = [
 $existingDocRs = Database::search("
     SELECT *
     FROM `students_identity_documents`
-    WHERE `students_student_id` = '" . (int)$leadId . "'
+    WHERE `students_has_intakes_students_has_intakes_id` = '" . (int)$leadId . "'
     ORDER BY `students_identity_documents_type_id` ASC, `date_added` DESC
 ");
 
@@ -221,6 +221,9 @@ while ($doc = $existingDocRs->fetch_assoc()) {
     $folder = $documentTypeMap[$typeId]["folder"];
     $label = $documentTypeMap[$typeId]["label"];
 
+    $commonDocuments = [5, 10];
+    $haveAccessEdt = $lead['enrolled_status'] == 'PENDING' ? true : false;
+
     $existingDocuments[$docKey][] = [
         "id" => $doc["students_identity_document_id"],
         "type_id" => $typeId,
@@ -228,7 +231,7 @@ while ($doc = $existingDocRs->fetch_assoc()) {
         "name" => $doc["document"],
         "url" => "assets/uploads/student-identity-documents/" . $folder . "/" . $doc["document"],
         "date_added" => $doc["date_added"],
-        "access_remove" => $typeId == 8 ? false : true
+        "access_remove" => (in_array($typeId, $commonDocuments) && $haveAccessEdt) || $typeId == 8 ? false : true,
     ];
 }
 

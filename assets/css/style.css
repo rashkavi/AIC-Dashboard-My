@@ -119,6 +119,9 @@
     --role-ten-background: #ffe4e1;
     --role-ten-text: #f44336;
 
+    --role-eleven-background: #e1feff;
+    --role-eleven-text: #36eef4;
+
     --student-status-1-background: #FFF4CC;
     --student-status-1-text: #C98A00;
 
@@ -280,6 +283,9 @@
 
     --role-ten-background: #4a2321;
     --role-ten-text: #ff867f;
+
+    --role-eleven-background: #e1feff;
+    --role-eleven-text: #36eef4;
 
     --student-status-1-background: #4D3B00;
     --student-status-1-text: #FFD84D;
@@ -1563,6 +1569,11 @@ input {
 .label-role-10 {
     background-color: var(--role-ten-background);
     color: var(--role-ten-text);
+}
+
+.label-role-11 {
+    background-color: var(--role-eleven-background);
+    color: var(--role-eleven-text);
 }
 
 .invalid-feedback {
@@ -4431,7 +4442,6 @@ option {
     color: #7e8c9b;
 }
 
-
 /* ============================================================
    Counselor Performance — new status-bucket theme colors
    Append these to your main stylesheet (after the existing
@@ -4499,6 +4509,39 @@ option {
 
 /* .lead-performance-card.enrolled already exists in your stylesheet
    (purple, #6f42c1) — reused as-is, no change needed. */
+
+/* Closed ribbon (top-left corner) — can be moved to style.css */
+.closed-ribbon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 110px;
+    height: 110px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.closed-ribbon span {
+    position: absolute;
+    top: 22px;
+    left: -32px;
+    width: 130px;
+    padding: 4px 0;
+    text-align: center;
+    background: #dc3545;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+}
+
+.intake-closed .intake-row-inner {
+    opacity: .85;
+}
 
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {

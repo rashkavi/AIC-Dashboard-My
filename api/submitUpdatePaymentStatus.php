@@ -1,58 +1,67 @@
 <?php
 
 /**
- * uploadStudentPaymentReceipt.php - FIXED CURRENCY HANDLING WITH CORRECTED TAX CALCULATION
+ * uploadStudentPaymentReceipt.php (approve/reject flow) - FIXED CURRENCY HANDLING
+ * WITH CORRECTED TAX CALCULATION AND PENALTY-LKR NORMALIZATION
  *
  * KEY RULES:
  * - paid_amount stored in the currency the student ACTUALLY paid in (original, no conversion)
  * - tax_amount stored in the SAME currency as paid_amount (converted back from base if needed)
+ * - panelty_amount is ALWAYS stored in LKR, regardless of what currency mode the
+ *   modal was in when it was typed — this matches panelty_payments (the ledger
+ *   table) and every read path (student-payment-details.php, add-receipt.php)
  * - exchange_rate stored for reverse conversion when needed
  * - All balance/overpayment calculations done in BASE currency (e.g. GBP)
  * - Before storing, amounts are converted BACK to payment currency (e.g. LKR)
  *
  * ✅ CRITICAL FIX: NEVER overwrite the original paid_amount
- * - Student paid 50,000 LKR → store 50,000 LKR (always)
- * - Overpayment 4,473 LKR → distribute to next installments
- * - Sum: 50,000 = paid_amount + overpay ✓
  *
  * TAX CALCULATION FIX:
- * - OLD (WRONG): base = taxInclusive / (1 + taxRate/100)
- * - NEW (CORRECT): base = taxInclusive × (1 - taxRate/100)
- * - Tax is now calculated as a percentage of the FINAL (tax-inclusive) amount
+ * - base = taxInclusive × (1 - taxRate/100); tax = taxInclusive × (taxRate/100)
  *
- * ✅ v9 FIX (overpayment double-rounding bug):
- * - Previously, the paid amount was converted LKR → GBP and ROUNDED to 2dp before
- *   any overpayment math. Rounding a GBP value to 2dp and then multiplying it back
- *   by an exchange rate of ~390 turns a 1-cent GBP rounding error into ~LKR 3-4 of
- *   error. The overpay amount was then rounded a SECOND time in GBP, and the
- *   resulting "amount stored for the current installment" was rounded a THIRD time
- *   after converting back to LKR — three compounding rounding points.
- * - The frontend never had this problem because it subtracts the balance directly
- *   in the payment currency (LKR - LKR), with no intermediate currency round-trip.
- * - FIX: base-currency amounts used for INTERNAL math are no longer rounded to 2dp
- *   (they keep full float precision). The overpayment amount is now computed
- *   directly in the PAYMENT currency first (exactly like the frontend), and the
- *   base-currency equivalent is derived FROM that figure — not the other way
- *   around. Rounding now happens exactly once, at the point of storage.
+ * ✅ v9 FIX (overpayment double-rounding bug): base-currency internal math kept
+ *    unrounded; overpayment computed in PAYMENT currency first, base-currency
+ *    figure derived FROM it. Rounding happens exactly once, at storage.
  *
- * ✅ v10 FIX (multi-installment overpayment drift):
- * - When an overpayment spans MORE THAN ONE future installment, the
- *   distribution loop previously tracked the remaining overpay in base
- *   currency and rounded at every step (payable calc + storage conversion),
- *   so the amounts actually saved across installments no longer summed to
- *   the original amount paid (e.g. 79,666.34 + 95,597.28 + 34.95 = 175,298.57
- *   instead of the 175,300.00 actually paid).
- * - FIX: the loop now tracks and distributes the overpayment directly in the
- *   payment currency throughout, starting from the same single-rounding-point
- *   figure used for the current installment. Rounding only happens once per
- *   installment, at the point of storage, so every stored amount always
- *   sums back to the original paid amount.
+ * ✅ v10 FIX (multi-installment overpayment drift): the distribution loop tracks
+ *    and distributes the overpayment directly in the PAYMENT currency throughout,
+ *    rounding only once per installment at the point of storage.
  *
- * Example:
- *   Course in GBP, student pays LKR 5000, exchange rate = 400
- *   → paid_amount = 5000, currency_id = 1 (LKR), exchange_rate = 400
- *   → base (5000/400 = 12.5 GBP) × 0.975 = 12.1875 GBP
- *   → tax = 12.5 × 0.025 = 0.3125 GBP → stored as 0.3125 × 400 = 125 LKR
+ * ✅ v11 FIX (missing penalty-ledger amount): basePayable now includes the
+ *    `panelty_payments` ledger total (converted LKR → course currency), matching
+ *    what payment-details.php already shows the admin. Previously this endpoint's
+ *    own payable calculation silently ignored that ledger, so a discount entered
+ *    to offset a penalty the admin could SEE on screen shrank basePayable with
+ *    nothing on the other side to cancel it — misclassifying part of a correct
+ *    payment as "overpayment" and leaving a phantom balance on the current
+ *    installment.
+ *
+ * ✅ v12 FIX (penalty currency mismatch — the root cause of inconsistent
+ *    overpayment detection):
+ * - `panelty_amount` is treated EVERYWHERE ELSE in this system as ALWAYS LKR.
+ *   This endpoint was still converting the newly-entered penalty amount
+ *   ($penalty_original) using the PAYMENT-MODE direction (same treatment as
+ *   paid_amount/discount_amount) instead of always normalizing it to LKR first.
+ *   When the modal was in course-currency mode, a course-currency penalty value
+ *   was silently stored as if it were LKR — understating/overstating the true
+ *   penalty by roughly the exchange-rate factor, which corrupted basePayable,
+ *   totalPayable, and therefore the overpayment decision.
+ * - The existingQ SQL for prior receipts' penalty (`receipt_penalty_base`) had
+ *   the same bug: it converted using the PAID_AMOUNT's currency
+ *   (`currencies_currency_id`) rather than treating panelty_amount as always
+ *   LKR. Fixed to check whether the COURSE itself is non-LKR instead.
+ * - Exchange rate is now stored whenever the course itself is non-LKR — not
+ *   only when the payment's own currency differs from the course currency —
+ *   so a penalty on a payment made directly in the course's own currency can
+ *   still be converted back to/from LKR later.
+ *
+ * ✅ v12 FIX (reject-path bug, unrelated to currency):
+ * - The reject branch's UPDATE used `$payment_id` (which is course_payments_id)
+ *   as the course_payment_has_payment_id — wrong row identifier. Fixed to use
+ *   `$paid_payment_id`, matching the approve path below it.
+ * - The reject branch's log insert referenced an undefined `$coursePaymentsId`
+ *   variable. Fixed to `$payment_id` (the correct course_payments_id for the
+ *   log's own column).
  */
 
 $status = new stdClass();
@@ -88,18 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 /**
  * Extract tax component from a tax-inclusive amount using CORRECT formula.
- *
- * Tax is calculated as a percentage of the FINAL (tax-inclusive) amount.
- *
- * Formula:
- *   base = taxInclusiveAmount × (1 - taxRate/100)
- *   tax = taxInclusiveAmount × (taxRate/100)
- *
- * Example (200 GBP with 2.5% tax):
- *   base = 200 × 0.975 = 195 GBP
- *   tax = 200 × 0.025 = 5 GBP
- *
- * Returns ['base' => float, 'tax' => float]
+ * base = taxInclusiveAmount × (1 - taxRate/100)
+ * tax  = taxInclusiveAmount × (taxRate/100)
  */
 function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
 {
@@ -117,14 +116,7 @@ function extractTaxFromInclusive(float $taxInclusiveAmt, float $taxRate): array
 
 /**
  * Calculate tax-inclusive amount from base amount using CORRECT formula.
- *
- * When you have a base amount and need to calculate the tax-inclusive amount:
  * inclusive = base / (1 - taxRate/100)
- *
- * Example (base 195 GBP with 2.5% tax):
- *   inclusive = 195 / 0.975 = 200 GBP
- *
- * Returns float
  */
 function calculateTaxInclusiveAmount(float $base, float $taxRate): float
 {
@@ -136,7 +128,7 @@ function calculateTaxInclusiveAmount(float $base, float $taxRate): float
     $basePortion = 1.0 - $taxRateDecimal;
 
     if ($basePortion <= 0) {
-        return $base; // Prevent division by zero
+        return $base;
     }
 
     return round($base / $basePortion, 2);
@@ -144,13 +136,7 @@ function calculateTaxInclusiveAmount(float $base, float $taxRate): float
 
 /**
  * Calculate tax amount from base using CORRECT formula.
- *
  * tax = base × (taxRate / (100 - taxRate))
- *
- * Example (base 200 GBP with 2.5% tax):
- *   tax = 200 × (2.5 / 97.5) = 5.128 GBP
- *
- * Returns float
  */
 function calculateTaxFromBase(float $base, float $taxRate): float
 {
@@ -160,17 +146,34 @@ function calculateTaxFromBase(float $base, float $taxRate): float
 
     $divisor = 100.0 - $taxRate;
     if ($divisor <= 0) {
-        return 0.0; // Prevent division by zero
+        return 0.0;
     }
 
     return round($base * ($taxRate / $divisor), 2);
 }
 
+/**
+ * Convert an amount that is ALWAYS stored in LKR (panelty_payments.amount,
+ * course_payment_has_payments.panelty_amount) into the course's own currency,
+ * mirroring convertLKRToCourseCurrency() in payment-details.php exactly, so
+ * every page that shows or calculates a penalty always agrees.
+ *
+ *   if course IS LKR  → use the LKR value directly
+ *   if course is GBP  → divide by exchangeRateValue (LKR per 1 GBP)
+ */
+function convertLKRToCourseCurrency(float $lkrAmount, bool $isLKRCourse, float $exchangeRateValue): float
+{
+    if ($isLKRCourse || $exchangeRateValue <= 0) {
+        return $lkrAmount;
+    }
+    return $lkrAmount / $exchangeRateValue;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    READ INPUT — KEEP ORIGINAL AMOUNTS (NO CONVERSION HERE)
 ════════════════════════════════════════════════════════════════════════════ */
-$payment_id           = (int)($_POST['payment_id']      ?? 0);
-$paid_payment_id      = (int)($_POST['paid_payment_id'] ?? 0);
+$payment_id           = (int)($_POST['payment_id']      ?? 0); // course_payments_id
+$paid_payment_id      = (int)($_POST['paid_payment_id'] ?? 0); // course_payment_has_payment_id (the row being updated)
 $payment_status       = (int)($_POST['payment_status']  ?? 0);
 $method               = (int)($_POST['method']          ?? 0);
 $paid_date            = trim($_POST['paid_date']        ?? '');
@@ -215,8 +218,12 @@ if (!$selectedCurrencyId) {
     if ($currencyMode === 'lkr') {
         $selectedCurrencyId = 1; // LKR
     }
-    // If still null, will be set from payment data below
 }
+
+// ✅ v11/v12: LKR currency id and "is the course itself LKR" flag, used
+// throughout for penalty normalization — independent of what currency THIS
+// payment happens to be in.
+$lkrCurrencyId = 1;
 
 /* ════════════════════════════════════════════════════════════════════════════
    FETCH LATEST TAX RATE
@@ -247,7 +254,7 @@ $paymentPlan = Database::search("
         b.branch_id, b.branch,
         ld.first_name, ld.last_name,
         t.title,
-        s.lead_student_status_lead_student_status_id,
+        shi.lead_student_status_lead_student_status_id,
         ld.email,
         pt.payment_type_id, pt.payment_type,
         shi.students_has_intakes_id,
@@ -275,7 +282,6 @@ $paymentPlan = Database::search("
     INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
     INNER JOIN title      t   ON s.title_title_id            = t.title_id
     WHERE cp.course_payments_id = '" . $payment_id . "'
-    
 ");
 
 if (!$paymentPlan || $paymentPlan->num_rows == 0) {
@@ -307,16 +313,17 @@ if (!$selectedCurrencyId) {
 // Is student paying in a foreign currency (e.g. LKR) for a base-currency course (e.g. GBP)?
 $isLkrPaymentForForeignCourse = ($selectedCurrencyId == 1 && $baseCurrencyId != 1);
 
+// Is the COURSE ITSELF denominated in LKR? Independent of what currency THIS
+// specific payment happens to be in — needed for every penalty conversion.
+$isBaseCurrencyLKR = ($baseCurrencyId == $lkrCurrencyId);
+
 /* ════════════════════════════════════════════════════════════════════════════
    VALIDATION
 ════════════════════════════════════════════════════════════════════════════ */
-$paymentSlips = [];
-
 if ($method == 0)                   $status->method    = 'Please select payment method';
 if (empty($paid_date))              $status->paid_date = 'Please select paid date';
 elseif (CheckDateTime::isFutureDate($paid_date)) $status->paid_date = 'Paid date cannot be in the future';
 if ($paid_amount_original <= 0)     $status->amount    = 'Please enter paid amount';
-
 
 if (!empty($note) && strlen($note) > 150) $status->note = 'Note must be less than 150 characters';
 
@@ -329,17 +336,23 @@ foreach (['error', 'amount', 'slip', 'paid_date', 'method', 'discount', 'panelty
 
 $timezone = new DateTimeZone("Asia/Colombo");
 $now      = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
-$dateTime = new DateTime("now", $timezone);
-$date = $dateTime->format('Y-m-d H:i:s');
-$today = date('Y-m-d', strtotime($date));
+$today    = date('Y-m-d', strtotime($now));
 
+/* ════════════════════════════════════════════════════════════════════════════
+   REJECT PATH
 
+   ✅ v12 FIX: previously used the WRONG row identifier ($payment_id, which is
+   course_payments_id, not course_payment_has_payment_id) and referenced an
+   undefined $coursePaymentsId variable in the log insert. Both fixed below —
+   $paid_payment_id identifies the row, $payment_id is the correct value for
+   the log's own course_payments_course_payments_id column.
+════════════════════════════════════════════════════════════════════════════ */
 if ($payment_status == 4) {
 
     Database::iud("
         UPDATE `course_payment_has_payments`
         SET `payment_status_payment_status_id` = '4'
-        WHERE `course_payment_has_payment_id` = '$payment_id'
+        WHERE `course_payment_has_payment_id` = '$paid_payment_id'
     ");
 
     $logNote = addslashes($note ?: 'Payment rejected');
@@ -347,7 +360,7 @@ if ($payment_status == 4) {
         INSERT INTO `payment_logs`
             (`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `note`, `log`)
         VALUES
-            ('$coursePaymentsId', '$payment_id', '" . $sessionUserObject['user_id'] . "', '$now', '$logNote', '$logNote')
+            ('$payment_id', '$paid_payment_id', '" . $sessionUserObject['user_id'] . "', '$now', '$logNote', '$logNote')
     ");
 
     $status->done = 'Payment has been rejected.';
@@ -355,6 +368,29 @@ if ($payment_status == 4) {
     exit;
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   ✅ v12 FIX: NORMALIZE PENALTY TO LKR — ALWAYS, REGARDLESS OF PAYMENT MODE
+
+   panelty_amount is stored EVERYWHERE in this system as ALWAYS LKR. The
+   currency toggle on this form controls what currency PAID/DISCOUNT were
+   entered in; it must NOT be applied to penalty.
+
+   $penalty_original as posted is in:
+     - LKR              → if the modal's currency toggle was set to 'lkr'
+     - course currency  → if the modal's currency toggle was set to 'base'
+                            (only meaningful when the course itself is not
+                            already LKR)
+════════════════════════════════════════════════════════════════════════════ */
+if ($selectedCurrencyId == $lkrCurrencyId) {
+    // Entered directly in LKR — use as-is.
+    $penalty_LKR = $penalty_original;
+} elseif ($baseCurrencyId != $lkrCurrencyId) {
+    // Entered in the course's (foreign) currency — convert UP to LKR.
+    $penalty_LKR = $penalty_original * $exchangeRate;
+} else {
+    // Course itself is LKR — course-currency amount already IS the LKR amount.
+    $penalty_LKR = $penalty_original;
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    CONVERT ORIGINAL AMOUNTS TO BASE CURRENCY (for all calculations)
@@ -362,23 +398,24 @@ if ($payment_status == 4) {
    All balance / overpayment logic runs in base currency (e.g. GBP).
    We convert back to payment currency only when storing to DB.
 
-   LKR → GBP : divide by exchange rate
-   GBP → GBP : use as-is
+   ✅ FIX (v9): these are INTERMEDIATE values used only for internal math — do
+   NOT round them to 2dp here.
 
-   ✅ FIX: these are INTERMEDIATE values used only for internal math — do NOT
-   round them to 2dp here. Rounding a GBP value to 2dp and then multiplying it
-   back by an exchange rate of ~390 turns a 1-cent GBP error into several
-   rupees of error. Rounding happens once, at the point of storage.
+   ✅ FIX (v12): penalty_base is now ALWAYS derived from $penalty_LKR (LKR →
+   course currency), matching convertLKRToCourseCurrency() — never from
+   $penalty_original directly, since that may be in either currency depending
+   on payment mode.
 ════════════════════════════════════════════════════════════════════════════ */
 if ($isLkrPaymentForForeignCourse) {
     $paid_base     = $paid_amount_original / $exchangeRate;
     $discount_base = $discount_original    / $exchangeRate;
-    $penalty_base  = $penalty_original     / $exchangeRate;
 } else {
     $paid_base     = $paid_amount_original;
     $discount_base = $discount_original;
-    $penalty_base  = $penalty_original;
 }
+
+// Penalty: LKR → course currency, independent of payment mode.
+$penalty_base = convertLKRToCourseCurrency($penalty_LKR, $isBaseCurrencyLKR, $exchangeRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
    CALCULATE CURRENT INSTALLMENT PAYABLE (all in base currency)
@@ -388,8 +425,15 @@ $cpDiscountAmt = ($paymentData['discount_type_id'] == 3)
     : (float)$paymentData['discount'];
 
 // Fetch existing paid amounts for this installment.
-// IMPORTANT: existing records may be stored in different currencies.
-// We use currency_exchange_rate to normalize them all to base currency.
+// IMPORTANT: paid_amount/discount_amount may be stored in different
+// currencies per row — normalized via currency_exchange_rate.
+//
+// ✅ v12 FIX: panelty_amount is ALWAYS LKR regardless of the row's own
+// currencies_currency_id (that column describes paid_amount's currency only).
+// Convert it to base currency via whether the COURSE ITSELF is non-LKR, using
+// that row's stored currency_exchange_rate — not via the paid-amount-currency
+// check the old query used. Rows with no stored rate are excluded (0) rather
+// than silently mis-summed.
 $existingQ = Database::search("
     SELECT
         SUM(CASE
@@ -418,9 +462,11 @@ $existingQ = Database::search("
             WHEN payment_status_payment_status_id = 3 THEN
                 COALESCE(
                     CASE
-                        WHEN currencies_currency_id != '{$baseCurrencyId}' AND COALESCE(currency_exchange_rate, 0) > 0
+                        WHEN '{$baseCurrencyId}' != {$lkrCurrencyId} AND COALESCE(currency_exchange_rate, 0) > 0
                         THEN panelty_amount / currency_exchange_rate
-                        ELSE panelty_amount
+                        WHEN '{$baseCurrencyId}' = {$lkrCurrencyId}
+                        THEN panelty_amount
+                        ELSE 0
                     END,
                 0)
             ELSE 0
@@ -429,89 +475,94 @@ $existingQ = Database::search("
     WHERE course_payments_course_payments_id = '$payment_id'
 ");
 
-$exRow              = $existingQ->fetch_assoc();
-$existingPaid_base  = (float)($exRow['total_paid_base']       ?? 0); // in base currency
-$receiptDisc_base   = (float)($exRow['receipt_discount_base'] ?? 0); // in base currency
+$exRow               = $existingQ->fetch_assoc();
+$existingPaid_base   = (float)($exRow['total_paid_base']       ?? 0); // in base currency
+$receiptDisc_base    = (float)($exRow['receipt_discount_base'] ?? 0); // in base currency
 $receiptPenalty_base = (float)($exRow['receipt_penalty_base']  ?? 0); // in base currency
 
+/* ════════════════════════════════════════════════════════════════════════════
+   ✅ v11: PENALTY LEDGER (panelty_payments table)
+
+   panelty_payments.amount is ALWAYS stored in LKR, and represents penalties
+   assessed through the dedicated "Penalty Payment Enabled" feature —
+   separate from any ad-hoc penalty typed into this approval form.
+   payment-details.php already folds this into the balance shown to the
+   admin; this endpoint must too, or the two silently disagree.
+════════════════════════════════════════════════════════════════════════════ */
+$cpPenaltyLKRQ = Database::search("
+    SELECT COALESCE(SUM(amount), 0) AS penalty_lkr
+    FROM panelty_payments
+    WHERE course_payments_course_payments_id = '$payment_id'
+");
+$cpPenaltyLKR = (float)(($cpPenaltyLKRQ && $cpPenaltyLKRQ->num_rows > 0)
+    ? $cpPenaltyLKRQ->fetch_assoc()['penalty_lkr']
+    : 0);
+
+$cpPenaltyBase = convertLKRToCourseCurrency($cpPenaltyLKR, $isBaseCurrencyLKR, $exchangeRate);
+
 $totalDiscountBase = $cpDiscountAmt + $receiptDisc_base + $discount_base;
-$totalPenaltyBase  = $receiptPenalty_base + $penalty_base;
+
+// ✅ v11 + v12: ledger penalty + prior receipts' penalty (now correctly LKR-
+// normalized) + this transaction's own newly-entered penalty (now correctly
+// LKR-normalized).
+$totalPenaltyBase  = $cpPenaltyBase + $receiptPenalty_base + $penalty_base;
+
 $basePayable       = max(0.0, $paymentData['amount'] - $totalDiscountBase + $totalPenaltyBase);
 
 // Calculate total payable INCLUDING TAX using correct formula
-// inclusive = base / (1 - taxRate/100)
 $totalPayable = calculateTaxInclusiveAmount($basePayable, $latestTaxRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
    EXTRACT TAX FROM THIS PAYMENT (in base currency)
 ════════════════════════════════════════════════════════════════════════════ */
-$extracted   = extractTaxFromInclusive($paid_base, $latestTaxRate);
-$paidNetBase = $extracted['base']; // net amount (ex-tax) in base currency
+$extracted    = extractTaxFromInclusive($paid_base, $latestTaxRate);
+$paidNetBase  = $extracted['base']; // net amount (ex-tax) in base currency
 $paidTax_base = $extracted['tax'];  // tax portion in base currency
 
 /* ════════════════════════════════════════════════════════════════════════════
    BALANCE CALCULATION (base currency)
 ════════════════════════════════════════════════════════════════════════════ */
 $totalPaidAfterThisReceipt = $existingPaid_base + $paid_base;
-
-// To get the remaining balance, we need to calculate how much net amount (ex-tax) has been paid
 $paidNetSoFar = extractTaxFromInclusive($totalPaidAfterThisReceipt, $latestTaxRate)['base'];
-
 $remainingBase = max(0.0, $basePayable - $paidNetSoFar);
-
-// Remaining balance including tax
 $balanceAfter_base = calculateTaxInclusiveAmount($remainingBase, $latestTaxRate);
 
 /* ════════════════════════════════════════════════════════════════════════════
    OVERPAYMENT DETECTION
 
-   ✅ FIX: Compute the overpayment amount directly in the PAYMENT currency first
-   (exactly what the frontend does: rawPaid - balBeforeDisplayWithTax), THEN
-   derive the base-currency equivalent FROM that figure. Previously this was
-   backwards — the overpay was computed (and rounded) in base currency first,
-   then converted to LKR and rounded again, which is what caused the stored
-   "current installment" amount to drift away from the balance shown on screen.
+   ✅ FIX (v9): Compute the overpayment amount directly in the PAYMENT currency
+   first, THEN derive the base-currency equivalent FROM that figure.
 ════════════════════════════════════════════════════════════════════════════ */
 $remainingBefore_base = max(0.0, $totalPayable - $existingPaid_base);
 
-// Balance due BEFORE this payment, expressed in the currency the student paid in
-// (unrounded — matches the frontend's balBeforeDisplayWithTax calculation)
 $remainingBeforeInPaymentCcy = $isLkrPaymentForForeignCourse
     ? $remainingBefore_base * $exchangeRate
     : $remainingBefore_base;
 
-// Overpayment amount, computed directly in the payment currency (single rounding point)
 $overpayAmount_paymentCcy = max(0.0, round($paid_amount_original - $remainingBeforeInPaymentCcy, 2));
 
-// Base-currency equivalent, DERIVED from the payment-currency figure so the two
-// values always agree with each other and with what's shown on screen
 $overpayAmount_base = $isLkrPaymentForForeignCourse
     ? $overpayAmount_paymentCcy / $exchangeRate
     : $overpayAmount_paymentCcy;
 
-$amountForCurrent_base = min($paid_base, $remainingBefore_base); // portion for this installment
+$amountForCurrent_base = min($paid_base, $remainingBefore_base);
 
-// Tax for just the current installment portion (base currency)
-$currentExtracted      = extractTaxFromInclusive($amountForCurrent_base, $latestTaxRate);
-$taxForCurrent_base    = $currentExtracted['tax']; // base currency
+$currentExtracted   = extractTaxFromInclusive($amountForCurrent_base, $latestTaxRate);
+$taxForCurrent_base = $currentExtracted['tax'];
 
 $remaingBaseFor_Conversion = $remainingBefore_base;
 
 /* ════════════════════════════════════════════════════════════════════════════
    ✅ CRITICAL FIX: ALWAYS store the ORIGINAL paid amount as entered
 
-   DO NOT OVERWRITE with amountForCurrent!
-
-   paid_amount = what student actually paid (LKR 50,000)
-   tax_amount  = tax extracted from that amount (LKR ~436)
+   paid_amount     = what student actually paid
+   tax_amount      = tax extracted from that amount
    discount_amount = discount given (original currency)
-   penalty_amount = penalty added (original currency)
-
-   Overpayment will be calculated and distributed to next installments separately.
+   panelty_amount  = ✅ v12: ALWAYS LKR, never $penalty_original raw
 ════════════════════════════════════════════════════════════════════════════ */
 $paidAmountForCurrent_stored = round($paid_amount_original, 2);  // ✅ ALWAYS original
-$discountForStorage          = round($discount_original, 2);     // Original discount
-$penaltyForStorage           = round($penalty_original, 2);      // Original penalty
+$discountForStorage          = round($discount_original,    2);  // Original discount
+$penaltyForStorage           = round($penalty_LKR,           2);  // ✅ v12: always LKR
 
 // Tax is extracted from the paid amount (in base currency) then converted back to payment currency
 if ($isLkrPaymentForForeignCourse) {
@@ -571,24 +622,13 @@ if ($overpayAmount_base > 0.001) {
     ");
 
     /**
-     * ✅ FIX (multi-installment overpayment drift):
-     * Previously this loop tracked the remaining overpayment in BASE currency
-     * ($remainingOverpay_base) and, for every next installment, rounded the
-     * payable amount to 2dp in base currency (inside calculateTaxInclusiveAmount),
-     * then rounded AGAIN when converting the applied portion back to the
-     * payment currency for storage. Each installment in the chain added
-     * another rounding hop, so the amounts actually saved
-     * (79,666.34 + 95,597.28 + 34.95 = 175,298.57) drifted away from the
-     * original amount paid (175,300.00) — a shortfall of LKR 1.43.
+     * ✅ FIX (v10, multi-installment overpayment drift): track and distribute
+     * the overpayment directly in the PAYMENT currency throughout the loop.
      *
-     * FIX: track and distribute the overpayment directly in the PAYMENT
-     * currency throughout the loop (starting from $overpayAmount_paymentCcy,
-     * the same single-rounding-point figure used for the current
-     * installment above). Each installment's payable/paid is converted to
-     * payment currency ONCE, unrounded, and rounding only happens when the
-     * final "amount applied to this installment" is stored — so the sum of
-     * every stored amount (current + all next installments) always
-     * reconciles exactly with the original amount paid.
+     * NOTE (v11): next installments' own penalty ledger amounts are NOT pulled
+     * in here — an overpayment auto-applied to a future installment settles
+     * principal/tax only; any penalty on that future installment still needs
+     * its own explicit approval action.
      */
     $remainingOverpay_paymentCcy = $overpayAmount_paymentCcy;
 
@@ -598,7 +638,6 @@ if ($overpayAmount_base > 0.001) {
             ? $nextRow['amount'] / 100.0 * $nextRow['discount']
             : (float)$nextRow['discount'];
 
-        // Fetch existing paid for next installment, normalized to base currency
         $nextExistingQ = Database::search("
             SELECT COALESCE(SUM(
                 CASE
@@ -614,13 +653,8 @@ if ($overpayAmount_base > 0.001) {
         $nextExistingPaid_base = (float)($nextExistingQ->fetch_assoc()['paid_base'] ?? 0);
 
         $nextBasePayable = max(0.0, $nextRow['amount'] - $nextDisc);
-
-        // Calculate total payable including tax using CORRECT formula (base currency)
         $nextTotalPayable_base = calculateTaxInclusiveAmount($nextBasePayable, $latestTaxRate);
 
-        // Convert this installment's payable/paid to the PAYMENT currency once,
-        // unrounded — keeps the comparison against $remainingOverpay_paymentCcy
-        // apples-to-apples without a second base→payment round-trip.
         $nextTotalPayable_paymentCcy = $isLkrPaymentForForeignCourse
             ? $nextTotalPayable_base * $exchangeRate
             : $nextTotalPayable_base;
@@ -632,36 +666,28 @@ if ($overpayAmount_base > 0.001) {
         $applyToNext_paymentCcy   = min($remainingOverpay_paymentCcy, $nextRemaining_paymentCcy);
         $remainingOverpay_paymentCcy = round($remainingOverpay_paymentCcy - $applyToNext_paymentCcy, 2);
 
-        // Tax split directly in the payment currency — extractTaxFromInclusive()
-        // only splits proportionally, so calling it on a payment-currency
-        // amount gives the correctly-rounded stored tax directly, with no
-        // separate base→payment conversion/rounding step needed.
         $nextExtracted = extractTaxFromInclusive($applyToNext_paymentCcy, $latestTaxRate);
 
         $applyToNext_stored = round($applyToNext_paymentCcy, 2);
         $nextTax_stored      = $nextExtracted['tax'];
 
-        // Base-currency equivalent, kept only for the "mark as settled" comparison below
         $applyToNext_base = $isLkrPaymentForForeignCourse
             ? $applyToNext_paymentCcy / $exchangeRate
             : $applyToNext_paymentCcy;
 
         $nextInstallmentPayments[] = [
-            'payment_id'            => $nextId,
-            'paid_amount_stored'    => $applyToNext_stored,  // in payment currency
-            'tax_amount_stored'     => $nextTax_stored,       // in payment currency
+            'payment_id'              => $nextId,
+            'paid_amount_stored'      => $applyToNext_stored,
+            'tax_amount_stored'       => $nextTax_stored,
             'next_total_payable_base' => $nextTotalPayable_base,
-            'apply_base'            => $applyToNext_base,    // for status-update comparison
+            'apply_base'              => $applyToNext_base,
         ];
     }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   BUILD RECEIPT NUMBER
+   BUILD RECEIPT NUMBER (approve path only)
 ════════════════════════════════════════════════════════════════════════════ */
-$tz  = new DateTimeZone("Asia/Colombo");
-$now = (new DateTime("now", $tz))->format('Y-m-d H:i:s');
-
 if ($payment_status == 3) {
     $branchName   = $paymentData['branch'] ?? 'XX';
     $branchPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $branchName), 0, 2));
@@ -670,36 +696,31 @@ if ($payment_status == 3) {
 
     $seqQ  = Database::search("SELECT COUNT(*) AS cnt FROM course_payment_receipts WHERE receipt_number LIKE '" . addslashes($branchPrefix . $year) . "-%'");
     $seq   = 1 + (int)(($seqQ && $seqQ->num_rows > 0) ? $seqQ->fetch_assoc()['cnt'] : 0);
-    $receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 5, '0', STR_PAD_LEFT);
+    $receiptNumber = $branchPrefix . $year . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
     Database::iud("
-    INSERT INTO course_payment_receipts
-        (receipt_number, users_user_id, date_added, students_has_intakes_students_has_intakes_id)
-    VALUES
-        ('" . addslashes($receiptNumber) . "', '" . $sessionUserObject['user_id'] . "', '$now', '" . $paymentData['students_has_intakes_id'] . "')
-");
+        INSERT INTO course_payment_receipts
+            (receipt_number, users_user_id, date_added, students_has_intakes_students_has_intakes_id)
+        VALUES
+            ('" . addslashes($receiptNumber) . "', '" . $sessionUserObject['user_id'] . "', '$now', '" . $paymentData['students_has_intakes_id'] . "')
+    ");
     $receiptId = (int)Database::$connection->insert_id;
 }
 
-
 /* ════════════════════════════════════════════════════════════════════════════
-   INSERT PAYMENT RECORD
-   - paid_amount    → original amount in payment currency (e.g. LKR 50,000), MINUS
-                       any overpayment that was carried forward to the next
-                       installment(s) — this is what "settles" the current
-                       installment and MUST match the on-screen balance exactly
+   UPDATE PAYMENT RECORD
+   - paid_amount    → original amount in payment currency, MINUS any overpayment
+                       carried forward to next installment(s)
    - discount_amount→ original discount in payment currency
-   - panelty_amount → original penalty in payment currency
-   - tax_amount     → tax converted BACK to payment currency (e.g. LKR ~436)
-   - currencies_currency_id → payment currency (e.g. 1 for LKR)
-   - currency_exchange_rate → rate used (only when currencies differ)
+   - panelty_amount → ✅ v12: ALWAYS LKR
+   - tax_amount     → tax converted BACK to payment currency
+   - currency_exchange_rate → ✅ v12: stored whenever the COURSE itself is
+                       non-LKR (not only when the payment currency differs
+                       from the course currency), so penalty can always be
+                       converted on read
 ════════════════════════════════════════════════════════════════════════════ */
 $qn = fn($v) => $v !== null ? "'" . addslashes((string)$v) . "'" : 'NULL';
 
-// ✅ FIX: subtract the overpayment directly in the PAYMENT currency — the exact
-// same figure ($overpayAmount_paymentCcy) that was used to detect the
-// overpayment in the first place, so this always reconciles with the balance
-// shown on screen (no separate GBP→LKR round-trip / re-rounding here).
 if ($overpayAmount_paymentCcy > 0.001) {
     $paidAmountForCurrent_stored = round($paid_amount_original - $overpayAmount_paymentCcy, 2);
 }
@@ -716,14 +737,22 @@ $updateVals = "`payment_status_payment_status_id` = '" . $payment_status . "',
 `currencies_currency_id` = '{$selectedCurrencyId}'
 ";
 
-if ($selectedCurrencyId != $baseCurrencyId) {
-    $exchangeRateId == '' ?  '' : $updateVals .= ",`currency_exchange_rate_id` = '{$exchangeRateId}'";
+// ✅ v12 FIX: store the rate whenever the COURSE itself isn't LKR — replaces
+// the fragile ternary and the old `$selectedCurrencyId != $baseCurrencyId`
+// condition (which left non-LKR-course, non-LKR-payment rows with no rate,
+// making their penalty unconvertible on read).
+if ($baseCurrencyId != $lkrCurrencyId) {
+    if ($exchangeRateId !== null && $exchangeRateId !== 0) {
+        $updateVals .= ", `currency_exchange_rate_id` = '{$exchangeRateId}'";
+    } else {
+        $updateVals .= ", `currency_exchange_rate_id` = NULL";
+    }
     $updateVals .= ", `currency_exchange_rate` = '{$exchangeRate}'";
 }
-if ($payment_status == 3) {
-    $updateVals .= ",`course_payment_receipts_course_payment_receipt_id` = '{$receiptId}'";
-}
 
+if ($payment_status == 3) {
+    $updateVals .= ", `course_payment_receipts_course_payment_receipt_id` = '{$receiptId}'";
+}
 
 Database::iud("UPDATE course_payment_has_payments SET {$updateVals} WHERE course_payment_has_payment_id = '{$paid_payment_id}'");
 $paymentReceiptId = $paid_payment_id;
@@ -738,12 +767,13 @@ if ($amountForCurrent_base >= $remainingBefore_base - 0.001) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    INSERT OVERPAYMENT RECORDS FOR NEXT INSTALLMENTS
-   Same rule: store amounts in payment currency, include exchange rate
+   panelty_amount hardcoded to '0' — overpayment never carries a penalty
+   component — so the v12 penalty-currency fix does not apply to these rows.
 ════════════════════════════════════════════════════════════════════════════ */
 foreach ($nextInstallmentPayments as $nxt) {
     $nxtId   = (int)$nxt['payment_id'];
-    $nxtPaid = $nxt['paid_amount_stored']; // already in payment currency
-    $nxtTax  = $nxt['tax_amount_stored'];  // already in payment currency
+    $nxtPaid = $nxt['paid_amount_stored'];
+    $nxtTax  = $nxt['tax_amount_stored'];
 
     $nxtCols = "`course_payments_course_payments_id`, `payment_method_payment_method_id`,
                 `date_paid`, `paid_amount`, `discount_amount`, `panelty_amount`,
@@ -754,7 +784,6 @@ foreach ($nextInstallmentPayments as $nxt) {
     $nxtVals = "'{$nxtId}', '{$method}',
                 '{$paid_date}', '{$nxtPaid}', '0', '0',
                 '" . $payment_status . "', '{$selectedCurrencyId}',
-                
                 '{$latestTaxRate}', '{$nxtTax}',
                 '{$now}'";
 
@@ -766,7 +795,8 @@ foreach ($nextInstallmentPayments as $nxt) {
         $nxtVals .= ", 'Auto-applied overpayment'";
     }
 
-    if ($selectedCurrencyId != $baseCurrencyId) {
+    // ✅ v12: same rate-storage condition as the main update above.
+    if ($baseCurrencyId != $lkrCurrencyId) {
         $nxtCols .= ", `currency_exchange_rate_id`, `currency_exchange_rate`";
         $nxtVals .= ", " . $qn($exchangeRateId) . ", " . $qn($exchangeRate);
     }
@@ -774,18 +804,16 @@ foreach ($nextInstallmentPayments as $nxt) {
     Database::iud("INSERT INTO course_payment_has_payments ({$nxtCols}) VALUES ({$nxtVals})");
     $nxtReceiptId = (int)Database::$connection->insert_id;
 
-    // Mark next installment as settled if fully covered (compare in base currency)
     if ($payment_status == 3) {
         if ($nxt['apply_base'] >= $nxt['next_total_payable_base'] - 0.001) {
             Database::iud("
-            UPDATE course_payments SET payment_status_payment_status_id = '5'
-            WHERE course_payments_id = '$nxtId'
-        ");
+                UPDATE course_payments SET payment_status_payment_status_id = '5'
+                WHERE course_payments_id = '$nxtId'
+            ");
         }
     }
 
-
-    $overpayLog = "Auto-applied overpayment from {$receiptNumber}: "
+    $overpayLog = "Auto-applied overpayment" . (isset($receiptNumber) ? " from {$receiptNumber}" : "") . ": "
         . round($nxtPaid, 2) . " (incl. tax " . round($nxtTax, 2) . ")";
     Database::iud("
         INSERT INTO payment_logs
@@ -795,7 +823,6 @@ foreach ($nextInstallmentPayments as $nxt) {
     ");
 }
 
-
 /* ════════════════════════════════════════════════════════════════════════════
    PAYMENT LOG
 ════════════════════════════════════════════════════════════════════════════ */
@@ -803,13 +830,19 @@ $currencyLabel = ($selectedCurrencyId == 1) ? 'LKR' : $currCode;
 $payment_update_status = ($payment_status == 3) ? 'Approved' : 'Rejected';
 $log = "Payment receipt status updated {$payment_update_status}. {$currencyLabel} " . number_format($paid_amount_original, 2);
 if ($latestTaxRate > 0) {
-    // Log values in base currency for clarity
     $log .= " | base=" . number_format($paidNetBase, 2)
         . " + tax="  . number_format($paidTax_base, 2)
         . " ({$currCode}) | rate={$latestTaxRate}%";
     if ($isLkrPaymentForForeignCourse) {
         $log .= " | exRate={$exchangeRate}";
     }
+}
+if ($penalty_LKR > 0.001) {
+    // ✅ v12: log the actual stored (LKR) figure, not the raw posted value.
+    $log .= " | penalty=LKR " . number_format($penalty_LKR, 2);
+}
+if ($cpPenaltyLKR > 0) {
+    $log .= " | ledgerPenalty=LKR" . number_format($cpPenaltyLKR, 2);
 }
 if ($overpayAmount_base > 0.001) {
     $log .= " | Overpayment → next installment(s)";
@@ -825,13 +858,13 @@ Database::iud("INSERT INTO payment_logs ({$logCols}) VALUES ({$logVals})");
 
 /* ── Registration status update ── */
 if ($paymentData['payment_type_id'] == 18 && $paymentData['lead_student_status_lead_student_status_id'] == 4) {
-    Database::iud("UPDATE students SET lead_student_status_lead_student_status_id='5' WHERE student_id='" . $paymentData['student_id'] . "'");
-    Database::iud("INSERT INTO students_logs (students_student_id, date_updated, users_user_id, log, lead_student_status_lead_student_status_id)
-        VALUES ('" . $paymentData['student_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'Registration Payment marked as paid', '5')");
+    Database::iud("UPDATE students_has_intakes SET lead_student_status_lead_student_status_id='5' WHERE students_has_intakes_id='" . $paymentData['students_has_intakes_id'] . "'");
+    Database::iud("INSERT INTO students_logs (students_has_intakes_students_has_intakes_id, date_updated, users_user_id, log, lead_student_status_lead_student_status_id)
+        VALUES ('" . $paymentData['students_has_intakes_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'Registration Payment marked as paid', '5')");
 }
 
 /* ── First installment log ── */
-if (in_array($paymentData['lead_student_status_lead_student_status_id'], [5, 9])) {
+if (in_array($paymentData['lead_student_status_lead_student_status_id'], [5, 8, 9])) {
     $firstQ = Database::search("
         SELECT cp.course_payments_id FROM course_payments cp
         INNER JOIN payment_type pt ON cp.payment_type_payment_type_id = pt.payment_type_id
@@ -846,51 +879,55 @@ if (in_array($paymentData['lead_student_status_lead_student_status_id'], [5, 9])
         ORDER BY cp.due_date ASC, cp.course_payments_id ASC LIMIT 1
     ");
     if ($firstQ->num_rows > 0 && (int)$firstQ->fetch_assoc()['course_payments_id'] === $payment_id) {
-        Database::iud("INSERT INTO students_logs (students_student_id, date_updated, users_user_id, log, lead_student_status_lead_student_status_id)
-            VALUES ('" . $paymentData['student_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'First installment payment receipt uploaded', '8')");
+        Database::iud("UPDATE students_has_intakes SET lead_student_status_lead_student_status_id='10' WHERE students_has_intakes_id='" . $paymentData['students_has_intakes_id'] . "'");
+        Database::iud("INSERT INTO students_logs (students_has_intakes_students_has_intakes_id, date_updated, users_user_id, log, lead_student_status_lead_student_status_id)
+            VALUES ('" . $paymentData['students_has_intakes_id'] . "', '$now', '" . $sessionUserObject['user_id'] . "', 'First installment payment receipt uploaded', '10')");
+
+        Database::iud("UPDATE students_has_intakes SET lead_student_status_lead_student_status_id='11' WHERE students_has_intakes_id='" . $paymentData['students_has_intakes_id'] . "'");
     }
 }
 
+/* ── Reassess overdue "hold" flag on the student's intake, if it was flagged ── */
 if ($paymentData['status_status_id'] == 2) {
 
     $query = "
-                                        SELECT
-                                            `cp`.`course_payments_id`,
-                                            `cp`.`amount`,
-                                            `cp`.`discount`,
-                                            `cp`.`due_date`,
-                                            `cp`.`discount_type_discount_type_id`,
-                                            IFNULL(pp.panelty_amount, 0) AS panelty_amount,
-                                            IFNULL(cpp.paid_amount, 0) AS paid_amount,
-                                            IFNULL(cpp.total_discount, 0) AS total_discount,
-                                            IFNULL(cpp.total_sub_panelty_amount, 0) AS total_sub_panelty_amount
-                                        FROM `course_payments` AS `cp`
-                                        INNER JOIN `payment_plan_has_students_has_intakes` AS `pphsi`
-                                            ON `cp`.`payment_plan_has_students_has_intakes_id` = `pphsi`.`payment_plan_has_students_has_intakes_id`
-                                        LEFT JOIN (
-                                            SELECT
-                                                course_payments_course_payments_id,
-                                                SUM(amount) AS panelty_amount
-                                            FROM panelty_payments
-                                            GROUP BY course_payments_course_payments_id
-                                        ) pp
-                                            ON cp.course_payments_id = pp.course_payments_course_payments_id
-                                        LEFT JOIN (
-                                            SELECT
-                                                course_payments_course_payments_id,
-                                                SUM(paid_amount) AS paid_amount,
-                                                SUM(discount_amount) AS total_discount,
-                                                SUM(panelty_amount) AS total_sub_panelty_amount
-                                            FROM course_payment_has_payments
-                                            WHERE payment_status_payment_status_id IN (2,3)
-                                            GROUP BY course_payments_course_payments_id
-                                        ) cpp
-                                            ON cp.course_payments_id = cpp.course_payments_course_payments_id
-                                        WHERE `pphsi`.`students_has_intakes_students_has_intakes_id` = '" . $paymentData['students_has_intakes_id'] . "'
-                                            AND `cp`.`payment_status_payment_status_id` = '1'
-                                            AND `cp`.`due_date` < '$today'
-                                        GROUP BY `cp`.`course_payments_id`
-                                    ";
+        SELECT
+            `cp`.`course_payments_id`,
+            `cp`.`amount`,
+            `cp`.`discount`,
+            `cp`.`due_date`,
+            `cp`.`discount_type_discount_type_id`,
+            IFNULL(pp.panelty_amount, 0) AS panelty_amount,
+            IFNULL(cpp.paid_amount, 0) AS paid_amount,
+            IFNULL(cpp.total_discount, 0) AS total_discount,
+            IFNULL(cpp.total_sub_panelty_amount, 0) AS total_sub_panelty_amount
+        FROM `course_payments` AS `cp`
+        INNER JOIN `payment_plan_has_students_has_intakes` AS `pphsi`
+            ON `cp`.`payment_plan_has_students_has_intakes_id` = `pphsi`.`payment_plan_has_students_has_intakes_id`
+        LEFT JOIN (
+            SELECT
+                course_payments_course_payments_id,
+                SUM(amount) AS panelty_amount
+            FROM panelty_payments
+            GROUP BY course_payments_course_payments_id
+        ) pp
+            ON cp.course_payments_id = pp.course_payments_course_payments_id
+        LEFT JOIN (
+            SELECT
+                course_payments_course_payments_id,
+                SUM(paid_amount) AS paid_amount,
+                SUM(discount_amount) AS total_discount,
+                SUM(panelty_amount) AS total_sub_panelty_amount
+            FROM course_payment_has_payments
+            WHERE payment_status_payment_status_id IN (2,3)
+            GROUP BY course_payments_course_payments_id
+        ) cpp
+            ON cp.course_payments_id = cpp.course_payments_course_payments_id
+        WHERE `pphsi`.`students_has_intakes_students_has_intakes_id` = '" . $paymentData['students_has_intakes_id'] . "'
+            AND `cp`.`payment_status_payment_status_id` = '1'
+            AND `cp`.`due_date` < '$today'
+        GROUP BY `cp`.`course_payments_id`
+    ";
 
     $payments = Database::search($query);
 
@@ -926,20 +963,20 @@ if ($paymentData['status_status_id'] == 2) {
     }
 }
 
-
 /* ════════════════════════════════════════════════════════════════════════════
    RESPONSE
 ════════════════════════════════════════════════════════════════════════════ */
 http_response_code(200);
 $status->done            = 'Payment receipt uploaded successfully';
 $status->id              = $paymentData['students_has_intakes_id'];
-$status->receiptNumber   = $receiptNumber;
+$status->receiptNumber   = $receiptNumber ?? null;
 $status->taxRate         = $latestTaxRate;
-$status->paidAmount      = round($paid_amount_original, 2);  // original payment currency
-$status->paidBase        = round($paidNetBase,          2); // base currency (ex-tax)
-$status->paidTax         = round($paidTax_base,         2); // base currency tax
-$status->paidTaxStored   = round($taxForCurrent_stored, 2); // tax in payment currency (what was saved)
-$status->balance         = round($balanceAfter_base,    2); // balance in base currency
+$status->paidAmount      = round($paid_amount_original, 2);
+$status->paidBase        = round($paidNetBase,          2);
+$status->paidTax         = round($paidTax_base,         2);
+$status->paidTaxStored   = round($taxForCurrent_stored, 2);
+$status->penaltyLKR      = round($penalty_LKR,          2); // ✅ v12: actual stored LKR penalty for THIS receipt
+$status->balance         = round($balanceAfter_base,    2);
 $status->paymentCurrency = $currencyLabel;
 $status->baseCurrency    = $currCode;
 
@@ -947,6 +984,7 @@ $status->breakdown = [
     'courseAmount'        => (float)$paymentData['amount'],
     'totalDiscount'       => round($totalDiscountBase,     2),
     'totalPenalty'        => round($totalPenaltyBase,      2),
+    'penaltyLedgerLKR'    => round($cpPenaltyLKR,          2),
     'basePayable'         => round($basePayable,           2),
     'taxRate'             => $latestTaxRate,
     'totalPayable'        => round($totalPayable,          2),
@@ -954,7 +992,7 @@ $status->breakdown = [
     'thisPaid'            => round($paid_base,             2),
     'remainingBase'       => round($remainingBase,         2),
     'balanceNextInstall'  => round($balanceAfter_base,     2),
-    'exchangeRate'        => $isLkrPaymentForForeignCourse ? $exchangeRate : null,
+    'exchangeRate'        => ($baseCurrencyId != $lkrCurrencyId) ? $exchangeRate : null,
 ];
 
 if ($overpayAmount_base > 0.001) {

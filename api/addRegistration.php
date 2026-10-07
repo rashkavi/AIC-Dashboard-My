@@ -130,7 +130,8 @@ if (SessionUser::hasValidSession()) {
                 } else if (!normalizePhoneNumber($mobile)) {
                     $status->mobile =  "Please enter a valid contact number";
                 } else {
-                    $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` WHERE `mobile` = '" . $mobile . "'");
+                    $isValidMobile = Database::search("SELECT COUNT(*) as 'count' FROM `students` 
+                    WHERE (`mobile` = '" . $mobile . "' OR `mobile` = '" . normalizePhoneNumber($mobile) . "')");
                     $row = $isValidMobile->fetch_assoc();
                     if ($row['count'] > 0) {
                         $status->mobile =  "Contact number already exists";
@@ -141,7 +142,8 @@ if (SessionUser::hasValidSession()) {
                 } else if (!normalizePhoneNumber($whatsapp)) {
                     $status->whatsapp =  "Please enter a valid whatsapp number";
                 } else {
-                    $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` WHERE `whatsapp` = '" . $whatsapp . "'");
+                    $isValidWhatsapp = Database::search("SELECT COUNT(*) as 'count' FROM `login_details` 
+                    WHERE (`whatsapp` = '" . $whatsapp . "' OR `whatsapp` = '" . normalizePhoneNumber($whatsapp) . "')");
                     $row = $isValidWhatsapp->fetch_assoc();
                     if ($row['count'] > 0) {
                         $status->whatsapp =  "Whatsapp number already exists";
@@ -156,7 +158,6 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                $invalid_chars = '/[\'\";\-]/';
                 if (!empty($address)) {
                     if (!strlen($address) > 100) {
                         $status->address1 =  "Address should be less than 100 characters";
@@ -200,8 +201,6 @@ if (SessionUser::hasValidSession()) {
                 if (empty($intake)) {
                     $status->intake =  "Please select student intake";
                 }
-
-
 
                 if ($gtitle != 0 || $grelationship != 0 || !empty($gfname) || !empty($glname) || !empty($gemail) || !empty($gmobile) || !empty($gwhatsapp)) {
                     if ($gtitle == 0) {
@@ -313,8 +312,8 @@ if (SessionUser::hasValidSession()) {
                     Database::iud("INSERT INTO `login_details` (" . $login_details_columns . ") VALUES (" . $login_details_values . ")");
                     $login_details_id = Database::$connection->insert_id;
 
-                    $student_table_insert_columns = "`full_name`,`name_with_initials`,`title_title_id`,`mobile`,`date_added`,`gender_gender_id`,`users_user_id`,`login_details_login_details_id`,`lead_student_status_lead_student_status_id`";
-                    $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $normalizeMobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "','1'";
+                    $student_table_insert_columns = "`full_name`,`name_with_initials`,`title_title_id`,`mobile`,`date_added`,`gender_gender_id`,`users_user_id`,`login_details_login_details_id`,`enrolled_status`";
+                    $student_table_insert_values = "'" . $fullname . "','" . $nwi . "','" . $title . "','" . $normalizeMobile . "','" . $registerTime . "','" . $gender . "','" . $sessionUserObject['user_id'] . "','" . $login_details_id . "','PENDING'";
 
                     if (isset($_FILES["image"])) {
                         $student_table_insert_columns .= ", `profile_img`";
@@ -363,25 +362,27 @@ if (SessionUser::hasValidSession()) {
                         $student_table_insert_values .= ",'" . $passport . "'";
                     }
 
-                    if (!empty($entry_type)) {
-                        $student_table_insert_columns .= ",`entry_type`";
-                        $student_table_insert_values .= ",'" . $entry_type . "'";
-                    }
-
-                    if (!empty($payment_option)) {
-                        $student_table_insert_columns .= ",`payment_option`";
-                        $student_table_insert_values .= ",'" . $payment_option . "'";
-                    }
-
                     Database::iud("INSERT INTO `students` (" . $student_table_insert_columns . ") VALUES (" . $student_table_insert_values . ")");
 
                     $studentId = Database::$connection->insert_id;
 
-                    $shi_table_insert_columns = "`students_student_id`,`addmission_date`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`";
-                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $intake . "','" . $counselor . "'";
+
+                    $shi_table_insert_columns = "`students_student_id`,`addmission_date`,`users_user_id`,`intakes_intake_id`,`counselor_user_id`,`lead_student_status_lead_student_status_id`";
+                    $shi_table_insert_values = "'" . $studentId . "','" . $registerTime . "','" . $sessionUserObject['user_id'] . "','" . $counselor . "','" . $intake . "','1'";
+
+                    if (!empty($entry_type)) {
+                        $shi_table_insert_columns .= ",`entry_type`";
+                        $shi_table_insert_values .= ",'" . $entry_type . "'";
+                    }
+
+                    if (!empty($payment_option)) {
+                        $shi_table_insert_columns .= ",`payment_option`";
+                        $shi_table_insert_values .= ",'" . Database::escape($payment_option) . "'";
+                    }
 
                     Database::iud("INSERT INTO `students_has_intakes` (" . $shi_table_insert_columns . ") VALUES (" . $shi_table_insert_values . ")");
 
+                    $studentHasIntakeId = Database::$connection->insert_id;
                     if (!empty($address)) {
                         $address_table_insert_columns = "`address_line_1`,`city_city_id`,`postal_code`,`students_student_id`";
                         $address_table_insert_values = "'" . Database::escape($address) . "','" . $city . "','" . $pcode . "','" . $studentId . "'";
@@ -411,7 +412,7 @@ if (SessionUser::hasValidSession()) {
                         Database::iud("INSERT INTO `guardian_details` (" . $guardian_table_insert_columns . ") VALUES (" . $guardian_table_insert_values . ")");
                     }
 
-                    uploadStudentDocuments($studentId, $studentDocuments);
+                    uploadStudentDocuments($studentId, $studentHasIntakeId, $studentDocuments);
 
                     if (isset($_FILES["image"])) {
                         $qimg_path = "../assets/imgs/students/" . $image;
@@ -636,13 +637,20 @@ function normalizeFilesArray($fileInput)
     return $files;
 }
 
-function uploadStudentDocuments($studentId, $studentDocuments)
+function uploadStudentDocuments($studentId, $studentHasIntakeId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
 
+    // Load is_common flag for each document type
+    $commonMap = [];
+    $typeResult = Database::search("SELECT `students_identity_documents_type_id`, `is_common` FROM `students_identity_documents_type`");
+    while ($t = $typeResult->fetch_assoc()) {
+        $commonMap[(int)$t['students_identity_documents_type_id']] = (int)$t['is_common'];
+    }
+
     foreach ($studentDocuments["files"] as $doc) {
 
-        $typeId = $doc["type_id"];
+        $typeId = (int)$doc["type_id"];
         $folder = $doc["folder"];
         $prefix = $doc["prefix"];
         $file = $doc["file"];
@@ -655,26 +663,30 @@ function uploadStudentDocuments($studentId, $studentDocuments)
         }
 
         $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
-
         $serverPath = $uploadDir . $newFileName;
 
         if (move_uploaded_file($file["tmp_name"], $serverPath)) {
 
-            $dbPath = $newFileName;
+            $isCommon = isset($commonMap[$typeId]) ? $commonMap[$typeId] : 1;
+
+            // Common docs belong to the student only; other docs are tied to the intake
+            $shiValue = $isCommon ? "NULL" : "'" . (int)$studentHasIntakeId . "'";
 
             Database::iud("
                 INSERT INTO `students_identity_documents`
                 (
                     `students_student_id`,
+                    `students_has_intakes_students_has_intakes_id`,
                     `students_identity_documents_type_id`,
                     `document`,
                     `date_added`
                 )
                 VALUES
                 (
-                    '" . $studentId . "',
+                    '" . (int)$studentId . "',
+                    " . $shiValue . ",
                     '" . $typeId . "',
-                    '" . $dbPath . "',
+                    '" . $newFileName . "',
                     NOW()
                 )
             ");

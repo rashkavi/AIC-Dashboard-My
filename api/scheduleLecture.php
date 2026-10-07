@@ -6,6 +6,27 @@ require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/DateTimeClass.php");
+
+/* ==========================================================================
+ * REQUIRES a migration before this will work — see chat for the full
+ * ALTER TABLE. Summary:
+ *   - `time_table`.`lecturers_lecturers_id` must become NULLable
+ *     (it's subject-bound, so it can't be set for a broad-scope row).
+ *   - `time_table`.`broad_lecturer_user_id` (new, nullable INT, FK ->
+ *     users.user_id) stores the lecturer's user id for broad-scope rows.
+ *
+ * WILDCARD_VALUE ("-1") means "entire {parent}" for branch/faculty/
+ * programme/intake — these map onto `time_table`'s existing nullable
+ * scope columns. Level and Subject have no dedicated storage: wildcarding
+ * either of them collapses to storing at the Intake scope (subject left
+ * NULL) since `time_table` has no `levels_level_id` column.
+ *
+ * ASSUMPTIONS flagged inline with "// ASSUMED" — verify against your
+ * actual schema (table/column names for faculties/programmes/intakes).
+ * ========================================================================== */
+
+const WILDCARD_VALUE = '-1';
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -16,19 +37,21 @@ if (SessionUser::hasValidSession()) {
                 $status->error = "You do not have permission to schedule a lecture";
             } else {
 
-                $branch = isset($_POST['branch']) ? trim($_POST['branch']) : 0;
-                $faculty = isset($_POST['faculty']) ? trim($_POST['faculty']) : 0;
-                $programme_id = isset($_POST['programme_id']) ? trim($_POST['programme_id']) : 0;
-                $intake_id = isset($_POST['intake_id']) ? trim($_POST['intake_id']) : 0;
-                $level_id = isset($_POST['level_id']) ? trim($_POST['level_id']) : 0;
-                $subject_id = isset($_POST['subject_id']) ? trim($_POST['subject_id']) : 0;
-                $lecturer_id = isset($_POST['lecturer_id']) ? trim($_POST['lecturer_id']) : 0;
+                $branch = isset($_POST['branch']) ? trim($_POST['branch']) : '0';
+                $faculty = isset($_POST['faculty']) ? trim($_POST['faculty']) : '0';
+                $programme_id = isset($_POST['programme_id']) ? trim($_POST['programme_id']) : '0';
+                $intake_id = isset($_POST['intake_id']) ? trim($_POST['intake_id']) : '0';
+                $level_id = isset($_POST['level_id']) ? trim($_POST['level_id']) : '0';
+                $subject_id = isset($_POST['subject_id']) ? trim($_POST['subject_id']) : '0';
+                $lecturer_id = isset($_POST['lecturer_id']) ? trim($_POST['lecturer_id']) : '0';
+                $broad_lecturer_user_id = isset($_POST['broad_lecturer_user_id']) ? trim($_POST['broad_lecturer_user_id']) : '0';
                 $lecture_date = isset($_POST['lecture-date']) ? trim($_POST['lecture-date']) : '';
                 $start_time = isset($_POST['start_time']) ? trim($_POST['start_time']) : '';
                 $end_time = isset($_POST['end_time']) ? trim($_POST['end_time']) : '';
                 $title = isset($_POST['title']) ? trim($_POST['title']) : '';
                 $physical = isset($_POST['physical']) && $_POST['physical'] === 'true' ? true : false;
                 $online = isset($_POST['online']) && $_POST['online'] === 'true' ? true : false;
+                $hybrid = isset($_POST['hybrid']) && $_POST['hybrid'] === 'true' ? true : false;
                 $link = isset($_POST['link']) ? trim($_POST['link']) : '';
                 $one_time = isset($_POST['one_time']) && $_POST['one_time'] === 'true' ? true : false;
                 $recurring = isset($_POST['recurring']) && $_POST['recurring'] === 'true' ? true : false;
@@ -38,43 +61,123 @@ if (SessionUser::hasValidSession()) {
                 $skip_poya_days = isset($_POST['skip_poya_days']) && $_POST['skip_poya_days'] === 'true' ? true : false;
                 $skip_holidays = isset($_POST['skip_holidays']) && $_POST['skip_holidays'] === 'true' ? true : false;
 
-                if ($branch == 0) {
-                    $status->branch = 'Please select a branch';
+                // =========================================================
+                // Resolve the scope chain: branch -> faculty -> programme -> intake.
+                // Each of these maps onto a real, nullable column on `time_table`.
+                // The moment a wildcard is hit, everything after it is ignored
+                // (not required, not stored) regardless of what was POSTed —
+                // this is defensive against a stale/tampered form.
+                // =========================================================
+                $scopeChain = [
+                    'branch'    => ['value' => $branch,       'column' => 'branches_branch_id',     'label' => 'branch',    'table' => 'branches',   'pk' => 'branch_id',    'name' => 'branch'],
+                    'faculty'   => ['value' => $faculty,      'column' => 'faculties_faculty_id',   'label' => 'faculty',   'table' => 'faculties',  'pk' => 'faculty_id',   'name' => 'faculty'], // ASSUMED table/column names
+                    'programme' => ['value' => $programme_id, 'column' => 'programmes_programme_id', 'label' => 'programme', 'table' => 'programmes', 'pk' => 'programme_id', 'name' => 'programme'], // ASSUMED
+                    'intake'    => ['value' => $intake_id,    'column' => 'intakes_intake_id',      'label' => 'intake',    'table' => 'intakes',    'pk' => 'intake_id',    'name' => 'intake'], // ASSUMED
+                ];
+
+                $wildcardHit = false;
+                $resolvedScope = []; // column => id, for concrete levels only
+                $deepestScopeName = null; // human-readable label for lecture titles
+
+                foreach ($scopeChain as $key => $scope) {
+                    if ($wildcardHit) {
+                        continue; // everything after a wildcard is skipped entirely
+                    }
+                    if ($scope['value'] === WILDCARD_VALUE) {
+                        $wildcardHit = true;
+                        continue;
+                    }
+                    if ($scope['value'] == 0 || $scope['value'] === '') {
+                        $status->$key = "Please select a {$scope['label']}";
+                    } else {
+                        $resolvedScope[$scope['column']] = $scope['value'];
+                        $nameRow = Database::search("SELECT `{$scope['name']}` AS name FROM `{$scope['table']}` WHERE `{$scope['pk']}` = '" . Database::escape($scope['value']) . "'");
+                        $nameData = $nameRow->fetch_assoc();
+                        $deepestScopeName = $nameData ? $nameData['name'] : $scope['label'];
+                    }
                 }
-                if ($faculty == 0) {
-                    $status->faculty = 'Please select a faculty';
-                }
-                if ($programme_id == 0) {
-                    $status->programme = 'Please select a programme';
-                }
-                if ($intake_id == 0) {
-                    $status->intake = 'Please select an intake';
-                }
-                if ($intake_id != 0 && $sessionUserRole == "academic") {
+
+                if ($sessionUserRole == "academic" && isset($resolvedScope['intakes_intake_id'])) {
                     $isValidIntake = Database::search("SELECT COUNT(*) as 'count' FROM `intakes` 
                                                             INNER JOIN `users_has_intakes` ON `intakes`.`intake_id` = `users_has_intakes`.`intakes_intake_id`
-                                                            WHERE `intake_id` = '" . $intake_id . "' AND `users_has_intakes`.`users_user_id` = '" . $sessionUserObject["user_id"] . "'");
+                                                            WHERE `intake_id` = '" . $resolvedScope['intakes_intake_id'] . "' AND `users_has_intakes`.`users_user_id` = '" . $sessionUserObject["user_id"] . "'");
                     $row = $isValidIntake->fetch_assoc();
                     if ($row['count'] == 0) {
                         $status->intake = 'You do not have access to this intake shedule lecture';
                     }
                 }
-                if ($level_id == 0) {
-                    $status->level = 'Please select a level';
-                }
-                if ($subject_id == 0) {
-                    $status->subject = 'Please select a subject';
-                }
-                if ($lecturer_id == 0) {
-                    $status->lecturer = 'Please select a lecturer';
-                } else {
-                    $isValidLecturer = Database::search("SELECT * FROM `lecturers` WHERE `lecturers_id` = '" . $lecturer_id . "' AND `subjects_subject_id` = '" . $subject_id . "'");
-                    if ($isValidLecturer->num_rows == 0) {
-                        $status->lecturer = 'This lecturer is not assigned to this subject';
+                // NOTE: academic users choosing a wildcard ABOVE their permitted
+                // intake (e.g. entire programme/faculty/branch) currently bypass
+                // this per-intake access check entirely, since there's no single
+                // intake to check against. Decide whether that's acceptable or
+                // whether wildcards above intake should be blocked for academics.
+
+                // =========================================================
+                // Level (UI-only filter, no storage column) + Subject.
+                // Only evaluated if the chain above didn't already wildcard —
+                // otherwise level/subject are meaningless and skipped.
+                // =========================================================
+                $subjectResolved = false;
+
+                if (!$wildcardHit) {
+                    if ($level_id === WILDCARD_VALUE) {
+                        // "Entire Intake" via the Level selector — collapses to the
+                        // same stored scope as wildcarding Intake itself.
+                    } elseif ($level_id == 0 || $level_id === '') {
+                        $status->level = 'Please select a level';
                     } else {
-                        $lecturerData = $isValidLecturer->fetch_assoc();
+                        if ($subject_id === WILDCARD_VALUE) {
+                            // "Entire Level" — no `levels_level_id` column exists on
+                            // time_table, so this also collapses to Intake-scope
+                            // storage. Level granularity is lost here; add a
+                            // `levels_level_id` column if you need to preserve it.
+                        } elseif ($subject_id == 0 || $subject_id === '') {
+                            $status->subject = 'Please select a subject';
+                        } else {
+                            if ($lecturer_id == 0) {
+                                $status->lecturer = 'Please select a lecturer';
+                            } else {
+                                $isValidLecturer = Database::search("SELECT * FROM `lecturers` WHERE `lecturers_id` = '" . Database::escape($lecturer_id) . "' AND `subjects_subject_id` = '" . Database::escape($subject_id) . "'");
+                                if ($isValidLecturer->num_rows == 0) {
+                                    $status->lecturer = 'This lecturer is not assigned to this subject';
+                                } else {
+                                    $lecturerData = $isValidLecturer->fetch_assoc();
+                                    $resolvedScope['subjects_subject_id'] = $subject_id;
+                                    $subjectResolved = true;
+
+                                    $subjectRow = Database::search("SELECT `subject` AS name FROM `subjects` WHERE `subject_id` = '" . Database::escape($subject_id) . "'");
+                                    $subjectData = $subjectRow->fetch_assoc();
+                                    $deepestScopeName = $subjectData ? $subjectData['name'] : $deepestScopeName;
+                                }
+                            }
+                        }
                     }
                 }
+
+                // =========================================================
+                // Broad-scope lecturer resolution — whenever we did NOT land
+                // on a concrete subject (wildcard hit anywhere in the chain,
+                // or Level/Subject wildcarded).
+                // =========================================================
+                $lecturerUserIdForConflictCheck = null;
+
+                if (!$subjectResolved) {
+                    if ($broad_lecturer_user_id == 0) {
+                        $status->lecturer = 'Please select a lecturer';
+                    } else {
+                        // Light validation: confirm this person has at least one
+                        // lecturer record somewhere in the system.
+                        $isValidBroadLecturer = Database::search("SELECT DISTINCT `users_user_id` FROM `lecturers` WHERE `users_user_id` = '" . Database::escape($broad_lecturer_user_id) . "'");
+                        if ($isValidBroadLecturer->num_rows == 0) {
+                            $status->lecturer = 'Invalid lecturer selected';
+                        } else {
+                            $lecturerUserIdForConflictCheck = $broad_lecturer_user_id;
+                        }
+                    }
+                } else {
+                    $lecturerUserIdForConflictCheck = $lecturerData['users_user_id'];
+                }
+
                 if ($one_time && empty($lecture_date)) {
                     $status->date = 'Please select a lecture date';
                 }
@@ -94,7 +197,7 @@ if (SessionUser::hasValidSession()) {
                         $status->end_time = 'The selected date and end time is in the past';
                     }
                 }
-                if ($online && empty($link)) {
+                if (($online || $hybrid) && empty($link)) {
                     $status->link = 'Please enter a link';
                 }
 
@@ -150,56 +253,55 @@ if (SessionUser::hasValidSession()) {
                     }
                 }
 
-                if ($one_time) {
-                    if ($lecturer_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                // =========================================================
+                // Overlap checks — generalized to whatever scope was resolved,
+                // instead of always being level/subject-specific.
+                //
+                // LIMITATION: this only catches an EXACT match on the resolved
+                // scope columns (e.g. two rows both wildcarded at the same
+                // intake). It does NOT catch cross-level containment — e.g. a
+                // new "entire programme" row won't be flagged against an
+                // existing subject-specific row nested inside that programme.
+                // Doing that properly needs the full subjects -> levels ->
+                // intakes -> programmes -> faculties -> branches join chain,
+                // which wasn't available when this was written — verify your
+                // FK column names and extend if cross-level conflicts matter
+                // to you.
+                // =========================================================
+                if ($lecturerUserIdForConflictCheck !== null && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                    $isAvailableLecturer = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
+                                                                    LEFT JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
+                                                                    WHERE (`lecturers`.`users_user_id` = '" . Database::escape($lecturerUserIdForConflictCheck) . "' OR `time_table`.`broad_lecturer_user_id` = '" . Database::escape($lecturerUserIdForConflictCheck) . "')
+                                                                    AND `time_table`.`date` = '" . Database::escape($lecture_date) . "'
+                                                                    AND ((`time_table`.`start_time` BETWEEN '" . Database::escape($start_time) . "' AND '" . Database::escape($end_time) . "')
+                                                                    OR (`time_table`.`end_time` BETWEEN '" . Database::escape($start_time) . "' AND '" . Database::escape($end_time) . "'))");
 
-                        $isAvailableLecturer = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
-                                                                        INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                                                                        WHERE `lecturers`.`users_user_id` = '" . $lecturerData['users_user_id'] . "'
-                                                                        AND `time_table`.`date` = '" . $lecture_date . "'
-                                                                        AND ((`time_table`.`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                                                                        OR (`time_table`.`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))");
-
-                        $row = $isAvailableLecturer->fetch_assoc();
-                        if ($row['count'] > 0) {
-                            $status->lecturer = 'The selected time is unavailable for this lecturer.';
-                        }
-                    }
-
-                    if ($level_id != 0 && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
-                        $isAvailableSelectTimeInIntake = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
-                INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                                                  WHERE `subjects_subject_id` IN (SELECT `subjects_subject_id` FROM `subjects` WHERE `levels_level_id` = '" . $level_id . "') 
-                                                                                  AND `date` = '" . $lecture_date . "'
-                                                                                  AND ((`start_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "')
-                                                                                  OR (`end_time` BETWEEN '" . $start_time . "' AND '" . $end_time . "'))
-                                                                                                                                                                 ");
-                        $row = $isAvailableSelectTimeInIntake->fetch_assoc();
-                        if ($row['count'] > 0) {
-                            $status->date = 'The selected time has already been scheduled for a lecture in this Intake.';
-                        }
+                    $row = $isAvailableLecturer->fetch_assoc();
+                    if ($row['count'] > 0) {
+                        $status->lecturer = 'The selected time is unavailable for this lecturer.';
                     }
                 }
 
-                if ($recurring) {
-                    if (empty($start_date)) {
-                        $status->start_date = 'Please select a recurring lecture start date';
-                    } else if (!CheckDateTime::isFutureDate($start_date)) {
-                        $status->start_date = 'Please select a future date';
+                if ($one_time && !empty($resolvedScope) && !empty($lecture_date) && !empty($start_time) && !empty($end_time)) {
+                    $conflictConditions = [];
+                    foreach ($resolvedScope as $column => $value) {
+                        $conflictConditions[] = "`$column` = '" . Database::escape($value) . "'";
                     }
+                    $conflictWhere = implode(" AND ", $conflictConditions);
 
-                    if (empty($end_date)) {
-                        $status->end_date = 'Please select a recurring lecture end date';
-                    } else if (!CheckDateTime::isFutureDate($end_date)) {
-                        $status->end_date = 'Please select a future date';
-                    }
-
-                    if (empty($days)) {
-                        $status->days = 'Please select at least one day';
+                    $isAlreadyScheduled = Database::search("SELECT COUNT(*) as 'count' FROM `time_table`
+                                                                    WHERE $conflictWhere
+                                                                    AND `date` = '" . Database::escape($lecture_date) . "'
+                                                                    AND ((`start_time` BETWEEN '" . Database::escape($start_time) . "' AND '" . Database::escape($end_time) . "')
+                                                                    OR (`end_time` BETWEEN '" . Database::escape($start_time) . "' AND '" . Database::escape($end_time) . "'))");
+                    $row = $isAlreadyScheduled->fetch_assoc();
+                    if ($row['count'] > 0) {
+                        $status->date = 'The selected time has already been scheduled for a lecture in this scope.';
                     }
                 }
 
                 $requiredProperties = [
+                    'branch',
                     'faculty',
                     'programme',
                     'intake',
@@ -214,7 +316,6 @@ if (SessionUser::hasValidSession()) {
                     'title',
                     'physical',
                     'online',
-                    'tute',
                     'date',
                     'start_date',
                     'end_date',
@@ -240,19 +341,50 @@ if (SessionUser::hasValidSession()) {
 
                     $duration = ($interval->h * 60) + $interval->i;
 
+                    // Build the scope + lecturer columns dynamically from whatever
+                    // was resolved above — replaces the old hardcoded subject-only
+                    // insert.
+                    $insertColumns = [];
+                    $insertValues = [];
+
+                    foreach ($resolvedScope as $column => $value) {
+                        $insertColumns[] = "`$column`";
+                        $insertValues[] = "'" . Database::escape($value) . "'";
+                    }
+
+                    if ($subjectResolved) {
+                        $insertColumns[] = "`lecturers_lecturers_id`";
+                        $insertValues[] = "'" . Database::escape($lecturer_id) . "'";
+                    } else {
+                        $insertColumns[] = "`broad_lecturer_user_id`";
+                        $insertValues[] = "'" . Database::escape($broad_lecturer_user_id) . "'";
+                    }
+
+                    if ($physical) {
+                        $insertColumns[] = "`lecture_type_lecture_type_id`";
+                        $insertColumns[] = "`lecture`";
+                        $insertValues[] = "'1'";
+                        $insertValues[] = "''";
+                    }
+                    if ($online) {
+                        $insertColumns[] = "`lecture_type_lecture_type_id`";
+                        $insertColumns[] = "`lecture`";
+                        $insertValues[] = "'2'";
+                        $insertValues[] = "'" . Database::escape($link) . "'";
+                    }
+                    if ($hybrid) {
+                        $insertColumns[] = "`lecture_type_lecture_type_id`";
+                        $insertColumns[] = "`lecture`";
+                        $insertValues[] = "'4'";
+                        $insertValues[] = "'" . Database::escape($link) . "'";
+                    }
+
                     if ($one_time) {
-                        $time_table_insert_columns = "`date`,`start_time`,`end_time`,`duration`,`subjects_subject_id`,`date_added`,`lecturers_lecturers_id`,`users_user_id`,`time_table_status_time_table_status_id`,`lecture_title`";
-                        $time_table_insert_values = "'" . $lecture_date . "','" . $start_time . "','" . $end_time . "','" . $duration . "','" . $subject_id . "','" . $addTime . "','" . $lecturer_id . "','" . $sessionUserObject["user_id"] . "','1','" . $title . "'";
+                        $baseColumns = "`date`,`start_time`,`end_time`,`duration`,`date_added`,`users_user_id`,`time_table_status_time_table_status_id`,`lecture_title`";
+                        $baseValues = "'" . Database::escape($lecture_date) . "','" . Database::escape($start_time) . "','" . Database::escape($end_time) . "','" . $duration . "','" . $addTime . "','" . $sessionUserObject["user_id"] . "','1','" . Database::escape($title) . "'";
 
-                        if ($physical) {
-                            $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
-                            $time_table_insert_values .= ",'1',''";
-                        }
-
-                        if ($online) {
-                            $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
-                            $time_table_insert_values .= ",'2','" . $link . "'";
-                        }
+                        $time_table_insert_columns = $baseColumns . "," . implode(",", $insertColumns);
+                        $time_table_insert_values = $baseValues . "," . implode(",", $insertValues);
 
                         try {
                             Database::iud("INSERT INTO `time_table` (" . $time_table_insert_columns . ") VALUES (" . $time_table_insert_values . ")");
@@ -263,7 +395,7 @@ if (SessionUser::hasValidSession()) {
                                 for ($i = 0; $i < count($_FILES["tutes"]["name"]); $i++) {
                                     $originalFileName = $_FILES["tutes"]["name"][$i];
                                     $attachment_insert_columns = "`attachment`,`attachment_name`,`time_table_time_table_id`,`users_user_id`,`date_added`,`attachments_order`";
-                                    $attachment_insert_values = "'" . $tutes[$i] . "','" . $originalFileName . "','" . $time_table_id . "','" . $sessionUserObject["user_id"] . "','" . $addTime . "','0'";
+                                    $attachment_insert_values = "'" . $tutes[$i] . "','" . Database::escape($originalFileName) . "','" . $time_table_id . "','" . $sessionUserObject["user_id"] . "','" . $addTime . "','0'";
 
                                     Database::iud("INSERT INTO `attachments` (" . $attachment_insert_columns . ") VALUES (" . $attachment_insert_values . ")");
 
@@ -307,27 +439,28 @@ if (SessionUser::hasValidSession()) {
                             $status->error = "No Lecture Dates Found";
                         } else {
 
-                            $addedSubjectLectures = Database::search("SELECT COUNT(*) as count,`subject` FROM `time_table`
-                            INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id` 
-                            WHERE `subjects_subject_id` = '" . $subject_id . "' AND `lecture_type_lecture_type_id` != 3");
+                            $existingCountQuery = "SELECT COUNT(*) as count FROM `time_table` WHERE 1=1";
+                            foreach ($resolvedScope as $column => $value) {
+                                $existingCountQuery .= " AND `$column` = '" . Database::escape($value) . "'";
+                            }
+                            $addedLecturesCount = Database::search($existingCountQuery);
+                            $addedLecturesCountData = $addedLecturesCount->fetch_assoc();
+                            $baseCount = $addedLecturesCountData['count'];
 
-                            $addedSubjectLecturesData = $addedSubjectLectures->fetch_assoc();
+                            // Falls back to $deepestScopeName (branch/faculty/programme/
+                            // intake/subject name, whichever was resolved deepest) instead
+                            // of always assuming a subject was picked.
+                            $titleBase = $deepestScopeName ?: 'Lecture';
 
                             for ($i = 0; $i < count($lectureDays); $i++) {
-                                $lecture_date = $lectureDays[$i];
-                                $lecture_title = $addedSubjectLecturesData['subject'] . " - Lecture Day " . ($addedSubjectLecturesData['count'] + $i + 1);
-                                $time_table_insert_columns = "`date`,`start_time`,`end_time`,`duration`,`subjects_subject_id`,`date_added`,`lecturers_lecturers_id`,`users_user_id`,`time_table_status_time_table_status_id`,`lecture_title`";
-                                $time_table_insert_values = "'" . $lecture_date . "','" . $start_time . "','" . $end_time . "','" . $duration . "','" . $subject_id . "','" . $addTime . "','" . $lecturer_id . "','" . $sessionUserObject["user_id"] . "','1','" . Database::escape($lecture_title) . "'";
+                                $lecture_date_i = $lectureDays[$i];
+                                $lecture_title = Database::escape($titleBase . " - Lecture Day " . ($baseCount + $i + 1));
 
-                                if ($physical) {
-                                    $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
-                                    $time_table_insert_values .= ",'1',''";
-                                }
+                                $baseColumns = "`date`,`start_time`,`end_time`,`duration`,`date_added`,`users_user_id`,`time_table_status_time_table_status_id`,`lecture_title`";
+                                $baseValues = "'" . Database::escape($lecture_date_i) . "','" . Database::escape($start_time) . "','" . Database::escape($end_time) . "','" . $duration . "','" . $addTime . "','" . $sessionUserObject["user_id"] . "','1','" . $lecture_title . "'";
 
-                                if ($online) {
-                                    $time_table_insert_columns .= ",`lecture_type_lecture_type_id`,`lecture`";
-                                    $time_table_insert_values .= ",'2','" . $link . "'";
-                                }
+                                $time_table_insert_columns = $baseColumns . "," . implode(",", $insertColumns);
+                                $time_table_insert_values = $baseValues . "," . implode(",", $insertValues);
 
                                 Database::iud("INSERT INTO `time_table` (" . $time_table_insert_columns . ") VALUES (" . $time_table_insert_values . ")");
                             }
@@ -378,12 +511,10 @@ function getYearHolidays()
 
     $decoded = json_decode($jsonData, true);
 
-    // ✅ Ensure we always return an array of holidays
     if (isset($decoded['holidays']) && is_array($decoded['holidays'])) {
         return $decoded['holidays'];
     }
 
-    // Some years are already flat arrays
     if (is_array($decoded)) {
         return $decoded;
     }
@@ -415,7 +546,6 @@ function generateLectureDates(
     foreach ($period as $date) {
         $currentDate = $date->format('Y-m-d');
         $dayOfWeek = (int)$date->format('N');
-
 
         if (!in_array($dayOfWeek, $selectedDays)) {
             continue;

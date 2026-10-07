@@ -11,14 +11,14 @@ if (!SessionUser::hasValidSession()) {
         header("Location: ./index");
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
-        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['inquiry-id']) && !empty($_GET['inquiry-id']))) {
+        if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['registration-id']) && !empty($_GET['registration-id']))) {
             header("Location: ./students");
         } else {
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
             if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 1) || UserPermissions::hasPermission('students', 10))) {
                 header("Location: ./students");
             } else {
-                $id = $_GET['inquiry-id'];
+                $id = $_GET['registration-id'];
 
                 $student = Database::search("SELECT * FROM `students` 
                 INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
@@ -27,7 +27,7 @@ if (!SessionUser::hasValidSession()) {
                 INNER JOIN `intakes` ON `students_has_intakes`.`intakes_intake_id`=`intakes`.`intake_id`
                 INNER JOIN `programmes` ON `intakes`.`programmes_programme_id`=`programmes`.`programme_id`
                 INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id`=`faculties`.`faculty_id`
-                WHERE `students`.`student_id`='" . $id . "'");
+                WHERE `students_has_intakes`.`students_has_intakes_id`='" . $id . "'");
 
                 if ($student->num_rows == 0) {
                     header("Location: ./students");
@@ -50,7 +50,7 @@ if (!SessionUser::hasValidSession()) {
 
                     $fieldsDisabled = false;
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10))) {
                         $fieldsDisabled = true;
                     }
 
@@ -289,7 +289,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="row gx-3 justify-content-end">
                                                                 <?php
 
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                 ?>
                                                                     <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                         <button class="custom-btn col-12" onclick="editRegistration(this,'<?php echo $id ?>');">Save Changes</button>
@@ -321,7 +321,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             <?php
                                                                             }
 
-                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                             ?>
                                                                                 <div class="upload-image text-white p-2 bottom-0 start-0" onclick="uploadImage('file-input','student-profile-image');">
                                                                                     <iconify-icon icon="ic:baseline-upload" width="20" height="20" class="text-white px-2"></iconify-icon>
@@ -334,7 +334,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                         <!-- Hiddedn file input -->
                                                                         <?php
-                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
                                                                         ?>
                                                                             <input type="file" id="file-input" class="d-none" accept="image/*" />
                                                                             <p class="text-center text-14 sub-text mt-2 mb-0" id="profile-image-text">Image size must be 2MB or less, with a 1:1 aspect ratio for optimal quality. Accepted formats: JPG, PNG.</p>
@@ -658,7 +658,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         $programmes[] = $data;
                                                                     }
                                                                     ?>
-                                                                    <select id="programme-selector" class="form-select custom-select mt-2" onchange="loadIntakes();">
+                                                                    <select id="programme-selector" class="form-select custom-select mt-2" onchange="loadIntakes(2);">
                                                                         <option value="0">- Select -</option>
                                                                         <?php
                                                                         foreach ($programmes as $data) {
@@ -693,6 +693,35 @@ if (!SessionUser::hasValidSession()) {
                                                                         ?>
                                                                     </select>
                                                                     <span class="text-dark-red text-12" id="intake-feedback"></span>
+                                                                </div>
+
+                                                                <div class="col-12 col-md-4 d-flex flex-column">
+                                                                    <label class="text-14 main-text required" for="">Assign Counselor</label>
+                                                                    <select name="" id="user" class="form-select custom-select mt-2" <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'disabled' : '' ?>>
+                                                                        <option value="0" disabled <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? '' : 'selected' ?>>- Select -</option>
+                                                                        <?php
+                                                                        $selectedCounselor = $sdata['counselor_user_id'];
+                                                                        $query = "SELECT * FROM `users`
+                                                                                                INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
+                                                                                                WHERE `user_roles_user_role_id` IN (3,9,10) AND `status_status_id`='1'";
+
+                                                                        if (empty($sdata['counselor_user_id']) && SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole)) {
+                                                                            $query .= " AND `user_id`='" . $sessionUserObject['user_id'] . "'";
+                                                                            $selectedCounselor = $sessionUserObject['user_id'];
+                                                                        }
+
+                                                                        $users = Database::search($query);
+
+
+                                                                        while ($user = $users->fetch_assoc()) {
+
+                                                                        ?>
+                                                                            <option value="<?php echo $user["user_id"]; ?>" <?= $selectedCounselor == $user['user_id'] ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                        <?php
+                                                                        }
+                                                                        ?>
+                                                                    </select>
+                                                                    <span id="user-feedback" class="text-dark-red text-12"></span>
                                                                 </div>
                                                             </div>
                                                         </div>

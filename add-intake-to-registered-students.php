@@ -16,7 +16,9 @@ if (!SessionUser::hasValidSession()) {
             header("Location: ./intakes");
         } else {
             $id = $_GET['intake-id'];
-            $intake = Database::search("SELECT * FROM `intakes` INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id` INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id` WHERE `intake_id` = '" . $id . "'");
+            $intake = Database::search("SELECT * FROM `intakes` INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id` 
+            INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id` 
+            WHERE `intake_id` = '" . $id . "' AND `intake_status` = 'ONGOING'");
             if ($intake->num_rows == 0) {
                 header("Location: ./intakes");
             } else {
@@ -199,6 +201,7 @@ if (!SessionUser::hasValidSession()) {
                                                                    ON `s`.`student_id` = `shi`.`students_student_id`
                                                                    AND `shi`.`intakes_intake_id` = '" . $id . "'
                                                                WHERE `shi`.`students_student_id` IS NULL
+                                                               AND `s`.`enrolled_status` = 'ENROLLED'
                                                                ORDER BY `s`.`student_id` DESC";
 
 

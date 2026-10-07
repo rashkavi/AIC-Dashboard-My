@@ -1,21 +1,27 @@
 ﻿
 /* TODO: use @import for your css */
 
+/* This stylesheet is the customer-editable layer for the EDITING SURFACE.
+   It loads between the editor's built-in defaults and the editor's own
+   mechanics rules, so anything set here wins over the defaults. Values below
+   intentionally match those defaults - edit freely to match your own site. */
+
 body {
 	overflow-y: hidden;
-	padding: 0px;
-	margin: 0px
+	/* Writing gutters come from RTE_DefaultConfig.editablePadding* (applied
+	   inline, so setting padding here would have no effect). */
+	margin: 0;
 }
 
 body, table, p, div {
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-	color: #414141;
-	font-size: 14px;
-	line-height: 1.6;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	color: #1f2328;
+	font-size: 16px;
+	line-height: 1.7;
 }
 
 a {
-	color: #377dff;
+	color: #0969da;
 	text-decoration: none;
 	-webkit-transition: color 0.2s ease 0s, text-decoration 0.2s ease 0s;
 	-moz-transition: color 0.2s ease 0s, text-decoration 0.2s ease 0s;
@@ -24,8 +30,8 @@ a {
 }
 
 ::selection {
-	background: #b5d6fd;
-	color: #000030;
+	background: #b6dafd;
+	color: #06121f;
 }
 
 /*RTE_DefaultConfig.items_InlineClasses*/
@@ -98,11 +104,11 @@ table {
 	}
 
 	table[border="0"] td, table:not([border]) td, table[border="0"] th, table:not([border]) th {
-		border: 1px solid #ddd;
+		border: 1px solid #d0d7de;
 	}
 
 thead {
-	background-color: var(--custom-white);
+	background-color: #f6f8fa;
 }
 
 .table > tbody > tr > td, .table > tbody > tr > th, .table > tfoot > tr > td, .table > tfoot > tr > th, .table > thead > tr > td, .table > thead > tr > th {
@@ -129,9 +135,10 @@ video-container {
 	}
 
 blockquote {
-	border-left: 3px solid #ddd;
-	padding: 5px 0 5px 10px;
-	margin: 15px 0 15px 15px;
+	border-left: 3px solid #d0d7de;
+	padding: 0.2em 0 0.2em 1em;
+	margin: 1.2em 0;
+	color: #57606a;
 }
 
 

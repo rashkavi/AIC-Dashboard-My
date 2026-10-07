@@ -62,35 +62,49 @@ if (SessionUser::hasValidSession()) {
                                                                 ON `students`.`users_user_id` = `users`.`user_id`
                                                             LEFT JOIN `title` AS `title2`
                                                                 ON `users`.`title_title_id` = `title2`.`title_id`
-                                                          WHERE 1=1
+                                                          WHERE `enrolled_status` = 'ENROLLED'
                                                        ";
 
                     if ($search_text != "") {
-                        $query .= " AND (`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
+                        $query .= " AND (`student_id` LIKE '%" . $search_text . "%' 
+                        OR `first_name` LIKE '%" . $search_text . "%' 
+                        OR `last_name` LIKE '%" . $search_text . "%' 
+                        OR CONCAT(`first_name`, ' ', `last_name`) LIKE '%" . $search_text . "%'
+                        OR `email` LIKE '%" . $search_text . "%' 
+                        OR `mobile` LIKE '%" . $search_text . "%')";
                     }
 
                     if ($sort != 0) {
                         $query .= " AND `login_details`.`status_status_id` = '" . $sort . "'";
                     }
 
-                    if ($intake != 0) {
-                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
-                        WHERE `intakes_intake_id`='" . $intake . "')";
-                    } else if ($programme != 0) {
-                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
-                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
-                        WHERE `programmes_programme_id`='" . $programme . "')";
-                    } else if ($faculty != 0) {
+                    if (!empty($intake)) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes`
+                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id` 
+                        WHERE `intakes`.`intake` LIKE '%" . $intake . "%')";
+                    }
+
+                    if (!empty($programme)) {
                         $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
                         INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
                         INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
-                        WHERE `faculties_faculty_id`='" . $faculty . "')";
-                    } else if ($branch != 0) {
+                        WHERE `programmes`.`programme` LIKE '%" . $programme . "%')";
+                    }
+
+                    if (!empty($faculty)) {
                         $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
                         INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
                         INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
                         INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
-                        WHERE `branches_branch_id`='" . $branch . "')";
+                        WHERE `faculties`.`faculty` LIKE '%" . $faculty . "%')";
+                    }
+                    if (!empty($branch)) {
+                        $query .= " AND `student_id` IN (SELECT `students_student_id` FROM `students_has_intakes` 
+                        INNER JOIN `intakes` ON `intakes`.`intake_id`=`students_has_intakes`.`intakes_intake_id`
+                        INNER JOIN `programmes` ON `programmes`.`programme_id`=`intakes`.`programmes_programme_id`
+                        INNER JOIN `faculties` ON `faculties`.`faculty_id`=`programmes`.`faculties_faculty_id`
+                        INNER JOIN `branches` ON `branches`.`branch_id`=`faculties`.`branches_branch_id`
+                        WHERE `branches`.`branch` LIKE '%" . $branch . "%')";
                     }
 
 
@@ -176,7 +190,7 @@ if (SessionUser::hasValidSession()) {
 
                                 <?php
 
-                                if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                 ?>
                                     <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium align-content-center"></th>
                                 <?php
@@ -184,12 +198,12 @@ if (SessionUser::hasValidSession()) {
                                 ?>
                             </tr>
                         </thead>
-                        <tbody id="user-table-data">
+                        <tbody id="students-table-data" data-student-count="<?= $students->num_rows ?>">
                             <?php
                             if ($students->num_rows > 0) {
                                 while ($data = $students->fetch_assoc()) {
                             ?>
-                                    <tr>
+                                    <tr id="student-data-row">
                                         <td class="px-4 py-3 pe-0 align-middle">
                                             <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
                                                 <?php
@@ -267,7 +281,7 @@ if (SessionUser::hasValidSession()) {
 
                                         <?php
 
-                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
+                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAccounts($sessionUserRole) ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4) || UserPermissions::hasPermission('students', 10)) {
                                         ?>
                                             <td class="py-3 align-middle">
                                                 <div class="dropdown">
@@ -282,23 +296,24 @@ if (SessionUser::hasValidSession()) {
                                                                 Download Student ID Card</a></li>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2"> -->
                                                         <?php
-                                                        if (!empty($data['verification']) && empty($data['reset_time'])) {
-                                                        ?>
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
-                                                                    <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
-                                                                    Resend Registration Email</a></li>
-                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <?php
-                                                        } else {
-                                                        ?>
-                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
-                                                                    <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
-                                                                    Resend Password Reset Email</a></li>
-                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <?php
-                                                        }
+
                                                         if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 10)) {
+                                                            if (!empty($data['verification']) && empty($data['reset_time'])) {
                                                         ?>
+                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
+                                                                        <iconify-icon icon="lets-icons:send-fill" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
+                                                                        Resend Registration Email</a></li>
+                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                            <?php
+                                                            } else {
+                                                            ?>
+                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendStudentRegistrationEmail('<?= $data['sId']; ?>')">
+                                                                        <iconify-icon icon="solar:password-broken" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
+                                                                        Resend Password Reset Email</a></li>
+                                                                <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                            <?php
+                                                            }
+                                                            ?>
                                                             <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-student?student-id=<?= $data['sId']; ?>">
                                                                     <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                     Edit</a></li>
@@ -314,7 +329,7 @@ if (SessionUser::hasValidSession()) {
                                                         ?>
 
                                                         <?php
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 4)) {
 
                                                             if ($data["status"] == "Active") {
                                                         ?>

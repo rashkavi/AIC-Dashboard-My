@@ -1,6 +1,6 @@
-﻿
+
 if (!RTE_DefaultConfig.svgCode_insertcode) {
-	RTE_DefaultConfig.svgCode_insertcode = '<svg viewBox="-2 -2 20 20" fill="#5F6368"><path fill-rule="evenodd" d="M4 1h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V3a2 2 0 012-2zm0 1a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1H4z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M8.646 5.646a.5.5 0 01.708 0l2 2a.5.5 0 010 .708l-2 2a.5.5 0 01-.708-.708L10.293 8 8.646 6.354a.5.5 0 010-.708zm-1.292 0a.5.5 0 00-.708 0l-2 2a.5.5 0 000 .708l2 2a.5.5 0 00.708-.708L5.707 8l1.647-1.646a.5.5 0 000-.708z" clip-rule="evenodd"/></svg>';
+	RTE_DefaultConfig.svgCode_insertcode = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 7 3 12 8 17"/><polyline points="16 7 21 12 16 17"/><line x1="14" y1="5" x2="10" y2="19"/></svg>';
 }
 
 RTE_DefaultConfig.plugin_insertcode = RTE_Plugin_InsertCode;
@@ -224,13 +224,12 @@ function RTE_Plugin_InsertCode() {
 		editor = argeditor;
 
 		editor.attachEvent("exec_command_insertcode", function (state, cmd, value) {
-			//console.log(state, cmd, value);
 			obj.DoShowDialog();
 			state.returnValue = true;
 		});
 
 		editor.toolbarFactoryMap["insertcode"] = function (cmd) {
-			////console.log(cmd);
+			//console.log(cmd);
 			var span = editor.createToolbarButton(cmd);
 			span.style.backgroundColor = ''
 			return span;
@@ -249,6 +248,72 @@ function RTE_Plugin_InsertCode() {
 
 	obj.DoShowDialog = function () {
 
+		// Capture the caret BEFORE the dialog opens. The dialog focuses its own
+		// textarea, which clears the editor's selection - so by the time Insert
+		// is clicked there is no caret left to insert at, and the code block was
+		// appended as a new root paragraph instead of landing where the user was
+		// typing. Same failure mode as the 2026-05-08 image-upload fix in core.
+		var savedRange = null;
+		try {
+			var edoc = editor.getDocument();
+			var esel = edoc.defaultView.getSelection();
+			if (esel && esel.rangeCount) savedRange = esel.getRangeAt(0).cloneRange();
+		} catch (e) { savedRange = null; }
+
+		function restoreCaret() {
+			if (!savedRange) return false;
+			try {
+				var edoc = editor.getDocument();
+				var esel = edoc.defaultView.getSelection();
+				esel.removeAllRanges();
+				esel.addRange(savedRange);
+				return true;
+			} catch (e) { return false; }
+		}
+
+		// A <div class="dp-highlighter"> dropped at a caret INSIDE a <p> is
+		// invalid nesting. It looks right in the live DOM, but the moment the
+		// saved HTML is parsed again the browser hoists the div out and tears the
+		// paragraph in two -- 3 blocks become 5, so the document a customer
+		// reloads is not the one they saved. Split the paragraph ourselves and
+		// place the block between the halves, which round-trips byte-stable.
+		function insertCodeBlock(html) {
+			if (!restoreCaret()) return false;
+			var edoc = editor.getDocument();
+			var esel = edoc.defaultView.getSelection();
+			if (!esel || !esel.rangeCount) return false;
+			var range = esel.getRangeAt(0);
+			var n = range.startContainer, block = null;
+			while (n && n !== edoc.body) {
+				if (n.nodeType === 1 && /^(P|H[1-6]|LI|TD|TH|DIV|BLOCKQUOTE)$/.test(n.tagName)) { block = n; break; }
+				n = n.parentNode;
+			}
+			var holder = edoc.createElement("div");
+			holder.innerHTML = html;
+			var node = holder.firstChild;
+			if (!node) return false;
+			// DIV/LI/TD/BLOCKQUOTE may legally contain the block: insert in place.
+			if (!block || !/^(P|H[1-6])$/.test(block.tagName)) {
+				range.deleteContents();
+				range.insertNode(node);
+				return true;
+			}
+			range.deleteContents();
+			var tail = range.cloneRange();
+			tail.setEndAfter(block.lastChild || block);
+			var tailFrag = tail.extractContents();
+			block.parentNode.insertBefore(node, block.nextSibling);
+			var tailBlock = edoc.createElement(block.tagName);
+			tailBlock.appendChild(tailFrag);
+			if (tailBlock.textContent.replace(/^\s+|\s+$/g, "") !== "" || tailBlock.querySelector("*")) {
+				block.parentNode.insertBefore(tailBlock, node.nextSibling);
+			}
+			if (block.textContent.replace(/^\s+|\s+$/g, "") === "" && !block.querySelector("img,table")) {
+				block.parentNode.removeChild(block);
+			}
+			return true;
+		}
+
 		var dialoginner = editor.createDialog(editor.getLangText("insertcode"), "rte-dialog-insertcode");
 
 		var div2 = __Append(dialoginner, "div", "position:relative;text-align:center;");
@@ -265,7 +330,7 @@ function RTE_Plugin_InsertCode() {
 			sel_lang.options.add(new Option(aliases, brush));
 
 
-			var b = sessionStorage.getItem("rte-insertcode-lang")
+			var b = null; try { b = sessionStorage.getItem("rte-insertcode-lang"); } catch (e) { } // storage throws in sandboxed / opaque-origin embeds
 			if (b) sel_lang.value = b;
 		}
 
@@ -285,24 +350,39 @@ function RTE_Plugin_InsertCode() {
 		btn.onclick = function () {
 			dialoginner.close();
 
-			sessionStorage.setItem("rte-insertcode-lang", sel_lang.value)
+			try { sessionStorage.setItem("rte-insertcode-lang", sel_lang.value); } catch (e) { }
 
 			if (sel_lang.value != "") {
 				var b = dp.sh.Brushes[sel_lang.value];
 
 				textarea.language = b.Aliases[0] + ":nocontrols";
 				textarea.name = "rteinsertcode" + new Date().getTime();
-				textarea.innerHTML = textarea.value;
+				// 2026-05-28 Use textContent rather than innerHTML so user code
+				// containing `<` is never re-parsed as HTML before the syntax
+				// highlighter sees it. The highlighter expects the raw code as
+				// text and re-emits properly-escaped span markup itself.
+				textarea.textContent = textarea.value;
 				dp.sh.HighlightAll(textarea);
 
 				var tag = textarea.previousSibling
 
-				var p = editor.insertRootParagraph()
-				p.innerHTML = '<div class="dp-highlighter">' + tag.innerHTML + "</div>";
+				// insertHTML honours the caret; insertRootParagraph always
+				// appended at document level, which is why the block never
+				// landed at the focus position.
+				if (insertCodeBlock('<div class="dp-highlighter">' + tag.innerHTML + "</div>")) {
+					// placed at the caret, at block level
+				} else {
+					var p = editor.insertRootParagraph();
+					p.innerHTML = '<div class="dp-highlighter">' + tag.innerHTML + "</div>";
+				}
 			}
 			else {
-				var p = editor.insertRootParagraph()
-				p.innerText = textarea.value;
+				if (restoreCaret()) {
+					editor.insertText(textarea.value);
+				} else {
+					var p = editor.insertRootParagraph();
+					p.innerText = textarea.value;
+				}
 			}
 
 			editor.focus();

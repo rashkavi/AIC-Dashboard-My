@@ -22,6 +22,7 @@ if (SessionUser::hasValidSession()) {
             $time_table_status = isset($_POST['status']) ? trim($_POST['status']) : 0;
             $physical = isset($_POST['physical']) ? trim($_POST['physical']) : false;
             $online = isset($_POST['online']) ? trim($_POST['online']) : false;
+            $hybrid = isset($_POST['hybrid']) ? trim($_POST['hybrid']) : false;
             $recording = isset($_POST['recording']) ? trim($_POST['recording']) : false;
             $link = isset($_POST['link']) ? trim($_POST['link']) : '';
             $confirmation = isset($_POST['confirmation']) && $_POST['confirmation'] === 'true' ? true : false;
@@ -36,13 +37,13 @@ if (SessionUser::hasValidSession()) {
                 INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
                 WHERE `time_table_id`='" . $lecture_id . "'");
                 if ($isValidLecture->num_rows == 0) {
-                    $status->error = "Invalid lecture Id";
+                    $status->error = "Invalid lecture Id2";
                 } else {
                     $lectureData = $isValidLecture->fetch_assoc();
                     $subject_id = $lectureData['subjects_subject_id'];
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole)|| UserPermissions::validPermisisonType('lecture_schedule', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('lecture_schedule', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
                         $status->error = "You are not authorized to this action.";
                     } else {
 
@@ -80,11 +81,11 @@ if (SessionUser::hasValidSession()) {
                             $status->end_time = 'Please select an end time';
                         }
 
-                        if (($physical === false) && ($online === false) && ($recording === false)) {
+                        if (($physical === false) && ($online === false) && ($recording === false) && ($hybrid === false)) {
                             $status->error = "Please select lecture type";
                         }
 
-                        if ((($online === true) || ($recording === true)) && empty($link)) {
+                        if ((($online === true) || ($hybrid === true) || ($recording === true)) && empty($link)) {
                             $status->link = 'Please enter a link';
                         }
 
@@ -199,6 +200,10 @@ if (SessionUser::hasValidSession()) {
                                 $time_table_update_query .= ",`lecture_type_lecture_type_id`='3',`lecture`='" . $link . "'";
                             }
 
+                            if (filter_var($hybrid, FILTER_VALIDATE_BOOLEAN)) {
+                                $time_table_update_query .= ",`lecture_type_lecture_type_id`='4',`lecture`='" . $link . "'";
+                            }
+
                             if ($edit_type == 1) {
 
                                 try {
@@ -271,6 +276,9 @@ if (SessionUser::hasValidSession()) {
 
                                         if (filter_var($recording, FILTER_VALIDATE_BOOLEAN)) {
                                             $time_table_update_query .= ",`lecture_type_lecture_type_id`='3',`lecture`='" . $link . "'";
+                                        }
+                                        if (filter_var($hybrid, FILTER_VALIDATE_BOOLEAN)) {
+                                            $time_table_update_query .= ",`lecture_type_lecture_type_id`='4',`lecture`='" . $link . "'";
                                         }
                                         Database::iud("UPDATE `time_table` SET " . $time_table_update_query . " WHERE `time_table_id` = '" . $lecturesData['time_table_id'] . "'");
 

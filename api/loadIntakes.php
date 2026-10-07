@@ -6,8 +6,9 @@ if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     $sessionUserObject = SessionUser::getCurrentUserObject();
     if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-       
+
         $programme = isset($_GET['id']) ? trim($_GET['id']) : 0;
+        $type = isset($_GET['type']) ? trim($_GET['type']) : 0;
         if ($programme == 0) {
             $status->programme = "Please select programme";
         }
@@ -16,12 +17,18 @@ if (SessionUser::hasValidSession()) {
 ?>
             <option value="0" selected>- Select -</option>
             <?php
-            $query = "SELECT * FROM `intakes` WHERE `programmes_programme_id`='" . $programme . "'";
-        
+            $query = "SELECT * FROM `intakes` WHERE `programmes_programme_id`='" . $programme . "'
+            ";
+
+            if ($type == 2) {
+                $query .= " AND `intake_status` = 'ONGOING'";
+            }
+
             $intakes = Database::search($query);
             while ($data = $intakes->fetch_assoc()) {
             ?>
-                <option value="<?php echo $data["intake_id"]; ?>"><?php echo $data["intake"]; ?></option>
+                <option value="<?php echo $data["intake_id"]; ?>"
+                    data-name="<?= $data["intake"]; ?>" data-start="<?= $data['date_added']; ?>" data-end="<?= $data['closed_date'] ?>"><?php echo $data["intake"]; ?></option>
 <?php
             }
         }

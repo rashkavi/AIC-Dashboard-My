@@ -183,7 +183,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                         <div class="col-12 col-md-4 d-flex flex-column">
                                                                             <label class="text-14 main-text required" for="">Contact Number</label>
-                                                                            <input type="text" class="form-control custom-input mt-2" id="user-contact-number" onkeypress="checkDigit(event)">
+                                                                            <input type="text" class="form-control custom-input mt-2" id="user-contact-number">
                                                                             <span id="contact-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
                                                                         <div class="col-12 col-md-6 col-xxl-4 d-flex flex-column">
