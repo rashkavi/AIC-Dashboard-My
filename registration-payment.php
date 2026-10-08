@@ -60,7 +60,8 @@ if (!SessionUser::hasValidSession()) {
                                                              `updated_user`.`user_fname` AS `updated_user_fname`,
                                                              `updated_user`.`user_lname` AS `updated_user_lname`,
                                                          
-                                                             `updated_user_title`.`title` AS `updated_user_title`
+                                                             `updated_user_title`.`title` AS `updated_user_title`,
+                                                             `students_has_intakes`.`students_has_intakes_id`
                                                          
                                                          FROM `students`
                                                          
@@ -292,7 +293,7 @@ if (!SessionUser::hasValidSession()) {
                                                 $paymnetSlips = Database::search("
                                         SELECT *
                                         FROM students_identity_documents
-                                        WHERE students_student_id = '" . $leadId . "'
+                                        WHERE students_has_intakes_students_has_intakes_id = '" . $lead['students_has_intakes_id'] . "'
                                         AND `students_identity_documents_type_id` = '8'
                                         ORDER BY students_identity_documents_type_id ASC, date_added DESC
                                         ");
