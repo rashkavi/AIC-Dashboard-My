@@ -85,7 +85,7 @@ if (!SessionUser::hasValidSession()) {
                                                             `students`");
                                                             $data = $studentCount->fetch_assoc();
                                                             ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?php echo $data["unique_student_count"]; ?> <span data-i18n="students">Students</span></span>
+                                                            <span class="text-14 dark-theme fw-medium" id="student-count"><?php echo $data["unique_student_count"]; ?> <span data-i18n="payments">Payments</span></span>
                                                         </div>
                                                     </div>
                                                     <div class="col-8 col-md-8 col-lg-9 d-flex flex-column">

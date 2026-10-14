@@ -230,7 +230,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <div class="accordion-item br-0" data-installment-id="<?= $i + 1 ?>">
                                                                             <h2 class="accordion-header br-0" id="headingOne1">
                                                                                 <button class="accordion-button br-0 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne<?= $i + 1 ?>" aria-expanded="<?= $i == 0 ? 'true' : 'false' ?>" aria-controls="collapseOne<?= $i + 1 ?>">
-                                                                                    <span class="flex-grow-1 payment-btn-text">Payment - <?= $i + 1 ?></span>
+                                                                                    <span class="flex-grow-1 payment-btn-text" data-payment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>">Payment - <?= $i + 1 ?></span>
                                                                                 </button>
                                                                             </h2>
                                                                             <div id="collapseOne<?= $i + 1 ?>" class="accordion-collapse collapse <?= $i == 0 ? 'show' : '' ?>" aria-labelledby="headingOne<?= $i + 1 ?>" data-bs-parent="#fees-type">
@@ -368,48 +368,59 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 <?php
                                                                                             }
 
-                                                                                            if ($data['panelty_payment_option_panelty_payment_option_id'] == 4) {
-                                                                                                $penalities = Database::search("SELECT * FROM `intake_has_payments_has_penalties` WHERE `intake_payments_plan_has_payment_id`='" . $data['intake_payments_plan_has_payment_id'] . "'");
-                                                                                                for ($x = 0; $x < $penalities->num_rows; $x++) {
-                                                                                                    $penalty = $penalities->fetch_assoc();
 
+                                                                                            if ($data['panelty_payment_option_panelty_payment_option_id'] == 4) {
+                                                                                                $penaltyPayments = Database::search("SELECT * FROM `intake_has_payments_has_penalties` 
+                                                                                                WHERE `intake_payments_plan_has_payment_id`='" . $data['intake_payments_plan_has_payment_id'] . "'");
+
+                                                                                                if ($penaltyPayments->num_rows > 0) {
                                                                                                 ?>
-                                                                                                    <div class="col-12 d-flex flex-column d-none" id="panelty-custom-area" data-installment-id="<?= $i + 1 ?>">
+                                                                                                    <div class="col-12 d-flex flex-column" id="panelty-custom-area" data-installment-id="<?= $i + 1 ?>">
                                                                                                         <div class="row p-0 m-0" id="custom-slots">
 
-                                                                                                            <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
-                                                                                                                <div class="row p-4 gy-3 gx-3 align-content-center ">
-                                                                                                                    <div class="d-flex justify-content-between">
-                                                                                                                        <span class="text-14 sub-topic">Custom Date Slot - <?= $x + 1 ?></span>
+                                                                                                            <?php
+                                                                                                            for ($x = 0; $x < $penaltyPayments->num_rows; $x++) {
+                                                                                                                $penalty = $penaltyPayments->fetch_assoc();
+                                                                                                            ?>
+                                                                                                                <div class="col-12 bl-solid p-0 m-0 mt-4 custom-slot">
+                                                                                                                    <div class="row p-4 gy-3 gx-3 align-content-center ">
+                                                                                                                        <div class="d-flex justify-content-between">
+                                                                                                                            <span class="text-14 sub-topic">Custom Date Slot - <?= $x + 1 ?></span>
 
-                                                                                                                    </div>
+                                                                                                                        </div>
 
-                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                        <label class="text-14 main-text required">Panelty Amount Type</label>
-                                                                                                                        <select class="form-select custom-select mt-2 panelty-type">
-                                                                                                                            <option value="0">- Select -</option>
-                                                                                                                            <option value="1" <?php echo $penalty['panelty_payment_type_panelty_payment_type_id'] == 1 ? 'selected' : '' ?>>Fixed</option>
-                                                                                                                            <option value="2" <?php echo $penalty['panelty_payment_type_panelty_payment_type_id'] == 2 ? 'selected' : '' ?>>Percentage</option>
-                                                                                                                        </select>
-                                                                                                                    </div>
+                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                            <label class="text-14 main-text required">Panelty Amount Type</label>
+                                                                                                                            <select class="form-select custom-select mt-2 panelty-type">
+                                                                                                                                <option value="0">- Select -</option>
+                                                                                                                                <option value="1" <?php echo $penalty['panelty_payment_type_panelty_payment_type_id'] == 1 ? 'selected' : '' ?>>Fixed</option>
+                                                                                                                                <option value="2" <?php echo $penalty['panelty_payment_type_panelty_payment_type_id'] == 2 ? 'selected' : '' ?>>Percentage</option>
+                                                                                                                            </select>
+                                                                                                                        </div>
 
-                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                        <label class="text-14 main-text required">Amount</label>
-                                                                                                                        <input type="number" class="form-control custom-input mt-2 panelty-amount" value="<?= $penalty['amount'] ?>">
-                                                                                                                    </div>
+                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                            <label class="text-14 main-text required">Amount</label>
+                                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-amount" value="<?= $penalty['amount'] ?>">
+                                                                                                                        </div>
 
-                                                                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
-                                                                                                                        <label class="text-14 main-text required">Days</label>
-                                                                                                                        <input type="number" class="form-control custom-input mt-2 panelty-days" value="<?= $penalty['days'] ?>">
+                                                                                                                        <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                                                                            <label class="text-14 main-text required">Days</label>
+                                                                                                                            <input type="number" class="form-control custom-input mt-2 panelty-days" value="<?= $penalty['days'] ?>">
+                                                                                                                        </div>
                                                                                                                     </div>
                                                                                                                 </div>
+
+                                                                                                            <?php
+                                                                                                            }
+                                                                                                            ?>
+
+                                                                                                            <div class="col-12 p-0 m-0 d-flex justify-content-end mt-3">
+                                                                                                                <button class="custom-btn col-6 col-lg-2" onclick="addNewCustomPaneltyArea(this, 1);">Add New</button>
                                                                                                             </div>
-                                                                                                        </div>
-                                                                                                        <div class="col-12 p-0 m-0 d-flex justify-content-end mt-3">
-                                                                                                            <button class="custom-btn col-6 col-lg-2" onclick="addNewCustomPaneltyArea(this, 1);">Add New</button>
                                                                                                         </div>
                                                                                                     </div>
                                                                                                 <?php
+
                                                                                                 }
                                                                                             } else {
                                                                                                 ?>

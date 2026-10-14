@@ -297,8 +297,6 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <label class="text-14 main-text px-3" for="">Enable Panelty Payment</label>
                                                                                                                     </div>
 
-
-
                                                                                                                     <div class="col-12 col-lg-4 d-flex flex-column <?= $data['panelty_payment_option_panelty_payment_option_id'] == 1 ? 'd-none' : '' ?>" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" id="panelty-option-area">
                                                                                                                         <label class="text-14 main-text required" for="">Panelty Options</label>
                                                                                                                         <select id="panelty-option" class="form-select custom-select mt-2" data-installment-id="<?= $data['intake_payments_plan_has_payment_id'] ?>" onchange="paneltyOptionChange(this)">

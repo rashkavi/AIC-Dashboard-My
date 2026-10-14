@@ -73,9 +73,9 @@ class BatchDashboardSummary
                 INNER JOIN `students` AS `s`
                     ON `s`.`student_id` = `students_has_intakes`.`students_student_id`
                 WHERE `s`.`enrolled_status` = 'ENROLLED'
-                AND (`shi`.`lead_student_status_lead_student_status_id` IS NULL OR `shi`.`lead_student_status_lead_student_status_id` = '17')
+                AND (`students_has_intakes`.`lead_student_status_lead_student_status_id` IS NULL OR `students_has_intakes`.`lead_student_status_lead_student_status_id` = '17')
 
-                WHERE `intakes_intake_id` = '" . $intakeId . "'
+                AND `intakes_intake_id` = '" . $intakeId . "'
             ) AS total_students,
 
             /* Active students (status = 1) */

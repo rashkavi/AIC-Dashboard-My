@@ -440,6 +440,16 @@ if (!SessionUser::hasValidSession()) {
                                                                             <div class="dropdown">
                                                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                 <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
+                                                                                    <?php
+                                                                                    if ($displayStatusId == 17 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcdemicDepartment($sessionUserRole) || SessionUser::ifUserIsPro($sessionUserRole))) {
+                                                                                    ?>
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendWelcomeEmail('<?php echo $data['shiId']; ?>')">
+                                                                                                <iconify-icon icon="bi:send" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                Resend Welcome Email</a></li>
+                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
                                                                                     <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-view?registration-id=<?php echo $data['shiId']; ?>">
                                                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                             View</a></li>

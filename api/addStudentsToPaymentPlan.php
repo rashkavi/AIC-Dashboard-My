@@ -170,7 +170,7 @@ if (SessionUser::hasValidSession()) {
                                                         Database::iud("INSERT INTO `course_payments`(" . $insert_col . ") VALUES(" . $insert_val . ")");
                                                         $paymentId = Database::$connection->insert_id;
 
-                                                        while ($penality = $paymentPlanPaymentsPenalities->fetch_assoc()) {
+                                                        foreach ($paymentPlanPaymentsPenalities as $penality) {
                                                             if ($penality['intake_payments_plan_has_payment_id'] == $payment['intake_payments_plan_has_payment_id']) {
                                                                 $insert_col = "`course_payments_course_payments_id`,`amount`,`days`,`panelty_payment_type_panelty_payment_type_id`";
                                                                 $insert_val = "'" . $paymentId . "', '" . $penality['amount'] . "', '" . $penality['days'] . "', '" . $penality['panelty_payment_type_panelty_payment_type_id'] . "'";

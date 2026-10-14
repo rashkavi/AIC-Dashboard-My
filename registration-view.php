@@ -126,6 +126,7 @@ $leadRs = Database::search("
     LEFT JOIN users u 
         ON s.users_user_id = u.user_id
     WHERE shi.students_has_intakes_id = '" . $leadId . "'
+    GROUP BY s.student_id
     LIMIT 1
 ");
 
@@ -151,7 +152,7 @@ $addressRs = Database::search("
         ON c.district_district_id = d.district_id
     LEFT JOIN province pr 
         ON d.province_province_id = pr.province_id
-    WHERE sha.students_student_id = '" . $lead["student_id"] . "'
+    WHERE sha.students_student_id = '" . $lead["students_student_id"] . "'
     LIMIT 1
 ");
 
@@ -171,7 +172,7 @@ $guardianRs = Database::search("
         ON gd.guardian_relation_guardian_relation_id = gr.guardian_relation_id
     LEFT JOIN title t 
         ON gd.title_title_id = t.title_id
-    WHERE gd.students_student_id = '" . $lead["student_id"] . "'
+    WHERE gd.students_student_id = '" . $lead["students_student_id"] . "'
     LIMIT 1
 ");
 
@@ -184,10 +185,11 @@ $documentsRs = Database::search("
     FROM students_identity_documents
     INNER JOIN students_identity_documents_type sidt 
         ON students_identity_documents.students_identity_documents_type_id = sidt.students_identity_documents_type_id
-    WHERE students_student_id = '" . $lead["student_id"] . "'
+    WHERE students_student_id = '" . $lead["students_student_id"] . "'
     AND sidt.is_common = 1
     ORDER BY students_identity_documents.students_identity_documents_type_id ASC, date_added DESC
 ");
+
 
 $intakeDocumentsRs = Database::search("
     SELECT *

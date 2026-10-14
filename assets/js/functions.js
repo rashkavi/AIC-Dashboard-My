@@ -13287,6 +13287,8 @@ const filterInquiryRegistrationPayments = () => {
                 }
             } catch (e) {
                 $("#students-table-container").html(data);
+                 const count = document.getElementById('students-table-data').dataset.studentCount;
+                $("#student-count").text(count + ' Payments');
             }
 
         })
@@ -14232,6 +14234,30 @@ const editIntakeStudentId = (btn, id) => {
                     applyValidation(response, validationMap);
                 }
 
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const resendWelcomeEmail = (student) => {
+    toggleLoader(true);
+    fetch('api/resendWelcomeEmail.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student: student })
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            console.log(data);
+            toggleLoader(false);
+            const response = JSON.parse(data);
+            if (response.hasOwnProperty('error')) {
+                setTimeout(() => { showToast("error", response.error); }, 1000);
+            } else if (response.hasOwnProperty('done')) {
+                setTimeout(() => { showToast("success", response.done); }, 1000);
+                setTimeout(() => { window.location.reload(); }, 4000);
+            }
         })
         .catch((error) => {
             showToast("error", "An error occured. Please try again later.");

@@ -26,7 +26,7 @@ if (SessionUser::hasValidSession()) {
                     $resultPerPage = isset($decoded['resultPerPage']) ? $decoded['resultPerPage'] : 10;
                     $pageno = isset($decoded['page']) ? $decoded['page'] : 1;
                     $query = "
-                                                            SELECT 
+                                                         SELECT 
                                                              `students`.`student_id` AS 'sId', 
                                                          
                                                              `login_details`.`first_name`, 
@@ -77,18 +77,9 @@ if (SessionUser::hasValidSession()) {
 
                                                         INNER JOIN `students_has_intakes`
                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-
-                                                        INNER JOIN `intakes`
-                                                            ON `intakes`.`intake_id` = `students_has_intakes`.`intakes_intake_id`
-                                                         
-                                                         INNER JOIN `programmes`
-                                                             ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
-                                                         
-                                                         INNER JOIN `faculties`
-                                                             ON `faculties`.`faculty_id` = `programmes`.`faculties_faculty_id`
                                                          
                                                          INNER JOIN `lead_student_status`
-                                                             ON `students`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
+                                                             ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`
                                                          
                                                          INNER JOIN `users`
                                                              ON `students`.`users_user_id` = `users`.`user_id`
@@ -100,7 +91,7 @@ if (SessionUser::hasValidSession()) {
                                                              ON `sl`.`students_log_id` = (
                                                                  SELECT `sl2`.`students_log_id`
                                                                  FROM `students_logs` AS `sl2`
-                                                                 WHERE `sl2`.`students_student_id` = `students`.`student_id`
+                                                                 WHERE `sl2`.`students_has_intakes_students_has_intakes_id` = `students_has_intakes`.`students_has_intakes_id`
                                                                    AND `sl2`.`lead_student_status_lead_student_status_id` IN (2,3,4)
                                                                  ORDER BY `sl2`.`date_updated` DESC
                                                                  LIMIT 1
@@ -111,8 +102,9 @@ if (SessionUser::hasValidSession()) {
                                                          
                                                          LEFT JOIN `title` AS `updated_user_title`
                                                              ON `updated_user`.`title_title_id` = `updated_user_title`.`title_id`
-                                                         WHERE 1=1
-                                                       ";
+                                                         
+                                                           WHERE 1=1
+                                                         ";
 
                     if ($search_text != "") {
                         $query .= " AND (`students`.`student_id` LIKE '%" . $search_text . "%' OR `first_name` LIKE '%" . $search_text . "%' OR `last_name` LIKE '%" . $search_text . "%' OR `email` LIKE '%" . $search_text . "%' OR `mobile` LIKE '%" . $search_text . "%')";
@@ -138,6 +130,9 @@ if (SessionUser::hasValidSession()) {
                         $query .= " AND `lead_student_status`.`lead_student_status_id` = '" . $sort . "'";
                     }
 
+                    $query .= "  GROUP BY `students_has_intakes`.`students_has_intakes_id`
+                                                         ";
+
                     $order_key = " ORDER BY";
 
                     if ($sortByName != 0) {
@@ -152,7 +147,7 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     if ($sortByName == 0 && $sortByDate == 0) {
-                        $query .= " " . $order_key . " `students`.`student_id` DESC";
+                        $query .= " " . $order_key . " `students_has_intakes`.`students_has_intakes_id` DESC";
                     }
 
                     $results = Database::search($query);
@@ -205,9 +200,9 @@ if (SessionUser::hasValidSession()) {
                                 ?>
                             </tr>
                         </thead>
-                        <tbody id="user-table-data">
+                        <tbody id="students-table-data" data-student-count="<?php echo $results_count; ?>">
                             <?php
-                           
+
                             if ($students->num_rows > 0) {
                                 while ($data = $students->fetch_assoc()) {
                             ?>

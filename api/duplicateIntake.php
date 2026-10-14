@@ -521,7 +521,7 @@ if (SessionUser::hasValidSession()) {
 
                                     $planId = Database::$connection->insert_id;
 
-                                    $planHasPayments = Database::search("SELECT * FROM `intake_payments_plan_has_payments` WHERE `intake_payments_plan_has_payment_id`='" . $systemPaymentPlanData['intake_payments_plan_has_payment_id'] . "'");
+                                    $planHasPayments = Database::search("SELECT * FROM `intake_payments_plan_has_payments` WHERE `intake_has_payment_plan_id`='" . $systemPaymentPlanData['intake_has_payment_plan_id'] . "'");
                                     if ($planHasPayments->num_rows > 0) {
                                         while ($planHasPaymentData = $planHasPayments->fetch_assoc()) {
                                             $dueDate = empty($planHasPaymentData['due_date'])

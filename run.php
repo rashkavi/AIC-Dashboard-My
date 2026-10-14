@@ -1,67 +1,30 @@
-<!-- IMPROVED PAYMENT PLANS ACCORDION VIEW -->
-<!-- Better looking accordion headers with icons and professional styling -->
-
 <?php
-require_once './includes/connection.php';
 require_once './includes/UserClass.php';
-require_once './includes/Project.php';
+require_once './includes/UserPermissionsClass.php';
+require_once "./includes/connection.php";
+require_once "./includes/Project.php";
 
-$query = "SELECT 
-            `student_id`,
-            `entry_type`,
-            `payment_option`,
-            `lead_student_status_lead_student_status_id`
-          FROM `students`
-          WHERE 
-            `entry_type` IS NOT NULL
-            OR `payment_option` IS NOT NULL
-            OR `lead_student_status_lead_student_status_id` IS NOT NULL";
+if (!SessionUser::hasValidSession()) {
+    header("Location: ./index");
+} else {
 
-$result = Database::search($query);
+    $payments = Database::search("SELECT * FROM `course_payments`
+    WHERE `panelty_payment_option_panelty_payment_option_id` != 1
+    AND `course_payments_id` NOT IN (SELECT `course_payments_course_payments_id` FROM `course_payments_penalties`)");
+    while ($payment = $payments->fetch_assoc()) {
 
-$updatedCount = 0;
-$skippedCount = 0;
+        $penalties = Database::search("SELECT * FROM `intake_has_payments_has_penalties`
+    WHERE `intake_payments_plan_has_payment_id` = '" . $payment['intake_payments_plan_has_payment_id'] . "'");
+        if ($penalties->num_rows > 0) {
+            while ($p = $penalties->fetch_assoc()) {
+                Database::iud("INSERT INTO `course_payments_penalties`(`course_payments_course_payments_id`,`amount`,`days`,`panelty_payment_type_panelty_payment_type_id`)
+                VALUES ('" . $payment['course_payments_id'] . "',
+                '" . $p['amount'] . "',
+                '" . $p['days'] . "',
+                '" . $p['panelty_payment_type_panelty_payment_type_id'] . "')");
 
-while ($student = $result->fetch_assoc()) {
-
-    $studentId = $student['student_id'];
-
-    $entryType = $student['entry_type'];
-    $paymentOption = $student['payment_option'];
-    $leadStatusId = $student['lead_student_status_lead_student_status_id'];
-
-    // Escape values
-    $entryType = $entryType !== null ? "'" . Database::$connection->real_escape_string($entryType) . "'" : "NULL";
-    $paymentOption = $paymentOption !== null ? "'" . Database::$connection->real_escape_string($paymentOption) . "'" : "NULL";
-    $leadStatusId = $leadStatusId !== null ? "'" . Database::$connection->real_escape_string($leadStatusId) . "'" : "NULL";
-
-    // Check whether the student has intake records
-    $intakeResult = Database::search(
-        "SELECT `students_has_intakes_id`
-         FROM `students_has_intakes`
-         WHERE `students_student_id` = '" . $studentId . "'"
-    );
-
-    if ($intakeResult->num_rows > 0) {
-
-        while ($intake = $intakeResult->fetch_assoc()) {
-
-            $updateQuery = "UPDATE `students_has_intakes`
-                            SET
-                                `entry_type` = $entryType,
-                                `payment_option` = $paymentOption,
-                                `lead_student_status_lead_student_status_id` = $leadStatusId
-                            WHERE `students_has_intakes_id` = '" . $intake['students_has_intakes_id'] . "'";
-
-            Database::iud($updateQuery);
-
-            $updatedCount++;
+                echo "Panelty payment added for course_payments_id: " . $payment['course_payments_id'] . " amount: " . $p['amount'] . " date_added: " . date("Y-m-d") . "<br>";
+            }
         }
-    } else {
-        $skippedCount++;
     }
 }
-
-echo "Completed successfully.<br>";
-echo "Updated intake records: " . $updatedCount . "<br>";
-echo "Students without intake records: " . $skippedCount . "<br>";

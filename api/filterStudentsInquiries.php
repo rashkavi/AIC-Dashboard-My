@@ -31,6 +31,7 @@ if (SessionUser::hasValidSession()) {
                     $query = "
                         SELECT
                             `students`.`student_id`  AS `sId`,
+                             `students_has_intakes`.`students_has_intakes_id` AS `shiId`,
                             `login_details`.`first_name`,
                             `login_details`.`last_name`,
                             `login_details`.`email`,
@@ -320,37 +321,60 @@ if (SessionUser::hasValidSession()) {
                                             <div class="dropdown">
                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                 <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-view?inquiry-id=<?php echo $data['sId']; ?>">
+                                                    <?php
+                                                    if ($displayStatusId == 17 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcdemicDepartment($sessionUserRole) || SessionUser::ifUserIsPro($sessionUserRole))) {
+                                                    ?>
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="resendWelcomeEmail('<?php echo $data['shiId']; ?>')">
+                                                                <iconify-icon icon="bi:send" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Resend Welcome Email</a></li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                    <?php
+                                                    }
+                                                    ?>
+                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-view?registration-id=<?php echo $data['shiId']; ?>">
                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                             View</a></li>
                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?inquiry-id=<?php echo $data['sId']; ?>">
-                                                            <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                            Edit</a></li>
-                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="inquiry-update-history?inquiry-id=<?php echo $data['sId']; ?>">
+                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="registration-update-history?registration-id=<?php echo $data['shiId']; ?>">
                                                             <iconify-icon icon="ic:baseline-history" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                             Update History</a></li>
+                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                     <?php
+                                                    if ($displayStatusId != 17) {
+                                                    ?>
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?registration-id=<?php echo $data['shiId']; ?>">
+                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Edit</a></li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                    <?php
+                                                    }
+                                                    if ($displayStatusId == 2 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
+                                                    ?>
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="re-upload-registration-payment-slip?inquiry-id=<?php echo $data['shiId']; ?>">
+                                                                <iconify-icon icon="material-symbols-light:upload-2-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Re-Upload Registration Payment Slip</a></li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                    <?php
+                                                    }
                                                     if ($displayStatusId >= 5) {
                                                     ?>
-                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="upload-other-documents?inquiry-id=<?php echo $data['sId']; ?>">
+
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="upload-other-documents?registration-id=<?php echo $data['shiId']; ?>">
                                                                 <iconify-icon icon="solar:document-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Other Documents</a></li>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
-                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['students_has_intakes_id']; ?>">
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['students_has_intakes_id']; ?>&path=inquiries">
                                                                 <iconify-icon icon="tabler:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                 Payment Plan</a></li>
                                                     <?php
                                                     }
 
-                                                    if ($displayStatusId == 5) {
+                                                    if ($displayStatusId == 5 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
                                                     ?>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                         <li>
                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                onclick="openRegistrationVerificationModal(<?= $data['sId']; ?>)">
+                                                                onclick="openRegistrationVerificationModal(<?= $data['shiId']; ?>)">
                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                     width="20"
                                                                     height="20"
@@ -360,12 +384,39 @@ if (SessionUser::hasValidSession()) {
                                                         </li>
                                                     <?php
                                                     }
+                                                    if ($displayStatusId == 12 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsCounsiler($sessionUserRole))) {
+                                                    ?>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                        <li>
+                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
+                                                                onclick="openRegistrationVerificationModal(<?= $data['shiId']; ?>)">
+                                                                <iconify-icon icon="solar:verified-check-bold"
+                                                                    width="20"
+                                                                    height="20"
+                                                                    class="sub-text me-3"></iconify-icon>
+                                                                Confirm Academic & Initial Payment Completion
+                                                            </a>
+                                                        </li>
+                                                    <?php
+                                                    }
+
                                                     if ($displayStatusId == 11 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcdemicAdministration($sessionUserRole))) {
                                                     ?>
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                         <li>
                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                onclick="openAcademicAdministrationConfirmModal(<?= $data['sId']; ?>)">
+                                                                onclick="openAcademicAdministrationRejectModal(<?= $data['shiId']; ?>)">
+                                                                <iconify-icon icon="solar:close-circle-bold"
+                                                                    width="20"
+                                                                    height="20"
+                                                                    class="sub-text me-3"></iconify-icon>
+                                                                Academic Documents Rejected
+                                                            </a>
+                                                        </li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                        <li>
+                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
+                                                                onclick="openAcademicAdministrationConfirmModal(<?= $data['shiId']; ?>,'<?= $data['ms_team_username'] ?>')">
                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                     width="20"
                                                                     height="20"
@@ -380,7 +431,7 @@ if (SessionUser::hasValidSession()) {
                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                         <li>
                                                             <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                onclick="openAcademicDepartmentConfirmModal(<?= $data['sId']; ?>)">
+                                                                onclick="openAcademicDepartmentConfirmModal(<?= $data['shiId']; ?>)">
                                                                 <iconify-icon icon="solar:verified-check-bold"
                                                                     width="20"
                                                                     height="20"
