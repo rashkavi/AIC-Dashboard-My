@@ -12112,6 +12112,7 @@ const editRegistration = (btn, id) => {
     })
         .then((res) => res.json())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             if (response.done) {
                 showToast("success", response.done);

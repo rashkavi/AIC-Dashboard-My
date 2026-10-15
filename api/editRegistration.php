@@ -3,24 +3,30 @@ $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
-            $id = isset($_POST['id']) ? trim($_POST['id']) : '';
+            // "id" posted from the page = students_has_intakes_id (registration id)
+            $registrationId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 
-            if (empty($id)) {
+            if ($registrationId <= 0) {
                 $status->error = "Invalid student Id";
             } else {
-                $isHasId = Database::search("SELECT `student_id`,`profile_img`,`login_details_login_details_id` FROM `students` WHERE `student_id`='" . $id . "'");
+                $isHasId = Database::search("SELECT s.`student_id`, s.`profile_img`, s.`login_details_login_details_id`
+                    FROM `students_has_intakes` shi
+                    INNER JOIN `students` s ON shi.`students_student_id` = s.`student_id`
+                    WHERE shi.`students_has_intakes_id` = '" . $registrationId . "'");
 
                 if ($isHasId->num_rows == 0) {
                     $status->error = "Invalid student Id";
                 } else {
 
                     $student = $isHasId->fetch_assoc();
+                    $id = (int)$student['student_id']; // real student id
 
                     $fname = isset($_POST['fname']) ? trim($_POST['fname']) : '';
                     $lname = isset($_POST['lname']) ? trim($_POST['lname']) : '';
@@ -54,8 +60,8 @@ if (SessionUser::hasValidSession()) {
                     $programme = isset($_POST['programme']) ? trim($_POST['programme']) : 0;
                     $intake = isset($_POST['intake']) ? trim($_POST['intake']) : 0;
                     $counselor = isset($_POST['counselor']) ? trim($_POST['counselor']) : 0;
-                    $entry_type = isset($_POST['entry_type']) ? trim($_POST['entry_type']) : 0;
-                    $payment_option = isset($_POST['payment_option']) ? trim($_POST['payment_option']) : 0;
+                    $entry_type = isset($_POST['entry_type']) ? trim($_POST['entry_type']) : '';
+                    $payment_option = isset($_POST['payment_option']) ? trim($_POST['payment_option']) : '';
                     $image = '';
 
                     if (empty($fname)) {
@@ -269,7 +275,7 @@ if (SessionUser::hasValidSession()) {
                         if (!in_array($file_ex, $allowed_image_extentions)) {
                             $status->image = "Only jpg,jpeg,png and svg allowed";
                         } else {
-                            $new_file_extention;
+                            $new_file_extention = "";
                             switch ($file_ex) {
                                 case "image/jpg":
                                     $new_file_extention = ".jpg";
@@ -301,7 +307,7 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
-                    $studentDocuments = validateStudentDocuments($id);
+                    $studentDocuments = validateStudentDocuments($id, $registrationId);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
                         $status->$key = $message;
@@ -317,12 +323,11 @@ if (SessionUser::hasValidSession()) {
 
                         $login_table_update = "`first_name`='" . $fname . "',`last_name`='" . $lname . "',`whatsapp`='" . normalizePhoneNumber($whatsapp) . "',`email`='" . $email . "'";
 
+                        // entry_type & payment_option now live on students_has_intakes
                         $student_table_update = "`full_name`='" . $fullname . "',`name_with_initials`='" . $nwi . "'
                         ,`title_title_id`='" . $title . "'
                         ,`mobile`='" . normalizePhoneNumber($mobile) . "',`gender_gender_id`='" . $gender . "'
-                        ,`country_of_birth`='" . $cob . "',`country_of_residence`='" . $cor . "',
-                        `entry_type`='" . $entry_type . "',`payment_option`='" . $payment_option . "'
-                        ";
+                        ,`country_of_birth`='" . $cob . "',`country_of_residence`='" . $cor . "'";
 
                         if ($marital_status != 0) {
                             $student_table_update .= ",`marital_status_marital_status_id`='" . $marital_status . "'";
@@ -354,11 +359,17 @@ if (SessionUser::hasValidSession()) {
                             $student_table_update .= ",`nationality`='69'";
                         }
 
-
                         Database::iud("UPDATE `login_details` SET " . $login_table_update . " WHERE `login_details_id` = '" . $student["login_details_login_details_id"] . "'");
                         Database::iud("UPDATE `students` SET " . $student_table_update . " WHERE `student_id` = '" . $student["student_id"] . "'");
 
-                        Database::iud("UPDATE `students_has_intakes` SET `intakes_intake_id`='" . $intake . "',`counselor_user_id`='" . $counselor . "' WHERE `students_student_id`='" . $student["student_id"] . "'");
+                        // Only update THIS registration (intake), not every intake of the student
+                        Database::iud("UPDATE `students_has_intakes` SET
+                            `intakes_intake_id`='" . $intake . "',
+                            `counselor_user_id`='" . $counselor . "',
+                            `entry_type`='" . Database::escape($entry_type) . "',
+                            `payment_option`='" . Database::escape($payment_option) . "'
+                            WHERE `students_has_intakes_id`='" . $registrationId . "'");
+
                         if (!empty($address)) {
                             $studentHasAddress = Database::search("SELECT * FROM `student_has_address` WHERE `students_student_id`='" . $student["student_id"] . "'");
                             if ($studentHasAddress->num_rows == 0) {
@@ -383,7 +394,6 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-
                         if ($gtitle != 0) {
                             $studnetHasGuardian = Database::search("SELECT * FROM `guardian_details` WHERE `students_student_id`='" . $student["student_id"] . "'");
                             if ($studnetHasGuardian->num_rows == 0) {
@@ -400,7 +410,6 @@ if (SessionUser::hasValidSession()) {
                                     $guardian_table_values .= ",'" . $gwhatsapp . "'";
                                 }
 
-
                                 Database::iud("INSERT INTO `guardian_details` (" . $guardian_table_columns . ") VALUES (" . $guardian_table_values . ")");
                             } else {
 
@@ -411,6 +420,7 @@ if (SessionUser::hasValidSession()) {
                                 Database::iud("UPDATE `guardian_details` SET " . $guardian_table_update . " WHERE `students_student_id` = '" . $student["student_id"] . "'");
                             }
                         }
+
                         if (isset($_FILES["image"])) {
                             $image_path = "../assets/imgs/students/" . $image;
                             move_uploaded_file($_FILES["image"]["tmp_name"], $image_path);
@@ -422,21 +432,13 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
+                        // ---- Removed documents ----
                         if (isset($_POST["removed_documents"]) && is_array($_POST["removed_documents"])) {
 
-                            $docFolderMap = [
-                                1 => "aic-applications",
-                                2 => "university-applications",
-                                3 => "signed-agreements",
-                                4 => "signed-program-briefs",
-                                5 => "passport-nic-documents",
-                                6 => "academic-documents",
-                                7 => "other-entry-documents",
-                                8 => "payment-slips",
-                                9 => "manager-checklists",
-                                10 => "passport-size-photos",
-                                11 => "discount-approved-documents"
-                            ];
+                            $folderByType = [];
+                            foreach (getStudentDocumentTypeConfig() as $cfg) {
+                                $folderByType[(int)$cfg["type_id"]] = $cfg["folder"];
+                            }
 
                             foreach ($_POST["removed_documents"] as $docId) {
                                 $docId = (int)$docId;
@@ -445,6 +447,7 @@ if (SessionUser::hasValidSession()) {
                                     continue;
                                 }
 
+                                // only this student's common docs or this intake's docs
                                 $docRs = Database::search("
                                     SELECT 
                                         `students_identity_document_id`,
@@ -453,6 +456,8 @@ if (SessionUser::hasValidSession()) {
                                     FROM `students_identity_documents`
                                     WHERE `students_identity_document_id` = '" . $docId . "'
                                       AND `students_student_id` = '" . $id . "'
+                                      AND (`students_has_intakes_students_has_intakes_id` IS NULL
+                                           OR `students_has_intakes_students_has_intakes_id` = '" . $registrationId . "')
                                     LIMIT 1
                                 ");
 
@@ -465,8 +470,8 @@ if (SessionUser::hasValidSession()) {
                                 $typeId = (int)$doc["students_identity_documents_type_id"];
                                 $fileName = basename($doc["document"]);
 
-                                if (isset($docFolderMap[$typeId])) {
-                                    $filePath = "../assets/uploads/student-identity-documents/" . $docFolderMap[$typeId] . "/" . $fileName;
+                                if (isset($folderByType[$typeId])) {
+                                    $filePath = "../assets/uploads/student-identity-documents/" . $folderByType[$typeId] . "/" . $fileName;
 
                                     if (is_file($filePath)) {
                                         unlink($filePath);
@@ -481,11 +486,12 @@ if (SessionUser::hasValidSession()) {
                             }
                         }
 
-                        uploadStudentDocuments($id, $studentDocuments);
+                        // ---- New uploads (student-level => NULL, intake-level => registration id) ----
+                        uploadStudentDocuments($id, $registrationId, $studentDocuments);
 
                         Database::iud("INSERT INTO `students_logs` 
-                            (`students_student_id`, `date_updated`, `users_user_id`,`log`)
-                             VALUES ('" . $id . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Update Student Details')");
+                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`,`log`)
+                             VALUES ('" . $registrationId . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Update Student Details')");
 
                         $status->done =  "Student Update Successfully";
                     }
@@ -544,18 +550,19 @@ function normalizePhoneNumber($number)
     return false;
 }
 
-function validateStudentDocuments($id)
+function validateStudentDocuments($studentId, $registrationId)
 {
     $maxSize = 8 * 1024 * 1024; // 8MB same as JS
 
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
 
-    $requiredDocuments = [
-        "passport_nic",
-        "payment_slip",
-        "discount_approved_document",
-        "signed_fee_structure",
-        "aic_application"
+    // type_id => field name
+    $requiredMap = [
+        5  => "passport_nic",
+        8  => "payment_slip",
+        11 => "discount_approved_document",
+        12 => "signed_fee_structure",
+        1  => "aic_application"
     ];
 
     $removeIds = [];
@@ -576,66 +583,23 @@ function validateStudentDocuments($id)
         $notInQuery = " AND `students_identity_document_id` NOT IN (" . implode(",", $removeIds) . ")";
     }
 
-    $isUploadDocument = Database::search("
-        SELECT *
+    // Existing docs that count: student-level (NULL) + this intake's
+    $existingRs = Database::search("
+        SELECT DISTINCT `students_identity_documents_type_id`
         FROM `students_identity_documents`
-        WHERE `students_student_id` = '" . $id . "'
-        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
-        $notInQuery
+        WHERE `students_student_id` = '" . (int)$studentId . "'
+          AND (`students_has_intakes_students_has_intakes_id` IS NULL
+               OR `students_has_intakes_students_has_intakes_id` = '" . (int)$registrationId . "')
+          AND `students_identity_documents_type_id` IN (5,8,11,12,1)
+          $notInQuery
     ");
 
-    if ($isUploadDocument->num_rows > 0) {
-
-        while ($data = $isUploadDocument->fetch_assoc()) {
-
-            if ($data['students_identity_documents_type_id'] == 5) {
-
-                $key = array_search("passport_nic", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 8) {
-
-                $key = array_search("payment_slip", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 11) {
-
-                $key = array_search("discount_approved_document", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 12) {
-
-                $key = array_search("signed_fee_structure", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 1) {
-
-                $key = array_search("aic_application", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-        }
+    $missing = $requiredMap;
+    while ($row = $existingRs->fetch_assoc()) {
+        unset($missing[(int)$row["students_identity_documents_type_id"]]);
     }
+    $requiredDocuments = array_values($missing);
 
-    $requiredDocuments = array_values($requiredDocuments);
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
@@ -697,6 +661,7 @@ function validateStudentDocuments($id)
         "errors" => $errors
     ];
 }
+
 function getStudentDocumentTypeConfig()
 {
     return [
@@ -784,14 +749,20 @@ function normalizeFilesArray($fileInput)
     return $files;
 }
 
-function uploadStudentDocuments($studentId, $studentDocuments)
+function uploadStudentDocuments($studentId, $studentHasIntakeId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
+
+    // Load is_common flag for each document type
+    $commonMap = [];
+    $typeResult = Database::search("SELECT `students_identity_documents_type_id`, `is_common` FROM `students_identity_documents_type`");
+    while ($t = $typeResult->fetch_assoc()) {
+        $commonMap[(int)$t['students_identity_documents_type_id']] = (int)$t['is_common'];
+    }
 
     foreach ($studentDocuments["files"] as $doc) {
 
-        $typeId = $doc["type_id"];
+        $typeId = (int)$doc["type_id"];
         $folder = $doc["folder"];
         $prefix = $doc["prefix"];
         $file = $doc["file"];
@@ -804,26 +775,30 @@ function uploadStudentDocuments($studentId, $studentDocuments)
         }
 
         $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
-
         $serverPath = $uploadDir . $newFileName;
 
         if (move_uploaded_file($file["tmp_name"], $serverPath)) {
 
-            $dbPath = $newFileName;
+            $isCommon = isset($commonMap[$typeId]) ? $commonMap[$typeId] : 1;
+
+            // Common docs belong to the student only; other docs are tied to the intake
+            $shiValue = $isCommon ? "NULL" : "'" . (int)$studentHasIntakeId . "'";
 
             Database::iud("
                 INSERT INTO `students_identity_documents`
                 (
                     `students_student_id`,
+                    `students_has_intakes_students_has_intakes_id`,
                     `students_identity_documents_type_id`,
                     `document`,
                     `date_added`
                 )
                 VALUES
                 (
-                    '" . $studentId . "',
+                    '" . (int)$studentId . "',
+                    " . $shiValue . ",
                     '" . $typeId . "',
-                    '" . $dbPath . "',
+                    '" . $newFileName . "',
                     NOW()
                 )
             ");

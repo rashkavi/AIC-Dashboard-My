@@ -137,6 +137,11 @@ if (SessionUser::hasValidSession()) {
                                                             }
                                                         }
                                                     }
+
+                                                    $attchements = Database::search("SELECT * FROM `subject_has_attachments` WHERE `subjects_subject_id`='" . $subject['subject_id'] . "'");
+                                                    if ($attchements->num_rows > 0) {
+                                                        Database::iud("DELETE FROM `subject_has_attachments` WHERE `subjects_subject_id`='" . $subject['subject_id'] . "'");
+                                                    }
                                                     Database::iud("DELETE FROM `subjects` WHERE `subject_id` = '" . $subject['subject_id'] . "'");
                                                 }
                                             }
@@ -183,11 +188,19 @@ if (SessionUser::hasValidSession()) {
                                             }
                                         }
                                     }
+
+                                    $intakePermisions = Database::search("SELECT * FROM `users_has_permission_to_intakes` WHERE `intakes_intake_id`='" . $intake . "'");
+                                    if ($intakePermisions->num_rows > 0) {
+                                        while ($intakePermision = $intakePermisions->fetch_assoc()) {
+                                            Database::iud("DELETE FROM `users_has_permission_to_intakes` WHERE `intakes_intake_id`='" . $intake . "'");
+                                        }
+                                    }
+
                                     Database::iud("DELETE FROM `intakes` WHERE `intake_id` = '" . $intake . "'");
 
                                     $status->done = 'Intake removed successfully';
                                 } catch (Exception $e) {
-                                    $status->error = "Something went wrong ".$e->getMessage();
+                                    $status->error = "Something went wrong " . $e->getMessage();
                                 }
                             } else {
                                 $status->error = 'Intake has active students';

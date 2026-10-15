@@ -6300,7 +6300,7 @@ function renderStudentDocumentPreview(box) {
                     </div>
 
                     ${doc.access_remove ? `
-                          <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
                         <iconify-icon 
                             icon="mdi:close-circle-outline"
                             width="22"
@@ -6551,7 +6551,7 @@ function hideRegistrationVerificationError() {
     area.classList.add("d-none");
 }
 
-function openAcademicAdministrationConfirmModal(studentId,userName) {
+function openAcademicAdministrationConfirmModal(studentId, userName) {
 
     hideAcademicCompletionError();
 
