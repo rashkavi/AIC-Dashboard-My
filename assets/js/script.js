@@ -3466,53 +3466,6 @@ const handleLecturersAssignmentsPaymentsPagination = (action, pageId = null, tot
     filterLecturersAssignmentsPayments();
 }
 
-const handleLecturersLecturePaymentsPagination = (action, pageId = null, totalPages = null) => {
-    //console.log(action, pageId, totalPages);
-    switch (action) {
-        case 'goToPage':
-            selectedPage = pageId;
-            break;
-        case 'previousPage':
-            if (selectedPage > 1) {
-                selectedPage--;
-            }
-            break;
-        case 'nextPage':
-            if (selectedPage < totalPages) {
-                selectedPage++;
-            }
-            break;
-        case 'filter':
-            selectedPage = 1;
-            break;
-    }
-
-    filterLecturersLecturePayments();
-}
-
-const handleLecturersPayoutRequestPagination = (action, pageId = null, totalPages = null) => {
-    //console.log(action, pageId, totalPages);
-    switch (action) {
-        case 'goToPage':
-            selectedPage = pageId;
-            break;
-        case 'previousPage':
-            if (selectedPage > 1) {
-                selectedPage--;
-            }
-            break;
-        case 'nextPage':
-            if (selectedPage < totalPages) {
-                selectedPage++;
-            }
-            break;
-        case 'filter':
-            selectedPage = 1;
-            break;
-    }
-
-    filterLecturersPayoutRequest();
-}
 
 const viewLectureRecording = (link) => {
     $("#lectureRecordingModalBody").html(link);
@@ -7340,3 +7293,196 @@ function applyClosedState(intakeId, closedDate) {
 
 /* ---------- Intake history ---------- */
 
+function openCancelScheduleModal(lectureId, lecturerName, lectureDate) {
+
+    document.getElementById('cancelScheduleDetails').innerHTML =
+        '<strong>' + lecturerName + '</strong><br>' + lectureDate;
+
+    $("#confirmCancelSchedule").on("click", function () {
+        confirmCancelSchedule(this, lectureId);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('cancelScheduleModal'));
+    modal.show();
+}
+
+function openReScheduleModal(lectureId, lecturerName, lectureDate) {
+
+    document.getElementById('rescheduleConfirmDetails').innerHTML =
+        '<strong>' + lecturerName + '</strong><br>' + lectureDate;
+
+    $("#confirmReschedule").on("click", function () {
+        confirmReschedule(this, lectureId);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('rescheduleConfirmModal'));
+    modal.show();
+}
+
+const handleLecturersLecturePaymentsPagination = (action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+    }
+
+    filterLecturersLecturePayments();
+}
+
+let selectedPayments = [];
+let selectedAssignmentPayments = [];
+let collectedAmount = 0;
+function lecturerPaymentsCheckEvents() {
+    const checkAll = document.getElementById('lp-check-all');
+    const rowChecks = document.querySelectorAll('.lp-row-check');
+
+    selectedPayments = [];
+
+    rowChecks.forEach((checkbox) => {
+        checkbox.checked = checkAll.checked;
+
+        if (checkAll.checked) {
+            selectedPayments.push(checkbox.value);
+        }
+    });
+
+    updateSelectedPaymentAmount();
+}
+
+function lecuturePaymentsCheckRowEvents(paymentId) {
+    const checkbox = document.getElementById("lp-" + paymentId);
+
+    if (checkbox.checked) {
+        if (!selectedPayments.includes(paymentId.toString())) {
+            selectedPayments.push(paymentId.toString());
+        }
+    } else {
+        selectedPayments = selectedPayments.filter(id => id !== paymentId.toString());
+    }
+
+    updateCheckAllStatus();
+    updateSelectedPaymentAmount();
+}
+
+function updateCheckAllStatus() {
+    const rowChecks = document.querySelectorAll('.lp-row-check');
+    const checkedRows = document.querySelectorAll('.lp-row-check:checked');
+    const checkAll = document.getElementById('lp-check-all');
+
+    checkAll.checked = rowChecks.length === checkedRows.length;
+}
+
+function updateSelectedPaymentAmount() {
+    let total = 0;
+
+    selectedPayments.forEach((id) => {
+        const checkbox = document.getElementById("lp-" + id);
+        if (checkbox) {
+            total += parseFloat(checkbox.dataset.amount) || 0;
+        }
+    });
+
+    selectedAssignmentPayments.forEach((id) => {
+        const checkbox = document.getElementById("ap-" + id);
+        if (checkbox) {
+            total += parseFloat(checkbox.dataset.amount) || 0;
+        }
+    })
+
+    console.log(total);
+
+    let balance = document.getElementById("totalBalance");
+    const totalPaymentAmount = balance.dataset.total;
+
+    const balanceAmount = totalPaymentAmount - total;
+    balance.textContent = "LKR " + balanceAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 });
+
+    document.getElementById("totalCollected").textContent = "LKR " +
+        total.toLocaleString("en-LK", { minimumFractionDigits: 2 });
+    document.getElementById("modalTotalCollected").value = "LKR " +
+        total.toLocaleString("en-LK", { minimumFractionDigits: 2 });
+
+    collectedAmount = total;
+}
+
+
+function assignmentsPaymentsCheckEvents() {
+    const checkAll = document.getElementById('ap-check-all');
+    const rowChecks = document.querySelectorAll('.ap-row-check');
+
+    selectedAssignmentPayments = [];
+
+    rowChecks.forEach((checkbox) => {
+        checkbox.checked = checkAll.checked;
+
+        if (checkAll.checked) {
+            selectedAssignmentPayments.push(checkbox.value);
+        }
+    });
+
+    updateSelectedPaymentAmount();
+}
+
+function assignmentPaymentsCheckRowEvents(paymentId) {
+    const checkbox = document.getElementById("ap-" + paymentId);
+
+    if (checkbox.checked) {
+        if (!selectedAssignmentPayments.includes(paymentId.toString())) {
+            selectedAssignmentPayments.push(paymentId.toString());
+        }
+    } else {
+        selectedAssignmentPayments = selectedAssignmentPayments.filter(id => id !== paymentId.toString());
+    }
+
+    updateAPCheckAllStatus();
+    updateSelectedPaymentAmount();
+}
+
+function updateAPCheckAllStatus() {
+    const rowChecks = document.querySelectorAll('.ap-row-check');
+    const checkedRows = document.querySelectorAll('.ap-row-check:checked');
+    const checkAll = document.getElementById('ap-check-all');
+
+    checkAll.checked = rowChecks.length === checkedRows.length;
+}
+
+const openMarkAsPaidModal = () => {
+    if (selectedPayments.length > 0 || selectedAssignmentPayments.length > 0) {
+        $("#markAsPaidModal").modal("show");
+    } else {
+        showToast('warning', 'Please select at least one payment to mark as paid.');
+    }
+}
+
+const calculateSchedulePayment = (input, amount, maxAttempts) => {
+
+    let attempts = parseInt(input.value) || 0;
+    amount = parseFloat(amount) || 0;
+    maxAttempts = parseInt(maxAttempts) || 0;
+
+    const feedback = $("#amount-feedback");
+
+    if (attempts > maxAttempts || attempts < 1) {
+        input.value = maxAttempts;
+        attempts = maxAttempts;
+    } else {
+        feedback.text("");
+    }
+
+    const total = attempts * amount;
+    $("#amount").val("LKR " +
+        total.toLocaleString("en-LK", { minimumFractionDigits: 2 }));
+};

@@ -9035,70 +9035,6 @@ const filterLecturersAssignmentsPayments = () => {
         });
 }
 
-const filterLecturersLecturePayments = () => {
-    const data = {
-        text: $("#user-search-text").val(),
-        sort: $("#sort-selector").val(),
-        resultPerPage: $("#show-result-selector").val(),
-        page: selectedPage,
-    }
-
-    fetch('api/filterLecturersLecturePayments.php', {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-    })
-        .then((response) => response.text())
-        .then((data) => {
-            try {
-                const response = JSON.parse(data);
-                if (response.hasOwnProperty('error')) {
-                    setTimeout(() => { showToast("error", response.error); }, 1000);
-                }
-            } catch (e) {
-                $("#users-table-container").html(data);
-                getTableWidth('#users-table', '#pagination-container');
-            }
-        })
-        .catch((error) => {
-            showToast("error", "An error occured. Please try again later.");
-        });
-}
-
-const filterLecturersPayoutRequest = () => {
-    const data = {
-        text: $("#user-search-text").val(),
-        sort: $("#sort-selector").val(),
-        resultPerPage: $("#show-result-selector").val(),
-        page: selectedPage,
-    }
-
-    fetch('api/filterLecturersPayoutRequest.php', {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-    })
-        .then((response) => response.text())
-        .then((data) => {
-            try {
-                const response = JSON.parse(data);
-                if (response.hasOwnProperty('error')) {
-                    setTimeout(() => { showToast("error", response.error); }, 1000);
-                }
-            } catch (e) {
-                $("#users-table-container").html(data);
-                getTableWidth('#users-table', '#pagination-container');
-            }
-        })
-        .catch((error) => {
-            showToast("error", "An error occured. Please try again later.");
-        });
-}
-
 const filterPortalSubscribedStudents = () => {
     const data = {
         text: $("#search-text").val(),
@@ -13288,7 +13224,7 @@ const filterInquiryRegistrationPayments = () => {
                 }
             } catch (e) {
                 $("#students-table-container").html(data);
-                 const count = document.getElementById('students-table-data').dataset.studentCount;
+                const count = document.getElementById('students-table-data').dataset.studentCount;
                 $("#student-count").text(count + ' Payments');
             }
 
@@ -14262,5 +14198,369 @@ const resendWelcomeEmail = (student) => {
         })
         .catch((error) => {
             showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const scheduleLecturerLecturePayment = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        lectureId: id,
+        duration: $("#duration").val(),
+        amount: $("#amount").val(),
+        note: $("#note").val()
+    }
+
+    const validationMap = {
+        amount: ['#amount', '#amount-feedback'],
+        duration: ['#duration', '#duration-feedback']
+    }
+    fetch('api/scheduleLecturerLecturePayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+const rejectLecturerLecturePayment = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        lectureId: id,
+        duration: $("#duration").val(),
+        amount: $("#amount").val(),
+        note: $("#note").val()
+    }
+
+    const validationMap = {
+        amount: ['#amount', '#amount-feedback'],
+        duration: ['#duration', '#duration-feedback']
+    }
+    fetch('api/rejectLecturerLecturePayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            console.log(response);
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+
+const updateScheduledLecturerLecturePayment = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        paymentId: id,
+        duration: $("#duration").val(),
+        amount: $("#amount").val(),
+        note: $("#note").val()
+    }
+    const validationMap = {
+        amount: ['amount', 'amount-feedback'],
+        duration: ['duration', 'duration-feedback']
+    }
+    fetch('api/updateScheduledLecturerLecturePayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            console.log(response);
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+
+const markAsCompleteLecturerLecturePayment = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        paymentId: id,
+    }
+    fetch('api/markAsCompleteLecturerLecturePayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            toggleBtnLoader(btn, false);
+            if (data.error) {
+                showToast("error", data.error);
+            } else {
+                showToast("success", data.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+function confirmCancelSchedule(btn, lectureId) {
+
+    toggleBtnLoader(btn, true);
+
+    fetch('api/cancelLecturerLecturePayment.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lectureId: lectureId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            toggleBtnLoader(btn, false);
+
+            if (data.done) {
+                bootstrap.Modal.getInstance(document.getElementById('cancelScheduleModal')).hide();
+                showToast('success', data.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else {
+                showToast("error", "An error occured. Please try again later.");
+            }
+        })
+        .catch(() => {
+            showToast("error", "An error occured. Please try again later.");
+        })
+        .finally(() => {
+            cancelScheduleLectureId = null;
+        });
+}
+const filterLecturersLecturePayments = () => {
+    const data = {
+        text: $("#user-search-text").val(),
+        lecturer: $("#lecturer-selector").val(),
+        to: $("#to-date-selector").val(),
+        from: $("#from-date-selector").val(),
+        sort: $("#sort-selector").val(),
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterLecturersLecturePayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#users-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const filterLecturersScheduledPayments = () => {
+    const data = {
+        text: $("#user-search-text").val(),
+        lecturer: $("#lecturer-selector").val(),
+        from: $("#from-date").val(),
+        to: $("#to-date").val(),
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterLecturersScheduledPayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#users-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+
+const filterPaidLecturerPayments = () => {
+    const data = {
+        text: $("#user-search-text").val(),
+        lecturer: $("#lecturer-selector").val(),
+        from: $("#from-date").val(),
+        to: $("#to-date").val(),
+        sortByDate: sortCondition1,
+        resultPerPage: $("#show-result-selector").val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterPaidLecturerPayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#users-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occured. Please try again later.");
+        });
+}
+function confirmReschedule(btn, lectureId) {
+    toggleBtnLoader(btn, true);
+
+    fetch('api/rescheduleLecturerLecturePayment.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lectureId: lectureId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            toggleBtnLoader(btn, false);
+
+            if (data.done) {
+                bootstrap.Modal.getInstance(document.getElementById('rescheduleConfirmModal')).hide();
+                showToast('success', data.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (data.error) {
+                showToast('error', data.error);
+            } else {
+                showToast("error", "An error occured. Please try again later.");
+            }
+        })
+        .catch(() => {
+            showToast("error", "An error occured. Please try again later.");
+        })
+}
+
+const rejectScheduledLecturePayment = (id) => {
+    toggleLoader(true);
+    const data = {
+        paymentId: id,
+    }
+
+    fetch('api/rejectScheduledLecturePayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleLoader(false);
+
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+
+const markAsPaidLecturerPayments = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        userId: id,
+        paidAmount: collectedAmount,
+        lecturePayments: selectedPayments,
+        assignmentPayments: selectedAssignmentPayments,
+        paidDate: $("#date_paid").val(),
+        note: $("#note").val()
+    }
+
+    const validationMap = {
+        amount: ['amount', 'amount-feedback'],
+        duration: ['duration', 'duration-feedback']
+    }
+    fetch('api/markAsPaidLecturerPayments.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                $("#markAsPaidModal").modal('hide');
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            showToast("error", "An error occurred. Please try again later.");
         });
 }

@@ -12,312 +12,380 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['payment-id']) && !empty($_GET['payment-id']))) {
-            header("Location: ./lecturer-payments-history");
+            header("Location: ./lecturers-payments-history");
         } else {
             $paymentId = $_GET['payment-id'];
             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-            $payment = Database::search("SELECT * FROM `lecturer_payouts` 
-            INNER JOIN `users` ON `lecturer_payouts`.`users_user_id`=`users`.`user_id`
-            INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
-            INNER JOIN `payout_status` ON `lecturer_payouts`.`payout_status_payout_status_id` = `payout_status`.`payout_status_id`
-            WHERE `lecturer_payouts`.`lecturer_payouts_id`='" . $paymentId . "'
-            AND `lecturer_payouts`.`payout_status_payout_status_id` = '7'");
 
+            $query = "SELECT 
+                                                                        lpp.lecturers_paid_payment_id,
+                                                                        lpp.amount,
+                                                                        lpp.date_paid,
+                                                                        lpp.note,
+                                                                        lecturer.user_id AS lecturer_user_id,
+                                                                        lecturer.user_fname AS lecturer_fname,
+                                                                        lecturer.user_lname AS lecturer_lname,
+                                                                        lecturer.profile_img AS lecturer_profile_img,
+                                                                        lecturer_title.title AS lecturer_title,
+                                                                        paid_by.user_fname AS paid_by_fname,
+                                                                        paid_by.user_lname AS paid_by_lname,
+                                                                        paid_by.profile_img AS paid_by_profile_img,
+                                                                        paid_by_title.title AS paid_by_title
+                                                                         FROM `lecturers_paid_payments` AS lpp
+                                                                        INNER JOIN `users` AS `lecturer` ON `lpp`.`users_user_id` = `lecturer`.`user_id`
+                                                                        INNER JOIN `title` AS `lecturer_title` ON `lecturer`.`title_title_id` = `lecturer_title`.`title_id`
+                                                                        INNER JOIN `users` AS `paid_by` ON `lpp`.`paid_by` = `paid_by`.`user_id`
+                                                                        INNER JOIN `title` AS `paid_by_title` ON `paid_by`.`title_title_id` = `paid_by_title`.`title_id`
+                                                                       WHERE lpp.lecturers_paid_payment_id = '" . $paymentId . "'
+                                                                ";
+
+            $payment = Database::search($query);
             if ($payment->num_rows == 0) {
-                header("Location: ./lecturer-payments-history");
+                header("Location: ./lecturers-payments-history");
             } else {
                 $paymentData = $payment->fetch_assoc();
+
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+                    header("Location: ./dashboard");
+                } else {
+
 ?>
-                <!DOCTYPE html>
-                <html lang="en">
+                    <!DOCTYPE html>
+                    <html lang="en">
 
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <meta name="robots" content="noindex, nofollow">
-                    <title>Lecturer Payment Details - Admin Dashboard | <?= Project::getBaseName() ?></title>
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta name="robots" content="noindex, nofollow">
+                        <title>Lecturer Payment Details - Admin Dashboard | <?= Project::getBaseName() ?></title>
 
-                    <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
-                    <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
-                    <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
 
-                    <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
-                    <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
-                </head>
+                        <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+                        <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
+                    </head>
 
-                <body class="overflow-hidden">
-                    <div class="notifications"></div>
-                    <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
-                        <div id="appContainer" class="row p-0">
-                            <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
-                                <?php
-                                include "./includes/side-menu.php";
-                                load_side_menu::load("Payments");
-                                ?>
-                            </div>
-                            <div id="app-wrapper" class="app-wrapper p-0 m-0">
-                                <div class="row p-0 m-0 g-0">
-                                    <div class="col-12 p-0 m-0 g-0">
-                                        <?php
-                                        include "./includes/header.php";
-                                        selectItem::setSelected("Payments");
-                                        ?>
-                                    </div>
-                                    <div class="container p-4 m-0" id="skeleton-list">
-                                        <?php
-                                        include "./includes/components/skeleton-header.php";
-                                        include "./includes/components/skeleton-add-edit.php"; ?>
-                                    </div>
-                                    <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
-                                        <div class="row p-4 m-0 g-0">
-                                            <div class="col-12 px-4 py-3 component-theme mb-4">
-                                                <div class="row p-0 m-0 g-0">
-                                                    <div class="col-12">
-                                                        <div class="row">
-                                                            <span class="main-topic lh-lg">Lecturer Payouts request Details</span>
-                                                            <span class="text-14 sub-text lh-base mt-1">Effortlessly manage users, access profiles, and maintain oversight</span>
-                                                        </div>
-                                                    </div>
-
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12">
-                                                <div class="row p-4 m-0 g-0 component-theme w-100">
-                                                    <div class="col-12">
-                                                        <div class="payment-timeline">
-                                                            <div class="timeline-progress">
-                                                                <?php
-                                                                $query = "SELECT * FROM `payout_status`";
-                                                                $progress = 0;
-                                                                $progressColor = "";
-                                                                switch ($paymentData['payout_status_id']) {
-                                                                    case 1:
-                                                                        $progressColor = "completed";
-                                                                        $progress = 100 / 3 * 0;
-                                                                        $query .= " WHERE `payout_status_id` IN (1,4,7)";
-                                                                        break;
-                                                                    case 2:
-                                                                        $progressColor = "completed";
-                                                                        $progress = 100 / 3 * 0;
-                                                                        $query .= " WHERE `payout_status_id` IN (2,4,7)";
-                                                                        break;
-                                                                    case 3:
-                                                                        $progressColor = "reject";
-                                                                        $progress = 100 / 3 * 0;
-                                                                        $query .= " WHERE `payout_status_id` IN (3,4,7)";
-                                                                        break;
-                                                                    case 4:
-                                                                        $progressColor = "completed";
-                                                                        $progress = 100 / 3 * 1;
-                                                                        $query .= " WHERE `payout_status_id` IN (2,4,7)";
-                                                                        break;
-                                                                    case 5:
-                                                                        $progressColor = "completed";
-                                                                        $progress = 100 / 3 * 2;
-                                                                        $query .= " WHERE `payout_status_id` IN (2,5,7)";
-                                                                        break;
-                                                                    case 6:
-                                                                        $progressColor = "reject";
-                                                                        $progress = 100 / 3 * 2;
-                                                                        $query .= " WHERE `payout_status_id` IN (2,6,7)";
-                                                                        break;
-                                                                    case 7:
-                                                                        $progressColor = "accepted";
-                                                                        $progress = 100 / 3 * 3;
-                                                                        $query .= " WHERE `payout_status_id` IN (2,5,7)";
-                                                                        break;
-                                                                }
-
-                                                                ?>
-                                                                <div class="progress-bar <?= $progressColor ?>" style="width: <?= $progress ?>%"></div>
-                                                            </div>
-                                                            <div class="timeline-items">
-                                                                <?php
-
-                                                                $icons = ["material-symbols:pending-outline", "mdi:snowflake-approve", "fontisto:close", "material-symbols:pending-outline", "mdi:snowflake-approve", "fontisto:close", "mdi:approve"];
-
-                                                                $paymentStatus = Database::search($query);
-                                                                while ($status = $paymentStatus->fetch_assoc()) {
-                                                                    $timelineItemColor = "";
-                                                                    $bubbleAction = "";
-
-                                                                    if ($paymentData['payout_status_id'] >= $status['payout_status_id']) {
-                                                                        if ($paymentData['payout_status_id'] == 3 || $paymentData['payout_status_id'] == 6) {
-                                                                            $timelineItemColor = "reject";
-                                                                        } else if ($paymentData['payout_status_id'] == 7) {
-                                                                            $timelineItemColor = "accepted";
-                                                                        } else {
-                                                                            if ($paymentData['payout_status_id']  ==  $status['payout_status_id'] && $paymentData['payout_status_id'] != 5) {
-                                                                                $bubbleAction = "pulse";
-                                                                            } else {
-                                                                                $timelineItemColor = "completed";
-                                                                            }
-                                                                        }
-                                                                    } else if ($paymentData['payout_status_id'] == 5 && $status['payout_status_id'] == 7) {
-                                                                        $bubbleAction = "pulse";
-                                                                    }
-
-                                                                ?>
-                                                                    <div class="timeline-item <?= $timelineItemColor ?>">
-                                                                        <div class="timeline-bubble <?= $bubbleAction ?>">
-                                                                            <iconify-icon icon="<?= $icons[$status['payout_status_id'] - 1] ?>" width="25" height="25"></iconify-icon>
-                                                                        </div>
-                                                                        <div class="timeline-label">
-                                                                            <span><?= $status['payout_status'] ?></span>
-                                                                            <div class="status-detail">Initial state</div>
-                                                                        </div>
-                                                                    </div>
-                                                                <?php
-
-                                                                }
-                                                                ?>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="payment-card-container mt-4">
-                                                        <div class="payment-card">
-                                                            <!-- Background elements -->
-                                                            <div class="card-background"></div>
-
-                                                            <!-- Card content -->
-                                                            <div class="card-content">
-                                                                <div class="payment-header">
-                                                                    <!-- Reference on left -->
-                                                                    <div class="reference-section">
-                                                                        <span class="reference-label">PAYOUT REQUEST NO</span>
-                                                                        <h2 class="reference-number">#<?= $paymentData["lecturer_payouts_id"]; ?></h2>
-                                                                        <hr>
-                                                                    </div>
-
-                                                                    <!-- Amount on right -->
-                                                                    <div class="amount-section">
-                                                                        <div class="amount-display">
-                                                                            <span class="amount-label">Total Amount</span>
-                                                                            <span class="amount-value">LKR <?= number_format($paymentData["amount"], 2); ?></span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12 mt-4">
-                                                <div class="row p-4 m-0 g-0 component-theme w-100">
-
-                                                    <div class="col-12 mb-4">
-                                                        <div class="row p-0 gy-3 gx-3 align-content-center">
-                                                            <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
-                                                                <div class="d-flex custom-div align-items-center justify-content-center">
-                                                                    <?php
-                                                                    $logs_count = Database::search("SELECT COUNT(*) as 'count' FROM `payout_logs` WHERE `lecturer_payouts_lecturer_payouts_id`='" . $paymentData['lecturer_payouts_id'] . "'");
-                                                                    $data = $logs_count->fetch_assoc();
-                                                                    ?>
-                                                                    <span class="text-14 dark-theme fw-medium"><?= $data['count']; ?> Logs</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-12">
-                                                        <div class="row p-0 m-0 g-0 align-content-center">
-                                                            <div class="overflow-x-auto p-0 m-0 g-0" id="users-table-container">
-                                                                <table class="table bl-solid m-0 p-0 g-0" id="users-table">
-                                                                    <thead>
-                                                                        <tr class="br-t-5">
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
-                                                                                <div class="d-flex flex-row align-items-center">
-                                                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
-                                                                                    <span class="text-14 main-text fw-medium mx-2">User Name</span>
-                                                                                </div>
-                                                                            </th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Date Updated</th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium">Note</th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody id="user-table-data">
-                                                                        <?php
-                                                                        $query = "SELECT * FROM `payout_logs`
-                                                                    INNER JOIN `users` ON `payout_logs`.`users_user_id` = `users`.`user_id`
-                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
-                                                                    WHERE `lecturer_payouts_lecturer_payouts_id` = '" . $paymentData['lecturer_payouts_id'] . "' ORDER BY `date_updated` DESC";
-
-                                                                        $users = Database::search($query);
-                                                                        if ($users->num_rows > 0) {
-                                                                            while ($data = $users->fetch_assoc()) {
-                                                                        ?>
-                                                                                <tr>
-                                                                                    <td colspan="4" class="px-4 py-3 pe-0 align-middle">
-                                                                                        <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
-                                                                                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?= $data["user_id"]; ?>" onchange="checkRowEvents(<?= $data['user_id']; ?>);">
-                                                                                            <?php
-                                                                                            if (!empty($data["profile_img"]) && file_exists('./assets/imgs/users/' . $data["profile_img"])) {
-                                                                                            ?>
-                                                                                                <img src="./assets/imgs/users/<?= $data["profile_img"]; ?>" class="hwr-40" alt="User image">
-                                                                                            <?php
-                                                                                            } else {
-                                                                                                $firstNameInitial = strtoupper(substr($data["user_fname"], 0, 1));
-                                                                                                $lastNameInitial = strtoupper(substr($data["user_lname"], 0, 1));
-                                                                                            ?>
-                                                                                                <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= $firstNameInitial . $lastNameInitial; ?></div>
-                                                                                            <?php
-                                                                                            }
-                                                                                            ?>
-                                                                                            <span class="text-14 main-text mx-2"><?= $data["title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["date_updated"]; ?></span></td>
-                                                                                    <td colspan="4" class="px-4 py-2 align-middle"><span class="text-14 main-text"><?= $data["note"]; ?></span></td>
-                                                                                </tr>
-                                                                            <?php
-                                                                            }
-                                                                        } else {
-                                                                            ?>
-                                                                            <tr class="justify-content-center align-middle">
-                                                                                <td colspan="13" class="align-middle justify-content-center">
-                                                                                    <div class="d-flex flex-column align-items-center">
-                                                                                        <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
+                    <body class="overflow-hidden">
+                        <div class="notifications"></div>
+                        <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
+                            <div id="appContainer" class="row p-0">
+                                <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
+                                    <?php
+                                    include "./includes/side-menu.php";
+                                    load_side_menu::load("Payments");
+                                    ?>
+                                </div>
+                                <div id="app-wrapper" class="app-wrapper p-0 m-0">
+                                    <div class="row p-0 m-0 g-0">
+                                        <div class="col-12 p-0 m-0 g-0">
+                                            <?php
+                                            include "./includes/header.php";
+                                            selectItem::setSelected("Payments");
+                                            ?>
                                         </div>
-                                        <div class="flex-grow-1"></div>
-                                        <footer>
-                                            <?php include './includes/footer.php' ?>
-                                        </footer>
+                                        <div class="container p-4 m-0" id="skeleton-list">
+                                            <?php
+                                            include "./includes/components/skeleton-header.php";
+                                            include "./includes/components/skeleton-add-edit.php"; ?>
+                                        </div>
+                                        <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
+                                            <div class="row p-4 m-0 g-0">
+                                                <div class="col-12 px-4 py-3 component-theme mb-4">
+                                                    <div class="row p-0 m-0 g-0">
+                                                        <div class="col-12">
+                                                            <div class="row">
+                                                                <span class="main-topic lh-lg">Lecturer Paid Payment Details</span>
+                                                                <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                                    <ol class="breadcrumb m-0">
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="payments" href="./payments">Payments</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments">Lecturer Payments</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments-history">Payment History</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $paymentData["lecturer_title"] . "." . $paymentData["lecturer_fname"] . " " . $paymentData["lecturer_lname"] ?></a></li>
+                                                                    </ol>
+                                                                </nav>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="payment-card-container mb-4">
+                                                    <div class="payment-card">
+                                                        <div class="card-background"></div>
+                                                        <div class="card-content">
+                                                            <div class="payment-header">
+                                                                <div class="reference-section">
+                                                                    <span class="reference-label">LECTURER</span>
+                                                                    <h2 class="reference-number"><?= $paymentData["lecturer_title"] . "." . $paymentData["lecturer_fname"] . " " . $paymentData["lecturer_lname"]; ?></h2>
+                                                                    <hr>
+                                                                </div>
+                                                                <div class="amount-section">
+                                                                    <div class="amount-display">
+                                                                        <span class="amount-label">Paid Amount</span>
+                                                                        <span class="amount-value">LKR <?= number_format($paymentData["amount"], 2); ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="details-row d-flex flex-column flex-lg-row">
+                                                                <div class="detail-item">
+                                                                    <div class="detail-icon">
+                                                                        <iconify-icon icon="solar:calendar-date-broken" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                    </div>
+                                                                    <div class="detail-content">
+                                                                        <span class="detail-label">Date Paid</span>
+                                                                        <span class="detail-value"><?= date('Y-m-d h:i A', strtotime($paymentData["date_paid"])) ?></span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="detail-item">
+                                                                    <div class="detail-icon">
+                                                                        <iconify-icon icon="solar:user-broken" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                    </div>
+                                                                    <div class="detail-content">
+                                                                        <span class="detail-label">Paid By</span>
+                                                                        <span class="detail-value"><?= $paymentData["paid_by_title"] . "." . $paymentData["paid_by_fname"] . " " . $paymentData["paid_by_lname"]; ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="details-row d-flex flex-column flex-lg-row">
+                                                                <div class="detail-item">
+                                                                    <div class="detail-icon">
+                                                                        <iconify-icon icon="hugeicons:note" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                    </div>
+                                                                    <div class="detail-content">
+                                                                        <span class="detail-label">Note</span>
+                                                                        <span class="detail-value"><?= $paymentData['note'] == '' ? 'N/A' : $paymentData['note'] ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <span class="reference-label mt-4">Bank Account Details</span>
+                                                            <?php
+                                                            $bank_account = Database::search("SELECT * FROM `bank_account` WHERE `users_user_id`='" . $paymentData["lecturer_user_id"] . "'");
+                                                            if ($bank_account->num_rows > 0) {
+                                                                $bank_account_data = $bank_account->fetch_assoc();
+                                                            ?>
+                                                                <div class="details-row d-flex flex-column flex-lg-row">
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <iconify-icon icon="wordpress:term-name" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Account Name</span>
+                                                                            <span class="detail-value"><?= $bank_account_data["account_name"] ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <iconify-icon icon="tabler:number" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Account Number</span>
+                                                                            <span class="detail-value"><?= $bank_account_data["account_number"] ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <iconify-icon icon="circum:bank" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Bank</span>
+                                                                            <span class="detail-value"><?= $bank_account_data["bank"] ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <iconify-icon icon="eos-icons:branch-outlined" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Branch</span>
+                                                                            <span class="detail-value"><?= $bank_account_data["branch"] ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            <?php
+                                                            } else {
+                                                            ?>
+                                                                <div class="details-row d-flex flex-column flex-lg-row">
+                                                                    <div class="detail-item">
+                                                                        <div class="detail-icon">
+                                                                            <iconify-icon icon="material-symbols:error-outline-rounded" width="20" height="20" class="justify-content-center"></iconify-icon>
+                                                                        </div>
+                                                                        <div class="detail-content">
+                                                                            <span class="detail-label">Lecture Bank Account Details Not Found</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            <?php
+                                                            }
+                                                            ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <?php
+                                                $query = "SELECT 
+                                                        tt.time_table_id,
+                                                        tt.date,
+                                                        tt.start_time,
+                                                        tt.end_time,
+                                                        tt.lecturers_lecturers_id,
+                                                        title.title,
+                                                        users.user_fname,
+                                                        users.user_lname,
+                                                        users.profile_img,
+                                                        lecture_type.lecture_type,
+                                                        lecture_type.lecture_type_id,
+                                                        tt.lecture_title,
+                                                        tt.duration,
+                                                        COUNT(tt.subjects_subject_id) AS batch_count,
+                                                        `lecturer_payments`.`earning_status_earning_status_id`,
+                                                        `earning_status`.`earning_status`,
+                                                        `lecturer_payments`.`amount`,
+                                                         `lecturer_payments`.`lecturer_payments_id`,
+                                                        `lecturer_payments`.`duration` AS payment_duration,
+                                                        `programmes`.`programme`
+                                                        FROM time_table AS tt
+                                                        INNER JOIN `lecturers`  ON `lecturers`.`lecturers_id` = `tt`.`lecturers_lecturers_id`
+                                                        INNER JOIN `subjects` ON `subjects`.`subject_id` = `tt`.`subjects_subject_id`
+                                                        INNER JOIN `levels` ON `levels`.`level_id` = `subjects`.`levels_level_id`
+                                                        INNER JOIN `intakes` ON `intakes`.`intake_id` = `levels`.`intakes_intake_id`
+                                                        INNER JOIN `programmes` ON `programmes`.`programme_id` = `intakes`.`programmes_programme_id`
+                                                        INNER JOIN `users` ON `users`.`user_id` = `lecturers`.`users_user_id`
+                                                        INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
+                                                        INNER JOIN `lecture_type` ON `lecture_type`.`lecture_type_id` = `tt`.`lecture_type_lecture_type_id`
+                                                        INNER JOIN `lecturer_payments_has_lectures` ON `lecturer_payments_has_lectures`.`time_table_time_table_id` = `tt`.`time_table_id`
+                                                        INNER JOIN `lecturer_payments` ON `lecturer_payments`.`lecturer_payments_id` = `lecturer_payments_has_lectures`.`lecturer_payments_lecturer_payments_id`
+                                                        INNER JOIN `earning_status` ON `earning_status`.`earning_status_id` = `lecturer_payments`.`earning_status_earning_status_id`
+                                                        WHERE  tt.lecture_type_lecture_type_id != 3
+                                                    
+                                                        AND `earning_status`.`earning_status_id`='2'
+                                                        AND `lecturer_payments`.`lecturers_paid_payments_lecturers_paid_payment_id`='" . $paymentId . "'
+                                                        GROUP BY 
+                                                        tt.date,
+                                                        tt.start_time,
+                                                        tt.end_time,
+                                                        users.user_id
+                                                        ORDER BY tt.date DESC";
+
+                                                $lectures = Database::search($query);
+                                                if ($lectures->num_rows > 0) {
+                                                ?>
+                                                    <div class="col-12 p-4 component-theme">
+                                                        <div class="row p-0 m-0 g-0">
+                                                            <div class="col-12">
+                                                                <div class="row p-0 m-0 g-0 align-content-center">
+                                                                    <span class="sub-topic mb-4">Payment Including Lecture Payments</span>
+                                                                    <div class="table-responsive-wrapper">
+                                                                        <div class="table-responsive" id="users-table-container">
+                                                                            <table class="table bl-solid m-0 p-0 g-0" id="users-table">
+                                                                                <thead>
+                                                                                    <tr class="br-t-5">
+                                                                                        <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                                            <div class="d-flex flex-row align-items-center">
+                                                                                                <span class="text-14 main-text fw-medium">Date Time</span>
+                                                                                            </div>
+                                                                                        </th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Programme</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Lecture Type</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Lecture Title</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Concurrent Batches</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Scheduled Duration</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Scheduled Payment</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody id="user-table-data">
+                                                                                    <?php
+                                                                                    if ($lectures->num_rows > 0) {
+                                                                                        function formatDuration($minutes)
+                                                                                        {
+                                                                                            $hours = floor($minutes / 60);
+                                                                                            $mins = $minutes % 60;
+
+                                                                                            $result = "";
+
+                                                                                            if ($hours > 0) {
+                                                                                                $result .= $hours . " h ";
+                                                                                            }
+
+                                                                                            if ($mins > 0) {
+                                                                                                $result .= $mins . " min";
+                                                                                            }
+
+                                                                                            return trim($result);
+                                                                                        }
+                                                                                        while ($data = $lectures->fetch_assoc()) {
+                                                                                       
+                                                                                    ?>
+                                                                                            <tr>
+                                                                                                <td class="px-4 pe-0 py-3 pe-0 align-middle">
+                                                                                                    <div class="d-flex flex-row align-items-center p-0 g-0 m-0">
+                                                                                                        <p class="text-14 main-text"><?= $data['date'] ?></br><?= date("h:i A", strtotime($data['start_time'])) ?> - <?= date("h:i A", strtotime($data['end_time'])) ?></p>
+                                                                                                    </div>
+                                                                                                </td>
+                                                                                                 <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["programme"]; ?></span></td>
+                                                                                                <td class="py-2 align-middle">
+                                                                                                    <?php
+                                                                                                    $status_classes = [
+                                                                                                        "1"     => "table-btn-primary",
+                                                                                                        "2"  => "table-btn-yellow",
+                                                                                                    ];
+                                                                                                    $sbutton_class = $status_classes[$data["lecture_type_id"]];
+                                                                                                    ?>
+                                                                                                    <button class="table-btn <?php echo $sbutton_class; ?> w-100"> <?php echo $data["lecture_type"]; ?></button>
+                                                                                                </td>
+                                                                                                <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["lecture_title"]; ?></span></td>
+                                                                                                <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["batch_count"]; ?></span></td>
+                                                                                                <td class="py-2 align-middle"><span class="text-14 main-text"><?= formatDuration($data["payment_duration"]); ?></span></td>
+                                                                                                <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["amount"], 2) ?></span></td>
+                                                                                            </tr>
+                                                                                        <?php
+                                                                                        }
+                                                                                    } else {
+                                                                                        ?>
+                                                                                        <tr class="justify-content-center align-middle">
+                                                                                            <td colspan="13" class="align-middle justify-content-center">
+                                                                                                <div class="d-flex flex-column align-items-center">
+                                                                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <?php
+                                                }
+
+                                               
+                                                ?>
+
+                                            </div>
+                                            <div class="flex-grow-1"></div>
+                                            <footer>
+                                                <?php include './includes/footer.php' ?>
+                                            </footer>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
-                    <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
-                    <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
-                    <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
-                </body>
+                        <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+                        <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
+                    </body>
 
-                </html>
+                    </html>
 <?php
+                }
             }
         }
     }

@@ -14,7 +14,7 @@ if (!SessionUser::hasValidSession()) {
         $haveAnyPermission = false;
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
             header("Location: ./dashboard");
         } else {
 ?>
@@ -66,7 +66,12 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="col-12">
                                                     <div class="row">
                                                         <span class="main-topic lh-lg">Lecturers Payments</span>
-                                                        <span class="text-14 sub-text lh-base mt-1">Manage student payment records, fees, and transaction history efficiently.</span>
+                                                        <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                            <ol class="breadcrumb m-0">
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="payments" href="./payments">Payments</a></li>
+                                                                <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments">Lecturer Payments</a></li>
+                                                            </ol>
+                                                        </nav>
                                                     </div>
                                                 </div>
 
@@ -76,7 +81,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="solar:bill-list-broken" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg">Payments History</span>
                                                         <span class="text-14 main-text">Manage lecturers payments with ease and flexibility</span>
@@ -86,7 +91,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="lecturers-payments-history" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -104,20 +109,20 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="mingcute:schedule-line" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
-                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Payouts Request</span>
-                                                        <span class="text-14 main-text">Manage lecturers payments with ease and flexibility</span>
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Scheduled Lecturers Payments</span>
+                                                        <span class="text-14 main-text">Schedule and manage lecturer payments with clarity and control.</span>
                                                     </div>
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-payouts-request" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <a href="lecturers-scheduled-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
                                                                     <button class="custom-btn w-100">View</button>
                                                                 </a>
                                                             </div>
@@ -132,20 +137,20 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="solar:calendar-date-broken" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg">Lecture Payments</span>
                                                         <?php
                                                         $pendingApprovallecturePayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `lecturer_payments` WHERE `earning_status_earning_status_id`='1'")->fetch_assoc();
                                                         ?>
-                                                        <span class="text-14 main-text">Pending approval lecturers lecture payments - <?php echo $pendingApprovallecturePayemnts['count'] ?></span>
+                                                        <span class="text-14 main-text">Scheduled lecturers lecture payments - <?php echo $pendingApprovallecturePayemnts['count'] ?></span>
                                                     </div>
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="lecturers-lecture-payments.php" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -163,20 +168,21 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="si:assignment-line" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg">Assignment Payments</span>
                                                         <?php
-                                                        $pendingApprovalAssignemntPayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `assignment_payments` WHERE `earning_status_earning_status_id`='1'")->fetch_assoc();
+                                                        $pendingApprovalAssignemntPayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `assignment_payments` 
+                                                        WHERE `earning_status_earning_status_id`='1'")->fetch_assoc();
                                                         ?>
-                                                        <span class="text-14 main-text">Pending approval assignments payments - <?php echo $pendingApprovalAssignemntPayemnts['count'] ?></span>
+                                                        <span class="text-14 main-text">Scheduled assignments payments - <?php echo $pendingApprovalAssignemntPayemnts['count'] ?></span>
                                                     </div>
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="lecturers-assignments-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -194,7 +200,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
-                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="fluent-emoji-high-contrast:teacher" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="ph:exam-bold" width="32" height="32" class="dark-theme"></iconify-icon></div>
                                                     <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
                                                         <span class="text-16 text-dark-color fw-bold lh-lg">Exams Payments</span>
                                                         <?php
@@ -207,7 +213,7 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
                                                         <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 1) || UserPermissions::hasPermission('payments', 20)) {
+                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
                                                         ?>
                                                             <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
                                                                 <a href="lecturers-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
@@ -234,7 +240,7 @@ if (!SessionUser::hasValidSession()) {
                 </div>
 
                 <?php
-                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
                 ?>
                     <!-- Payment Add Model => Start -->
                     <div class="modal fade br-0" id="addPayment" aria-hidden="true" aria-labelledby="addPaymentLabel" tabindex="-1">
@@ -265,7 +271,7 @@ if (!SessionUser::hasValidSession()) {
                 <?php
                 }
 
-                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
+                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('payments', 10)) {
                 ?>
                     <!-- Payment Edit Modal => Start -->
                     <div class="modal fade br-0" id="editPayment" aria-hidden="true" aria-labelledby="editPaymentLabel" tabindex="-1">
