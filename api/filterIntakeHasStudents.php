@@ -288,7 +288,10 @@ if (SessionUser::hasValidSession()) {
                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                     <div class="dropdown">
                                                         <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
-
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="generateLetter('<?php echo $data['shiId']; ?>')">
+                                                                    <iconify-icon icon="carbon:email-user" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                    Genarate Studentship Letter</a></li>
+                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                             <?php
 
                                                             if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 10, $intake_id)) {

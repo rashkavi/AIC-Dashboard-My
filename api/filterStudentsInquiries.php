@@ -340,6 +340,18 @@ if (SessionUser::hasValidSession()) {
                                                             Update History</a></li>
                                                     <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                     <?php
+                                                    if ($displayStatusId == 17) {
+                                                    ?>
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="generateLetter('<?php echo $data['shiId']; ?>')">
+                                                                <iconify-icon icon="carbon:email-user" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Genarate Studentship Letter</a></li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="student-time-table?student-id=<?php echo $data['shiId']; ?>">
+                                                                <iconify-icon icon="heroicons:calendar-date-range-solid" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                View Student Time Table</a></li>
+                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                    <?php
+                                                    }
                                                     if ($displayStatusId != 17) {
                                                     ?>
                                                         <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-registration?registration-id=<?php echo $data['shiId']; ?>">

@@ -25,6 +25,17 @@ final class EmailLayoutRenderer
                 </center>
             ';
         }
+
+        // Default "Best regards" sign-off. Templates that already end with
+        // their own sign-off set 'hide_signature' => true to skip it.
+        $signatureHtml = '';
+        if (empty($template['hide_signature'])) {
+            $signatureHtml = '
+            <div class="divider"></div>
+            <p>Best regards,<br>The ' . htmlspecialchars($baseName, ENT_QUOTES, 'UTF-8') . ' Team</p>
+            ';
+        }
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -122,8 +133,7 @@ final class EmailLayoutRenderer
             <h1>{$heading}</h1>
             {$body}
             {$buttonHtml}
-            <div class="divider"></div>
-            <p>Best regards,<br>The {$baseName} Team</p>
+            {$signatureHtml}
         </div>
 
         <div class="footer">

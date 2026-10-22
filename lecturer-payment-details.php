@@ -45,7 +45,7 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $paymentData = $payment->fetch_assoc();
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
                     header("Location: ./dashboard");
                 } else {
 

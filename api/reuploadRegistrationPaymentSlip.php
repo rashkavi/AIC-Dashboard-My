@@ -18,7 +18,7 @@ if (SessionUser::hasValidSession()) {
                 INNER JOIN `login_details` ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
                 INNER JOIN `title` ON `students`.`title_title_id`=`title`.`title_id`
                 INNER JOIN `students_has_intakes` ON `students`.`student_id`=`students_has_intakes`.`students_student_id`
-                         WHERE `students`.`student_id`='" . $id . "'");
+                         WHERE `students_has_intakes`.`students_has_intakes_id`='" . $id . "'");
 
                 if ($isHasId->num_rows == 0) {
                     $status->error = "Invalid student Id";
@@ -66,7 +66,7 @@ if (SessionUser::hasValidSession()) {
                             `document`
                         FROM `students_identity_documents`
                         WHERE `students_identity_documents_type_id` = '8'
-                          AND `students_student_id` = '" . $student["sId"] . "'
+                          AND `students_has_intakes_students_has_intakes_id` = '" . $id . "'
                         LIMIT 1
                     ");
 
@@ -87,16 +87,16 @@ if (SessionUser::hasValidSession()) {
                             Database::iud("
                         DELETE FROM `students_identity_documents`
                         WHERE `students_identity_document_id` = '" . $doc["students_identity_document_id"] . "'
-                          AND `students_student_id` = '" . $student["sId"] . "'
+                          AND `students_has_intakes_students_has_intakes_id` = '" . $id . "'
                     ");
                         }
 
-                        uploadStudentDocuments($student["sId"], $studentDocuments);
+                        uploadStudentDocuments($id, $studentDocuments);
 
-                        Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '1' WHERE `student_id` = '" . $student["sId"] . "'");
+                        Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '1' WHERE `students_has_intakes_id` = '" . $id . "'");
 
                         Database::iud("INSERT INTO `students_logs` 
-                            (`students_student_id`, `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                              VALUES ('" . $id . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Re-Upload Registration Payment Slip','1')");
 
                         $status->done =  "Registration Payment Slip Uploaded Successfully";
@@ -300,7 +300,7 @@ function uploadStudentDocuments($studentId, $studentDocuments)
             Database::iud("
                 INSERT INTO `students_identity_documents`
                 (
-                    `students_student_id`,
+                    `students_has_intakes_students_has_intakes_id`,
                     `students_identity_documents_type_id`,
                     `document`,
                     `date_added`

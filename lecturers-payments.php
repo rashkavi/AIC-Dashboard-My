@@ -14,7 +14,7 @@ if (!SessionUser::hasValidSession()) {
         $haveAnyPermission = false;
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
             header("Location: ./dashboard");
         } else {
 ?>
@@ -89,18 +89,13 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
-                                                        <?php
 
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
-                                                        ?>
-                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-payments-history" class="text-decoration-none cursor-pointer col-12 align-content-center">
-                                                                    <button class="custom-btn w-100">View</button>
-                                                                </a>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="lecturers-payments-history" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
+
                                                     </div>
                                                 </div>
                                             </div>
@@ -117,18 +112,11 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
-                                                        <?php
-
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
-                                                        ?>
-                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-scheduled-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
-                                                                    <button class="custom-btn w-100">View</button>
-                                                                </a>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="lecturers-scheduled-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -148,18 +136,11 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
-                                                        <?php
-
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
-                                                        ?>
-                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-lecture-payments.php" class="text-decoration-none cursor-pointer col-12 align-content-center">
-                                                                    <button class="custom-btn w-100">View</button>
-                                                                </a>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="lecturers-lecture-payments.php" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -180,18 +161,11 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
-                                                        <?php
-
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
-                                                        ?>
-                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-assignments-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
-                                                                    <button class="custom-btn w-100">View</button>
-                                                                </a>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="lecturers-assignments-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -211,18 +185,11 @@ if (!SessionUser::hasValidSession()) {
                                                 </div>
                                                 <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
                                                     <div class="row gx-3 h-100 align-content-center justify-content-end">
-                                                        <?php
-
-                                                        if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments', 0)) {
-                                                        ?>
-                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                                <a href="lecturers-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
-                                                                    <button class="custom-btn w-100">View</button>
-                                                                </a>
-                                                            </div>
-                                                        <?php
-                                                        }
-                                                        ?>
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="lecturers-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

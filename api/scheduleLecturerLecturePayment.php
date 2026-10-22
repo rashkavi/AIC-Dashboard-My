@@ -69,13 +69,8 @@ if (SessionUser::hasValidSession()) {
                             $status->error = 'Lecture not found';
                         } else {
                             $lectureData = $isValidLecture->fetch_assoc();
-
-                            if ($lectureData['date'] > $todayDate && $lectureData['date'] != $todayDate) {
-                                $status->error = 'Cannot confirm payment for future lecture';
-                            } else if ($lectureData['date'] == $todayDate) {
-                                if ($lectureData['end_time'] < $nowTime) {
-                                    $status->error = 'Cannot confirm payment for future lecture';
-                                }
+                            if ($lectureData['date'] > $todayDate) {
+                                $status->error = 'Cannot confirm payment for a future lecture';
                             }
                         }
                     }

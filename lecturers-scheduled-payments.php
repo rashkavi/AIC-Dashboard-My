@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
             header("Location: ./dashboard");
         } else {
 
@@ -128,7 +128,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 $lecturers = Database::search("SELECT * FROM `users` 
                                                                                 INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
                                                                                 INNER JOIN `lecturers` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                                                                                WHERE `user_roles_user_role_id`='8' GROUP BY `users`.`user_id`");
+                                                                                WHERE `user_roles_user_role_id`='7' GROUP BY `users`.`user_id`");
 
                                                                                 if ($lecturers->num_rows > 0) {
                                                                                     while ($lecturer = $lecturers->fetch_assoc()) {
@@ -191,7 +191,13 @@ if (!SessionUser::hasValidSession()) {
                                                                             <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Lectures Payments</th>
                                                                             <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Assignments Payments</th>
                                                                             <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Total Schedule Payments</th>
-                                                                            <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Action</th>
+                                                                            <?php
+                                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+                                                                            ?>
+                                                                                <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Action</th>
+                                                                            <?php
+                                                                            }
+                                                                            ?>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody id="user-table-data">
@@ -239,9 +245,16 @@ if (!SessionUser::hasValidSession()) {
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["total_lecture_payments"], 2); ?></span></td>
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["total_assignments_payments"], 2); ?></span></td>
                                                                                     <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($total, 2); ?></span></td>
-                                                                                    <td class="pe-4 py-3 align-middle">
-                                                                                        <button class="table-btn table-btn-dark-theme w-100" onclick="window.location.href='lecturer-scheduled-payments-details?lecturer-id=<?= $data['user_id']; ?>'">Pay Now</button>
-                                                                                    </td>
+                                                                                    <?php
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('payments', 2)) {
+                                                                                    ?>
+                                                                                        <td class="pe-4 py-3 align-middle">
+                                                                                            <button class="table-btn table-btn-dark-theme w-100" onclick="window.location.href='lecturer-scheduled-payments-details?lecturer-id=<?= $data['user_id']; ?>'">Pay Now</button>
+                                                                                        </td>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+
 
                                                                                 </tr>
                                                                             <?php

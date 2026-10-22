@@ -1,0 +1,10 @@
+[2026-10-21 12:25:35] ==================== RUN START ====================
+[2026-10-21 12:25:35] Looking for unpaid installments with due_date = 2026-10-26
+[2026-10-21 12:25:35] No students with payments due on 2026-10-26. Nothing sent.
+[2026-10-21 12:25:35] ==================== RUN END ====================
+[2026-10-21 12:28:35] ==================== RUN START ====================
+[2026-10-21 12:28:35] Looking for unpaid installments with due_date = 2026-10-26
+[2026-10-21 12:28:35] Queued: student_id=1 | Nawalage Pramukha Pamuditha Cooray <kaveesharashmi48@gmail.com> | installment(s): 10715
+[2026-10-21 12:28:35] Total students queued: 1
+[2026-10-21 12:28:40] SUCCESS: email sent to all 1 student(s).
+[2026-10-21 12:28:40] ==================== RUN END ====================

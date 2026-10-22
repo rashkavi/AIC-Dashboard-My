@@ -12,6 +12,15 @@ final class EmailTemplateContent
     public const STUDENT_WELCOME_EMAIL = 'student_welcome_email';
     public const RECEIPT_EMAIL = 'receipt_email';
 
+    // Automated notifications (no parameters — one email sent to many students)
+    public const PAYMENT_DUE_NOTIFICATION = 'payment_due_notification';
+    public const CLASS_SCHEDULE_NOTIFICATION = 'class_schedule_notification';
+    public const CLASS_CANCELLATION_NOTIFICATION = 'class_cancellation_notification';
+    public const NEW_ASSIGNMENT_NOTIFICATION = 'new_assignment_notification';
+
+    // Intake summary timetable (PDF attached, sent to the whole intake)
+    public const TIMETABLE_NOTIFICATION = 'timetable_notification';
+
 
     public static function get(string $type, array $data = []): array
     {
@@ -33,7 +42,7 @@ final class EmailTemplateContent
             ],
 
             self::PASSWORD_RESET => [
-                'subject' => "Password Reset Request - {$baseName}",
+                'subject' => "Password Reset Request {$baseName}",
                 'heading' => 'Password Reset Request',
                 'body' => self::renderBody([
                     "You recently requested to reset your <strong>{$baseName}</strong> system password.",
@@ -45,7 +54,7 @@ final class EmailTemplateContent
                 'params' => ['action_url'],
             ],
             self::PASSWORD_SETUP_SUCCESS => [
-                'subject' => "Password Setup Successful - {$baseName}",
+                'subject' => "Password Setup Successful {$baseName}",
                 'heading' => 'Password Setup Successful',
                 'body' => self::renderBody([
                     "Your <strong>{$baseName}</strong> LMS password has been set up successfully.",
@@ -59,7 +68,7 @@ final class EmailTemplateContent
             ],
 
             self::PAYMENT_PLAN_CREATED => [
-                'subject' => "Your Payment Plan Has Been Ready - {$baseName}",
+                'subject' => "Your Payment Plan Has Been Ready {$baseName}",
 
                 'heading' => 'Your Programme Enrollment Payment Plan is Ready',
 
@@ -83,7 +92,7 @@ final class EmailTemplateContent
                 ],
             ],
             self::PAYMENT_SUCCESSFUL => [
-                'subject' => "Payment Successfully Received - {$baseName}",
+                'subject' => "Payment Successfully Received {$baseName}",
 
                 'heading' => 'Your Payment Has Been Successfully Processed',
 
@@ -121,7 +130,7 @@ final class EmailTemplateContent
             ],
             self::STUDENT_WELCOME_EMAIL => [
 
-                'subject' => "Welcome to {$baseName} - Your Student Account is Ready",
+                'subject' => "Welcome to {$baseName} Your Student Account is Ready",
 
                 'heading' => 'Welcome to ' . $baseName,
 
@@ -193,6 +202,9 @@ final class EmailTemplateContent
 
                 ]),
 
+                // Body already ends with "Kind regards, Academic Department"
+                'hide_signature' => true,
+
                 'params' => [
                     'student_name',
                     'programme_name',
@@ -200,9 +212,6 @@ final class EmailTemplateContent
                 ],
             ],
 
-            // Add this constant to the class
-
-            // Add this to the $templates array in the get() method:
             self::RECEIPT_EMAIL => [
                 'subject' => "Payment Receipt — " . ($data['receipt_number'] ?? 'Receipt'),
                 'heading' => 'Your Payment Receipt',
@@ -230,6 +239,105 @@ final class EmailTemplateContent
                     'balance_due',
                     'payment_date',
                 ],
+            ],
+
+            /* ══════════════════════════════════════════════════════════════
+               Automated notifications — fixed content, no parameters.
+               Sent once to many students (see sendBulkMail()).
+               Each one has its own department sign-off, so the layout's
+               default "Best regards" signature is hidden.
+            ══════════════════════════════════════════════════════════════ */
+
+            self::PAYMENT_DUE_NOTIFICATION => [
+                'subject' => 'Payment Due Notification',
+                'heading' => 'Payment Due Notification',
+                'body' => self::renderBody([
+                    "Dear Student,",
+                    "This is a reminder that you have an outstanding payment due.",
+                    "Please make the required payment within the given deadline to avoid any penalties or interruption to your academic activities.",
+                    "For more information, please check the AIC Student Portal or contact the Finance Department.",
+                    "Please do not reply to this email, as this is an automated notification.",
+                    "Thank you.",
+                    "Finance Department<br>AIC Campus",
+                ]),
+                'button_text'    => '',
+                'button_url'     => '',
+                'hide_signature' => true,
+                'params'         => [],
+            ],
+
+            self::CLASS_SCHEDULE_NOTIFICATION => [
+                'subject' => 'Class Schedule Notification',
+                'heading' => 'Class Schedule Notification',
+                'body' => self::renderBody([
+                    "Dear Student,",
+                    "Your upcoming class has been scheduled.",
+                    "Please log in to the AIC Student Portal to view the class date, time, module, and other relevant details.",
+                    "Please do not reply to this email, as this is an automated notification.",
+                    "Thank you.",
+                    "Academic Department<br>AIC Campus",
+                ]),
+                'button_text'    => '',
+                'button_url'     => '',
+                'hide_signature' => true,
+                'params'         => [],
+            ],
+
+            self::CLASS_CANCELLATION_NOTIFICATION => [
+                'subject' => 'Class Cancellation Notification',
+                'heading' => 'Class Cancellation Notification',
+                'body' => self::renderBody([
+                    "Dear Student,",
+                    "Please note that your scheduled class has been cancelled.",
+                    "Please check the AIC Student Portal for further updates regarding the rescheduled class.",
+                    "Please do not reply to this email, as this is an automated notification.",
+                    "Thank you.",
+                    "Academic Department<br>AIC Campus",
+                ]),
+                'button_text'    => '',
+                'button_url'     => '',
+                'hide_signature' => true,
+                'params'         => [],
+            ],
+
+            self::NEW_ASSIGNMENT_NOTIFICATION => [
+                'subject' => 'New Assignment Available',
+                'heading' => 'New Assignment Available',
+                'body' => self::renderBody([
+                    "Dear Student,",
+                    "A new assignment has been added to your module.",
+                    "Please log in to the AIC Student Portal to view the assignment details, submission requirements, and deadline.",
+                    "Please do not reply to this email, as this is an automated notification.",
+                    "Thank you.",
+                    "Academic Department<br>AIC Campus",
+                ]),
+                'button_text'    => '',
+                'button_url'     => '',
+                'hide_signature' => true,
+                'params'         => [],
+            ],
+
+            self::TIMETABLE_NOTIFICATION => [
+                'subject' => 'Class Timetable - ' . ($data['intake'] ?? ''),
+                'heading' => 'Your Class Timetable',
+                'body' => self::renderBody([
+                    "Dear Student,",
+                    "Please find attached the class timetable for your intake.",
+                    self::detailList([
+                        // detailList() escapes values itself, so pass them raw
+                        'Programme' => (string)($data['programme'] ?? ''),
+                        'Intake'    => (string)($data['intake'] ?? ''),
+                        'Timetable' => (string)($data['timetable_title'] ?? ''),
+                    ]),
+                    "Please follow the attached schedule and check the AIC Student Portal regularly for any updates.",
+                    "Please do not reply to this email, as this is an automated notification.",
+                    "Thank you.",
+                    "Academic Department<br>AIC Campus",
+                ]),
+                'button_text'    => '',
+                'button_url'     => '',
+                'hide_signature' => true,
+                'params'         => ['programme', 'intake', 'timetable_title'],
             ],
         ];
 

@@ -152,7 +152,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="row p-4 m-0 g-0" id="accordionParent">
                                             <div class="col-12 px-4 py-3 component-theme mb-4">
                                                 <div class="row p-0 m-0 g-0">
-                                                    <div class="col-12 col-md-10">
+                                                    <div class="col-12 col-md-8">
                                                         <div class="row">
                                                             <span class="main-topic lh-lg">Intake Details</span>
                                                             <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
@@ -165,17 +165,31 @@ if (!SessionUser::hasValidSession()) {
                                                             </nav>
                                                         </div>
                                                     </div>
-                                                    <?php
-                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
-                                                    ?>
-                                                        <div class="col-2 d-flex align-items-center justify-content-end mt-3 mt-lg-0 m-md-0 text-end">
-                                                            <button class="bg-transparent border-0 align-middle" type="button" onclick="window.location.href='intake-permissions?intake-id=<?= $intakeData['intake_id'] ?>'">
-                                                                <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme p-0 m-0"></iconify-icon>
-                                                            </button>
+                                                   
+                                                    <div class="col-12 col-md-12 col-xxl-4 mt-3 mt-xxl-0">
+                                                        <div class="row gx-3 justify-content-end">
+                                                            <?php
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
+                                                            ?>
+                                                                <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="bg-transparent border-0 align-middle" type="button" onclick="window.location.href='intake-permissions?intake-id=<?= $intakeData['intake_id'] ?>'">
+                                                                        <iconify-icon id="sort-icon" icon="ic:twotone-lock-person" width="30" height="30" class="dark-theme p-0 m-0"></iconify-icon>
+                                                                    </button>
+                                                                </div>
+                                                            <?php
+                                                            }
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 2) || UserPermissions::hasPermission('students', 1)) {
+                                                            ?>
+                                                                <div class="col-6 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn border-0 align-middle w-100" type="button" onclick="window.location.href='intake-summary-timetable?intake-id=<?= $intakeData['intake_id'] ?>'">
+                                                                        Summary Time Table
+                                                                    </button>
+                                                                </div>
+                                                            <?php
+                                                            }
+                                                            ?>
                                                         </div>
-                                                    <?php
-                                                    }
-                                                    ?>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -626,6 +640,10 @@ if (!SessionUser::hasValidSession()) {
                                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                                             <div class="dropdown">
                                                                                                                 <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton2">
+                                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="generateLetter('<?php echo $data['shiId']; ?>')">
+                                                                                                                            <iconify-icon icon="carbon:email-user" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                            Genarate Studentship Letter</a></li>
+                                                                                                                    <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
 
                                                                                                                     <?php
                                                                                                                     if (!empty($data['verification']) && empty($data['reset_time'])) {

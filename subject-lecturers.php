@@ -69,6 +69,76 @@ if (!SessionUser::hasValidSession()) {
 
                         <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
                         <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
+
+                        <style>
+                            /* Searchable lecturer select (Add Lecturer modal) */
+                            .lecturer-search-wrapper {
+                                position: relative;
+                            }
+
+                            .lecturer-search-wrapper .lecturer-search-icon {
+                                position: absolute;
+                                left: 12px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                pointer-events: none;
+                            }
+
+                            .lecturer-search-wrapper .lecturer-search-input {
+                                padding-left: 38px;
+                                padding-right: 38px;
+                            }
+
+                            .lecturer-search-wrapper .lecturer-search-clear {
+                                position: absolute;
+                                right: 10px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                cursor: pointer;
+                            }
+
+                            .lecturer-search-list {
+                                position: absolute;
+                                top: calc(100% + 4px);
+                                left: 0;
+                                right: 0;
+                                z-index: 1060;
+                                max-height: 240px;
+                                overflow-y: auto;
+                                margin: 0;
+                                padding: 4px 0;
+                                list-style: none;
+                                background: #ffffff;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 6px;
+                                box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+                            }
+
+                            .lecturer-search-list li {
+                                padding: 8px 14px;
+                                font-size: 14px;
+                                cursor: pointer;
+                            }
+
+                            .lecturer-search-list li:hover,
+                            .lecturer-search-list li.active {
+                                background: #eef2fb;
+                            }
+
+                            .lecturer-search-list li.selected {
+                                font-weight: 600;
+                                color: #21409B;
+                            }
+
+                            .lecturer-search-list li.no-result {
+                                cursor: default;
+                                color: #718096;
+                            }
+
+                            .lecturer-search-list li.no-result:hover {
+                                background: transparent;
+                            }
+                        </style>
                     </head>
 
                     <body class="overflow-hidden">
@@ -489,18 +559,34 @@ if (!SessionUser::hasValidSession()) {
                                             <div class="col-12 p-0">
                                                 <div class="row p-0 gy-3 gx-3 align-content-center">
                                                     <div class="col-12 d-flex flex-column">
-                                                        <label for="" class="text-14 main-text required">Select Lecturer</label>
-                                                        <select name="" id="lecturer-selector" class="form-select custom-select mt-2">
+                                                        <label for="lecturer-search-input" class="text-14 main-text required">Select Lecturer</label>
+
+                                                        <!-- Searchable lecturer picker. It writes into the hidden
+                                                             #lecturer-selector, so assignLecturerToSubject() keeps
+                                                             reading the value exactly as before. -->
+                                                        <div class="lecturer-search-wrapper mt-2">
+                                                            <iconify-icon icon="teenyicons:search-outline" width="16" height="16" class="sub-text lecturer-search-icon"></iconify-icon>
+                                                            <input type="text"
+                                                                class="form-control custom-input lecturer-search-input"
+                                                                id="lecturer-search-input"
+                                                                placeholder="Search lecturer by name..."
+                                                                autocomplete="off">
+                                                            <iconify-icon icon="mdi:close" width="18" height="18" class="sub-text lecturer-search-clear d-none" id="lecturer-search-clear" title="Clear"></iconify-icon>
+                                                            <ul class="lecturer-search-list d-none" id="lecturer-search-list"></ul>
+                                                        </div>
+
+                                                        <select name="" id="lecturer-selector" class="d-none">
                                                             <option value="0">- Select -</option>
                                                             <?php
                                                             $lecturers = Database::search("SELECT `user_id`,`title`,`user_fname`,`user_lname` FROM `users`
                                                                                             INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
                                                                                             WHERE `status_status_id`='1'
                                                                                             AND `users`.`user_roles_user_role_id` != 1
-                                                                                            AND `user_id` NOT IN (SELECT `users_user_id` FROM `lecturers` WHERE `subjects_subject_id`='" . $id . "')");
+                                                                                            AND `user_id` NOT IN (SELECT `users_user_id` FROM `lecturers` WHERE `subjects_subject_id`='" . $id . "')
+                                                                                            ORDER BY `user_fname`, `user_lname`");
                                                             while ($data = $lecturers->fetch_assoc()) {
                                                             ?>
-                                                                <option value="<?= $data['user_id'] ?>"><?= $data["title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></option>
+                                                                <option value="<?= (int)$data['user_id'] ?>"><?= htmlspecialchars($data["title"] . "." . $data["user_fname"] . " " . $data["user_lname"], ENT_QUOTES, 'UTF-8'); ?></option>
                                                             <?php
                                                             }
                                                             ?>
@@ -593,6 +679,150 @@ if (!SessionUser::hasValidSession()) {
                         <script src="./assets/js/chart.js?v=<?= Project::getVersion() ?>"></script>
                         <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
                         <script src="./assets/js/fileChooser.js"></script>
+
+                        <script>
+                            /* ── Searchable lecturer select (Add Lecturer modal) ──────────────── */
+                            (function() {
+                                const select = document.getElementById('lecturer-selector');
+                                const input = document.getElementById('lecturer-search-input');
+                                const list = document.getElementById('lecturer-search-list');
+                                const clearBtn = document.getElementById('lecturer-search-clear');
+                                const modal = document.getElementById('addLecturer');
+
+                                if (!select || !input || !list) return;
+
+                                // All lecturers from the hidden select (skip the "- Select -" option)
+                                const options = Array.from(select.options)
+                                    .filter(o => o.value !== '0')
+                                    .map(o => ({
+                                        value: o.value,
+                                        text: o.text
+                                    }));
+
+                                let activeIndex = -1;
+                                let visible = [];
+
+                                function escapeHtml(str) {
+                                    return str.replace(/[&<>"']/g, c => ({
+                                        '&': '&amp;',
+                                        '<': '&lt;',
+                                        '>': '&gt;',
+                                        '"': '&quot;',
+                                        "'": '&#39;'
+                                    } [c]));
+                                }
+
+                                function render(term) {
+                                    const q = term.trim().toLowerCase();
+                                    visible = q === '' ?
+                                        options :
+                                        options.filter(o => o.text.toLowerCase().includes(q));
+
+                                    activeIndex = -1;
+
+                                    if (visible.length === 0) {
+                                        list.innerHTML = '<li class="no-result">No lecturers found</li>';
+                                    } else {
+                                        list.innerHTML = visible.map((o, i) =>
+                                            '<li data-index="' + i + '" class="' + (o.value === select.value ? 'selected' : '') + '">' +
+                                            escapeHtml(o.text) + '</li>'
+                                        ).join('');
+                                    }
+                                    list.classList.remove('d-none');
+                                }
+
+                                function close() {
+                                    list.classList.add('d-none');
+                                    activeIndex = -1;
+                                }
+
+                                function choose(option) {
+                                    select.value = option.value;
+                                    select.dispatchEvent(new Event('change', {
+                                        bubbles: true
+                                    }));
+                                    input.value = option.text;
+                                    clearBtn.classList.remove('d-none');
+                                    const feedback = document.getElementById('lecturer-feedback');
+                                    if (feedback) feedback.textContent = '';
+                                    close();
+                                }
+
+                                function reset() {
+                                    select.value = '0';
+                                    input.value = '';
+                                    clearBtn.classList.add('d-none');
+                                    close();
+                                }
+
+                                function highlight(index) {
+                                    const items = list.querySelectorAll('li[data-index]');
+                                    items.forEach(li => li.classList.remove('active'));
+                                    if (index >= 0 && items[index]) {
+                                        items[index].classList.add('active');
+                                        items[index].scrollIntoView({
+                                            block: 'nearest'
+                                        });
+                                    }
+                                    activeIndex = index;
+                                }
+
+                                input.addEventListener('focus', () => render(input.value === getSelectedText() ? '' : input.value));
+
+                                input.addEventListener('input', () => {
+                                    // Typing again clears the previous selection
+                                    if (select.value !== '0') select.value = '0';
+                                    clearBtn.classList.toggle('d-none', input.value === '');
+                                    render(input.value);
+                                });
+
+                                input.addEventListener('keydown', (e) => {
+                                    if (list.classList.contains('d-none')) return;
+                                    if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        highlight(Math.min(activeIndex + 1, visible.length - 1));
+                                    } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        highlight(Math.max(activeIndex - 1, 0));
+                                    } else if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (activeIndex >= 0 && visible[activeIndex]) choose(visible[activeIndex]);
+                                        else if (visible.length === 1) choose(visible[0]);
+                                    } else if (e.key === 'Escape') {
+                                        e.stopPropagation(); // don't close the modal
+                                        close();
+                                    }
+                                });
+
+                                // mousedown (not click) so it fires before the input loses focus
+                                list.addEventListener('mousedown', (e) => {
+                                    const li = e.target.closest('li[data-index]');
+                                    if (!li) return;
+                                    e.preventDefault();
+                                    choose(visible[parseInt(li.dataset.index, 10)]);
+                                });
+
+                                clearBtn.addEventListener('click', () => {
+                                    reset();
+                                    input.focus();
+                                });
+
+                                document.addEventListener('mousedown', (e) => {
+                                    if (!e.target.closest('.lecturer-search-wrapper')) close();
+                                });
+
+                                function getSelectedText() {
+                                    const o = select.options[select.selectedIndex];
+                                    return (o && o.value !== '0') ? o.text : '';
+                                }
+
+                                // Fresh state every time the modal opens
+                                if (modal) {
+                                    modal.addEventListener('hidden.bs.modal', reset);
+                                    modal.addEventListener('shown.bs.modal', () => input.focus());
+                                }
+                            })();
+                        </script>
                     </body>
 
                     </html>

@@ -9,7 +9,7 @@ if (SessionUser::hasValidSession()) {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
             $status->error = 'You do not have permission to perform this action';
         } else {
             if ($_SERVER['REQUEST_METHOD'] == 'POST') {

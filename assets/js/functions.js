@@ -1651,116 +1651,7 @@ const loadLecturers = () => {
         });
 }
 
-const scheduleLecture = (btn) => {
-    const lecturerVal = $("#lecturer-selector").val();
-    if (!lecturerVal || lecturerVal === "0") {
-        showToast("error", "Please select a lecturer.");
-        return;
-    }
 
-    toggleBtnLoader(btn, true);
-    const form = new FormData();
-    form.append("branch", $("#branch-selector").val());
-    form.append("faculty", $("#faculty-selector").val());
-    form.append("programme_id", $("#programme-selector").val());
-    form.append("intake_id", $("#intake-selector").val());
-    form.append("level_id", $("#level-selector").val());
-    form.append("subject_id", $("#subject-selector").val());
-
-    const lecturerMode = $("#lecturer-selector").attr("data-lecturer-mode") || "subject";
-    if (lecturerMode === "broad") {
-        form.append("lecturer_id", "0");
-        form.append("broad_lecturer_user_id", lecturerVal);
-    } else {
-        form.append("lecturer_id", lecturerVal);
-        form.append("broad_lecturer_user_id", "0");
-    }
-
-    form.append("lecture-date", $("#lecture-date").val());
-
-    form.append("title", $("#title").val());
-    form.append("physical", $("#physical-check-box").is(":checked") ? true : false);
-    form.append("online", $("#online-check-box").is(":checked") ? true : false);
-    form.append("hybrid", $("#hybrid-check-box").is(":checked") ? true : false);
-    form.append("link", $("#link-input").val());
-    form.append("one_time", $("#oneTimeLecture").is(":checked") ? true : false);
-    form.append("recurring", $("#recurringLecture").is(":checked") ? true : false);
-    form.append("start_date", $("#start-date").val());
-    form.append("end_date", $("#end-date").val());
-    if ($("#recurringLecture").is(":checked")) {
-        form.append("start_time", $("#r-start-time").val());
-        form.append("end_time", $("#r-end-time").val());
-    } else {
-        form.append("start_time", $("#start-time").val());
-        form.append("end_time", $("#end-time").val());
-    }
-
-    form.append("days", selectedDays);
-    form.append("skip_poya_days", $("#skip-poya").is(":checked") ? true : false);
-    form.append("skip_holidays", $("#skip-holidays").is(":checked") ? true : false);
-    var files = $("#file-selector-input")[0].files;
-    for (var i = 0; i < files.length; i++) {
-        form.append("tutes[]", files[i]);
-    }
-
-    const validationMap = {
-        branch: ["#branch-selector", "#branch-feedback"],
-        faculty: ["#faculty-selector", "#faculty-feedback"],
-        programme: ["#programme-selector", "#programme-feedback"],
-        intake: ["#intake-selector", "#intake-feedback"],
-        level: ["#level-selector", "#level-feedback"],
-        subject: ["#subject-selector", "#subject-feedback"],
-        lecturer: ["#lecturer-selector", "#lecturer-feedback"],
-        date: ["#lecture-date", "#date-feedback"],
-        start_time: ["#start-time", "#start-time-feedback"],
-        end_time: ["#end-time", "#end-time-feedback"],
-        attachment_name: ["#attachment-name", "#attachment-name-feedback"],
-        link: ["#link-input", "#link-feedback"],
-        title: ["#title", "#title-feedback"],
-        tutes: ["#file-selector-input", "#tutes-feedback"],
-        start_date: ["#start-date", "#start-date-feedback"],
-        end_date: ["#end-date", "#end-date-feedback"],
-        days: ["#days", "#days-feedback"],
-    };
-
-    if ($("#recurringLecture").is(":checked")) {
-        validationMap.start_time = ["#r-start-time", "#r-start-time-feedback"];
-        validationMap.end_time = ["#r-end-time", "#r-end-time-feedback"];
-    }
-
-    fetch("api/scheduleLecture.php", {
-        method: "POST",
-        body: form
-    })
-        .then((res) => res.text())
-        .then((response) => {
-            console.log(response);
-            toggleBtnLoader(btn, false);
-            applyValidation(response, validationMap, false);
-            if (response.error) {
-                showToast("error", response.error);
-            } else if (response.done) {
-                showToast("success", response.done);
-                setTimeout(() => {
-                    window.location.reload()
-                }, 3000);
-            } else {
-                applyValidation(response, validationMap);
-                if (response.tute) {
-                    const feedback = document.getElementById('attachment-feedback');
-                    feedback.innerHTML = `
-                    <ul class="ps-3">
-                        ${response.tute.map(e => `<li>${e}</li>`).join('')}
-                    </ul>
-                    `;
-                }
-            }
-        })
-        .catch((error) => {
-            console.log(error);
-            showToast("error", "Something went wrong.Please try again later");
-        });
-}
 const filterScheduledLectures = () => {
     const data = {
         faculty: $("#faculty-selector").val(),
@@ -14356,7 +14247,7 @@ function confirmCancelSchedule(btn, lectureId) {
                 showToast('success', data.done);
                 setTimeout(() => { window.location.reload(); }, 3000)
             } else {
-                showToast("error", "An error occured. Please try again later.");
+                showToast("error", data.error);
             }
         })
         .catch(() => {
@@ -14562,5 +14453,41 @@ const markAsPaidLecturerPayments = (btn, id) => {
         })
         .catch((error) => {
             showToast("error", "An error occurred. Please try again later.");
+        });
+}
+
+const generateLetter = (id) => {
+    window.open(`api/generateStudentLetter.php?id=${encodeURIComponent(id)}`, "_blank");
+};
+
+const filterStudentTimeTable = (studentId) => {
+    const data = {
+        student: studentId,
+        text: $("#search-text")?.val(),
+        sort: $("#sort-selector")?.val(),
+        resultPerPage: $("#show-result-selector")?.val(),
+        page: selectedPage,
+    }
+
+    fetch('api/filterStudentTimeTable.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.text())
+        .then((data) => {
+            try {
+                const response = JSON.parse(data);
+                if (response.hasOwnProperty('error')) {
+                    setTimeout(() => { showToast("error", response.error); }, 1000);
+                }
+            } catch (e) {
+                $("#schedule-table-container").html(data);
+            }
+        })
+        .catch((error) => {
+            setTimeout(() => { showToast("error", "An error occured. Please try again later."); }, 1000);
         });
 }

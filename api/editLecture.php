@@ -6,6 +6,13 @@ require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
 require_once("../includes/Project.php");
+
+// For the class cancellation email
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/mail-process.php");   // contains sendBulkMail()
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -177,6 +184,7 @@ if (SessionUser::hasValidSession()) {
                             $timezone = new DateTimeZone("Asia/Colombo");
                             $dateTime = new DateTime("now", $timezone);
                             $addTime = $dateTime->format('Y-m-d H:i:s');
+                            $today   = $dateTime->format('Y-m-d');
 
                             $start = new DateTime($start_time);
                             $end = new DateTime($end_time);
@@ -184,6 +192,15 @@ if (SessionUser::hasValidSession()) {
                             $interval = $start->diff($end);
 
                             $duration = ($interval->h * 60) + $interval->i;
+
+                            // ── Cancellation email setup ──────────────────────────
+                            // Email goes out only when the status is CHANGED to "Cancelled"
+                            // (not when an already-cancelled lecture is edited again),
+                            // and only for lectures dated today or later.
+                            $cancelledStatusId   = getCancelledStatusId();
+                            $isCancelling        = ($cancelledStatusId > 0 && (int)$time_table_status === $cancelledStatusId);
+                            $isUpcoming          = ($lecture_date >= $today);
+                            $cancelledIntakeIds  = [];
 
                             $time_table_update_query = "`lecturers_lecturers_id`='" . $lecturer_id . "',`time_table_status_time_table_status_id`='" . $time_table_status . "'
                             ,`date`='" . $lecture_date . "',`start_time`='" . $start_time . "',`end_time`='" . $end_time . "',`duration`='" . $duration . "',`lecture_title`='" . $title . "'";
@@ -222,6 +239,12 @@ if (SessionUser::hasValidSession()) {
                                             $tute_path = "../assets/uploads/lectures-attachments/" . $tutes[$i];
                                             move_uploaded_file($_FILES["tutes"]["tmp_name"][$i], $tute_path);
                                         }
+                                    }
+
+                                    // Newly cancelled → notify this lecture's intake
+                                    $previousStatusId = (int)$lectureData['time_table_status_time_table_status_id'];
+                                    if ($isCancelling && $isUpcoming && $previousStatusId !== $cancelledStatusId) {
+                                        $cancelledIntakeIds[] = (int)$lectureData['intake_id'];
                                     }
 
                                     $status->done = "Lecture has been successfully updated";
@@ -289,12 +312,23 @@ if (SessionUser::hasValidSession()) {
 
                                             Database::iud("INSERT INTO `attachments` (" . $attachment_insert_columns . ") VALUES (" . $attachment_insert_values . ")");
                                         }
+
+                                        // Newly cancelled → notify each affected intake
+                                        $previousStatusId = (int)$lecturesData['time_table_status_time_table_status_id'];
+                                        if ($isCancelling && $isUpcoming && $previousStatusId !== $cancelledStatusId) {
+                                            $cancelledIntakeIds[] = (int)$lecturesData['intake_id'];
+                                        }
                                     }
 
                                     $status->done = "Lectures has been successfully updated";
                                 } else {
                                     $status->error = "Lecture Not Updated";
                                 }
+                            }
+
+                            // ── Send the cancellation email (never blocks the update) ──
+                            if (!empty($cancelledIntakeIds) && isset($status->done)) {
+                                $status->email = sendLectureCancellationEmail($cancelledIntakeIds);
                             }
                         }
                     }
@@ -327,5 +361,73 @@ function checkIfFutureDateTime($lecture_date, $start_time)
         }
     } else {
         return false;
+    }
+}
+
+/**
+ * Looks up the "Cancelled" row in time_table_status by name,
+ * so no status ID is hard-coded. Returns 0 if not found.
+ */
+function getCancelledStatusId(): int
+{
+    $r = Database::search("
+        SELECT `time_table_status_id`
+        FROM `time_table_status`
+        WHERE LOWER(`time_table_status`) LIKE 'cancel%'
+        LIMIT 1
+    ");
+    return ($r && $r->num_rows > 0) ? (int)$r->fetch_assoc()['time_table_status_id'] : 0;
+}
+
+/**
+ * Sends the Class Cancellation Notification (BCC, via sendBulkMail) to every
+ * student in the given intakes. Each student gets ONE email even if several
+ * of their lectures were cancelled in the same update.
+ * Returns a short status message for the JSON response; never throws.
+ */
+function sendLectureCancellationEmail(array $intakeIds): string
+{
+    try {
+        $intakeIds = array_values(array_unique(array_filter(array_map('intval', $intakeIds))));
+        if (empty($intakeIds)) {
+            return 'No intake found for cancellation email';
+        }
+
+        $students = Database::search("
+            SELECT DISTINCT
+                ld.email,
+                CONCAT(ld.first_name, ' ', ld.last_name) AS student_name
+            FROM students_has_intakes shi
+            INNER JOIN students      s  ON shi.students_student_id          = s.student_id
+            INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
+            WHERE shi.intakes_intake_id IN (" . implode(',', $intakeIds) . ")
+            AND shi.status_status_id = '1'
+            AND ld.status_status_id = '1'
+              AND ld.email IS NOT NULL
+              AND ld.email <> ''
+        ");
+
+        $recipients = [];
+        if ($students) {
+            while ($row = $students->fetch_assoc()) {
+                $recipients[$row['email']] = trim($row['student_name']);
+            }
+        }
+
+        if (empty($recipients)) {
+            return 'No students found to notify';
+        }
+
+        $content = EmailNotificationService::build(
+            EmailTemplateContent::CLASS_CANCELLATION_NOTIFICATION,
+            []
+        );
+
+        $sent = sendBulkMail($recipients, $content['subject'], $content['body']);
+
+        return "Cancellation email sent to {$sent} of " . count($recipients) . " student(s)";
+    } catch (Throwable $e) {
+        error_log('Lecture cancellation email failed: ' . $e->getMessage());
+        return 'Lecture updated, but the cancellation email could not be sent';
     }
 }

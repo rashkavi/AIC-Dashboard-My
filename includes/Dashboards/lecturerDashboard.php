@@ -55,8 +55,8 @@ class LecturerDashboard
                         $maxCourseHours += floatval($lecturerData['max_course_hours']);
 
                         $assignements = Database::search("SELECT 
-                COUNT(*) AS total_count,
-                IFNULL(SUM(CASE WHEN lecturers_has_students_has_assignments.submission_sts_submission_sts_id = 2 THEN 1 ELSE 0 END), 0) AS submitted_count,
+                COUNT(lecturers_has_students_has_assignments.lecturers_has_students_has_assignments_id) AS total_count,
+                IFNULL(SUM(CASE WHEN lecturers_has_students_has_assignments.submission_sts_submission_sts_id > 1 THEN 1 ELSE 0 END), 0) AS submitted_count,
                 IFNULL(SUM(CASE WHEN lecturers_has_students_has_assignments.submission_sts_submission_sts_id = 1 THEN 1 ELSE 0 END), 0) AS not_submitted_count
             FROM 
                 lecturers_has_students_has_assignments
@@ -66,8 +66,9 @@ class LecturerDashboard
             INNER JOIN
                 assignments 
                 ON students_has_assignments.assignments_assignment_id = assignments.assignment_id
+            
             WHERE 
-                lecturers_has_students_has_assignments.lecturers_lecturers_id = '" . $id . "'
+                lecturers_has_students_has_assignments.lecturers_lecturers_id = '" . $lecturerData['lecturers_id'] . "'
                 AND assignments.subjects_subject_id = '" . $lecturerData['subject_id'] . "'
             ");
                         $assignementsData = $assignements->fetch_assoc();
@@ -76,25 +77,10 @@ class LecturerDashboard
                         $submittedAssignments += $assignementsData['submitted_count'];
                         $notSubmittedAssignments += $assignementsData['not_submitted_count'];
 
-                        $assignmentsPayments = Database::search("SELECT * FROM `assignment_payments`
-                INNER JOIN `assignments` ON `assignment_payments`.`assignments_assignment_id` = `assignments`.`assignment_id` 
-                WHERE `assignment_payments`.`lecturers_lecturers_id` = '" . $id . "' AND `subjects_subject_id` = '" . $lecturerData['subject_id'] . "'");
-
-                        if ($assignmentsPayments->num_rows > 0) {
-                            while ($assignmentPayment = $assignmentsPayments->fetch_assoc()) {
-                                if ($assignmentPayment['earning_status_earning_status_id'] == 1) {
-                                    $pendingPayments += $assignmentPayment['amount'];
-                                } else if ($assignmentPayment['earning_status_earning_status_id'] == 2) {
-                                    $totalIncome += $assignmentPayment['amount'];
-                                } else if ($assignmentPayment['earning_status_earning_status_id'] == 3) {
-                                    $rejectedPayments += $assignmentPayment['amount'];
-                                }
-                            }
-                        }
 
                         $examPayments = Database::search("SELECT * FROM `exam_payments`
                 INNER JOIN `exams` ON `exam_payments`.`exams_exam_id` = `exams`.`exam_id` 
-                WHERE `exam_payments`.`lecturers_lecturers_id` = '" . $id . "' AND `subjects_subject_id` = '" . $lecturerData['subject_id'] . "'");
+                WHERE `exam_payments`.`lecturers_lecturers_id` = '" . $lecturerData['lecturers_id'] . "' AND `subjects_subject_id` = '" . $lecturerData['subject_id'] . "'");
 
                         if ($examPayments->num_rows > 0) {
                             while ($examPayment = $examPayments->fetch_assoc()) {
@@ -107,21 +93,31 @@ class LecturerDashboard
                                 }
                             }
                         }
+                    }
 
-                        $lecturePayments = Database::search("SELECT * FROM `lecturer_payments`
-                INNER JOIN `time_table` ON `lecturer_payments`.`time_table_time_table_id` = `time_table`.`time_table_id` 
-                WHERE `lecturer_payments`.`lecturers_lecturers_id` = '" . $id . "' AND `subjects_subject_id` = '" . $lecturerData['subject_id'] . "'");
+                    $assignmentsPayments = Database::search("SELECT * FROM `assignment_payments`
+                    WHERE `assignment_payments`.`users_user_id` = '" . $id . "'");
 
-                        if ($lecturePayments->num_rows > 0) {
-                            while ($lecturePayment = $lecturePayments->fetch_assoc()) {
-                                if ($lecturePayment['earning_status_earning_status_id'] == 1) {
-                                    $pendingPayments += $lecturePayment['amount'];
-                                } else if ($lecturePayment['earning_status_earning_status_id'] == 2) {
-                                    $totalIncome += $lecturePayment['amount'];
-                                } else if ($lecturePayment['earning_status_earning_status_id'] == 3) {
-                                    $rejectedPayments += $lecturePayment['amount'];
-                                }
+                    if ($assignmentsPayments->num_rows > 0) {
+                        while ($assignmentPayment = $assignmentsPayments->fetch_assoc()) {
+                            if ($assignmentPayment['earning_status_earning_status_id'] == 1) {
+                                $pendingPayments += $assignmentPayment['amount'];
+                            } else if ($assignmentPayment['earning_status_earning_status_id'] == 2) {
+                                $totalIncome += $assignmentPayment['amount'];
                             }
+                        }
+                    }
+
+                    $lecturePayments = Database::search("SELECT * FROM `lecturer_payments`
+                                                      WHERE `lecturer_payments`.`users_user_id` = '" . $id . "' ");
+
+                    if ($lecturePayments->num_rows > 0) {
+                        while ($lecturePayment = $lecturePayments->fetch_assoc()) {
+                            if ($lecturePayment['earning_status_earning_status_id'] == 1) {
+                                $pendingPayments += $lecturePayment['amount'];
+                            } else if ($lecturePayment['earning_status_earning_status_id'] == 2) {
+                                $totalIncome += $lecturePayment['amount'];
+                            } 
                         }
                     }
 
@@ -130,7 +126,7 @@ class LecturerDashboard
                         : 0;
 
                     if ($totalAssignments > 0) {
-                        $assignementsProgress += ($totalAssignments / $submittedAssignments) * 100;
+                        $assignementsProgress = ($submittedAssignments / $totalAssignments) * 100;
                     }
 
                     $completeProgress = round($completeProgress, 2);
@@ -176,7 +172,7 @@ class LecturerDashboard
                                                 <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                                     Marked Assignments</div>
                                                 <div class="stat-value mb-0 text-gray-800 fw-semibold text-24"><?= $submittedAssignments ?></div>
-                                                <div class="text-xs text-muted">of <?= $notSubmittedAssignments ?> hours (<?= $assignementsProgress ?>%)</div>
+                                                <div class="text-xs text-muted">of <?= $totalAssignments ?> assignments (<?= $assignementsProgress ?>%)</div>
                                             </div>
                                         </div>
                                         <div class="mt-2">
@@ -198,7 +194,7 @@ class LecturerDashboard
                                                 <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                                     Marked Exams</div>
                                                 <div class="stat-value mb-0 text-gray-800 fw-semibold text-24">0</div>
-                                                <div class="text-xs text-muted">of 0 hours (0%)</div>
+                                                <div class="text-xs text-muted">of 0 exam papers (0%)</div>
                                             </div>
                                         </div>
                                         <div class="mt-2">
@@ -307,13 +303,13 @@ class LecturerDashboard
                                             <div class="row align-items-center">
                                                 <div class="col-4 align-items-center justify-content-center">
                                                     <?php
-                                                    if (!empty($data["subject_cover"]) && file_exists('https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/' . $data["subject_cover"])) {
+                                                    if (!empty($data["subject_cover"]) && file_exists('https://dashboard.summersetlms.com/assets/imgs/subjects-covers/' . $data["subject_cover"])) {
                                                     ?>
-                                                        <img src="https://dashboard.aiccampuslms.com/assets/imgs/subjects-covers/<?= $data["subject_cover"]; ?>" class="w-100 h-auto" alt="Subject Cover">
+                                                        <img src="https://dashboard.summersetlms.com/assets/imgs/subjects-covers/<?= $data["subject_cover"]; ?>" class="w-100 h-auto" alt="Subject Cover">
                                                     <?php
                                                     } else {
                                                     ?>
-                                                        <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="Subject Cover">
+                                                        <img src="https://dashboard.summersetlms.com/assets/imgs/common/empty-thumbnail.webp" class="w-100 h-auto" alt="Subject Cover">
                                                     <?php
                                                     }
                                                     ?>
@@ -335,7 +331,7 @@ class LecturerDashboard
                                     <div class="col-12">
                                         <div class="row justify-content-center">
                                             <div class="col-6 col-lg-12">
-                                                <img src="./assets/imgs/common/no-data.png" class="w-100 h-auto" alt="Result Not Found"/>
+                                                <img src="./assets/imgs/common/no-data.png" class="w-100 h-auto" alt="Result Not Found" />
                                             </div>
                                         </div>
                                     </div>

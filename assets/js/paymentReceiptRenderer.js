@@ -596,7 +596,9 @@ async function sendReceiptEmail(receiptId) {
         formData.append('receipt_id', receiptId);
         formData.append('pdf', pdfBlob, 'Receipt-' + data.receipt_number + '.pdf');
         formData.append('total_paid', data.grand_total_paid);
-        formData.append('balance_due', Math.max(0, (data.grand_total_amount || 0) - (data.grand_total_paid || 0)));
+        formData.append('balance_due', Math.max(0, (data.grand_total_amount + data.grand_total_tax || 0) - (data.grand_total_paid || 0)));
+
+        console.log(data);
 
         const sendRes = await fetch('api/sendReceiptEmail.php', { method: 'POST', body: formData });
         const result = await sendRes.json();

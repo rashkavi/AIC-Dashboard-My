@@ -30,10 +30,8 @@ if (!SessionUser::hasValidSession()) {
             $rejectedPayments = 0;
 
             $assignmentsPayments = Database::search("SELECT * FROM `assignment_payments`
-              
-                INNER JOIN `lecturers` ON `assignment_payments`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                WHERE `users`.`user_id`= '" . $id . "'");
+                                       
+                WHERE `users_user_id`= '" . $id . "'");
 
             if ($assignmentsPayments->num_rows > 0) {
                 while ($assignmentPayment = $assignmentsPayments->fetch_assoc()) {
@@ -66,10 +64,8 @@ if (!SessionUser::hasValidSession()) {
             }
 
             $lecturePayments = Database::search("SELECT * FROM `lecturer_payments`
-               
-                INNER JOIN `lecturers` ON `lecturer_payments`.`lecturers_lecturers_id` = `lecturers`.`lecturers_id`
-                INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                WHERE `users`.`user_id`= '" . $id . "'");
+                           
+                WHERE `users_user_id`= '" . $id . "'");
 
             if ($lecturePayments->num_rows > 0) {
                 while ($lecturePayment = $lecturePayments->fetch_assoc()) {
@@ -83,41 +79,16 @@ if (!SessionUser::hasValidSession()) {
                 }
             }
 
-            $subjectsPayments = Database::search("SELECT 
-            s.subject_id,
-            s.subject,
-            s.max_course_hours,
-            l.hourly_rate,
-            SUM(lp.amount) AS total_paid,
-            SUM(lp.amount / l.hourly_rate) AS completed_hours
-        FROM 
-            subjects s
-        INNER JOIN 
-            lecturers l ON s.subject_id = l.subjects_subject_id
-        LEFT JOIN 
-            lecturer_payments lp ON lp.lecturers_lecturers_id = l.lecturers_id
-        WHERE 
-            l.users_user_id = '$id'
-        GROUP BY 
-            s.subject_id
-            ");
 
-            if ($subjectsPayments->num_rows > 0) {
-                while ($subjectPayment = $subjectsPayments->fetch_assoc()) {
-                    if ($subjectPayment['completed_hours'] < $subjectPayment['max_course_hours']) {
-                        $paymentpayablePending += $subjectPayment['total_paid'];
-                    }
-                }
-            }
-
-            $payouts = Database::search("SELECT SUM(`amount`) FROM `lecturer_payouts` 
-            WHERE `lecturer_payouts`.`users_user_id` = '" . $id . "'");
+            $payouts = Database::search("SELECT SUM(`amount`) FROM `lecturers_paid_payments` 
+            WHERE `lecturers_paid_payments`.`users_user_id` = '" . $id . "'");
 
             if ($payouts->num_rows > 0) {
                 $totalPayouts = $payouts->fetch_assoc()['SUM(`amount`)'];
             }
 
             $totalPayableAmount = $totalIncome - $totalPayouts - $paymentpayablePending;
+            $totalPayableAmount = $totalPayableAmount < 0 ? 0 : $totalPayableAmount;
 
 ?>
             <!DOCTYPE html>
@@ -177,331 +148,92 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
                                         </div>
 
-                                        <div class="container p-0 m-0 g-0 mb-4">
-                                            <div class="row g-4 d-flex">
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-purple d-flex align-items-center justify-content-center"> <iconify-icon icon="ic:round-ssid-chart" width="32" height="32" class="text-dark-purple"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold text-dark-purple text-uppercase mb-1">
-                                                                            TOTAL EARNINGS</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($totalIncome) ?></div>
-                                                                        <div class="text-xs text-muted">Available for withdrawal</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <a href="my-earnings-history" class="text-xs text-dark-purple">Earnings History <i class="fas fa-arrow-right ms-1"></i></a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="solar:bill-list-broken" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Payments History</span>
+                                                        <span class="text-14 main-text">Manage lecturers payments with ease and flexibility</span>
                                                     </div>
                                                 </div>
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-orange d-flex align-items-center justify-content-center"> <iconify-icon icon="token:pay" width="32" height="32" class="text-dark-orange"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold text-dark-orange text-uppercase mb-1">
-                                                                            TOTAL PAYOUTS</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($totalPayouts) ?></div>
-                                                                        <div class="text-xs text-muted">Complete payouts</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <a href="my-payout-history" class="text-xs text-dark-orange">Payout History <i class="fas fa-arrow-right ms-1"></i></a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-green-blue d-flex align-items-center justify-content-center"> <iconify-icon icon="bx:money-withdraw" width="32" height="32" class="text-dark-green"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold text-dark-green text-uppercase mb-1">
-                                                                            TOTAL PAYABLE AMOUNT</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($totalPayableAmount) ?></div>
-                                                                        <div class="text-xs text-muted">Available for withdrawal</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <button class="table-btn table-btn-success active" onclick="location.href='my-payable-payments'">Withdraw <i class="fas fa-arrow-right ms-1"></i></button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-primary d-flex align-items-center justify-content-center"> <iconify-icon icon="carbon:condition-wait-point" width="32" height="32" class="dark-theme"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold dark-theme text-uppercase mb-1">
-                                                                            PENDING PAYMENTS</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($paymentpayablePending) ?></div>
-                                                                        <div class="text-xs text-muted">Next payment cycle</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <a href="#" class="text-xs dark-theme">Payment Schedule <i class="fas fa-arrow-right ms-1"></i></a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-yellow d-flex align-items-center justify-content-center"> <iconify-icon icon="carbon:condition-wait-point" width="32" height="32" style="color: var(--dark-yellow);"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold text-dark-yellow text-uppercase mb-1">
-                                                                            PENDING APPROVAL</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($pendingPayments) ?></div>
-                                                                        <div class="text-xs text-muted">Next payment cycle</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <a href="#" class="text-xs text-dark-yellow">Payment Schedule <i class="fas fa-arrow-right ms-1"></i></a>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
-                                                    <div class="component-theme p-3 w-100">
-                                                        <div class="d-flex flex-row align-items-center">
-                                                            <div class="hwr-70 table-btn-danger d-flex align-items-center justify-content-center"> <iconify-icon icon="material-symbols:pending" width="32" height="32" style="color: var(--dark-red);"></iconify-icon></div>
-                                                            <div class="d-flex flex-column flex-grow-1 px-4">
-                                                                <div class="row no-gutters align-items-center">
-                                                                    <div class="col mr-2">
-                                                                        <div class="text-xs font-weight-bold text-dark-red text-uppercase mb-1">
-                                                                            REJECTED Payments</div>
-                                                                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($rejectedPayments) ?></div>
-                                                                        <div class="text-xs text-muted">Rejected payments</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mt-3">
-                                                                    <a href="#" class="text-xs text-dark-red">Send Reminders <i class="fas fa-arrow-right ms-1"></i></a>
-                                                                </div>
-                                                            </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="my-payments-history" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="col-12 p-4 component-theme">
-                                            <div class="row p-0 m-0 g-0">
-                                                <span class="sub-topic mb-3">Recent Payments</span>
-                                                <div class="col-12">
-                                                    <div class="row p-0 m-0 g-0 align-content-center">
-                                                        <div class="table-responsive-wrapper">
-                                                            <div class="table-responsive" id="users-table-container">
-                                                                <table class="table bl-solid m-0 p-0 g-0" id="users-table">
-                                                                    <thead>
-                                                                        <tr class="br-t-5">
-                                                                            <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
-                                                                                <div class="d-flex flex-row align-items-center">
-                                                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="check-all" onchange="tableCheckEvents()">
-                                                                                    <span class="text-14 main-text fw-medium mx-2">Subject</span>
-                                                                                </div>
-                                                                            </th>
-                                                                            <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Type</th>
-                                                                            <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Count</th>
-                                                                            <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Rate</th>
-                                                                            <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody id="user-table-data">
-                                                                        <?php
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="mingcute:schedule-line" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Scheduled Lecturers Payments</span>
+                                                        <span class="text-14 main-text">Schedule and manage lecturer payments with clarity and control.</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="my-scheduled-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                                                        $withdrawalData = [];
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="solar:calendar-date-broken" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Lecture Payments</span>
+                                                        <?php
+                                                        $pendingApprovallecturePayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `lecturer_payments` 
+                                                        WHERE `earning_status_earning_status_id`='1' AND `users_user_id`='" . $sessionUserObject['user_id'] . "'")->fetch_assoc();
+                                                        ?>
+                                                        <span class="text-14 main-text">Pending lecture payments - <?php echo $pendingApprovallecturePayemnts['count'] ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="my-lecture-payments.php" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                                                        $assignmentsPayments = Database::search("
-                                                                    SELECT 
-                                                                        `s`.`subject_id`,
-                                                                        `s`.`subject`,
-                                                                        `s`.`subject_cover`,
-                                                                        `l`.`per_assignment_fee`,
-                                                                        SUM(`ap`.`amount`) AS `total_assignment_amount`,
-                                                                        SUM(`pd`.`amount`) AS `total_paid_amount`,
-                                                                        `l`.`lecturers_id`
-                                                                    FROM 
-                                                                        `assignment_payments` `ap`
-                                                                    INNER JOIN 
-                                                                        `lecturers` `l` ON `ap`.`lecturers_lecturers_id` = `l`.`lecturers_id`
-                                                                    INNER JOIN 
-                                                                        `subjects` `s` ON `l`.`subjects_subject_id` = `s`.`subject_id`
-                                                                    INNER JOIN 
-                                                                        `users` `u` ON `l`.`users_user_id` = `u`.`user_id`
-                                                                    LEFT JOIN 
-                                                                        `lecturer_payouts` `lp` 
-                                                                            ON `u`.`user_id` = `lp`.`users_user_id` 
-                                                                           AND `lp`.`payout_status_payout_status_id` != 3
-                                                                    LEFT JOIN 
-                                                                        `payout_data` `pd` 
-                                                                            ON `lp`.`lecturer_payouts_id` = `pd`.`lecturer_payouts_lecturer_payouts_id`
-                                                                    WHERE 
-                                                                        `u`.`user_id` = '" . $id . "'
-                                                                        AND `pd`.`payout_type_payout_type_id` = 2
-                                                                        AND `pd`.`lecturers_lecturers_id` = `ap`.`lecturers_lecturers_id`
-                                                                        AND `lp`.`payout_status_payout_status_id` = 7
-                                                                    GROUP BY 
-                                                                        `s`.`subject_id`, `s`.`subject`
-                                                                ");
-
-                                                                        if ($assignmentsPayments->num_rows > 0) {
-                                                                            while ($assignmentsPayment = $assignmentsPayments->fetch_assoc()) {
-                                                                                if ($assignmentsPayment['total_assignment_amount'] > $assignmentsPayment['total_paid_amount']) {
-                                                                                    $payableAssignmetAmount = $assignmentsPayment['total_assignment_amount'] - $assignmentsPayment['total_paid_amount'];
-                                                                                    $assignmentCount = ceil($payableAssignmetAmount / $assignmentsPayment['per_assignment_fee']);
-                                                                                    $withdrawalData[] = [
-                                                                                        $assignmentsPayment['subject'],
-                                                                                        $assignmentsPayment['subject_cover'],
-                                                                                        'Assignment',
-                                                                                        $assignmentCount,
-                                                                                        $assignmentsPayment['per_assignment_fee'],
-                                                                                        $payableAssignmetAmount,
-                                                                                        $assignmentsPayment['lecturers_id'],
-                                                                                        2
-                                                                                    ];
-                                                                                }
-                                                                            }
-                                                                        }
-
-                                                                        $lecturesPayments = Database::search("
-                                                                        SELECT 
-                                                                            `s`.`subject_id`,
-                                                                            `s`.`subject`,
-                                                                            `s`.`subject_cover`,
-                                                                            `s`.`max_course_hours`,
-                                                                            `l`.`hourly_rate`,
-                                                                            SUM(`lp`.`amount`) AS `total_lectures_amount`,
-                                                                            SUM(`pd`.`amount`) AS `total_paid_amount`,
-                                                                            `l`.`lecturers_id`
-                                                                        FROM 
-                                                                            `lecturer_payments` `lp`
-                                                                        INNER JOIN 
-                                                                            `lecturers` `l` ON `lp`.`lecturers_lecturers_id` = `l`.`lecturers_id`
-                                                                        INNER JOIN 
-                                                                            `subjects` `s` ON `l`.`subjects_subject_id` = `s`.`subject_id`
-                                                                        INNER JOIN 
-                                                                            `users` `u` ON `l`.`users_user_id` = `u`.`user_id`
-                                                                        LEFT JOIN 
-                                                                            `lecturer_payouts` `lop` 
-                                                                                ON `u`.`user_id` = `lop`.`users_user_id` 
-                                                                            AND `lop`.`payout_status_payout_status_id` != 3
-                                                                        LEFT JOIN 
-                                                                            `payout_data` `pd` 
-                                                                                ON `lop`.`lecturer_payouts_id` = `pd`.`lecturer_payouts_lecturer_payouts_id`
-                                                                        WHERE 
-                                                                            `u`.`user_id` = '" . $id . "'
-                                                                            AND `pd`.`payout_type_payout_type_id` = 1
-                                                                            AND `pd`.`lecturers_lecturers_id` = `lp`.`lecturers_lecturers_id`
-                                                                            AND `lop`.`payout_status_payout_status_id` = 7
-                                                                        GROUP BY 
-                                                                            `s`.`subject_id`, `s`.`subject`
-                                                                    ");
-
-                                                                        if ($lecturesPayments->num_rows > 0) {
-                                                                            while ($lecturesPayment = $lecturesPayments->fetch_assoc()) {
-
-                                                                                if ($lecturesPayment['total_lectures_amount'] > $lecturesPayment['total_paid_amount']) {
-                                                                                    $completeHours = ceil($lecturesPayment['total_lectures_amount'] / $lecturesPayment['hourly_rate']);
-
-                                                                                    if ($completeHours == $lecturesPayment['max_course_hours'] || $completeHours > $lecturesPayment['max_course_hours']) {
-                                                                                        $payableLecturesAmount = $lecturesPayment['total_lectures_amount'] - $lecturesPayment['total_paid_amount'];
-                                                                                        $hours = $payableLecturesAmount / $lecturesPayment['hourly_rate'];
-
-                                                                                        $fullHours = floor($hours);
-                                                                                        $minutes = round(($hours - $fullHours) * 60);
-
-                                                                                        if ($minutes > 0) {
-                                                                                            $formattedHours = "{$fullHours}h {$minutes}m";
-                                                                                        } else {
-                                                                                            $formattedHours = "{$fullHours}h";
-                                                                                        }
-                                                                                        $withdrawalData[] = [
-                                                                                            $lecturesPayment['subject'],
-                                                                                            $lecturesPayment['subject_cover'],
-                                                                                            'Lectures',
-                                                                                            $formattedHours,
-                                                                                            $lecturesPayment['hourly_rate'],
-                                                                                            $payableLecturesAmount,
-                                                                                            $lecturesPayment['lecturers_id'],
-                                                                                            1
-                                                                                        ];
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        }
-
-                                                                        if (count($withdrawalData) > 0) {
-                                                                            foreach ($withdrawalData as $key => $value) {
-                                                                                $subject = $value[0];
-                                                                                $subjectCover = $value[1];
-                                                                                $subjectType = $value[2];
-                                                                                $subjectHours = $value[3];
-                                                                                $subjectRate = $value[4];
-                                                                                $subjectAmount = $value[5];
-                                                                                $lecturersId = $value[6];
-                                                                                $type = $value[7];
-                                                                        ?>
-                                                                                <tr>
-                                                                                    <td class="px-4 py-3 pe-0 align-middle">
-                                                                                        <div class="d-flex flex-row align-items-center p-0 g-0 m-0">
-                                                                                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["user_id"]; ?>" onchange="checkRowEvents(<?php echo $data['user_id']; ?>);">
-                                                                                            <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['user_id']; ?>)">
-                                                                                                <?php
-                                                                                                if (!empty($subjectCover) && file_exists('./assets/imgs/subjects_covers/' . $subjectCover)) {
-                                                                                                ?>
-                                                                                                    <img src="./assets/imgs/subjects_covers/<?= $subjectCover; ?>" class="w-80 h-auto" alt="Subject image">
-                                                                                                <?php
-                                                                                                } else {
-                                                                                                ?>
-                                                                                                    <img src="./assets/imgs/common/empty-thumbnail.webp" class="w-80 h-auto" alt="Subject image">
-                                                                                                <?php
-                                                                                                }
-                                                                                                ?>
-                                                                                                <span class="text-14 main-text mx-2"><?= $subject; ?></span>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text"><?= $subjectType; ?></span></td>
-                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text"><?= $subjectHours ?></span></td>
-                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= $subjectRate; ?></span></td>
-                                                                                    <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= $subjectAmount; ?></span></td>
-
-                                                                                </tr>
-                                                                            <?php
-                                                                            }
-                                                                        } else {
-                                                                            ?>
-                                                                            <tr class="justify-content-center align-middle">
-                                                                                <td colspan="13" class="align-middle justify-content-center">
-                                                                                    <div class="d-flex flex-column align-items-center">
-                                                                                        <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        <?php
-                                                                        }
-                                                                        ?>
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
+                                        <div class="col-12 px-4 py-3 component-theme mb-10">
+                                            <div class="row p-0 m-0 g-0 align-content-center">
+                                                <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
+                                                    <div class="p-4 bg-light-theme d-flex align-items-center justify-content-center"> <iconify-icon icon="si:assignment-line" width="32" height="32" class="dark-theme"></iconify-icon></div>
+                                                    <div class="d-flex flex-column px-0 m-0 g-0 justify-content-center px-3">
+                                                        <span class="text-16 text-dark-color fw-bold lh-lg">Assignment Payments</span>
+                                                        <?php
+                                                        $pendingApprovalAssignemntPayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `assignment_payments` 
+                                                        WHERE `earning_status_earning_status_id`='1' AND `users_user_id`='" . $sessionUserObject['user_id'] . "'")->fetch_assoc();
+                                                        ?>
+                                                        <span class="text-14 main-text">Pending assignments payments - <?php echo $pendingApprovalAssignemntPayemnts['count'] ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 col-md-2 p-0 mt-3 m-md-0 m-lg-0">
+                                                    <div class="row gx-3 h-100 align-content-center justify-content-end">
+                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                            <a href="my-assignments-payments" class="text-decoration-none cursor-pointer col-12 align-content-center">
+                                                                <button class="custom-btn w-100">View</button>
+                                                            </a>
                                                         </div>
                                                     </div>
                                                 </div>

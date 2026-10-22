@@ -42,9 +42,7 @@ if (SessionUser::hasValidSession()) {
                                 }
                             }
 
-                            if (empty($hourly_rate)) {
-                                $status->hourly_rate = "Please enter hourly rate";
-                            } else if (!is_numeric($hourly_rate)) {
+                             if (!is_numeric($hourly_rate)) {
                                 $status->hourly_rate = "Invalid hourly rate";
                             }
                           

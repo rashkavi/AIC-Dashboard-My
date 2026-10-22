@@ -318,8 +318,8 @@ switch ($paymentData['payment_status_id']) {
     <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
     <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
     <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
-                                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-                            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 
     <style>
@@ -677,10 +677,7 @@ switch ($paymentData['payment_status_id']) {
                                                         </div>
                                                         <div class="detail-content">
                                                             <span class="detail-label">Total Penalty</span>
-                                                            <span class="detail-value"><?= $courseCurrencyCode ?> <?= number_format($totalPenalty, 2) ?></span>
-                                                            <?php if (!$isCourseLKR): ?>
-                                                                <span class="detail-lkr-hint">LKR <?= number_format($penaltyLKR, 2) ?> (stored as LKR)</span>
-                                                            <?php endif; ?>
+                                                            <span class="detail-value">LKR <?= number_format($penaltyLKR, 2) ?></span>
                                                         </div>
                                                     </div>
 
@@ -1294,40 +1291,40 @@ switch ($paymentData['payment_status_id']) {
         </div>
     </div>
 
-     <div class="modal fade" id="sendReceiptStatusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-                                <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
-                                    <div class="modal-content" style="border-radius:12px;overflow:hidden;">
-                                        <div class="modal-body" style="padding:28px 26px 22px;">
-                                            <div style="text-align:center;margin-bottom:18px;">
-                                                <div id="srs-header-icon" style="width:48px;height:48px;border-radius:50%;background:var(--light-theme);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;transition:background .25s ease;">
-                                                    <iconify-icon icon="mdi:email-fast-outline" width="24" height="24" style="color:var(--dark-theme);"></iconify-icon>
-                                                </div>
-                                                <div id="srs-title" style="font-size:15px;font-weight:700;color:var(--dark-theme);">Sending Receipt</div>
-                                                <div id="srs-subtext" style="font-size:11px;color:#6b7280;margin-top:2px;">Please wait, this only takes a moment.</div>
-                                            </div>
+    <div class="modal fade" id="sendReceiptStatusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+            <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+                <div class="modal-body" style="padding:28px 26px 22px;">
+                    <div style="text-align:center;margin-bottom:18px;">
+                        <div id="srs-header-icon" style="width:48px;height:48px;border-radius:50%;background:var(--light-theme);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;transition:background .25s ease;">
+                            <iconify-icon icon="mdi:email-fast-outline" width="24" height="24" style="color:var(--dark-theme);"></iconify-icon>
+                        </div>
+                        <div id="srs-title" style="font-size:15px;font-weight:700;color:var(--dark-theme);">Sending Receipt</div>
+                        <div id="srs-subtext" style="font-size:11px;color:#6b7280;margin-top:2px;">Please wait, this only takes a moment.</div>
+                    </div>
 
-                                            <div id="srs-steps" style="display:flex;flex-direction:column;gap:14px;"></div>
+                    <div id="srs-steps" style="display:flex;flex-direction:column;gap:14px;"></div>
 
-                                            <div id="srs-footer" style="display:none;text-align:center;margin-top:22px;">
-                                                <button type="button" class="custom-btn px-4" data-bs-dismiss="modal">Close</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <div id="srs-footer" style="display:none;text-align:center;margin-top:22px;">
+                        <button type="button" class="custom-btn px-4" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                            <style>
-                                .srs-spin {
-                                    animation: srsSpin 0.8s linear infinite;
-                                    display: inline-block;
-                                }
+    <style>
+        .srs-spin {
+            animation: srsSpin 0.8s linear infinite;
+            display: inline-block;
+        }
 
-                                @keyframes srsSpin {
-                                    to {
-                                        transform: rotate(360deg);
-                                    }
-                                }
-                            </style>
+        @keyframes srsSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
     <!-- Update Payment Status Modal -->
     <?php if ($paymentData['payment_status_id'] > 1 && (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 15, $paymentData['intake_id']))): ?>
         <div class="modal fade" id="updatePaymentStatusModal" tabindex="-1" aria-hidden="true">

@@ -122,7 +122,7 @@ $leadRs = Database::search("
         ON i.programmes_programme_id = p.programme_id
     LEFT JOIN users u 
         ON s.users_user_id = u.user_id
-    WHERE s.student_id = '" . $leadId . "'
+    WHERE shi.students_has_intakes_id = '" . $leadId . "'
     LIMIT 1
 ");
 
@@ -239,7 +239,7 @@ $existingDocumentsJson = json_encode(
     JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES
 );
 
-$log = Database::search("SELECT * FROM `students_logs` WHERE `students_student_id` = '" . (int)$leadId . "' 
+$log = Database::search("SELECT * FROM `students_logs` WHERE `students_has_intakes_students_has_intakes_id` = '" . (int)$leadId . "' 
 AND `lead_student_status_lead_student_status_id`='2' AND `note` IS NOT NULL ORDER BY `date_updated` DESC LIMIT 1");
 if ($log->num_rows > 0) {
     $log = $log->fetch_assoc();

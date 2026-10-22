@@ -12,7 +12,7 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
             header("Location: ./dashboard");
         } else {
 
@@ -131,7 +131,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                 $lecturers = Database::search("SELECT * FROM `users` 
                                                                                 INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
                                                                                 INNER JOIN `lecturers` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                                                                                WHERE `user_roles_user_role_id`='8' GROUP BY `users`.`user_id`");
+                                                                                WHERE `user_roles_user_role_id`='7' GROUP BY `users`.`user_id`");
 
                                                                                 if ($lecturers->num_rows > 0) {
                                                                                     while ($lecturer = $lecturers->fetch_assoc()) {

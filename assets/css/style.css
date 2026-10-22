@@ -4543,6 +4543,122 @@ option {
     opacity: .85;
 }
 
+/* assets/css/intake-summary-timetable.css
+   Only what the existing theme (style.css) does not already cover. */
+
+/* ── Section and module blocks (builder) ───────────────────────────── */
+.tt-section-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tt-module-box {
+    border: 1px solid var(--border-color, #dee2e6);
+    padding: 16px;
+    position: relative;
+}
+
+.tt-module-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.tt-quickfill {
+    border: 1px dashed var(--border-color, #dee2e6);
+    padding: 16px;
+}
+
+.tt-icon-btn {
+    border: 0;
+    background: transparent;
+    padding: 6px;
+    line-height: 0;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.tt-icon-btn:hover {
+    background: rgba(33, 64, 155, .08);
+}
+
+.tt-icon-btn.danger:hover {
+    background: rgba(192, 57, 43, .1);
+}
+
+.tt-notice {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-left: 4px solid #21409B;
+}
+
+.tt-error-box {
+    border: 1px solid #f1b0b0;
+    border-left: 4px solid #c0392b;
+    padding: 12px 16px;
+}
+
+.custom-input.is-invalid,
+.custom-select.is-invalid {
+    border-color: #c0392b !important;
+}
+
+/* ── Preview (same layout as the PDF) ──────────────────────────────── */
+.tt-preview-logo {
+    display: block;
+    max-width: 220px;
+    max-height: 90px;
+    width: auto;
+    height: auto;
+    margin: 0 auto 10px;
+}
+
+.tt-preview-heading {
+    font-weight: 700;
+    font-style: italic;
+    font-size: 20px;
+    margin: 22px 0 10px;
+}
+
+.tt-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+    background: #fff;
+    color: #111;
+}
+
+.tt-preview-table th,
+.tt-preview-table td {
+    border: 1px solid #222;
+    padding: 6px 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.tt-preview-table th {
+    font-weight: 700;
+}
+
+.tt-preview-table .tt-col-mode-h {
+    color: #5b1a6b;
+}
+
+.tt-preview-table .tt-col-date {
+    background: #bdd7ee;
+}
+
+.tt-preview-table .tt-mode {
+    color: #e00000;
+    font-weight: 700;
+}
+
+.tt-preview-table .tt-lecturer {
+    white-space: pre-line;
+}
+
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {
     .studentPolicyPageImage {

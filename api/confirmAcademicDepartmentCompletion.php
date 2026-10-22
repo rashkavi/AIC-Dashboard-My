@@ -91,8 +91,9 @@ if (SessionUser::hasValidSession()) {
                                             counsellorUser.user_fname AS counsellor_first_name,
                                             counsellorUser.user_lname AS counsellor_last_name
                                         FROM `students`
+                                        INENR JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                                         LEFT JOIN `users` AS counsellorUser
-                                            ON `students`.`users_user_id` = counsellorUser.`user_id`
+                                            ON `students_has_intakes`.`counselor_user_id` = counsellorUser.`user_id`
                                         
                                         WHERE `students`.`student_id` = '" . $studentData['students_student_id'] . "'
                                     ");

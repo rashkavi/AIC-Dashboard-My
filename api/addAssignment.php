@@ -3,6 +3,14 @@ $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
 require_once("../includes/UserPermissionsClass.php");
+require_once("../includes/Project.php");
+
+// For the new assignment email
+require_once("../includes/phpmailer/EmailLayoutRenderer.php");
+require_once("../includes/phpmailer/EmailNotificationService.php");
+require_once("../includes/phpmailer/EmailTemplateContent.php");
+require_once("../includes/phpmailer/mail-process.php");   // contains sendBulkMail()
+
 if (SessionUser::hasValidSession()) {
     $sessionUserRole = SessionUser::getCurrentUserRole();
     if ($sessionUserRole != null) {
@@ -152,7 +160,12 @@ if (SessionUser::hasValidSession()) {
                                 $assignment_table_insert_columns .= ",`start_date`,`end_date`";
                                 $assignment_table_insert_values .= ",'" . $start . "','" . $end . "'";
                             }
-                            if (!empty($start_date) && !empty($end_date) && isset($_FILES["file"])) {
+
+                            // Scheduled = has start/end dates AND an attachment (status 2).
+                            // Only scheduled assignments trigger the student email.
+                            $isScheduled = (!empty($start_date) && !empty($end_date) && isset($_FILES["file"]));
+
+                            if ($isScheduled) {
                                 $assignment_table_insert_columns .= ",`assignment_status_assignment_status_id`";
                                 $assignment_table_insert_values .= ",'2'";
                             } else {
@@ -173,6 +186,15 @@ if (SessionUser::hasValidSession()) {
                                 move_uploaded_file($_FILES["file"]["tmp_name"], $qcv_path);
                             }
                             $status->done = "Assignment added successfully!";
+
+                            // ── New assignment email (never blocks the save) ──
+                            if ($isScheduled) {
+                                $status->email = sendNewAssignmentEmail(
+                                    (int)$subjectData['intake_id'],
+                                    (int)$assignmentId,
+                                    (int)$sessionUserObject['user_id']
+                                );
+                            }
                         }
                     }
                 }
@@ -211,4 +233,61 @@ function isDateAfter($startDate, $endDate)
     $end = new DateTime($endDate);
 
     return $end > $start;
+}
+
+/**
+ * Sends the "New Assignment Available" notification (BCC, via sendBulkMail)
+ * to every student in the assignment's intake, and records it in
+ * assignments_logs. Returns a short status message; never throws.
+ */
+function sendNewAssignmentEmail(int $intakeId, int $assignmentId, int $userId): string
+{
+    try {
+        if ($intakeId <= 0) {
+            return 'No intake found for assignment email';
+        }
+
+        $students = Database::search("
+            SELECT DISTINCT
+                ld.email,
+                CONCAT(ld.first_name, ' ', ld.last_name) AS student_name
+            FROM students_has_intakes shi
+            INNER JOIN students      s  ON shi.students_student_id          = s.student_id
+            INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
+            WHERE shi.intakes_intake_id = '" . $intakeId . "'
+              AND ld.email IS NOT NULL
+              AND ld.email <> ''
+        ");
+
+        $recipients = [];
+        if ($students) {
+            while ($row = $students->fetch_assoc()) {
+                $recipients[$row['email']] = trim($row['student_name']);
+            }
+        }
+
+        if (empty($recipients)) {
+            return 'No students found to notify';
+        }
+
+        $content = EmailNotificationService::build(
+            EmailTemplateContent::NEW_ASSIGNMENT_NOTIFICATION,
+            []
+        );
+
+        $sent  = sendBulkMail($recipients, $content['subject'], $content['body']);
+        $total = count($recipients);
+
+        $now = (new DateTime('now', new DateTimeZone('Asia/Colombo')))->format('Y-m-d H:i:s');
+        Database::iud("
+            INSERT INTO `assignments_logs` (`users_user_id`,`assignments_assignment_id`,`log`,`date_time`)
+            VALUES ('" . $userId . "','" . $assignmentId . "',
+                    'New assignment email sent to " . $sent . " of " . $total . " student(s)','" . $now . "')
+        ");
+
+        return "Assignment email sent to {$sent} of {$total} student(s)";
+    } catch (Throwable $e) {
+        error_log('New assignment email failed: ' . $e->getMessage());
+        return 'Assignment added, but the notification email could not be sent';
+    }
 }

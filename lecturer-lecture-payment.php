@@ -81,7 +81,7 @@ if (!SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+                    if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
                         header("Location: ./dashboard");
                     } else {
 
@@ -339,20 +339,20 @@ if (!SessionUser::hasValidSession()) {
                                                                         <span class="reference-label mt-4">Concurrent Batches</span>
                                                                         <?php
                                                                         $query = "SELECT `intake`,`faculty`,`programme`,`branch`,`lecture_recording` FROM `time_table` 
-                                                        INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                        INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
-                                                        INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
-                                                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
-                                                        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
-                                                        INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
-                                                        INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id`=`lecturers`.`lecturers_id`
-                                                        INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
-                                                        LEFT JOIN `lecture_recording_has_lectures` ON `time_table`.`time_table_id` = `lecture_recording_has_lectures`.`time_table_time_table_id`
-                                                        LEFT JOIN `lecture_recording` ON `lecture_recording_has_lectures`.`lecture_recording_lecture_recording_id` = `lecture_recording`.`lecture_recording_id`
-                                                        WHERE `users`.`user_id` = '" . $timedata['lecturer_user_id'] . "'
-                                                        AND `time_table`.`date` = '" . $timedata['date'] . "'
-                                                        AND `time_table`.`start_time` = '" . $timedata['start_time'] . "'
-                                                        AND `time_table`.`end_time` = '" . $timedata['end_time'] . "'";
+                                                                                                    INNER JOIN `subjects` ON `time_table`.`subjects_subject_id` = `subjects`.`subject_id`
+                                                                                                    INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                                                                                                    INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                                                                    INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                                                                    INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+                                                                                                    INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
+                                                                                                    INNER JOIN `lecturers` ON `time_table`.`lecturers_lecturers_id`=`lecturers`.`lecturers_id`
+                                                                                                    INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
+                                                                                                    LEFT JOIN `lecture_recording_has_lectures` ON `time_table`.`time_table_id` = `lecture_recording_has_lectures`.`time_table_time_table_id`
+                                                                                                    LEFT JOIN `lecture_recording` ON `lecture_recording_has_lectures`.`lecture_recording_lecture_recording_id` = `lecture_recording`.`lecture_recording_id`
+                                                                                                    WHERE `users`.`user_id` = '" . $timedata['lecturer_user_id'] . "'
+                                                                                                    AND `time_table`.`date` = '" . $timedata['date'] . "'
+                                                                                                    AND `time_table`.`start_time` = '" . $timedata['start_time'] . "'
+                                                                                                    AND `time_table`.`end_time` = '" . $timedata['end_time'] . "'";
 
                                                                         $concurrentBatches = Database::search($query);
                                                                         // Group recordings by batch
@@ -533,20 +533,16 @@ if (!SessionUser::hasValidSession()) {
                                                                             <input type="number" class="form-control custom-input mt-2" onkeyup="calculateDurationLecturerAmount(this.value,'<?= $hourly_rate ?>')" value="<?php echo $lectureData["conducted_duration"] == '' ? $lectureData["duration"] : $lectureData["conducted_duration"]; ?>" id="duration">
                                                                             <span id="duration-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
-
                                                                         <div class="col-12 col-md-3 d-flex flex-column">
                                                                             <label class="text-14 main-text required" for="">Amount (Schedule to pay)</label>
                                                                             <input type="text" class="form-control custom-input mt-2" value="<?php echo $lectureData['amount'] == '' ?  $amount : $lectureData['amount']; ?>" id="amount">
                                                                             <span id="amount-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
-
                                                                         <div class="col-12 d-flex flex-column">
                                                                             <label class="text-14 main-text" for="">Note</label>
                                                                             <textarea name="" class="form-control custom-input mt-2" rows="5" id="note"></textarea>
                                                                             <span id="note-feedback" class="text-dark-red text-12"></span>
                                                                         </div>
-
-
                                                                     </div>
                                                                     <?php
                                                                     if ($lectureData['earning_status_id'] == '') {

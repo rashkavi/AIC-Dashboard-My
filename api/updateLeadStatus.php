@@ -31,8 +31,9 @@ if (SessionUser::hasValidSession()) {
                     } else {
                         $isValidInquiryId = Database::search("SELECT * FROM `students` 
                         INNER JOIN `login_details` ON `login_details`.`login_details_id` = `students`.`login_details_login_details_id`
+                        INNER JOIN students_has_intakes ON students.student_id=students_has_intakes.students_student_id
                         INNER JOIN `title` ON `students`.`title_title_id` = `title`.`title_id`
-                        WHERE `student_id` = '" .  $inquiryId . "'");
+                        WHERE `students_has_intakes_id` = '" .  $inquiryId . "'");
                         if ($isValidInquiryId->num_rows == 0) {
                             $status->error = "Invalid inquiry id";
                         } else {
@@ -66,10 +67,10 @@ if (SessionUser::hasValidSession()) {
                                 $dateTime = new DateTime("now", $timezone);
                                 $date = $dateTime->format('Y-m-d H:i:s');
 
-                                Database::iud("UPDATE `students` SET `lead_student_status_lead_student_status_id` = '" . $inquiryStatus . "' WHERE `student_id` = '" . $inquiryId . "'");
+                                Database::iud("UPDATE `students_has_intakes` SET `lead_student_status_lead_student_status_id` = '" . $inquiryStatus . "' WHERE `students_has_intakes_id` = '" . $inquiryId . "'");
 
                                 Database::iud("INSERT INTO `students_logs` 
-                                (`students_student_id`, `note`, `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
+                                (`students_has_intakes_students_has_intakes_id`, `note`, `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                  VALUES ('" . $inquiryId . "', '" . Database::escape($note) . "', '" . $date . "', '" . $sessionUserObject['user_id'] . "','Update Lead Status','" . $inquiryStatus . "')");
 
                                 if ($inquiryStatus == 4) {

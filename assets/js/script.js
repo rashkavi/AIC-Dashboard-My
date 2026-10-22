@@ -7486,3 +7486,76 @@ const calculateSchedulePayment = (input, amount, maxAttempts) => {
     $("#amount").val("LKR " +
         total.toLocaleString("en-LK", { minimumFractionDigits: 2 }));
 };
+
+const handleLecturersScheduledPagination = (action, pageId = null, totalPages = null) => {
+    //console.log(action, pageId, totalPages);
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+    }
+
+    filterLecturersScheduledPayments();
+}
+
+const handlePaidLecturerPaymentPagination = (action, pageId = null, totalPages = null) => {
+    //console.log(action, pageId, totalPages);
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+        case 'sortByDate':
+            sortCondition1 = sortCondition1 == 1 ? 2 : 1;
+    }
+
+    filterPaidLecturerPayments();
+}
+
+const handleStudentTimeTablePagination = (studentId, action, pageId = null, totalPages = null) => {
+    switch (action) {
+        case 'goToPage':
+            selectedPage = pageId;
+            break;
+        case 'previousPage':
+            if (selectedPage > 1) {
+                selectedPage--;
+            }
+            break;
+        case 'nextPage':
+            if (selectedPage < totalPages) {
+                selectedPage++;
+            }
+            break;
+        case 'filter':
+            selectedPage = 1;
+            break;
+    }
+
+    filterStudentTimeTable(studentId);
+}
