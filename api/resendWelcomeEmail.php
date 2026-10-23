@@ -49,6 +49,9 @@ if (SessionUser::hasValidSession()) {
 
                             $url = Project::getBasePortalUrl() . "/setup-password?token=" . $token;
 
+                            // Save the token so the setup-password link in the email actually works
+                            Database::iud("UPDATE `login_details` SET `verification`='" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
+
                             Database::iud("
                             INSERT INTO `students_logs`
                             (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`)
@@ -75,21 +78,20 @@ if (SessionUser::hasValidSession()) {
 
                                 $userName = $studentData['title'] . "." . $studentData['first_name'] . " " . $studentData['last_name'];
 
-                                // Fetch added-by user email + counsellor email for CC
+                                // Fetch counsellor email for CC
                                 $ccEmails = [];
 
                                 $ccQuery = Database::search("
-                                        SELECT
-                                          
-                                            counsellorUser.user_email AS counsellor_email,
-                                            counsellorUser.user_fname AS counsellor_first_name,
-                                            counsellorUser.user_lname AS counsellor_last_name
-                                        FROM `students`
-                                        LEFT JOIN `users` AS counsellorUser
-                                            ON `students`.`users_user_id` = counsellorUser.`user_id`
-                                        
-                                        WHERE `students`.`student_id` = '" . $studentData['students_student_id'] . "'
-                                    ");
+                                    SELECT
+                                        counsellorUser.user_email AS counsellor_email,
+                                        counsellorUser.user_fname AS counsellor_first_name,
+                                        counsellorUser.user_lname AS counsellor_last_name
+                                    FROM `students`
+                                    INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                                    LEFT JOIN `users` AS counsellorUser
+                                        ON `students_has_intakes`.`counselor_user_id` = counsellorUser.`user_id`
+                                    WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'
+                                ");
 
                                 if ($ccQuery && $ccQuery->num_rows > 0) {
                                     $ccData = $ccQuery->fetch_assoc();
@@ -99,13 +101,38 @@ if (SessionUser::hasValidSession()) {
                                     }
                                 }
 
+                                // Add the logged-in user to CC
                                 $ccEmails[$sessionUserObject['user_email']] = trim($sessionUserObject['user_fname'] . ' ' . $sessionUserObject['user_lname']);
 
                                 // Send with CC
-                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
+                                // sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
+
+                                // ---- Log: email sent (with CC names + emails) ----
+                                $ccParts = [];
+                                foreach ($ccEmails as $ccEmail => $ccName) {
+                                    $ccParts[] = ($ccName != '' ? $ccName : 'Unknown') . ' (' . $ccEmail . ')';
+                                }
+                                $ccText = !empty($ccParts) ? implode(', ', $ccParts) : 'None';
+
+                                $emailLog = "Welcome email resent to " . $userName . " (" . $studentData['email'] . ") | CC: " . $ccText;
+
+                                $logTime = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
+
+                                Database::iud("
+                                    INSERT INTO `students_logs`
+                                    (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`)
+                                    VALUES
+                                    (
+                                        '" . $studentData['students_has_intakes_id'] . "',
+                                        '" . $logTime . "',
+                                        '" . $sessionUserObject['user_id'] . "',
+                                        '" . Database::escape($emailLog) . "'
+                                    )
+                                ");
+
                                 $status->done = 'Welcome email resent to ' . $studentData['email'];
                             } catch (Exception $e) {
-                                $status->error = "Welcome email could not be sent to " . $studentData['email'];
+                                $status->error = "Welcome email could not be sent to " . $studentData['email'] . ". Error: " . $e->getMessage();
                             }
                         }
                     }

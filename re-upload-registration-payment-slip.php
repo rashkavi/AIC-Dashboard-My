@@ -20,7 +20,7 @@ $sessionUserObject = SessionUser::getCurrentUserObject();
 
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-if (!(SessionUser::ifUserIsPro($sessionUserRole)  ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
+if (!(SessionUser::ifUserIsPro($sessionUserRole)  || SessionUser::ifUserIsCounsiler($sessionUserRole) ||  SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('students', 1))) {
     header("Location: ./registrations");
     exit;
 }
@@ -283,7 +283,7 @@ if ($log->num_rows > 0) {
                     <div class="col-12 p-0 m-0 g-0">
                         <?php
                         include "./includes/header.php";
-                         selectItem::setSelected("Registrations");
+                        selectItem::setSelected("Registrations");
                         ?>
                     </div>
 
@@ -494,13 +494,10 @@ if ($log->num_rows > 0) {
                                             </button>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
-
                         </div>
                         <div class="flex-grow-1"></div>
-
                         <footer>
                             <?php include './includes/footer.php' ?>
                         </footer>

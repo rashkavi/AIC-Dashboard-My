@@ -19,6 +19,8 @@ if (!SessionUser::hasValidSession()) {
             INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
             INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
             INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+            INNER JOIN `programmes`  ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+            INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
             WHERE `assignment_id` = '" . $id . "'");
             if ($assignment->num_rows == 0) {
                 header("Location: ./subject-assignments");
@@ -869,12 +871,12 @@ if (!SessionUser::hasValidSession()) {
                                             <!-- Recorection Request Submissions => end -->
 
                                         </div>
-
-                                        <div class="flex-grow-1"></div>
-                                        <footer>
-                                            <?php include './includes/footer.php' ?>
-                                        </footer>
                                     </div>
+
+                                    <div class="flex-grow-1"></div>
+                                    <footer>
+                                        <?php include './includes/footer.php' ?>
+                                    </footer>
                                 </div>
                             </div>
                         </div>

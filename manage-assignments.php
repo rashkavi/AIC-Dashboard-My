@@ -12,9 +12,48 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
-        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments'))) {
+        if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsLecturer($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::validPermisisonType('assignments'))) {
             header("Location: ./dashboard");
         } else {
+
+            // ---------------------------------------------------------------
+            // LECTURER MODE: lecturer wa log unama eyage subjects walata adala
+            // assignments witharai pennanne
+            // ---------------------------------------------------------------
+            $isLecturer = SessionUser::ifUserIsLecturer($sessionUserRole);
+            // NOTE: session object eke user id key eka wenas nam methanin wenas karanna
+            $lecturerUserId = $isLecturer ? (int)($sessionUserObject['user_id'] ?? $sessionUserObject['users_user_id'] ?? 0) : 0;
+
+            $lecturerSelect = "";
+            $lecturerWhere  = "";
+            $countWhere     = "";
+            $markingFilter  = $_GET['marking'] ?? '0';
+
+            if ($isLecturer) {
+                // me lecturer ta assign wela thiyena marking rows
+                $baseSub = "SELECT COUNT(*) FROM `lecturers_has_students_has_assignments` lsa
+                    INNER JOIN `students_has_assignments` sha ON sha.`students_has_assignments_id` = lsa.`students_has_assignments_students_has_assignments_id`
+                    INNER JOIN `lecturers` l ON l.`lecturers_id` = lsa.`lecturers_lecturers_id`
+                    WHERE sha.`assignments_assignment_id` = `assignments`.`assignment_id`
+                    AND l.`users_user_id` = {$lecturerUserId}";
+
+                $assignedSub = "(" . $baseSub . ")";
+                $markedSub   = "(" . $baseSub . " AND lsa.`marks` IS NOT NULL)";
+                $pendingSub  = "(" . $baseSub . " AND lsa.`marks` IS NULL)";
+
+                $lecturerSelect = ", {$assignedSub} AS `assigned_count`, {$markedSub} AS `marked_count`";
+
+                // eya assign wela inna subjects walata witharai
+                $lecturerWhere = " WHERE `subjects`.`subject_id` IN (SELECT `subjects_subject_id` FROM `lecturers` WHERE `users_user_id` = {$lecturerUserId}) ";
+
+                if ($markingFilter === '1') {            // Pending marking
+                    $lecturerWhere .= " AND {$pendingSub} > 0 ";
+                } elseif ($markingFilter === '2') {      // Marking completed
+                    $lecturerWhere .= " AND {$assignedSub} > 0 AND {$pendingSub} = 0 ";
+                }
+
+                $countWhere = " WHERE `subjects_subject_id` IN (SELECT `subjects_subject_id` FROM `lecturers` WHERE `users_user_id` = {$lecturerUserId})";
+            }
 ?>
 
             <!DOCTYPE html>
@@ -69,13 +108,15 @@ if (!SessionUser::hasValidSession()) {
 
                                                     </div>
                                                 </div>
-                                                <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
-                                                    <div class="row align-items-center">
-                                                        <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                            <button class="custom-btn w-100" data-i18n="add-new" onclick="window.location = 'add-assignment'">Add Assignment</button>
+                                                <?php if (!$isLecturer) { ?>
+                                                    <div class="col-12 col-md-12 col-lg-2 mt-3 mt-lg-0">
+                                                        <div class="row align-items-center">
+                                                            <div class="col-12 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                <button class="custom-btn w-100" data-i18n="add-new" onclick="window.location = 'add-assignment'">Add Assignment</button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                <?php } ?>
                                             </div>
                                         </div>
 
@@ -86,7 +127,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <div class="col-4 col-md-2 d-flex flex-column justify-content-end">
                                                             <div class="d-flex custom-div align-items-center justify-content-center">
                                                                 <?php
-                                                                $subjectHasAssi = Database::search("SELECT COUNT(*) as count FROM `assignments`");
+                                                                $subjectHasAssi = Database::search("SELECT COUNT(*) as count FROM `assignments`" . $countWhere);
                                                                 $subjectHasAssiCount = $subjectHasAssi->fetch_assoc();
                                                                 ?>
                                                                 <span class="text-14 dark-theme fw-medium"><?= $subjectHasAssiCount['count'] ?> <span data-i18n="assignments"></span></span>
@@ -150,6 +191,15 @@ if (!SessionUser::hasValidSession()) {
                                                                             <option value="4">Completed</option>
                                                                         </select>
                                                                     </div>
+                                                                    <?php if ($isLecturer) { ?>
+                                                                        <div class="col-12 col-md-2 d-flex flex-column justify-content-end">
+                                                                            <select class="form-select custom-select" id="marking-selector" onchange="handleAssignmentsPagination('filter')">
+                                                                                <option value="0" <?= $markingFilter === '0' ? 'selected' : '' ?>>- Marking -</option>
+                                                                                <option value="1" <?= $markingFilter === '1' ? 'selected' : '' ?>>Pending Marking</option>
+                                                                                <option value="2" <?= $markingFilter === '2' ? 'selected' : '' ?>>Marking Completed</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    <?php } ?>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -190,6 +240,9 @@ if (!SessionUser::hasValidSession()) {
                                                                             <iconify-icon id="sort-icon" icon="flowbite:chevron-sort-outline" width="24" height="24" class="sub-text"></iconify-icon>
                                                                         </div>
                                                                     </th>
+                                                                    <?php if ($isLecturer) { ?>
+                                                                        <th class="py-3 bg-table-header text-14 main-text fw-medium">Marking Progress</th>
+                                                                    <?php } ?>
                                                                     <th class="py-3 bg-table-header text-14 main-text fw-medium">Status</th>
                                                                     <th class="py-3 bg-table-header text-14 main-text fw-medium">Action</th>
 
@@ -197,7 +250,7 @@ if (!SessionUser::hasValidSession()) {
                                                             </thead>
                                                             <tbody>
                                                                 <?php
-                                                                $query = "SELECT `assignments`.*,`assignment_status`.*,`intakes`.`intake`,`programmes`.`programme`,`faculties`.`faculty`,`branches`.`branch` FROM `assignments`
+                                                                $query = "SELECT `assignments`.*,`assignment_status`.*,`intakes`.`intake`,`programmes`.`programme`,`faculties`.`faculty`,`branches`.`branch` {$lecturerSelect} FROM `assignments`
                                                                 INNER JOIN `assignment_status` ON `assignments`.`assignment_status_assignment_status_id` = `assignment_status`.`assignment_status_id`
                                                                 INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
                                                                 INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
@@ -205,6 +258,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 INNER JOIN `programmes`  ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
                                                                 INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
                                                                 INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
+                                                                {$lecturerWhere}
                                                                 ORDER BY `assignments`.`added_date` DESC";
 
                                                                 $results = Database::search($query);
@@ -266,6 +320,24 @@ if (!SessionUser::hasValidSession()) {
                                                                                 ?>
                                                                             </td>
                                                                             <td class="py-4 align-middle"><span class="text-14 main-text"><?= $data["added_date"] != '' ? date("Y-m-d h:i A", strtotime($data["added_date"])) : " N/A " ?></span></td>
+
+                                                                            <?php if ($isLecturer) {
+                                                                                $assigned = (int)$data['assigned_count'];
+                                                                                $marked   = (int)$data['marked_count'];
+                                                                                $pending  = $assigned - $marked;
+                                                                                $percent  = $assigned > 0 ? round(($marked / $assigned) * 100) : 0;
+                                                                            ?>
+                                                                                <td class="py-4 align-middle">
+                                                                                    <div class="d-flex flex-column" style="min-width:140px;">
+                                                                                        <span class="text-14 main-text"><?= $marked ?> / <?= $assigned ?> Marked</span>
+                                                                                        <div class="progress mt-1" style="height:5px;">
+                                                                                            <div class="progress-bar" style="width:<?= $percent ?>%"></div>
+                                                                                        </div>
+                                                                                        <span class="text-12 sub-text mt-1"><?= $pending ?> Pending</span>
+                                                                                    </div>
+                                                                                </td>
+                                                                            <?php } ?>
+
                                                                             <td class="py-2 align-middle">
                                                                                 <?php
                                                                                 $status_classes = [
@@ -314,30 +386,38 @@ if (!SessionUser::hasValidSession()) {
                                                                                 <div class="dropdown br-0">
                                                                                     <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                     <ul class="dropdown-menu scrolable border-0 shadow w-100 m-2 br-5" aria-labelledby="dropdownMenuButton">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="assignment-students-performance.php?assignment-id=<?= $data['assignment_id']; ?>">
+                                                                                        <?php
+                                                                                        // Lecturer -> marking panel, others -> performance page
+                                                                                        $viewUrl = $isLecturer
+                                                                                            ? "lecturer-assignment-marking-panel?assignment-id=" . $data['assignment_id']
+                                                                                            : "assignment-students-performance.php?assignment-id=" . $data['assignment_id'];
+                                                                                        ?>
+                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="<?= $viewUrl ?>">
                                                                                                 <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                 View</a></li>
-                                                                                        <hr class="mt-1 mb-0 me-2 mx-2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
-                                                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                Edit</a></li>
-                                                                                        <hr class="mt-1 mb-0 me-2 mx-2">
-                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="cancelAssignment(<?= $data['assignment_id'] ?>)">
-                                                                                                <iconify-icon icon="lets-icons:cancel" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                Cancel</a></li>
 
-                                                                                        <?php
-
-                                                                                        $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
-                                                                                        if ($studentsSubmit == 0) {
-                                                                                        ?>
+                                                                                        <?php if (!$isLecturer) { ?>
                                                                                             <hr class="mt-1 mb-0 me-2 mx-2">
-                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="deleteAssignment(<?= $data['assignment_id'] ?>)">
-                                                                                                    <iconify-icon icon="material-symbols:delete-outline" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                    Remove</a></li>
-                                                                                        <?php
-                                                                                        }
-                                                                                        ?>
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
+                                                                                                    <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                    Edit</a></li>
+                                                                                            <hr class="mt-1 mb-0 me-2 mx-2">
+                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="cancelAssignment(<?= $data['assignment_id'] ?>)">
+                                                                                                    <iconify-icon icon="lets-icons:cancel" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                    Cancel</a></li>
+
+                                                                                            <?php
+                                                                                            $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
+                                                                                            if ($studentsSubmit == 0) {
+                                                                                            ?>
+                                                                                                <hr class="mt-1 mb-0 me-2 mx-2">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="deleteAssignment(<?= $data['assignment_id'] ?>)">
+                                                                                                        <iconify-icon icon="material-symbols:delete-outline" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                        Remove</a></li>
+                                                                                            <?php
+                                                                                            }
+                                                                                            ?>
+                                                                                        <?php } ?>
 
                                                                                     </ul>
                                                                                 </div>

@@ -14077,7 +14077,6 @@ const resendWelcomeEmail = (student) => {
     })
         .then((response) => response.text())
         .then((data) => {
-            console.log(data);
             toggleLoader(false);
             const response = JSON.parse(data);
             if (response.hasOwnProperty('error')) {

@@ -15,87 +15,102 @@ if (SessionUser::hasValidSession()) {
 
                     UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                    $search_text = isset($decoded['text']) ? $decoded['text'] : '';
-                    $sort = isset($decoded['sort']) ? $decoded['sort'] : 0;
-                    $branch = isset($decoded['branch']) ? $decoded['branch'] : 0;
-                    $faculty = isset($decoded['faculty']) ? $decoded['faculty'] : 0;
-                    $programme = isset($decoded['programme']) ? $decoded['programme'] : 0;
-                    $intake = isset($decoded['intake']) ? $decoded['intake'] : 0;
-                    $sortByDate = isset($decoded['sortByDate']) ? $decoded['sortByDate'] : 0;
-                    $resultPerPage = isset($decoded['resultPerPage']) ? $decoded['resultPerPage'] : 10;
-                    $pageno = isset($decoded['page']) ? $decoded['page'] : 1;
+                    $search_text   = isset($decoded['text']) ? $decoded['text'] : '';
+                    $sort          = isset($decoded['sort']) ? (int)$decoded['sort'] : 0;
+                    $branch        = isset($decoded['branch']) ? (int)$decoded['branch'] : 0;
+                    $faculty       = isset($decoded['faculty']) ? (int)$decoded['faculty'] : 0;
+                    $programme     = isset($decoded['programme']) ? (int)$decoded['programme'] : 0;
+                    $intake        = isset($decoded['intake']) ? (int)$decoded['intake'] : 0;
+                    $sortByDate    = isset($decoded['sortByDate']) ? (int)$decoded['sortByDate'] : 0;
+                    $resultPerPage = isset($decoded['resultPerPage']) ? max(1, (int)$decoded['resultPerPage']) : 10;
+                    $pageno        = isset($decoded['page']) ? max(1, (int)$decoded['page']) : 1;
+                    $markingFilter = isset($decoded['marking']) ? (string)$decoded['marking'] : '0';
 
                     $timezone = new DateTimeZone("Asia/Colombo");
                     $today = new DateTime("now", $timezone);
                     $todayDate = $today->format('Y-m-d H:i:s');
 
-                    $query = "SELECT `assignments`.*,`assignment_status`.*,`intakes`.`intake`,`programmes`.`programme`,`faculties`.`faculty`,`branches`.`branch` FROM `assignments`
-                                                                INNER JOIN `assignment_status` ON `assignments`.`assignment_status_assignment_status_id` = `assignment_status`.`assignment_status_id`
-                                                                INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                                INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
-                                                                INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
-                                                                INNER JOIN `programmes`  ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
-                                                                INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
-                                                                INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
-                                                                ";
+                    // ---------------------------------------------------------------
+                    // LECTURER MODE (same logic as assignments.php)
+                    // ---------------------------------------------------------------
+                    $isLecturer = SessionUser::ifUserIsLecturer($sessionUserRole);
+                    // NOTE: change the key here if your session object uses a different one
+                    $lecturerUserId = $isLecturer ? (int)($sessionUserObject['user_id'] ?? $sessionUserObject['users_user_id'] ?? 0) : 0;
 
-                    if ($search_text != "") {
-                        $query .= " WHERE (`assignment_code` LIKE '%" . $search_text . "%' OR `assignment` LIKE '%" . $search_text . "%')";
+                    $lecturerSelect = "";
+                    $conditions = [];
+
+                    if ($isLecturer) {
+                        $baseSub = "SELECT COUNT(*) FROM `lecturers_has_students_has_assignments` lsa
+                            INNER JOIN `students_has_assignments` sha ON sha.`students_has_assignments_id` = lsa.`students_has_assignments_students_has_assignments_id`
+                            INNER JOIN `lecturers` l ON l.`lecturers_id` = lsa.`lecturers_lecturers_id`
+                            WHERE sha.`assignments_assignment_id` = `assignments`.`assignment_id`
+                            AND l.`users_user_id` = {$lecturerUserId}";
+
+                        $assignedSub = "(" . $baseSub . ")";
+                        $markedSub   = "(" . $baseSub . " AND lsa.`marks` IS NOT NULL)";
+                        $pendingSub  = "(" . $baseSub . " AND lsa.`marks` IS NULL)";
+
+                        $lecturerSelect = ", {$assignedSub} AS `assigned_count`, {$markedSub} AS `marked_count`";
+
+                        // only subjects assigned to this lecturer
+                        $conditions[] = "`subjects`.`subject_id` IN (SELECT `subjects_subject_id` FROM `lecturers` WHERE `users_user_id` = {$lecturerUserId})";
+
+                        if ($markingFilter === '1') {          // Pending marking
+                            $conditions[] = "{$pendingSub} > 0";
+                        } elseif ($markingFilter === '2') {    // Marking completed
+                            $conditions[] = "{$assignedSub} > 0 AND {$pendingSub} = 0";
+                        }
                     }
 
+                    // ---------------------------------------------------------------
+                    // Filters
+                    // ---------------------------------------------------------------
+                    if ($search_text != "") {
+                        $escaped = Database::escape($search_text);
+                        $conditions[] = "(`assignments`.`assignment_code` LIKE '%" . $escaped . "%' OR `assignments`.`assignment` LIKE '%" . $escaped . "%')";
+                    }
                     if ($branch != 0) {
-                        $query .= " AND `branches_branch_id` = " . $branch;
+                        $conditions[] = "`faculties`.`branches_branch_id` = " . $branch;
                     }
                     if ($faculty != 0) {
-                        $query .= " AND `faculties_faculty_id` = " . $faculty;
+                        $conditions[] = "`programmes`.`faculties_faculty_id` = " . $faculty;
                     }
                     if ($programme != 0) {
-                        $query .= " AND `programmes_programme_id` = " . $programme;
+                        $conditions[] = "`intakes`.`programmes_programme_id` = " . $programme;
                     }
                     if ($intake != 0) {
-                        $query .= " AND `intakes_intake_id` = " . $intake;
+                        $conditions[] = "`levels`.`intakes_intake_id` = " . $intake;
                     }
 
-                    if ($sort != 0) {
-                        if ($sort == 1) {
-                            if (strpos($query, 'WHERE') === false) {
-                                $query .= " WHERE `assignment_status_assignment_status_id` = 1";
-                            } else {
-                                $query .= " AND `assignment_status_assignment_status_id` = 1";
-                            }
-                        } else if ($sort == 2) {
-                            if (strpos($query, 'WHERE') === false) {
-                                $query .= " WHERE `assignment_status_assignment_status_id` = 2";
-                            } else {
-                                $query .= " AND `assignment_status_assignment_status_id` = 2";
-                            }
-                        } else if ($sort == 3) {
-                            if (strpos($query, 'WHERE') === false) {
-                                $query .= " WHERE `assignments`.`start_date` < '" . $todayDate . "' AND `assignments`.`end_date` > '" . $todayDate . "' AND `assignment_status_assignment_status_id` = 2";
-                            } else {
-                                $query .= " AND `assignments`.`start_date` < '" . $todayDate . "' AND `assignments`.`end_date` > '" . $todayDate . "' AND `assignment_status_assignment_status_id` = 2";
-                            }
-                        } else if ($sort == 4) {
-                            if (strpos($query, 'WHERE') === false) {
-                                $query .= " WHERE `assignments`.`end_date` < '" . $todayDate . "' AND `assignment_status_assignment_status_id` = 2";
-                            } else {
-                                $query .= " AND `assignments`.`end_date` < '" . $todayDate . "' AND `assignment_status_assignment_status_id` = 2";
-                            }
-                        }
+                    if ($sort == 1) {
+                        $conditions[] = "`assignments`.`assignment_status_assignment_status_id` = 1";
+                    } elseif ($sort == 2) {
+                        $conditions[] = "`assignments`.`assignment_status_assignment_status_id` = 2";
+                    } elseif ($sort == 3) {
+                        $conditions[] = "`assignments`.`start_date` < '" . $todayDate . "' AND `assignments`.`end_date` > '" . $todayDate . "' AND `assignments`.`assignment_status_assignment_status_id` = 2";
+                    } elseif ($sort == 4) {
+                        $conditions[] = "`assignments`.`end_date` < '" . $todayDate . "' AND `assignments`.`assignment_status_assignment_status_id` = 2";
                     }
+
+                    $whereSql = count($conditions) > 0 ? " WHERE " . implode(" AND ", $conditions) : "";
+
                     if ($sortByDate != 0) {
-                        $sort = $sortByDate == 1 ? 'ASC' : 'DESC';
-                        if (strpos($query, 'ORDER BY') === false) {
-                            $query .= " ORDER BY `added_date` " . $sort;
-                        } else {
-                            $query .= ", `added_date` " . $sort;
-                        }
+                        $dir = $sortByDate == 1 ? 'ASC' : 'DESC';
+                        $orderSql = " ORDER BY `assignments`.`added_date` " . $dir;
+                    } else {
+                        $orderSql = " ORDER BY `assignments`.`added_date` DESC";
                     }
 
-                    if ($sort == 0 && $sortByDate == 0) {
-                        $query .= " ORDER BY `assignments`.`added_date` DESC";
-                    }
-
+                    $query = "SELECT `assignments`.*,`assignment_status`.*,`intakes`.`intake`,`programmes`.`programme`,`faculties`.`faculty`,`branches`.`branch` {$lecturerSelect} FROM `assignments`
+                        INNER JOIN `assignment_status` ON `assignments`.`assignment_status_assignment_status_id` = `assignment_status`.`assignment_status_id`
+                        INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+                        INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                        INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                        INNER JOIN `programmes`  ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+                        INNER JOIN `branches` ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
+                        " . $whereSql . $orderSql;
 
                     $results = Database::search($query);
                     $results_count = $results->num_rows;
@@ -142,6 +157,9 @@ if (SessionUser::hasValidSession()) {
                                         ?>
                                     </div>
                                 </th>
+                                <?php if ($isLecturer) { ?>
+                                    <th class="py-3 bg-table-header text-14 main-text fw-medium">Marking Progress</th>
+                                <?php } ?>
                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Status</th>
                                 <th class="py-3 bg-table-header text-14 main-text fw-medium">Actions</th>
 
@@ -195,6 +213,24 @@ if (SessionUser::hasValidSession()) {
                                             ?>
                                         </td>
                                         <td class="py-4 align-middle"><span class="text-14 main-text"><?= $data["added_date"] != '' ? date("Y-m-d h:i A", strtotime($data["added_date"])) : " N/A " ?></span></td>
+
+                                        <?php if ($isLecturer) {
+                                            $assigned = (int)$data['assigned_count'];
+                                            $marked   = (int)$data['marked_count'];
+                                            $pending  = $assigned - $marked;
+                                            $percent  = $assigned > 0 ? round(($marked / $assigned) * 100) : 0;
+                                        ?>
+                                            <td class="py-4 align-middle">
+                                                <div class="d-flex flex-column" style="min-width:140px;">
+                                                    <span class="text-14 main-text"><?= $marked ?> / <?= $assigned ?> Marked</span>
+                                                    <div class="progress mt-1" style="height:5px;">
+                                                        <div class="progress-bar" style="width:<?= $percent ?>%"></div>
+                                                    </div>
+                                                    <span class="text-12 sub-text mt-1"><?= $pending ?> Pending</span>
+                                                </div>
+                                            </td>
+                                        <?php } ?>
+
                                         <td class="py-2 align-middle">
                                             <?php
                                             $status_classes = [
@@ -242,35 +278,40 @@ if (SessionUser::hasValidSession()) {
                                             <div class="dropdown br-0">
                                                 <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                 <ul class="dropdown-menu scrolable border-0 shadow w-100 m-2 br-5" aria-labelledby="dropdownMenuButton">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="assignment-students-performance.php?assignment-id=<?= $data['assignment_id']; ?>">
+                                                    <?php
+                                                    $viewUrl = $isLecturer
+                                                        ? "lecturer-assignment-marking-panel?assignment-id=" . $data['assignment_id']
+                                                        : "assignment-students-performance.php?assignment-id=" . $data['assignment_id'];
+                                                    ?>
+                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="<?= $viewUrl ?>">
                                                             <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                             View</a></li>
-                                                    <hr class="mt-1 mb-0 me-2 mx-2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
-                                                            <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                            Edit</a></li>
-                                                    <hr class="mt-1 mb-0 me-2 mx-2">
-                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="cancelAssignment(<?= $data['assignment_id'] ?>)">
-                                                            <iconify-icon icon="lets-icons:cancel" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                            Cancel</a></li>
 
-                                                    <?php
-
-                                                    $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
-                                                    if ($studentsSubmit == 0) {
-                                                    ?>
+                                                    <?php if (!$isLecturer) { ?>
                                                         <hr class="mt-1 mb-0 me-2 mx-2">
-                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="deleteAssignment(<?= $data['assignment_id'] ?>)">
-                                                                <iconify-icon icon="material-symbols:delete-outline" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                Remove</a></li>
-                                                    <?php
-                                                    }
-                                                    ?>
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="edit-assignment.php?assignment-id=<?= $data['assignment_id']; ?>">
+                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Edit</a></li>
+                                                        <hr class="mt-1 mb-0 me-2 mx-2">
+                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="cancelAssignment(<?= $data['assignment_id'] ?>)">
+                                                                <iconify-icon icon="lets-icons:cancel" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                Cancel</a></li>
+
+                                                        <?php
+                                                        $studentsSubmit =  Database::search("SELECT COUNT(`students_has_assignments_id`) AS 'count' FROM `students_has_assignments` WHERE `assignments_assignment_id`='" . $data['assignment_id'] . "'")->fetch_assoc()['count'];
+                                                        if ($studentsSubmit == 0) {
+                                                        ?>
+                                                            <hr class="mt-1 mb-0 me-2 mx-2">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="deleteAssignment(<?= $data['assignment_id'] ?>)">
+                                                                    <iconify-icon icon="material-symbols:delete-outline" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                    Remove</a></li>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    <?php } ?>
                                                 </ul>
                                             </div>
                                         </td>
-
-
 
                                     </tr>
                                 <?php
@@ -335,18 +376,20 @@ if (SessionUser::hasValidSession()) {
                         </nav>
                     </div>
 <?php
+                } else {
+                    http_response_code(400);
+                    $status->error = 'Invalid JSON';
                 }
             } else {
                 http_response_code(400);
-                $status->error = 'Invalid JSON';
+                $status->error = 'Invalid Content-Type';
             }
         } else {
             http_response_code(400);
-            $status->error = 'Invalid Content-Type';
+            $status->error = 'Invalid request method';
         }
     } else {
-        http_response_code(400);
-        $status->error = 'Invalid request method';
+        $status->error = 'Invalid session role';
     }
 } else {
     $status->error = 'Authentication Failed!';
