@@ -677,7 +677,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                                         <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                                                         <?php
                                                                                                                     }
-                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $id)) {
+                                                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('intake_students', 4, $id)) {
 
                                                                                                                         if ($data["status"] == "Active") {
                                                                                                                         ?>

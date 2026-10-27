@@ -311,9 +311,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         ELSE 0
                                                                     END), 0)
                                                                 )
-                                                                + (
-                                                                    IFNULL(SUM(COALESCE(`ppn`.`panelty_amount`, 0)), 0)
-                                                                )
+                                                               
                                                             ) AS `payable_amount`
                                                         FROM `payment_plan_has_students_has_intakes` AS `pshi`
                                                         INNER JOIN `discount_type` AS `dt`    ON `pshi`.`discount_type_discount_type_id` = `dt`.`discount_type_id`
@@ -454,7 +452,7 @@ if (!SessionUser::hasValidSession()) {
 
                                                                 // awaiting = payable - settled - discounts + penalties + tax
                                                                 // (tax increases what's owed, so unpaid tax increases the awaiting amount)
-                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts + $total_given_penalties;
+                                                                $awaiting_payments =  $payableAmountWithTax  - $completed_payments - $given_discounts;
                                                         ?>
                                                                 <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
                                                                     <div class="row p-0 g-0 m-0">
