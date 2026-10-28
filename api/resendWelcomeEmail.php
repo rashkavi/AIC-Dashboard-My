@@ -92,7 +92,7 @@ if (SessionUser::hasValidSession()) {
                                 $ccEmails[$sessionUserObject['user_email']] = trim($sessionUserObject['user_fname'] . ' ' . $sessionUserObject['user_lname']);
 
                                 // Send with CC
-                                // sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
+                                sendMail($studentData['email'], $userName, $mail['subject'], $mail['body'], $ccEmails);
 
                                 // ---- Log: email sent (with CC names + emails) ----
                                 $ccParts = [];
