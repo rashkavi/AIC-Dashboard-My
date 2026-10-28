@@ -47,11 +47,14 @@ if (SessionUser::hasValidSession()) {
                                     ON cp.`payment_plan_has_students_has_intakes_id` = pshi.`payment_plan_has_students_has_intakes_id`
                                 WHERE 
                                  pshi.`students_has_intakes_students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'
-                                AND pt.`payment_type_id` != 18
-                                AND pt.`payment_type` NOT LIKE '%Registration%'
+                               
                                 ORDER BY cp.`due_date` ASC, cp.`course_payments_id` ASC
                                 LIMIT 1
                             ");
+
+                            //  AND pt.`payment_type_id` = 18
+                            //     AND pt.`payment_type` NOT LIKE '%Registration%'
+                            // Mr.Arun Request Remove Inital payment Must Check
 
                             if ($nextPaymentRs->num_rows == 0) {
                                 http_response_code(200);

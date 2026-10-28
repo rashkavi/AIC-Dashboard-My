@@ -43,7 +43,6 @@ if (SessionUser::hasValidSession()) {
                             $dateTime = new DateTime("now", $timezone);
                             $now = $dateTime->format('Y-m-d H:i:s');
 
-
                             $bytes = random_bytes(75);
                             $token = substr(str_replace(['+', '/', '='], '', base64_encode($bytes)), 0, 100);
 
@@ -85,16 +84,16 @@ if (SessionUser::hasValidSession()) {
                                 $ccEmails = [];
 
                                 $ccQuery = Database::search("
-        SELECT
-            counsellorUser.user_email AS counsellor_email,
-            counsellorUser.user_fname AS counsellor_first_name,
-            counsellorUser.user_lname AS counsellor_last_name
-        FROM `students`
-        INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
-        LEFT JOIN `users` AS counsellorUser
-            ON `students_has_intakes`.`counselor_user_id` = counsellorUser.`user_id`
-        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'
-    ");
+                                        SELECT
+                                            counsellorUser.user_email AS counsellor_email,
+                                            counsellorUser.user_fname AS counsellor_first_name,
+                                            counsellorUser.user_lname AS counsellor_last_name
+                                        FROM `students`
+                                        INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+                                        LEFT JOIN `users` AS counsellorUser
+                                            ON `students_has_intakes`.`counselor_user_id` = counsellorUser.`user_id`
+                                        WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $studentData['students_has_intakes_id'] . "'
+                                    ");
 
                                 if ($ccQuery && $ccQuery->num_rows > 0) {
                                     $ccData = $ccQuery->fetch_assoc();
@@ -136,6 +135,21 @@ if (SessionUser::hasValidSession()) {
 
                                 $status->done = 'Academic department completion confirmed';
                             } catch (Exception $e) {
+                                $emailLog = "Welcome email could not be sent to " . $studentData['email'] . "";
+
+                                $logTime = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
+                                Database::iud("
+                                    INSERT INTO `students_logs`
+                                    (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`)
+                                    VALUES
+                                    (
+                                        '" . $studentData['students_has_intakes_id'] . "',
+                                        '" . $logTime . "',
+                                        '" . $sessionUserObject['user_id'] . "',
+                                        '" . Database::escape($emailLog) . "'
+                                        
+                                    )
+                                ");
                                 $status->error = "Academic department completion confirmed but mail not sent";
                             }
                         }

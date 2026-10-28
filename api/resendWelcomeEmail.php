@@ -52,19 +52,6 @@ if (SessionUser::hasValidSession()) {
                             // Save the token so the setup-password link in the email actually works
                             Database::iud("UPDATE `login_details` SET `verification`='" . $token . "' WHERE `login_details_id` = '" . $studentData['login_details_login_details_id'] . "'");
 
-                            Database::iud("
-                            INSERT INTO `students_logs`
-                            (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`)
-                            VALUES
-                            (
-                                '" . $studentData['students_has_intakes_id'] . "',
-                                '" . $now . "',
-                                '" . $sessionUserObject['user_id'] . "',
-                                'Resend Welcome Email'
-                                                            
-                            )
-                                ");
-
                             try {
                                 $mail = EmailNotificationService::build(
                                     EmailTemplateContent::STUDENT_WELCOME_EMAIL,
@@ -132,7 +119,21 @@ if (SessionUser::hasValidSession()) {
 
                                 $status->done = 'Welcome email resent to ' . $studentData['email'];
                             } catch (Exception $e) {
-                                $status->error = "Welcome email could not be sent to " . $studentData['email'] . ". Error: " . $e->getMessage();
+                                $emailLog = "Welcome email could not be sent to " . $studentData['email'] . "";
+
+                                $logTime = (new DateTime("now", $timezone))->format('Y-m-d H:i:s');
+                                Database::iud("
+                                    INSERT INTO `students_logs`
+                                    (`students_has_intakes_students_has_intakes_id`, `date_updated`, `users_user_id`, `log`)
+                                    VALUES
+                                    (
+                                        '" . $studentData['students_has_intakes_id'] . "',
+                                        '" . $logTime . "',
+                                        '" . $sessionUserObject['user_id'] . "',
+                                        '" . Database::escape($emailLog) . "'
+                                    )
+                                ");
+                                $status->error = "Welcome email could not be sent to " . $studentData['email'] . "";
                             }
                         }
                     }
