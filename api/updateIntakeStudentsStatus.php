@@ -26,7 +26,7 @@ if (SessionUser::hasValidSession()) {
                             $intakeData = $isValidIntake->fetch_assoc();
                             UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::validPermisisonType('students', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
+                            if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('students', 0) || UserPermissions::validPermisisonType('course_overview', 0))) {
                                 $status->error = 'You are not authorized to this action.';
                             } else {
                                 if (!isset($decoded['update']) && $decoded["update"] != 0) {

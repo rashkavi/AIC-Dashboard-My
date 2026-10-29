@@ -6401,8 +6401,8 @@ const addLecturerRecorrectionAssignmentMark = (id) => {
             setTimeout(() => { showToast("error", "An error occured. Please try again later."); }, 1000);
         })
 }
-const editLecturerRecorrectionAssignmentMark = (id, assignmentId) => {
-    toggleLoader(true);
+const editLecturerRecorrectionAssignmentMark = (btn, id, assignmentId) => {
+    toggleBtnLoader(btn, true);
     fetch('api/addRecorrectionAssignmentMark.php', {
         method: "POST",
         headers: {
@@ -6412,8 +6412,7 @@ const editLecturerRecorrectionAssignmentMark = (id, assignmentId) => {
     })
         .then((response) => response.text())
         .then((data) => {
-            toggleLoader(false);
-            ////console.log(data);
+            toggleBtnLoader(btn, true);
             const response = JSON.parse(data);
             if (response.hasOwnProperty('done')) {
                 $("#addMark").modal('hide');
@@ -8221,7 +8220,7 @@ const addLecturerAssignmentPayment = (lecturerId, assignemntId) => {
     })
         .then(response => response.text())
         .then(data => {
-            ////console.log(data);
+            console.log(data);
             toggleLoader(false);
             const response = JSON.parse(data);
 
@@ -13545,15 +13544,18 @@ const filterCollectionReport = () => {
         faculty: $("#faculty-selector").val(),
         programme: $("#programme-selector").val(),
         intake: $("#intake-selector").val(),
-        dateFilter: $("filter-selector").val(),
+        dateFilter: $("#filter-selector").val(),
         fromDate: $("#from-date").val(),
         toDate: $("#to-date").val(),
         currency: $("#currency-selector").val(),
         sortByName: sortCondition1,
         sortByDate: sortCondition2,
         resultPerPage: $("#show-result-selector").val(),
+        counselor: $("#counsellor-selector").val(),
         page: selectedPage,
     }
+
+    console.log(data);
 
     fetch('api/filterCollectionReport.php', {
         method: "POST",
@@ -13574,6 +13576,7 @@ const filterCollectionReport = () => {
             if (typeof result === "object" && result.error) {
                 showToast("error", result.error);
             } else {
+                console.log(text);
                 $("#collection-table-container").html(result);
             }
         })

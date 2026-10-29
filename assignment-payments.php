@@ -253,7 +253,9 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ];
                                                                                             $status = "Pending";
                                                                                             $sbutton_class = $status_classes[$status];
-                                                                                            $lectureAssignmentPayment = Database::search("SELECT * FROM `assignment_payments` WHERE `lecturers_lecturers_id` = '" . $data["lecturers_id"] . "' AND `assignments_assignment_id` = '" . $id . "'");
+                                                                                            $lectureAssignmentPayment = Database::search("SELECT * FROM `assignment_payments` 
+                                                                                            WHERE `lecturers_lecturers_id` = '" . $data["lecturers_id"] . "' 
+                                                                                            AND `assignments_assignment_id` = '" . $id . "'");
                                                                                             if ($lectureAssignmentPayment->num_rows > 0) {
                                                                                                 $payment = $lectureAssignmentPayment->fetch_assoc();
 
@@ -415,33 +417,9 @@ if (!SessionUser::hasValidSession()) {
                                 </div>
                             </div>
                             <!-- Student Mark Bulk Upload Model => End -->
-                            <?php
-                        }
-
-                        if ($submit_assignments_count > 0) {
-                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || UserPermissions::hasPermission('assignments', 20, $assignmentData['subjects_subject_id'])) {
-                            ?>
-                                <!-- Mark Released Model => Start -->
-                                <div class="modal fade" id="markReleasedModal" tabindex="-1" role="dialog" aria-labelledby="markReleasedModalTitle" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered" role="document">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="exampleModalLongTitle">Assignment Mark Release</h5>
-
-                                            </div>
-                                            <div class="modal-body" id="markReleasedModalBody">
-
-                                            </div>
-                                            <div class="modal-footer" id="markReleasedModalFooter">
-
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- Mark Released Model => End -->
                         <?php
-                            }
                         }
+
                         ?>
 
                         <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>

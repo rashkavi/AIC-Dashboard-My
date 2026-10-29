@@ -116,7 +116,7 @@ if (!SessionUser::hasValidSession()) {
                                 <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
                                     <?php
                                     include "includes/side-menu.php";
-                                    load_side_menu::load("Course Overview");
+                                    load_side_menu::load("Assignments");
                                     ?>
                                 </div>
                                 <div id="app-wrapper" class="app-wrapper p-0 m-0">
@@ -124,7 +124,7 @@ if (!SessionUser::hasValidSession()) {
                                         <div class="col-12 p-0 m-0 g-0">
                                             <?php
                                             include "./includes/header.php";
-                                            selectItem::setSelected("Course Overview");
+                                            selectItem::setSelected("Assignments");
                                             ?>
                                         </div>
                                         <div class="container p-4 m-0" id="skeleton-list">
@@ -483,11 +483,11 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                         if ($data["marks"] == "") {
                                                                                         ?>
-                                                                                            <button class="table-btn table-btn-purple" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>')">Add Mark</button>
+                                                                                            <button class="table-btn table-btn-purple active" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>')">Add Mark</button>
                                                                                         <?php
                                                                                         } else {
                                                                                         ?>
-                                                                                            <button class="table-btn table-btn-danger" onclick="loadLecturerEditMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>')">Edit Mark</button>
+                                                                                            <button class="table-btn table-btn-danger active" onclick="loadLecturerEditMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>')">Edit Mark</button>
                                                                                         <?php
                                                                                         }
                                                                                         ?>
@@ -790,11 +790,11 @@ if (!SessionUser::hasValidSession()) {
 
                                                                                         if ($data["marks"] == "") {
                                                                                         ?>
-                                                                                            <button class="table-btn table-btn-purple" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>','2')">Add Mark</button>
+                                                                                            <button class="table-btn table-btn-purple active" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>','2')">Add Mark</button>
                                                                                         <?php
                                                                                         } else {
                                                                                         ?>
-                                                                                            <button class="table-btn table-btn-danger" onclick="loadLecturerEditMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>','2')">Edit Mark</button>
+                                                                                            <button class="table-btn table-btn-danger active" onclick="loadLecturerEditMarkModel(this,'<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>','2')">Edit Mark</button>
                                                                                         <?php
                                                                                         }
                                                                                         ?>

@@ -20,7 +20,7 @@ if (SessionUser::hasValidSession()) {
                     $faculty       = isset($decoded['faculty']) ? (int)$decoded['faculty'] : 0;
                     $programme     = isset($decoded['programme']) ? (int)$decoded['programme'] : 0;
                     $intake        = isset($decoded['intake']) ? (int)$decoded['intake'] : 0;
-                    $counsellor    = isset($decoded['counsellor']) ? (int)$decoded['counsellor'] : 0;
+                    $counsellor    = isset($decoded['counselor']) ? (int)$decoded['counselor'] : 0;
                     $currency      = isset($decoded['currency']) ? (int)$decoded['currency'] : 0;
                     $dateFilter    = isset($decoded['dateFilter']) ? (int)$decoded['dateFilter'] : 0; // 1=This Month, 2=Last Month, 3=Range
                     $fromDate      = isset($decoded['fromDate']) ? $decoded['fromDate'] : '';
@@ -213,10 +213,15 @@ if (SessionUser::hasValidSession()) {
                         $query .= " AND YEAR(`cpp`.`date_paid`) = YEAR(CURDATE()) AND MONTH(`cpp`.`date_paid`) = MONTH(CURDATE())";
                     } elseif ($dateFilter == 2) {
                         $query .= " AND YEAR(`cpp`.`date_paid`) = YEAR(CURDATE() - INTERVAL 1 MONTH) AND MONTH(`cpp`.`date_paid`) = MONTH(CURDATE() - INTERVAL 1 MONTH)";
-                    } elseif ($dateFilter == 3 && $fromDate != '' && $toDate != '') {
-                        $fromDateEscaped = Database::escape($fromDate);
-                        $toDateEscaped   = Database::escape($toDate);
-                        $query .= " AND `cpp`.`date_paid` BETWEEN '" . $fromDateEscaped . "' AND '" . $toDateEscaped . "'";
+                    } elseif ($dateFilter == 3) {
+                        if (!empty($fromData)) {
+                            $fromDateEscaped = Database::escape($fromDate);
+                            $query .= " AND `cpp`.`date_paid` > '" . $fromDateEscaped . "'";
+                        }
+                        if (!empty($toDate)) {
+                            $toDateEscaped   = Database::escape($toDate);
+                            $query .= " AND `cpp`.`date_paid` < '" . $toDateEscaped . "'";
+                        }
                     }
 
                     if ($currency != 0) {

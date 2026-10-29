@@ -23,7 +23,7 @@ if (SessionUser::hasValidSession()) {
                     $assignment = Database::search("SELECT * FROM `assignments` WHERE `assignment_id` = '" . $id . "'");
                     $assignmentData = $assignment->fetch_assoc();
 
-                    $isLoginUserSubjectLecturer = Database::search("SELECT `lecturers_id`,`user_fname`,`user_lname`,`profile_img`,`title`,`per_assignment_cost` FROM `lecturers`
+                    $isLoginUserSubjectLecturer = Database::search("SELECT `lecturers_id`,`user_fname`,`user_lname`,`profile_img`,`title`,`per_assignment_fee` FROM `lecturers`
                     INNER JOIN `users` ON `lecturers`.`users_user_id` = `users`.`user_id`
                     INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
                     WHERE `users_user_id`='" . $sessionUserObject['user_id'] . "' AND `subjects_subject_id`='" . $assignmentData['subjects_subject_id'] . "'");
@@ -34,6 +34,7 @@ if (SessionUser::hasValidSession()) {
 
                         $query = "SELECT DISTINCT(`students_has_assignments_id`),`students_has_assignments_id`,`title`,`first_name`,`last_name`,`profile_img`,`students_has_intakes`.`student_id`,`uploaded_at`,`upload`,`submission_id`,`submission`,`marks`,`assignment_marks_status`,`assignment_marks_status_id` FROM `students_has_assignments` 
                                                                     INNER JOIN `students` ON `students_has_assignments`.`students_student_id`=`students`.`student_id`
+                                                                    INNER JOIN `login_details` ON `login_details`.`login_details_id` = `students`.`login_details_login_details_id`
                                                                     INNER JOIN `title` ON `students`.`title_title_id` = `title`.`title_id`
                                                                     INNER JOIN `assignments` ON `students_has_assignments`.`assignments_assignment_id` = `assignments`.`assignment_id`
                                                                     INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
@@ -203,11 +204,11 @@ if (SessionUser::hasValidSession()) {
 
                                                 if ($data["marks"] == "") {
                                                 ?>
-                                                    <button class="table-btn table-btn-purple" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>')">Add Mark</button>
+                                                    <button class="table-btn table-btn-purple active" onclick="loadLecturerAddMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['students_has_assignments_id']; ?>')">Add Mark</button>
                                                 <?php
                                                 } else {
                                                 ?>
-                                                    <button class="table-btn table-btn-danger" onclick="loadLecturerEditMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>')">Edit Mark</button>
+                                                    <button class="table-btn table-btn-danger active" onclick="loadLecturerEditMarkModel('<?= $id ?>','<?= $assignmentData['assignment_code'] ?>','<?= $assignmentData['assignment'] ?>','<?= $studentName ?>','<?= $data['student_id'] ?>','<?= $data['marks'] ?>','<?= $data['students_has_assignments_id']; ?>')">Edit Mark</button>
                                                 <?php
                                                 }
                                                 ?>

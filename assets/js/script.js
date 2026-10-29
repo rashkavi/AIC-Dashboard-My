@@ -1432,9 +1432,9 @@ const loadLecturerEditMarkModel = (intakeId, code, topic, student, studentId, ma
     $("#edit-student-id").text(studentId);
     $("#edit-already-mark").val(mark);
     if (status == 1) {
-        $("#edit-saveMark").attr("onclick", "editLecturerAssignmentMark('" + id + "','" + intakeId + "')");
+        $("#edit-saveMark").attr("onclick", "editLecturerAssignmentMark(this,'" + id + "','" + intakeId + "')");
     } else {
-        $("#edit-saveMark").attr("onclick", "editLecturerRecorrectionAssignmentMark('" + id + "','" + intakeId + "')");
+        $("#edit-saveMark").attr("onclick", "editLecturerRecorrectionAssignmentMark(this,'" + id + "','" + intakeId + "')");
     }
 
 

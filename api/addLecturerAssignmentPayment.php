@@ -31,7 +31,8 @@ if (SessionUser::hasValidSession()) {
                             COUNT(*) AS total_count,
                             COUNT(CASE WHEN lhsaa.submission_sts_submission_sts_id = 1 THEN 1 END) AS pending_count,
                             COUNT(CASE WHEN lhsaa.submission_sts_submission_sts_id = 2 THEN 1 END) AS marked_count,
-                            user_fname,user_lname,title,profile_img,per_assignment_fee
+                            user_fname,user_lname,title,profile_img,per_assignment_fee,
+                            users.user_id
                         FROM 
                             lecturers_has_students_has_assignments AS lhsaa
                         INNER JOIN 
@@ -63,18 +64,41 @@ if (SessionUser::hasValidSession()) {
                                 $paymentId = $assignmentPayment->fetch_assoc()['assignment_payments_id'];
                                 Database::iud("UPDATE `assignment_payments` SET `amount`='" . $assignmentAmount . "' WHERE `assignment_payments_id`='" . $paymentId . "'");
 
+                                Database::iud("DELETE FROM `assignment_payments_has_marked_assignments` WHERE `assignment_payments_id`='" . $paymentId . "'");
+
+                                $markedAssignments = Database::search("SELECT * FROM `lecturers_has_students_has_assignments` WHERE `lecturers_lecturers_id`='" . $lecturerId . "' 
+                                AND `assignments_assignment_id`='" . $assignmentId . "' AND `submission_sts_submission_sts_id`='2'");
+
+                                if ($markedAssignments->num_rows > 0) {
+                                    while ($data = $markedAssignments->fetch_assoc()) {
+                                        $child_insert = "`assignment_payments_id`,`lecturers_has_students_has_assignments_id`,`date_added`";
+                                        $child_values = "'" . $paymentId . "','" . $data['lecturers_has_students_has_assignments_id'] . "','" . $today->format('Y-m-d H:i:s') . "'";
+                                        Database::iud("INSERT INTO `assignment_payments_has_marked_assignments`(" . $child_insert . ") VALUES(" . $child_values . ")");
+                                    }
+                                }
+
                                 $lecturer_payments_log_columns = "`assignment_payments_assignment_payments_id`, `note`, `date_updated`, `users_user_id`";
                                 $lecturer_payments_log_values = "'" . $paymentId . "','Update Assignment Payment', '" . $today->format('Y-m-d H:i:s') . "', '" . $sessionUserObject['user_id'] . "'";
 
                                 Database::iud("INSERT INTO `assignment_payments_logs`(" . $lecturer_payments_log_columns . ") VALUES(" . $lecturer_payments_log_values . ")");
                                 $status->done = 'Lecturer payment updated successfully';
                             } else {
-                                $lecturer_payments_columns = "`lecturers_lecturers_id`, `assignments_assignment_id`, `amount`,`earning_status_earning_status_id`";
-                                $lecturer_payments_values = "'" . $lecturerId . "','" . $assignmentId . "','" . $assignmentAmount . "','1'";
+                                $lecturer_payments_columns = "`users_user_id`,`lecturers_lecturers_id`, `assignments_assignment_id`, `amount`,`earning_status_earning_status_id`,`date_added`";
+                                $lecturer_payments_values = "'" . $paymentData['user_id'] . "','" . $lecturerId . "','" . $assignmentId . "','" . $assignmentAmount . "','1','" . $today->format('Y-m-d H:i:s') . "'";
 
                                 Database::iud("INSERT INTO `assignment_payments`(" . $lecturer_payments_columns . ") VALUES(" . $lecturer_payments_values . ")");
                                 $paymentId = Database::$connection->insert_id;
 
+                                $markedAssignments = Database::search("SELECT * FROM `lecturers_has_students_has_assignments` WHERE `lecturers_lecturers_id`='" . $lecturerId . "' 
+                                AND `assignments_assignment_id`='" . $assignmentId . "' AND `submission_sts_submission_sts_id`='2'");
+
+                                if ($markedAssignments->num_rows > 0) {
+                                    while ($data = $markedAssignments->fetch_assoc()) {
+                                        $child_insert = "`assignment_payments_id`,`lecturers_has_students_has_assignments_id`,`date_added`";
+                                        $child_values = "'" . $paymentId . "','" . $data['lecturers_has_students_has_assignments_id'] . "','" . $today->format('Y-m-d H:i:s') . "'";
+                                        Database::iud("INSERT INTO `assignment_payments_has_marked_assignments`(" . $child_insert . ") VALUES(" . $child_values . ")");
+                                    }
+                                }
                                 $lecturer_payments_log_columns = "`assignment_payments_assignment_payments_id`, `note`, `date_updated`, `users_user_id`";
                                 $lecturer_payments_log_values = "'" . $paymentId . "','Add Lecture Payment', '" . $today->format('Y-m-d H:i:s') . "', '" . $sessionUserObject['user_id'] . "'";
 
