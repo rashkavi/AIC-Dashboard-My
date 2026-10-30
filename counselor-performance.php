@@ -42,7 +42,7 @@ if (!SessionUser::hasValidSession()) {
 
                     $userStudentSummaryRs = Database::search("
                         SELECT
-                            COUNT(`student_id`) AS total_students,
+                            COUNT(`students_has_intakes_id`) AS total_students,
 
                             SUM(CASE WHEN `lead_student_status_lead_student_status_id` IN ($PENDING_IDS) THEN 1 ELSE 0 END) AS pending_students,
                             SUM(CASE WHEN `lead_student_status_lead_student_status_id` IN ($REJECTED_IDS) THEN 1 ELSE 0 END) AS rejected_students,
@@ -50,8 +50,8 @@ if (!SessionUser::hasValidSession()) {
                             SUM(CASE WHEN `lead_student_status_lead_student_status_id` IN ($READY_IDS) THEN 1 ELSE 0 END) AS ready_students,
                             SUM(CASE WHEN `lead_student_status_lead_student_status_id` IN ($ENROLLED_IDS) THEN 1 ELSE 0 END) AS enrolled_students
 
-                        FROM `students`
-                        WHERE `users_user_id` = '$id'
+                        FROM `students_has_intakes`
+                        WHERE `counselor_user_id` = '$id'
                         AND `lead_student_status_lead_student_status_id` IS NOT NULL
                     ");
 
@@ -370,11 +370,11 @@ if (!SessionUser::hasValidSession()) {
                                                                             END) AS previous_month_logs,
 
                                                                             COUNT(DISTINCT CASE 
-                                                                                WHEN `date_updated` BETWEEN '$currentMonthStart' AND '$currentMonthEnd' THEN `students_student_id` 
+                                                                                WHEN `date_updated` BETWEEN '$currentMonthStart' AND '$currentMonthEnd' THEN `students_has_intakes_students_has_intakes_id` 
                                                                                 END) AS current_month_unique_students,
 
                                                                             COUNT(DISTINCT CASE 
-                                                                                WHEN `date_updated` BETWEEN '$previousMonthStart' AND '$previousMonthEnd' THEN `students_student_id` 
+                                                                                WHEN `date_updated` BETWEEN '$previousMonthStart' AND '$previousMonthEnd' THEN `students_has_intakes_students_has_intakes_id` 
                                                                                 END) AS previous_month_unique_students
                                                                         FROM `students_logs`
 
@@ -492,22 +492,24 @@ if (!SessionUser::hasValidSession()) {
                                                             `lead_student_status`.`lead_student_status_id` AS `sid`,
                                                             `users`.`user_id` AS `uid`,
                                                             latest_logs.latest_log
-                                                        FROM `students`
+                                                        FROM `students_has_intakes`
+                                                        INNER JOIN `students`
+                                                            ON `students_has_intakes`.`students_student_id`=`students`.`student_id`
                                                         INNER JOIN `login_details`
                                                             ON `students`.`login_details_login_details_id`=`login_details`.`login_details_id`
                                                         INNER JOIN `title`
                                                             ON `students`.`title_title_id`=`title`.`title_id`
                                                         INNER JOIN `lead_student_status` 
-                                                            ON students.lead_student_status_lead_student_status_id = lead_student_status.lead_student_status_id
+                                                            ON students_has_intakes.lead_student_status_lead_student_status_id = lead_student_status.lead_student_status_id
                                                         LEFT JOIN `users` 
-                                                            ON students.users_user_id = users.user_id
+                                                            ON students_has_intakes.counselor_user_id = users.user_id
                                                         LEFT JOIN (
-                                                            SELECT `students_student_id`, MAX(`date_updated`) AS latest_log
+                                                            SELECT `students_has_intakes_students_has_intakes_id`, MAX(`date_updated`) AS latest_log
                                                             FROM `students_logs`
-                                                            GROUP BY `students_student_id`
-                                                        ) AS latest_logs ON `students`.`student_id` = `latest_logs`.`students_student_id`
-                                                        WHERE students.lead_student_status_lead_student_status_id IS NOT NULL
-                                                          AND students.users_user_id = '" . $id . "'
+                                                            GROUP BY `students_has_intakes_students_has_intakes_id`
+                                                        ) AS latest_logs ON `students`.`student_id` = `latest_logs`.`students_has_intakes_students_has_intakes_id`
+                                                        WHERE lead_student_status_lead_student_status_id IS NOT NULL
+                                                          AND counselor_user_id = '" . $id . "'
                                                           ORDER BY `students`.`student_id` DESC
                                                      ";
 

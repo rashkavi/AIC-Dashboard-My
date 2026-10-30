@@ -7924,6 +7924,7 @@ const editIntakeStudent = (btn, id) => {
     form.append("title", $("#title-selector").val());
     form.append("gender", $("#gender-selector").val());
     form.append("marital_status", $("#marital-status-selector").val());
+    form.append("counselor", $("#user").val());
     form.append("nationality", $("#nationality").val());
     form.append("nic", $("#nic").val());
     form.append("passport", $("#passport").val());
@@ -7962,6 +7963,7 @@ const editIntakeStudent = (btn, id) => {
         cor: ["#country-of-residence", "#cor-feedback"],
         nic: ["#nic", "#nic-feedback"],
         passport: ["#passport", "#passport-feedback"],
+        counselor: ["#user", "#user-feedback"],
         dob: ["#dob", "#dob-feedback"],
         email: ["#email", "#email-feedback"],
         mobile: ["#mobile", "#mobile-feedback"],
@@ -8000,6 +8002,7 @@ const editIntakeStudent = (btn, id) => {
     })
         .then((res) => res.json())
         .then((response) => {
+            console.log(response);
             toggleBtnLoader(btn, false);
             if (response.done) {
                 showToast("success", response.done);

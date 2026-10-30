@@ -101,61 +101,64 @@ if (SessionUser::hasValidSession()) {
                     }
 
                     $query = "SELECT 
-                        `users`.`user_id`, 
-                        `users`.`user_fname`, 
-                        `users`.`user_lname`, 
-                        `users`.`user_email`, 
-                        `users`.`user_mobile`, 
-                        `users`.`user_reg_date`,
-                        `users`.`user_verification`,
-                        `user_roles`.`user_role`, 
-                        `user_roles`.`user_role_id`, 
-                        `title`.`title`, 
-                        `status`.`status`,
-                        `status`.`status_id`,
-                        `users`.`profile_img`,
+            `users`.`user_id`, 
+            `users`.`user_fname`, 
+            `users`.`user_lname`, 
+            `users`.`user_email`, 
+            `users`.`user_mobile`, 
+            `users`.`user_reg_date`,
+            `users`.`user_verification`,
+            `user_roles`.`user_role`, 
+            `user_roles`.`user_role_id`, 
+            `title`.`title`, 
+            `status`.`status`,
+            `status`.`status_id`,
+            `users`.`profile_img`,
 
-                        COUNT(`students`.`student_id`) AS total_students,
+            COUNT(`students_has_intakes`.`students_has_intakes_id`) AS total_students,
 
-                        SUM(CASE 
-                            WHEN `students`.`lead_student_status_lead_student_status_id` IN ($PENDING_IDS) 
-                            THEN 1 ELSE 0 
-                        END) AS pending_students,
+            SUM(CASE 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($PENDING_IDS) 
+                THEN 1 ELSE 0 
+            END) AS pending_students,
 
-                        SUM(CASE 
-                            WHEN `students`.`lead_student_status_lead_student_status_id` IN ($REJECTED_IDS) 
-                            THEN 1 ELSE 0 
-                        END) AS rejected_students,
+            SUM(CASE 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($REJECTED_IDS) 
+                THEN 1 ELSE 0 
+            END) AS rejected_students,
 
-                        SUM(CASE 
-                            WHEN `students`.`lead_student_status_lead_student_status_id` IN ($INPROGRESS_IDS) 
-                            THEN 1 ELSE 0 
-                        END) AS inprogress_students,
+            SUM(CASE 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($INPROGRESS_IDS) 
+                THEN 1 ELSE 0 
+            END) AS inprogress_students,
 
-                        SUM(CASE 
-                            WHEN `students`.`lead_student_status_lead_student_status_id` IN ($READY_IDS) 
-                            THEN 1 ELSE 0 
-                        END) AS ready_students,
+            SUM(CASE 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($READY_IDS) 
+                THEN 1 ELSE 0 
+            END) AS ready_students,
 
-                        SUM(CASE 
-                            WHEN `students`.`lead_student_status_lead_student_status_id` IN ($ENROLLED_IDS) 
-                            THEN 1 ELSE 0 
-                        END) AS enrolled_students
+            SUM(CASE 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($ENROLLED_IDS) 
+                THEN 1 ELSE 0 
+            END) AS enrolled_students
 
-                    FROM `users` 
+        FROM `users` 
 
-                    INNER JOIN `user_roles` 
-                        ON `users`.`user_roles_user_role_id` = `user_roles`.`user_role_id` 
+        INNER JOIN `user_roles` 
+            ON `users`.`user_roles_user_role_id` = `user_roles`.`user_role_id` 
 
-                    INNER JOIN `title` 
-                        ON `users`.`title_title_id` = `title`.`title_id` 
+        INNER JOIN `title` 
+            ON `users`.`title_title_id` = `title`.`title_id` 
 
-                    INNER JOIN `status` 
-                        ON `users`.`status_status_id` = `status`.`status_id`
+        INNER JOIN `status` 
+            ON `users`.`status_status_id` = `status`.`status_id`
 
-                    LEFT JOIN `students` 
-                        ON `users`.`user_id` = `students`.`users_user_id`
-                        AND `students`.`lead_student_status_lead_student_status_id` IS NOT NULL
+        LEFT JOIN `students_has_intakes` 
+            ON `users`.`user_id` = `students_has_intakes`.`counselor_user_id`
+            AND `students_has_intakes`.`lead_student_status_lead_student_status_id` IS NOT NULL
+
+      
+
                         $studentFilterSql
 
                     $whereSql

@@ -44,30 +44,30 @@ if (!SessionUser::hasValidSession()) {
             `status`.`status_id`,
             `users`.`profile_img`,
 
-            COUNT(`students`.`student_id`) AS total_students,
+            COUNT(`students_has_intakes`.`students_has_intakes_id`) AS total_students,
 
             SUM(CASE 
-                WHEN `students`.`lead_student_status_lead_student_status_id` IN ($PENDING_IDS) 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($PENDING_IDS) 
                 THEN 1 ELSE 0 
             END) AS pending_students,
 
             SUM(CASE 
-                WHEN `students`.`lead_student_status_lead_student_status_id` IN ($REJECTED_IDS) 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($REJECTED_IDS) 
                 THEN 1 ELSE 0 
             END) AS rejected_students,
 
             SUM(CASE 
-                WHEN `students`.`lead_student_status_lead_student_status_id` IN ($INPROGRESS_IDS) 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($INPROGRESS_IDS) 
                 THEN 1 ELSE 0 
             END) AS inprogress_students,
 
             SUM(CASE 
-                WHEN `students`.`lead_student_status_lead_student_status_id` IN ($READY_IDS) 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($READY_IDS) 
                 THEN 1 ELSE 0 
             END) AS ready_students,
 
             SUM(CASE 
-                WHEN `students`.`lead_student_status_lead_student_status_id` IN ($ENROLLED_IDS) 
+                WHEN `students_has_intakes`.`lead_student_status_lead_student_status_id` IN ($ENROLLED_IDS) 
                 THEN 1 ELSE 0 
             END) AS enrolled_students
 
@@ -82,9 +82,9 @@ if (!SessionUser::hasValidSession()) {
         INNER JOIN `status` 
             ON `users`.`status_status_id` = `status`.`status_id`
 
-        LEFT JOIN `students` 
-            ON `users`.`user_id` = `students`.`users_user_id`
-            AND `students`.`lead_student_status_lead_student_status_id` IS NOT NULL
+        LEFT JOIN `students_has_intakes` 
+            ON `users`.`user_id` = `students_has_intakes`.`counselor_user_id`
+            AND `students_has_intakes`.`lead_student_status_lead_student_status_id` IS NOT NULL
 
         WHERE `user_roles`.`user_role_id` IN (3,9)
         AND `status`.`status_id` = 1

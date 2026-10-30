@@ -517,7 +517,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                             while ($user = $users->fetch_assoc()) {
 
                                                                                             ?>
-                                                                                                <option value="<?php echo $user["user_id"]; ?>" <?= SessionUser::ifUserIsCounsiler($sessionUserRole) && !SessionUser::ifUserIsBranchManager($sessionUserRole) ? 'selected' : ''  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
+                                                                                                <option value="<?php echo $user["user_id"]; ?>" <?=  $studentIntakeData['counselor_user_id'] == $user['user_id'] ? 'selected' : '' ?> data-title=<?= $user['title']  ?>><?php echo $user["title"] . '.' . $user["user_fname"] . ' ' . $user["user_lname"]; ?></option>
                                                                                             <?php
                                                                                             }
                                                                                             ?>

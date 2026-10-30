@@ -16,7 +16,7 @@ if (SessionUser::hasValidSession()) {
                 $status->error = "Invalid student Id";
             } else {
                 $isHasId = Database::search("SELECT `students`.`student_id`,
-                `profile_img`,`login_details_login_details_id`,`students_has_intakes`.`student_id` AS `student_intake_id` ,`counselor_user_id`
+                `profile_img`,`login_details_login_details_id`,`students_has_intakes_id`,`students_has_intakes`.`student_id` AS `student_intake_id` ,`counselor_user_id`
                 FROM `students_has_intakes`
                 INNER JOIN `students` ON `students_has_intakes`.`students_student_id`=`students`.`student_id` 
                 WHERE `students_has_intakes_id`='" . $id . "'");
@@ -275,8 +275,8 @@ if (SessionUser::hasValidSession()) {
                         }
                     }
 
-                    $studentDocuments = validateStudentDocuments($id);
-                    $studentDocuments = validateStudentDocuments($id);
+                    $studentDocuments = validateStudentDocuments($student["student_id"], $student['students_has_intakes_id']);
+                    $studentDocuments = validateStudentDocuments($student["student_id"], $student['students_has_intakes_id']);
 
                     foreach ($studentDocuments["errors"] as $key => $message) {
                         $status->$key = $message;
@@ -446,56 +446,63 @@ if (SessionUser::hasValidSession()) {
                                 11 => "discount-approved-documents"
                             ];
 
-                            foreach ($_POST["removed_documents"] as $docId) {
-                                $docId = (int)$docId;
+                            if (isset($_POST["removed_documents"]) && is_array($_POST["removed_documents"])) {
 
-                                if ($docId <= 0) {
-                                    continue;
+                                $folderByType = [];
+                                foreach (getStudentDocumentTypeConfig() as $cfg) {
+                                    $folderByType[(int)$cfg["type_id"]] = $cfg["folder"];
                                 }
 
-                                $docRs = Database::search("
+                                foreach ($_POST["removed_documents"] as $docId) {
+                                    $docId = (int)$docId;
+
+                                    if ($docId <= 0) {
+                                        continue;
+                                    }
+
+                                    // only this student's common docs or this intake's docs
+                                    $docRs = Database::search("
                                     SELECT 
                                         `students_identity_document_id`,
                                         `students_identity_documents_type_id`,
                                         `document`
                                     FROM `students_identity_documents`
                                     WHERE `students_identity_document_id` = '" . $docId . "'
-                                      AND `students_student_id` = '" . $student['student_id'] . "'
+                                      AND `students_student_id` = '" . $student["student_id"] . "'
+                                      AND (`students_has_intakes_students_has_intakes_id` IS NULL
+                                           OR `students_has_intakes_students_has_intakes_id` = '" . $student["students_has_intakes_id"] . "')
                                     LIMIT 1
                                 ");
 
-                                if ($docRs->num_rows == 0) {
-                                    continue;
-                                }
-
-                                $doc = $docRs->fetch_assoc();
-
-                                $typeId = (int)$doc["students_identity_documents_type_id"];
-                                $fileName = basename($doc["document"]);
-
-                                if (isset($docFolderMap[$typeId])) {
-                                    $filePath = "../assets/uploads/student-identity-documents/" . $docFolderMap[$typeId] . "/" . $fileName;
-
-                                    if (is_file($filePath)) {
-                                        unlink($filePath);
+                                    if ($docRs->num_rows == 0) {
+                                        continue;
                                     }
-                                }
 
-                                Database::iud("
+                                    $doc = $docRs->fetch_assoc();
+
+                                    $typeId = (int)$doc["students_identity_documents_type_id"];
+                                    $fileName = basename($doc["document"]);
+
+                                    if (isset($folderByType[$typeId])) {
+                                        $filePath = "../assets/uploads/student-identity-documents/" . $folderByType[$typeId] . "/" . $fileName;
+
+                                        if (is_file($filePath)) {
+                                            unlink($filePath);
+                                        }
+                                    }
+
+                                    Database::iud("
                                     DELETE FROM `students_identity_documents`
                                     WHERE `students_identity_document_id` = '" . $docId . "'
-                                      AND `students_student_id` = '" . $id . "'
+                                      AND `students_student_id` = '" . $student["student_id"] . "'
                                 ");
+                                }
                             }
                         }
 
-                        uploadStudentDocuments($student['student_id'], $studentDocuments);
+                        uploadStudentDocuments($student["student_id"], $student['students_has_intakes_id'], $studentDocuments);
 
-                        Database::iud("INSERT INTO `students_logs` 
-                            (`students_student_id`, `date_updated`, `users_user_id`,`log`)
-                             VALUES ('" . $student["student_id"] . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Update Student Details')");
-
-
+                     
                         $status->done =  "Student Update Successfully";
                     }
                 }
@@ -553,18 +560,19 @@ function normalizePhoneNumber($number)
     return false;
 }
 
-function validateStudentDocuments($id)
+function validateStudentDocuments($studentId, $registrationId)
 {
     $maxSize = 8 * 1024 * 1024; // 8MB same as JS
 
     $allowedExtensions = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
 
-    $requiredDocuments = [
-        "passport_nic",
-        "payment_slip",
-        "discount_approved_document",
-        "signed_fee_structure",
-        "aic_application"
+    // type_id => field name
+    $requiredMap = [
+        // 5  => "passport_nic",
+        // 8  => "payment_slip",
+        // 11 => "discount_approved_document",
+        // 12 => "signed_fee_structure",
+        // 1  => "aic_application"
     ];
 
     $removeIds = [];
@@ -585,66 +593,23 @@ function validateStudentDocuments($id)
         $notInQuery = " AND `students_identity_document_id` NOT IN (" . implode(",", $removeIds) . ")";
     }
 
-    $isUploadDocument = Database::search("
-        SELECT *
+    // Existing docs that count: student-level (NULL) + this intake's
+    $existingRs = Database::search("
+        SELECT DISTINCT `students_identity_documents_type_id`
         FROM `students_identity_documents`
-        WHERE `students_student_id` = '" . $id . "'
-        AND `students_identity_documents_type_id` IN (5,8,11,12,1)
-        $notInQuery
+        WHERE `students_student_id` = '" . (int)$studentId . "'
+          AND (`students_has_intakes_students_has_intakes_id` IS NULL
+               OR `students_has_intakes_students_has_intakes_id` = '" . (int)$registrationId . "')
+          
+          $notInQuery
     ");
 
-    if ($isUploadDocument->num_rows > 0) {
-
-        while ($data = $isUploadDocument->fetch_assoc()) {
-
-            if ($data['students_identity_documents_type_id'] == 5) {
-
-                $key = array_search("passport_nic", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 8) {
-
-                $key = array_search("payment_slip", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 11) {
-
-                $key = array_search("discount_approved_document", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 12) {
-
-                $key = array_search("signed_fee_structure", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-
-            if ($data['students_identity_documents_type_id'] == 1) {
-
-                $key = array_search("aic_application", $requiredDocuments);
-
-                if ($key !== false) {
-                    unset($requiredDocuments[$key]);
-                }
-            }
-        }
+    $missing = $requiredMap;
+    while ($row = $existingRs->fetch_assoc()) {
+        unset($missing[(int)$row["students_identity_documents_type_id"]]);
     }
+    $requiredDocuments = array_values($missing);
 
-    $requiredDocuments = array_values($requiredDocuments);
     $documentTypes = getStudentDocumentTypeConfig();
 
     $validFiles = [];
@@ -706,6 +671,7 @@ function validateStudentDocuments($id)
         "errors" => $errors
     ];
 }
+
 function getStudentDocumentTypeConfig()
 {
     return [
@@ -793,14 +759,20 @@ function normalizeFilesArray($fileInput)
     return $files;
 }
 
-function uploadStudentDocuments($studentId, $studentDocuments)
+function uploadStudentDocuments($studentId, $studentHasIntakeId, $studentDocuments)
 {
     $baseUploadDir = "../assets/uploads/student-identity-documents/";
-    $baseDbPath = "assets/uploads/student-identity-documents/";
+
+    // Load is_common flag for each document type
+    $commonMap = [];
+    $typeResult = Database::search("SELECT `students_identity_documents_type_id`, `is_common` FROM `students_identity_documents_type`");
+    while ($t = $typeResult->fetch_assoc()) {
+        $commonMap[(int)$t['students_identity_documents_type_id']] = (int)$t['is_common'];
+    }
 
     foreach ($studentDocuments["files"] as $doc) {
 
-        $typeId = $doc["type_id"];
+        $typeId = (int)$doc["type_id"];
         $folder = $doc["folder"];
         $prefix = $doc["prefix"];
         $file = $doc["file"];
@@ -813,26 +785,30 @@ function uploadStudentDocuments($studentId, $studentDocuments)
         }
 
         $newFileName = $prefix . "_" . uniqid() . "_" . rand(1000, 9999) . "." . $extension;
-
         $serverPath = $uploadDir . $newFileName;
 
         if (move_uploaded_file($file["tmp_name"], $serverPath)) {
 
-            $dbPath = $newFileName;
+            $isCommon = isset($commonMap[$typeId]) ? $commonMap[$typeId] : 1;
+
+            // Common docs belong to the student only; other docs are tied to the intake
+            $shiValue = $isCommon ? "NULL" : "'" . (int)$studentHasIntakeId . "'";
 
             Database::iud("
                 INSERT INTO `students_identity_documents`
                 (
                     `students_student_id`,
+                    `students_has_intakes_students_has_intakes_id`,
                     `students_identity_documents_type_id`,
                     `document`,
                     `date_added`
                 )
                 VALUES
                 (
-                    '" . $studentId . "',
+                    '" . (int)$studentId . "',
+                    " . $shiValue . ",
                     '" . $typeId . "',
-                    '" . $dbPath . "',
+                    '" . $newFileName . "',
                     NOW()
                 )
             ");

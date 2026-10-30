@@ -264,7 +264,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 $results = Database::search($query);
                                                                 $pageno = 1;
                                                                 $results_count = $results->num_rows;
-                                                                $result_per_page = 100;  // Consistent variable name
+                                                                $result_per_page = 10;  // Consistent variable name
 
                                                                 if ($results_count > $result_per_page) {
                                                                     $number_of_pages = ceil($results_count / $result_per_page);  // Corrected variable name
