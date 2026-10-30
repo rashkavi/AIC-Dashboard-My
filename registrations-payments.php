@@ -372,7 +372,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                                     View Student Payment Plan</a></li>
                                                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                                                             <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="openResendPaymentPlanModal(<?= $data['shiId']; ?>)">
-                                                                                                    <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                    <iconify-icon icon="bi:send" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                     Resend Student Payment Plan</a></li>
 
                                                                                         <?php
@@ -561,11 +561,279 @@ if (!SessionUser::hasValidSession()) {
             }
             ?>
 
+            <div class="modal fade" id="resendPaymentPlanModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:560px;">
+                    <div class="modal-content border-0 br-0 student-modal-card component-theme">
+
+                        <!-- Header -->
+                        <div class="card-header-design d-flex align-items-center px-4">
+                            <div class="d-flex align-items-center">
+                                <div class="stats-mini-icon me-3" style="background:rgba(255,255,255,.15);">
+                                    <iconify-icon icon="stash:plan" width="20" height="20" style="color:#fff;"></iconify-icon>
+                                </div>
+                                <div>
+                                    <div class="text-16 fw-bold text-white">Resend Payment Plan</div>
+                                    <div class="text-12" style="color:rgba(255,255,255,.7);">Email the plan details to the student</div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close custom-close" id="rppCloseX" data-bs-dismiss="modal"></button>
+                        </div>
+
+                        <div class="modal-body p-4">
+
+                            <!-- STEP 1: CONFIRM -->
+                            <div id="rppStepConfirm">
+                                <div id="rppLoadingInfo" class="d-flex flex-column align-items-center py-4">
+                                    <div class="fading-bars">
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                    </div>
+                                    <div class="text-14 sub-text mt-3">Loading payment plan details…</div>
+                                </div>
+
+                                <div id="rppInfo" class="d-none">
+                                    <div class="bl-solid rpp-grid">
+                                        <div class="lead-detail-item" style="grid-column:span 2;">
+                                            <div class="lead-detail-label">Student</div>
+                                            <div class="lead-detail-value" id="rppStudentName">-</div>
+                                        </div>
+                                        <div class="lead-detail-item">
+                                            <div class="lead-detail-label">Programme</div>
+                                            <div class="lead-detail-value" id="rppProgramme">-</div>
+                                        </div>
+                                        <div class="lead-detail-item">
+                                            <div class="lead-detail-label">Intake</div>
+                                            <div class="lead-detail-value" id="rppIntake">-</div>
+                                        </div>
+                                        <div class="lead-detail-item">
+                                            <div class="lead-detail-label">Payment Plan</div>
+                                            <div class="lead-detail-value" id="rppPlanName">-</div>
+                                        </div>
+                                        <div class="lead-detail-item">
+                                            <div class="lead-detail-label">Installments</div>
+                                            <div class="lead-detail-value" id="rppInstallments">-</div>
+                                        </div>
+                                        <div class="lead-detail-item" style="grid-column:span 2;border-bottom:0;">
+                                            <div class="lead-detail-label">Email will be sent to</div>
+                                            <div class="lead-detail-value d-flex align-items-center">
+                                                <iconify-icon icon="solar:letter-bold-duotone" width="18" height="18" class="highlight-theme me-2"></iconify-icon>
+                                                <span id="rppEmail">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="custom-alert bl-solid p-3 mt-3 text-14 sub-text">
+                                        The payment plan is sent as a PDF attachment. No payment records are changed.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- STEP 2: SENDING -->
+                            <div id="rppStepSending" class="d-none">
+                                <div class="d-flex flex-column align-items-center py-3">
+                                    <div class="fading-bars">
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                        <div class="bar"></div>
+                                    </div>
+                                    <div class="text-16 fw-bold main-text mt-3">Sending payment plan…</div>
+                                    <div class="text-14 sub-text" id="rppProgressText">Preparing</div>
+                                </div>
+
+                                <div class="progress br-0 mb-4" style="height:8px;background:var(--light-theme);">
+                                    <div id="rppProgressBar" class="progress-bar br-0" style="width:5%;background:var(--dark-theme);transition:width .6s ease;"></div>
+                                </div>
+
+                                <div class="bl-solid">
+                                    <ul class="rpp-steps list-unstyled mb-0">
+                                        <li data-step="1"><span class="rpp-dot"></span><span class="text-14">Collecting payment plan details</span></li>
+                                        <li data-step="2"><span class="rpp-dot"></span><span class="text-14">Generating PDF</span></li>
+                                        <li data-step="3"><span class="rpp-dot"></span><span class="text-14">Sending email</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- STEP 3: SUCCESS -->
+                            <div id="rppStepSuccess" class="d-none text-center py-3">
+                                <div class="rpp-status-box mx-auto mb-3" style="background:var(--light-green);border:1px solid var(--dark-green);">
+                                    <iconify-icon icon="solar:check-read-linear" width="44" height="44" class="text-dark-green"></iconify-icon>
+                                </div>
+                                <div class="text-18 fw-bold main-text mb-1">Payment Plan Sent</div>
+                                <div class="text-14 sub-text mb-3" id="rppSuccessText">-</div>
+                                <span class="status-badge status-success text-14">
+                                    <iconify-icon icon="solar:letter-opened-bold" width="16" height="16"></iconify-icon> Email delivered
+                                </span>
+                            </div>
+
+                            <!-- STEP 4: ERROR -->
+                            <div id="rppStepError" class="d-none text-center py-3">
+                                <div class="rpp-status-box mx-auto mb-3" style="background:var(--light-red);border:1px solid var(--dark-red);">
+                                    <iconify-icon icon="solar:close-square-linear" width="44" height="44" class="text-dark-red"></iconify-icon>
+                                </div>
+                                <div class="text-18 fw-bold main-text mb-1">Sending Failed</div>
+                                <div class="custom-alert bl-solid p-3 text-14 text-start" style="border-left-color:var(--dark-red) !important;">
+                                    <span class="text-dark-red" id="rppErrorText">-</span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="modal-footer border-0 pt-0 px-4 pb-4 gap-2" id="rppFooter">
+                            <button type="button" class="custom-outline-btn px-4 component-theme" data-bs-dismiss="modal" id="rppCancelBtn">Cancel</button>
+                            <button type="button" class="custom-btn px-4" id="rppSendBtn" onclick="sendResendPaymentPlan()" disabled>
+                                <iconify-icon icon="solar:plain-bold" class="me-1"></iconify-icon> Send Email
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
             <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
             <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
             <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
             <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
             <script src="./assets/js/fileChooser.js"></script>
+
+            <script>
+                let rppShiId = null;
+                let rppModal = null;
+                let rppTimer = null;
+
+                function rppShow(step) {
+                    ['Confirm', 'Sending', 'Success', 'Error'].forEach(s =>
+                        document.getElementById('rppStep' + s).classList.toggle('d-none', s !== step));
+                }
+
+                function rppSetStep(n, pct, text) {
+                    document.querySelectorAll('#rppStepSending .rpp-steps li').forEach(li => {
+                        const s = +li.dataset.step;
+                        li.classList.toggle('done', s < n);
+                        li.classList.toggle('active', s === n);
+                    });
+                    document.getElementById('rppProgressBar').style.width = pct + '%';
+                    document.getElementById('rppProgressText').textContent = text;
+                }
+
+                function openResendPaymentPlanModal(shiId) {
+                    rppShiId = shiId;
+                    rppModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('resendPaymentPlanModal'));
+
+                    // reset
+                    rppShow('Confirm');
+                    document.getElementById('rppLoadingInfo').classList.remove('d-none');
+                    document.getElementById('rppInfo').classList.add('d-none');
+                    document.getElementById('rppSendBtn').disabled = true;
+                    document.getElementById('rppSendBtn').classList.remove('d-none');
+                    document.getElementById('rppCancelBtn').textContent = 'Cancel';
+                    document.getElementById('rppCloseX').classList.remove('d-none');
+                    rppModal.show();
+
+                    fetch('api/getPaymentPlanSummary.php', { // optional, see note below
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                leadId: shiId
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.error) {
+                                rppFail(d.error);
+                                return;
+                            }
+                            document.getElementById('rppStudentName').textContent = d.student_name;
+                            document.getElementById('rppProgramme').textContent = d.programme;
+                            document.getElementById('rppIntake').textContent = d.intake;
+                            document.getElementById('rppPlanName').textContent = d.payment_plan;
+                            document.getElementById('rppInstallments').textContent = d.installments + ' payment(s)';
+                            document.getElementById('rppEmail').textContent = d.email;
+                            document.getElementById('rppLoadingInfo').classList.add('d-none');
+                            document.getElementById('rppInfo').classList.remove('d-none');
+                            document.getElementById('rppSendBtn').disabled = false;
+                        })
+                        .catch(() => rppFail('Could not load payment plan details.'));
+                }
+
+                function sendResendPaymentPlan() {
+                    rppShow('Sending');
+                    document.getElementById('rppSendBtn').classList.add('d-none');
+                    document.getElementById('rppCancelBtn').classList.add('d-none');
+                    document.getElementById('rppCloseX').classList.add('d-none');
+
+                    // The email is sent in one request, so the steps are advanced on a timer
+                    // and jump to 100% when the server answers.
+                    rppSetStep(1, 15, 'Collecting payment plan details…');
+                    const t2 = setTimeout(() => rppSetStep(2, 45, 'Generating PDF…'), 900);
+                    const t3 = setTimeout(() => rppSetStep(3, 75, 'Sending email…'), 2200);
+                    rppTimer = [t2, t3];
+
+                    fetch('api/resendPaymentPlan.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                leadId: rppShiId
+                            })
+                        })
+                        .then(r => r.text())
+                        .then(d => {
+                            console.log(d);
+                            rppTimer.forEach(clearTimeout);
+                            if (d.error) {
+                                rppFail(d.error);
+                                return;
+                            }
+
+                            document.getElementById('rppProgressBar').style.width = '100%';
+                            document.querySelectorAll('#rppStepSending .rpp-steps li').forEach(li => {
+                                li.classList.remove('active');
+                                li.classList.add('done');
+                            });
+                            setTimeout(() => {
+                                document.getElementById('rppSuccessText').textContent = d.done;
+                                rppShow('Success');
+                                rppFooterClose('Done');
+                            }, 500);
+                        })
+                        .catch(() => {
+                            rppTimer.forEach(clearTimeout);
+                            rppFail('Network error. Please try again.');
+                        });
+                }
+
+                function rppFail(msg) {
+                    document.getElementById('rppErrorText').textContent = msg;
+                    rppShow('Error');
+                    const btn = document.getElementById('rppSendBtn');
+                    btn.classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Try Again';
+                    btn.onclick = () => {
+                        btn.onclick = sendResendPaymentPlan;
+                        btn.innerHTML = 'Send Email';
+                        sendResendPaymentPlan();
+                    };
+                    rppFooterClose('Close');
+                }
+
+                function rppFooterClose(label) {
+                    const c = document.getElementById('rppCancelBtn');
+                    c.textContent = label;
+                    c.classList.remove('d-none');
+                    document.getElementById('rppCloseX').classList.remove('d-none');
+                    if (label === 'Done') document.getElementById('rppSendBtn').classList.add('d-none');
+                }
+            </script>
         </body>
 
         </html>

@@ -549,23 +549,26 @@ if (SessionUser::hasValidSession()) {
                                                 @unlink($pdfPath);
                                             }
 
-                                            // ── Log the email send ───────────────────────────────────────────────
-                                            Database::iud("
-                                                INSERT INTO payment_logs
-                                                    (course_payments_course_payments_id, users_user_id, date_updated, log)
-                                                SELECT
-                                                    cp.course_payments_id,
-                                                    '" . (int)$sessionUserObject['user_id'] . "',
-                                                    '" . $addTime . "',
-                                                    'Payment Plan email sent to " . Database::escape($studentData['email']) . " with PDF attachment (Tax Method: Markup, Rate: " . $taxRate . "%)'
-                                                FROM course_payments cp
-                                                WHERE cp.payment_plan_has_students_has_intakes_id = '" . $planId . "'
-                                                LIMIT 1
-                                            ");
+                                            $log = 'Payment Plan email sent to ' . $studentData['email'] . ' with PDF attachment (Tax Method: Markup, Rate: ' . $taxRate . '%)';
+
+                                            $logTime = $dateTime->format('Y-m-d H:i:s');
+                                            Database::iud("INSERT INTO `students_logs` 
+                                                        (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`)
+                                                         VALUES ('" . $leadId . "', '" . $logTime . "', '" . $sessionUserObject['user_id'] . "','" . Database::escape($log) . "')");
+
 
                                             $status->done = 'Payment Plan Created Successfully and emailed to ' . $studentData['email'];
                                         } catch (Exception $e) {
                                             if ($pdfPath && file_exists($pdfPath)) @unlink($pdfPath);
+
+                                            $log = 'Payment Plan email failed to send to ' . $studentData['email'];
+
+                                            $logTime = $dateTime->format('Y-m-d H:i:s');
+                                            Database::iud("INSERT INTO `students_logs` 
+                                                        (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`)
+                                                         VALUES ('" . $leadId . "', '" . $logTime . "', '" . $sessionUserObject['user_id'] . "','" . Database::escape($log) . "')");
+
+
                                             $status->error = 'Failed to send email: ' . $mailer->ErrorInfo;
                                             error_log('Email Error: ' . $mailer->ErrorInfo);
                                         }
@@ -677,9 +680,9 @@ function buildPaymentPlanPdf($studentData, $paymentTableData, $totalAmount, $tot
 <tr>
   <td style="vertical-align: top; width: 58%;">
     <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/logo.png" alt="" style="height: 44px; width: auto;">
-    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">No.3</div>
-    <div style="font-size: 10px; color: #6b7280;">Tel: +94 769 679778</div>
-    <div style="font-size: 10px; color: #6b7280;">Colombo</div>
+    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">No.154, Havelock Road, Thimbirigasyaya, Colombo 05</div>
+    <div style="font-size: 10px; color: #6b7280;">Tel: +94 114 325 864</div>
+    <div style="font-size: 10px; color: #6b7280;">accounts@aicedu.lk</div>
   </td>
   <td style="vertical-align: top; text-align: right;">
     <div style="font-size: 8px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 3px;">PAYMENT PLAN SCHEDULE</div>
@@ -773,7 +776,7 @@ padding-top: 10px;
 <div style="text-align: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid #f3f4f6;">
   <span style="font-size: 9px; color: #c4c9d4; letter-spacing: .04em;">&copy;<?php echo date("Y"); ?> ENLIXO Uni. All Rights Reserved | Powered by
     <a href="https://enviiz.com" target="_blank" style="text-decoration:none;">
-      <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares" style="width: auto; height: 40px;">
+      <img src="https://dashboard.aiccampuslms.com/assets/imgs/common/enviiz-theme.webp" alt="ENVIIZ Softwares" style="width: 40px;height: auto;">
     </a></span>
 </div>
 </div>

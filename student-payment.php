@@ -1715,23 +1715,77 @@ if (!SessionUser::hasValidSession()) {
 
 
                             <div class="modal fade" id="sendReceiptStatusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-                                <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
-                                    <div class="modal-content" style="border-radius:12px;overflow:hidden;">
-                                        <div class="modal-body" style="padding:28px 26px 22px;">
-                                            <div style="text-align:center;margin-bottom:18px;">
-                                                <div id="srs-header-icon" style="width:48px;height:48px;border-radius:50%;background:var(--light-theme);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;transition:background .25s ease;">
-                                                    <iconify-icon icon="mdi:email-fast-outline" width="24" height="24" style="color:var(--dark-theme);"></iconify-icon>
+                                <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+                                    <div class="modal-content border-0 br-0 student-modal-card component-theme">
+
+                                        <!-- Header -->
+                                        <div class="card-header-design d-flex align-items-center px-4">
+                                            <div class="d-flex align-items-center">
+                                                <div class="stats-mini-icon me-3" style="background:rgba(255,255,255,.15);">
+                                                    <iconify-icon icon="solar:bill-list-bold-duotone" width="20" height="20" style="color:#fff;"></iconify-icon>
                                                 </div>
-                                                <div id="srs-title" style="font-size:15px;font-weight:700;color:var(--dark-theme);">Sending Receipt</div>
-                                                <div id="srs-subtext" style="font-size:11px;color:#6b7280;margin-top:2px;">Please wait, this only takes a moment.</div>
+                                                <div>
+                                                    <div class="text-16 fw-bold text-white">Send Payment Receipt</div>
+                                                    <div class="text-12" style="color:rgba(255,255,255,.7);">Email the receipt to the student</div>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn-close custom-close d-none" id="srsCloseX" data-bs-dismiss="modal"></button>
+                                        </div>
+
+                                        <div class="modal-body p-4">
+
+                                            <!-- SENDING -->
+                                            <div id="srsStepSending">
+                                                <div class="d-flex flex-column align-items-center py-3">
+                                                    <div class="fading-bars">
+                                                        <div class="bar"></div>
+                                                        <div class="bar"></div>
+                                                        <div class="bar"></div>
+                                                        <div class="bar"></div>
+                                                        <div class="bar"></div>
+                                                    </div>
+                                                    <div class="text-16 fw-bold main-text mt-3">Sending receipt…</div>
+                                                    <div class="text-14 sub-text" id="srsProgressText">Preparing</div>
+                                                </div>
+
+                                                <div class="progress br-0 mb-4" style="height:8px;background:var(--light-theme);">
+                                                    <div id="srsProgressBar" class="progress-bar br-0" style="width:5%;background:var(--dark-theme);transition:width .6s ease;"></div>
+                                                </div>
+
+                                                <div class="bl-solid">
+                                                    <ul class="rpp-steps list-unstyled mb-0" id="srs-steps"></ul>
+                                                </div>
                                             </div>
 
-                                            <div id="srs-steps" style="display:flex;flex-direction:column;gap:14px;"></div>
+                                            <!-- SUCCESS -->
+                                            <div id="srsStepSuccess" class="d-none text-center py-3">
+                                                <div class="rpp-status-box mx-auto mb-3" style="background:var(--light-green);border:1px solid var(--dark-green);">
+                                                    <iconify-icon icon="solar:check-read-linear" width="44" height="44" class="text-dark-green"></iconify-icon>
+                                                </div>
+                                                <div class="text-18 fw-bold main-text mb-1">Receipt Sent</div>
+                                                <div class="text-14 sub-text mb-3" id="srsSuccessText">-</div>
+                                                <span class="status-badge status-success text-14">
+                                                    <iconify-icon icon="solar:letter-opened-bold" width="16" height="16"></iconify-icon> Email delivered
+                                                </span>
+                                            </div>
 
-                                            <div id="srs-footer" style="display:none;text-align:center;margin-top:22px;">
-                                                <button type="button" class="custom-btn px-4" data-bs-dismiss="modal">Close</button>
+                                            <!-- ERROR -->
+                                            <div id="srsStepError" class="d-none text-center py-3">
+                                                <div class="rpp-status-box mx-auto mb-3" style="background:var(--light-red);border:1px solid var(--dark-red);">
+                                                    <iconify-icon icon="solar:close-square-linear" width="44" height="44" class="text-dark-red"></iconify-icon>
+                                                </div>
+                                                <div class="text-18 fw-bold main-text mb-1">Sending Failed</div>
+                                                <div class="custom-alert bl-solid p-3 text-14 text-start" style="border-left-color:var(--dark-red) !important;">
+                                                    <span class="text-dark-red" id="srsErrorText">-</span>
+                                                </div>
                                             </div>
                                         </div>
+
+                                        <!-- Footer (only visible when finished) -->
+                                        <div class="modal-footer border-0 pt-0 px-4 pb-4 justify-content-end" id="srs-footer" style="display:none;">
+                                            <button type="button" class="custom-btn px-4" data-bs-dismiss="modal">Close</button>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>

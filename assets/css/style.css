@@ -4659,6 +4659,78 @@ option {
     white-space: pre-line;
 }
 
+/* Resend Payment Plan modal */
+.rpp-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rpp-grid .lead-detail-item {
+    border-right: 0;
+    min-height: auto;
+    padding: 14px 18px;
+}
+
+.rpp-steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: var(--sub-text);
+    border-bottom: 1px solid var(--line-color);
+    transition: all .3s ease;
+}
+
+.rpp-steps li:last-child {
+    border-bottom: 0;
+}
+
+.rpp-dot {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--line-color);
+    background: var(--custom-white);
+    flex-shrink: 0;
+    transition: all .3s ease;
+}
+
+.rpp-steps li.active {
+    color: var(--main-text-color);
+    font-weight: 600;
+    background: var(--light-theme);
+    border-left: 3px solid var(--dark-theme);
+}
+
+.rpp-steps li.active .rpp-dot {
+    border-color: var(--dark-theme);
+    background: var(--dark-theme);
+    animation: rppBlink 1s infinite;
+}
+
+.rpp-steps li.done {
+    color: var(--dark-green);
+}
+
+.rpp-steps li.done .rpp-dot {
+    background: var(--dark-green);
+    border-color: var(--dark-green);
+    animation: none;
+}
+
+@keyframes rppBlink {
+    50% {
+        opacity: .3;
+    }
+}
+
+.rpp-status-box {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Extra small devices (phones, 600px and down) */
 @media only screen and (max-width: 600px) {
     .studentPolicyPageImage {
@@ -4697,9 +4769,7 @@ option {
     .w-15 {
         width: 30% !important;
     }
-
 }
-
 
 /* Small devices (portrait tablets and large phones, 600px and up) */
 @media only screen and (min-width: 600px) {

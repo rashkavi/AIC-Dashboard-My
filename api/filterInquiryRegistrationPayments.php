@@ -268,6 +268,10 @@ if (SessionUser::hasValidSession()) {
                                                             <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="intake-student-payments?student-id=<?php echo $data['shiId']; ?>&path=payments">
                                                                     <iconify-icon icon="stash:plan" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                     View Student Payment Plan</a></li>
+                                                            <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="#" onclick="openResendPaymentPlanModal(<?= $data['shiId']; ?>)">
+                                                                    <iconify-icon icon="bi:send" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                    Resend Student Payment Plan</a></li>
 
                                                         <?php
                                                         }
