@@ -718,7 +718,7 @@ if (!SessionUser::hasValidSession()) {
                                                             <div class="row" id="student-documents-wrapper">
                                                                 <span class="sub-topic mb-4">Student Required Documents</span>
                                                                 <!-- AIC Application -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="aic_application">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">AIC Application</span>
@@ -747,7 +747,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- University Application -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="university_application">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">University Application</span>
@@ -776,7 +776,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Signed Agreement -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="signed_agreement">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Signed Agreement with Letters</span>
@@ -805,7 +805,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Signed Program Brief -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="signed_program_brief">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Signed Program Brief</span>
@@ -863,7 +863,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Academic Documents -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="academic_documents">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Academic Documents</span>
@@ -893,7 +893,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Other Entry Documents -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="other_entry_documents">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Other Entry Documents</span>
@@ -923,7 +923,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Payment Slip -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="payment_slip">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Payment Slip</span>
@@ -952,7 +952,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Check List Signed by Manager -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="manager_checklist">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Check List Document Signed by Manager</span>
@@ -1009,7 +1009,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!--Signed fee structure  -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="signed_fee_structure">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Signed fee structure</span>
@@ -1038,7 +1038,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 </div>
 
                                                                 <!-- Discount Approved Document -->
-                                                                <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                                                <div class="col-12 col-md-6 col-lg-4 mb-3 d-none">
                                                                     <div class="student-doc-upload-box" data-doc-key="discount_approved_document">
                                                                         <div class="doc-upload-header">
                                                                             <span class="doc-title">Discount Approved Document</span>

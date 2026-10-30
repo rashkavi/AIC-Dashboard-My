@@ -276,7 +276,7 @@ if (SessionUser::hasValidSession()) {
                                                             <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
                                                             <li>
                                                                 <a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer"
-                                                                    onclick="openAccountsConfirmModal(<?= $data['sId']; ?>)">
+                                                                    onclick="openAccountsConfirmModal(<?= $data['shiId']; ?>)">
                                                                     <iconify-icon icon="solar:verified-check-bold"
                                                                         width="20"
                                                                         height="20"
@@ -287,7 +287,6 @@ if (SessionUser::hasValidSession()) {
                                                         <?php
                                                         }
                                                         ?>
-
                                                     </ul>
                                                 </div>
                                             </td>

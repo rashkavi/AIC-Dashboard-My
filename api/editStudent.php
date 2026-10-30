@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 $status = new stdClass();
 require_once("../includes/UserClass.php");
 require_once("../includes/connection.php");
@@ -461,7 +463,6 @@ if (SessionUser::hasValidSession()) {
                                         `document`
                                     FROM `students_identity_documents`
                                     WHERE `students_identity_document_id` = '" . $docId . "'
-                                      AND `students_student_id` = '" . $id . "'
                                     LIMIT 1
                                 ");
 
@@ -484,18 +485,12 @@ if (SessionUser::hasValidSession()) {
 
                                 Database::iud("
                                     DELETE FROM `students_identity_documents`
-                                    WHERE `students_identity_document_id` = '" . $docId . "'
-                                      AND `students_student_id` = '" . $id . "'
+                                    WHERE `students_identity_document_id` = '" . $docId . "
                                 ");
                             }
                         }
 
                         uploadStudentDocuments($id, $studentDocuments);
-
-                        Database::iud("INSERT INTO `students_logs` 
-                            (`students_student_id`, `date_updated`, `users_user_id`,`log`)
-                             VALUES ('" . $id . "','" . $resetTime . "', '" . $sessionUserObject['user_id'] . "','Update Student Details')");
-
 
                         $status->done =  "Student Update Successfully";
                     }

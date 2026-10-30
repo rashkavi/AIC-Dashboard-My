@@ -565,7 +565,6 @@ if (SessionUser::hasValidSession()) {
                                     (`students_has_intakes_students_has_intakes_id`,  `date_updated`, `users_user_id`,`log`,`lead_student_status_lead_student_status_id`)
                                      VALUES ('" . $leadId . "', '" . $addTime . "', '" . $sessionUserObject['user_id'] . "','Payment Plan Created','4')");
 
-
                                     // ── Send email with PDF attachment ──────────────────────────────────────
 
                                     require_once '../includes/phpmailer/src/Exception.php';
@@ -654,8 +653,6 @@ if (SessionUser::hasValidSession()) {
                                                 WHERE cp.payment_plan_has_students_has_intakes_id = '" . $planId . "'
                                                 LIMIT 1
                                             ");
-
-
 
                                         $status->done = 'Payment Plan Created Successfully and emailed to ' . $studentData['email'];
                                     } catch (Exception $e) {

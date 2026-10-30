@@ -277,8 +277,11 @@ if (SessionUser::hasValidSession()) {
                                     INNER JOIN title t
                                         ON s.title_title_id = t.title_id
 
+                                    INNER JOIN students_has_intakes shi
+                                        ON shi.students_student_id = s.student_id
+
                                     INNER JOIN payment_plan_has_students_has_intakes pphsi
-                                        ON pphsi.students_has_intakes_students_has_intakes_id = '" . $studentHasIntakeId . "'
+                                        ON pphsi.students_has_intakes_students_has_intakes_id = shi.students_has_intakes_id
 
                                     INNER JOIN payment_plan pp
                                         ON pphsi.payment_plan_payment_plan_id = pp.payment_plan_id
@@ -288,10 +291,7 @@ if (SessionUser::hasValidSession()) {
 
                                     INNER JOIN currencies c
                                         ON pc.currencies_currency_id = c.currency_id
-
-                                    INNER JOIN students_has_intakes shi
-                                        ON shi.students_has_intakes_id = '" . $studentHasIntakeId . "'
-
+                                    
                                     INNER JOIN intakes i
                                         ON i.intake_id = shi.intakes_intake_id
 

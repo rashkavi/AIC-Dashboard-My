@@ -255,7 +255,7 @@ if (!SessionUser::hasValidSession()) {
                                                                                         <div class="dropdown">
                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                             <ul class="dropdown-menu border-0 shadow w-100 br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="lecturer-assignment-payment?assignment-payment-id=<?php echo $data['assignment_payments_id']; ?>">
+                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="lecturer-assignment-payment?payment-id=<?php echo $data['assignment_payments_id']; ?>">
                                                                                                         <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
                                                                                                         View</a></li>
                                                                                                 <?php

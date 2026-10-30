@@ -28,6 +28,8 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `login_details` ON `login_details_login_details_id` = `login_details_id`
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                         WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
+
+                        
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
