@@ -557,10 +557,6 @@ function validateStudentDocuments($id)
 
     $requiredDocuments = [
         "passport_nic",
-        "payment_slip",
-        "discount_approved_document",
-        "signed_fee_structure",
-        "aic_application"
     ];
 
     $removeIds = [];

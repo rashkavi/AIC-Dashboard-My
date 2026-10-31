@@ -108,6 +108,35 @@ if (!SessionUser::hasValidSession()) {
         // ---- Initial vs Subsequent payment, per branch (this currency) ----
         // Initial payment = payment_type 20 when payment_category = 4, else payment_type 18.
         // Everything else is treated as a subsequent (installment) payment.
+        // ---- Year / Month filter for Initial vs Subsequent chart ----
+        $initYearsRs = Database::search("
+    SELECT DISTINCT YEAR(date_paid) AS y
+    FROM course_payment_has_payments
+    WHERE payment_status_payment_status_id = 3
+      AND currencies_currency_id = " . $currencyId . "
+      AND date_paid IS NOT NULL
+    ORDER BY y DESC
+");
+        $initYears = [];
+        while ($yr = $initYearsRs->fetch_assoc()) {
+            $initYears[] = (int)$yr['y'];
+        }
+
+        $monthNames = [
+            1 => 'January',
+            2 => 'February',
+            3 => 'March',
+            4 => 'April',
+            5 => 'May',
+            6 => 'June',
+            7 => 'July',
+            8 => 'August',
+            9 => 'September',
+            10 => 'October',
+            11 => 'November',
+            12 => 'December'
+        ];
+
         $initialVsSubsequentRs = Database::search("
     SELECT
         b.branch_id,
@@ -140,7 +169,6 @@ if (!SessionUser::hasValidSession()) {
       AND cpp.currencies_currency_id = " . $currencyId . "
     GROUP BY b.branch_id, b.branch, payment_bucket
 ");
-
         // Zero-fill every branch so bars always render even with no data yet.
         $initialSubsequentTotals = [];
         $allBranchesRs2 = Database::search("SELECT branch_id, branch FROM branches ORDER BY branch");
@@ -573,9 +601,30 @@ if (!SessionUser::hasValidSession()) {
                                         </div>
                                     </div>
 
-                                    <div class="col-12 p-4 component-theme">
+                                    <div class="col-12 p-4 component-theme" id="init-sub-section">
+                                        <div class="row align-items-center g-3">
+                                            <div class="col-12 col-lg-6 d-flex flex-column">
+                                                <span class="sub-topic">Initial vs Subsequent Payments (<?= htmlspecialchars($currencyCode) ?>)</span>
+                                                <span class="sub-text text-14">Showing: <span id="init-period-label">All Time</span></span>
+                                            </div>
+                                            <div class="col-6 col-lg-3">
+                                                <select id="init-year-selector" class="form-select custom-select" onchange="loadInitSubData()">
+                                                    <option value="0" selected>- All Years -</option>
+                                                    <?php foreach ($initYears as $y): ?>
+                                                        <option value="<?= $y ?>"><?= $y ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="col-6 col-lg-3">
+                                                <select id="init-month-selector" class="form-select custom-select" onchange="loadInitSubData()">
+                                                    <option value="0" selected>- All Months -</option>
+                                                    <?php foreach ($monthNames as $num => $name): ?>
+                                                        <option value="<?= $num ?>"><?= $name ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <div class="row">
-                                            <span class="sub-topic">Initial vs Subsequent Payments (<?= htmlspecialchars($currencyCode) ?>)</span>
                                             <canvas id="initialVsSubsequentChart" class="w-100 mt-3"></canvas>
                                         </div>
                                     </div>
@@ -1091,7 +1140,7 @@ if (!SessionUser::hasValidSession()) {
                 const initSubChartMax = Math.ceil(initSubDataMax + initSubBuffer) || 5;
                 const initSubChartStepSize = Math.ceil(initSubChartMax / 5);
 
-                new Chart(document.getElementById('initialVsSubsequentChart'), {
+                const initSubChart = new Chart(document.getElementById('initialVsSubsequentChart'), {
                     type: 'bar',
                     data: {
                         labels: initSubLabels,
@@ -1145,6 +1194,48 @@ if (!SessionUser::hasValidSession()) {
                         }
                     }
                 });
+
+                function loadInitSubData() {
+                    const yearSel = document.getElementById('init-year-selector');
+                    const monthSel = document.getElementById('init-month-selector');
+
+                    const year = yearSel.value;
+                    const month = monthSel.value;
+
+                    const fd = new FormData();
+                    fd.append('currency', '<?= (int)$currencyId ?>');
+                    fd.append('year', year);
+                    fd.append('month', month);
+
+                    fetch('api/getInitialSubsequent.php', {
+                            method: 'POST',
+                            body: fd
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log(data);
+                            if (!data.success) {
+                                console.error(data.message);
+                                return;
+                            }
+
+                            // Recalculate Y axis max / step
+                            const allValues = [...data.initial, ...data.subsequent];
+                            const dMax = Math.max(...allValues, 0);
+                            const yMax = Math.ceil(dMax + dMax * 0.1) || 5;
+                            const yStep = Math.ceil(yMax / 5);
+
+                            initSubChart.data.labels = data.labels;
+                            initSubChart.data.datasets[0].data = data.initial;
+                            initSubChart.data.datasets[1].data = data.subsequent;
+                            initSubChart.options.scales.y.max = yMax;
+                            initSubChart.options.scales.y.ticks.stepSize = yStep;
+                            initSubChart.update();
+
+                            document.getElementById('init-period-label').textContent = data.period;
+                        })
+                        .catch(err => console.error('Initial vs Subsequent load failed:', err));
+                }
             </script>
         </body>
 

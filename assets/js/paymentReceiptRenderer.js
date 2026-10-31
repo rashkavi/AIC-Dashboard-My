@@ -1,24 +1,20 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   paymentReceiptRenderer.js  — v11 SEND-STATUS MODAL (theme redesign)
+   paymentReceiptRenderer.js  — v12 CURRENCY FIX
 
-   NEW IN THIS VERSION (on top of v10):
-   1. The send-status modal controller (openSendStatusModal,
-      setSendStepStatus, finishSendStatusModal) now drives the same design
-      as the "Resend Payment Plan" modal: rectangular shapes, theme
-      classes, fading bars loader, progress bar, step list, and separate
-      success / error views.
-   2. The modal markup (#sendReceiptStatusModal) lives in your page HTML —
-      see send-receipt-status-modal.html. The CSS it needs (.rpp-steps,
-      .rpp-dot, .rpp-status-box) is shared with the Resend Payment Plan
-      modal.
+   NEW IN THIS VERSION (on top of v11):
+   1. Discount column shows the PAID currency (e.g. LKR stays LKR) using
+      p.discount_amount + (p.discount_currency || p.paid_currency).
+   2. Penalty column is ALWAYS LKR (p.penalty_lkr).
+   3. Summary box: Penalty is LKR (grand_total_penalty_lkr); Discount is the
+      converted course-currency total (grand_total_discount).
 
-   CARRIED FROM v10 / v9:
-   - sendReceiptEmail() drives the step-by-step status modal:
-     Fetching data -> Rendering -> Generating PDF -> Sending email.
-   - buildReceiptHTML(data) returns the receipt markup string;
-     renderReceiptHTML(data) is a thin wrapper that injects it into the
-     modal. Both the on-screen receipt and the emailed PDF render from
-     this single function.
+   REQUIRES getReceiptData.php v7 (discount_amount in paid currency,
+   penalty_lkr, grand_total_penalty_lkr).
+
+   CARRIED FROM v11 / v10 / v9:
+   - Send-status modal controller, sendReceiptEmail() step flow,
+     buildReceiptHTML(data) as the single source of truth for the on-screen
+     receipt and the emailed PDF.
 ════════════════════════════════════════════════════════════════════════════ */
 
 var mGet = function (id) { return document.getElementById(id); };
@@ -131,6 +127,8 @@ function buildReceiptHTML(data) {
 
     /* ── Payment table rows ─────────────────────────────────────────────── */
     var payRows = '';
+    var penaltyLkrSum = 0; // fallback if API doesn't send grand_total_penalty_lkr
+
     (data.payments || []).forEach(function (p, idx) {
         var paidCurr = (p.paid_currency || cc).trim();
         var isForeign = (paidCurr !== cc);
@@ -152,8 +150,24 @@ function buildReceiptHTML(data) {
             if (isForeign && parseFloat(p.tax_amount || 0) > 0)
                 taxSub = subNote(paidCurr + ' ' + fmt(p.tax_amount));
         }
-        var discMain = parseFloat(p.discount_amount || 0) > 0 ? cc + ' ' + fmt(p.discount_amount) : dash();
-        var penMain = parseFloat(p.penalty_course || 0) > 0 ? cc + ' ' + fmt(p.penalty_course) : dash();
+
+        /* v12: Discount is shown in the PAID currency (LKR stays LKR).
+           For foreign payments, show the course-currency equivalent underneath. */
+        var discCurr = (p.discount_currency || paidCurr).trim();
+        var discVal = parseFloat(p.discount_amount || 0);
+        var discMain = dash();
+        if (discVal > 0) {
+            discMain = discCurr + ' ' + fmt(discVal);
+            if (discCurr !== cc && parseFloat(p.discount_course || 0) > 0) {
+                discMain += subNote('= ' + cc + ' ' + fmt(p.discount_course));
+            }
+        }
+
+        /* v12: Penalty is ALWAYS LKR */
+        var penLkr = parseFloat(p.penalty_lkr || 0);
+        penaltyLkrSum += penLkr;
+        var penMain = penLkr > 0 ? 'LKR ' + fmt(penLkr) : dash();
+
         var bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
         /* per-installment balance cell */
@@ -193,8 +207,10 @@ function buildReceiptHTML(data) {
 
     var totalPaidGross = data.grand_total_paid || 0;
     var totalTax = data.grand_total_tax || 0;
-    var totalDiscount = data.grand_total_discount || 0;
-    var totalPenalty = data.grand_total_penalty || 0;
+    var totalDiscount = data.grand_total_discount || 0;           // course currency (converted)
+    var totalPenaltyLkr = (data.grand_total_penalty_lkr !== undefined && data.grand_total_penalty_lkr !== null)
+        ? data.grand_total_penalty_lkr
+        : penaltyLkrSum;                                          // always LKR
 
     var courseFeeActuallyPaid = Math.max(0, totalPaidGross - totalTax);
 
@@ -215,7 +231,7 @@ function buildReceiptHTML(data) {
     var summaryRows =
         sRow('Course Fee', cc + ' ' + fmt(courseFeeActuallyPaid)) +
         sRow('Discount', parseFloat(totalDiscount || 0) > 0 ? cc + ' ' + fmt(totalDiscount) : dash()) +
-        sRow('Penalty', parseFloat(totalPenalty || 0) > 0 ? cc + ' ' + fmt(totalPenalty) : dash()) +
+        sRow('Penalty', parseFloat(totalPenaltyLkr || 0) > 0 ? 'LKR ' + fmt(totalPenaltyLkr) : dash()) +
         sRow('Tax', parseFloat(totalTax || 0) > 0 ? cc + ' ' + fmt(totalTax) : dash());
 
     var totalRow =
@@ -439,10 +455,6 @@ function sectionLabel(t) {
 
 /* ════════════════════════════════════════════════════════════════════════════
    SEND-STATUS MODAL CONTROLLER  (same design as Resend Payment Plan modal)
-   Markup lives in your page HTML as #sendReceiptStatusModal
-   (see send-receipt-status-modal.html). These functions drive its state:
-   build the step rows, flip a step to active / done / error, update the
-   progress bar, and show the final success or error view.
 ════════════════════════════════════════════════════════════════════════════ */
 var SEND_RECEIPT_STEPS = [
     { key: 'fetch', label: 'Fetching receipt data' },
@@ -543,8 +555,7 @@ function finishSendStatusModal(success, message) {
 /* ════════════════════════════════════════════════════════════════════════════
    SEND RECEIPT EMAIL — renders the SAME markup as the modal into a hidden
    off-DOM container, converts #receipt-print-area to a PDF client-side, and
-   uploads it. Progress is shown in the send-status modal above; each step
-   turns green as it completes, red on the step that failed.
+   uploads it.
 ════════════════════════════════════════════════════════════════════════════ */
 async function sendReceiptEmail(receiptId) {
     var hasStatusModal = !!document.getElementById('sendReceiptStatusModal');
@@ -570,8 +581,7 @@ async function sendReceiptEmail(receiptId) {
         }
         if (hasStatusModal) setSendStepStatus('fetch', 'done');
 
-        // 2. Build the exact same markup the modal renders — single
-        //    source of truth (buildReceiptHTML, not a re-implementation).
+        // 2. Build the exact same markup the modal renders.
         currentStep = 'render';
         if (hasStatusModal) setSendStepStatus('render', 'active');
         container = document.createElement('div');
@@ -580,8 +590,6 @@ async function sendReceiptEmail(receiptId) {
         document.body.appendChild(container);
         container.innerHTML = buildReceiptHTML(data);
 
-        // Only the print area itself should go into the PDF — the modal's
-        // scroll wrapper/style block around it are UI chrome, not content.
         var printArea = container.querySelector('#receipt-print-area');
         if (!printArea) {
             throw new Error('Could not locate receipt content to render.');
@@ -589,8 +597,6 @@ async function sendReceiptEmail(receiptId) {
         if (hasStatusModal) setSendStepStatus('render', 'done');
 
         // 3. DOM -> PDF Blob, client-side, no print dialog.
-        //    scrollX/scrollY:0 avoids html2canvas mis-capturing an
-        //    off-screen-positioned element as blank.
         currentStep = 'pdf';
         if (hasStatusModal) setSendStepStatus('pdf', 'active');
         const pdfBlob = await html2pdf()
@@ -608,7 +614,7 @@ async function sendReceiptEmail(receiptId) {
         container = null;
         if (hasStatusModal) setSendStepStatus('pdf', 'done');
 
-        // 4. Upload the exact rendered PDF — backend does zero re-derivation.
+        // 4. Upload the exact rendered PDF.
         currentStep = 'upload';
         if (hasStatusModal) setSendStepStatus('upload', 'active');
         const formData = new FormData();
@@ -634,7 +640,6 @@ async function sendReceiptEmail(receiptId) {
         }
     } catch (err) {
         console.error(err);
-        // mark the step that was running when it failed as red
         if (hasStatusModal) {
             setSendStepStatus(currentStep, 'error');
             finishSendStatusModal(false, 'Failed to generate or send the receipt PDF.');
