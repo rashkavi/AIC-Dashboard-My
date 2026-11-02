@@ -214,13 +214,12 @@ if (SessionUser::hasValidSession()) {
                     } elseif ($dateFilter == 2) {
                         $query .= " AND YEAR(`cpp`.`date_paid`) = YEAR(CURDATE() - INTERVAL 1 MONTH) AND MONTH(`cpp`.`date_paid`) = MONTH(CURDATE() - INTERVAL 1 MONTH)";
                     } elseif ($dateFilter == 3) {
-                        if (!empty($fromData)) {
-                            $fromDateEscaped = Database::escape($fromDate);
-                            $query .= " AND `cpp`.`date_paid` > '" . $fromDateEscaped . "'";
+                        // Inclusive range: from 00:00:00 of fromDate up to the end of toDate
+                        if (!empty($fromDate)) {
+                            $query .= " AND DATE(`cpp`.`date_paid`) >= '" . Database::escape($fromDate) . "'";
                         }
                         if (!empty($toDate)) {
-                            $toDateEscaped   = Database::escape($toDate);
-                            $query .= " AND `cpp`.`date_paid` < '" . $toDateEscaped . "'";
+                            $query .= " AND DATE(`cpp`.`date_paid`) <= '" . Database::escape($toDate) . "'";
                         }
                     }
 

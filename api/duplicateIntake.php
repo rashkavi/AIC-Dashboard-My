@@ -410,8 +410,8 @@ if (SessionUser::hasValidSession()) {
                                             }
 
                                             $subjectQuiz = Database::search("SELECT * FROM `quiz`
-                                        INNER JOIN `exams` ON `quiz`.`exams_exam_id` = `exams`.`exam_id` 
-                                        WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
+                                                INNER JOIN `exams` ON `quiz`.`exams_exam_id` = `exams`.`exam_id` 
+                                                WHERE `subjects_subject_id`='" . $levelSubject['subject_id'] . "'");
 
                                             if ($subjectQuiz->num_rows > 0) {
                                                 while ($subjectQuizzes = $subjectQuiz->fetch_assoc()) {

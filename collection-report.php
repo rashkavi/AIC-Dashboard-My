@@ -380,7 +380,7 @@ if (!SessionUser::hasValidSession()) {
                                                                             </select>
                                                                         </div>
                                                                         <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
-                                                                            <select class="form-select custom-select" aria-label="Default select example" id="filter-selector" onchange="enableDateSelector(this)">
+                                                                            <select class="form-select custom-select" aria-label="Default select example" id="filter-selector" onchange="handleCollectionReportPagination('filter'),enableDateSelector(this)">
                                                                                 <option selected value="0">- Filter -</option>
                                                                                 <option value="1">This Month</option>
                                                                                 <option value="2">Last Month</option>
