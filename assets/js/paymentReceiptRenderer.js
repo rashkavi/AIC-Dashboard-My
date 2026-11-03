@@ -242,18 +242,18 @@ function buildReceiptHTML(data) {
         '</td></tr>';
 
     var statusRow = '';
-    if (isPaid) {
-        statusRow =
-            '<tr style="background:#f0fdf4;border-top:2px solid #86efac;">' +
-            '<td style="padding:10px 13px;font-size:11px;color:#16a34a;font-weight:700;letter-spacing:.05em;">' +
-            '<span style="display:inline-flex;align-items:center;gap:6px;">' +
-            '<span style="width:18px;height:18px;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">✓</span>' +
-            'FULLY PAID' +
-            '</span>' +
-            '</td>' +
-            '<td style="padding:10px 13px;font-size:12px;text-align:right;color:#16a34a;font-weight:700;">OK</td>' +
-            '</tr>';
-    }
+    // if (isPaid) {
+    //     statusRow =
+    //         '<tr style="background:#f0fdf4;border-top:2px solid #86efac;">' +
+    //         '<td style="padding:10px 13px;font-size:11px;color:#16a34a;font-weight:700;letter-spacing:.05em;">' +
+    //         '<span style="display:inline-flex;align-items:center;gap:6px;">' +
+    //         '<span style="width:18px;height:18px;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">✓</span>' +
+    //         'FULLY PAID' +
+    //         '</span>' +
+    //         '</td>' +
+    //         '<td style="padding:10px 13px;font-size:12px;text-align:right;color:#16a34a;font-weight:700;">OK</td>' +
+    //         '</tr>';
+    // }
 
     var exRateNote = buildExchangeNote(data, cc);
 
