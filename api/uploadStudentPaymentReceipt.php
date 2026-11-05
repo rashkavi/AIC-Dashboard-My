@@ -31,6 +31,12 @@
  *   mirroring how add-receipt.php computes EXISTING_TOTAL_PENALTY / EXISTING_TOTAL_PENALTY_LKR
  *   on the page the user is looking at. This is what makes "what you see is what gets saved"
  *   actually true — including when the user changes the paid date or types a custom rate.
+ *
+ * ✅ v13 FIX (tiny overpayment silently lost): overpayment is now detected in the PAYMENT
+ *   currency ($hasOverpayment, smallest unit 0.01). Before, the check used the base-currency
+ *   equivalent (> 0.001), so e.g. LKR 0.13 became EUR 0.0003, was treated as "no overpayment",
+ *   yet the current receipt was still stored as (paid - 0.13) → that 0.13 vanished.
+ *   The distribution loop condition is also >= 0.01 so a 0.01 overpayment is not dropped.
  */
 
 $status = new stdClass();
@@ -207,7 +213,6 @@ $paymentPlan = Database::search("
     INNER JOIN login_details ld ON s.login_details_login_details_id = ld.login_details_id
     INNER JOIN title      t   ON s.title_title_id            = t.title_id
     WHERE cp.course_payments_id = '" . $payment_id . "'
-   
 ");
 
 if (!$paymentPlan || $paymentPlan->num_rows == 0) {
@@ -440,6 +445,11 @@ $overpayAmount_base = $isLkrPaymentForForeignCourse
     ? $overpayAmount_paymentCcy / $exchangeRate
     : $overpayAmount_paymentCcy;
 
+// ✅ v13 FIX: overpayment is judged in the PAYMENT currency (smallest unit 0.01),
+// not in base currency — LKR 0.13 is only EUR 0.0003 and was being ignored
+// while still being cut off the stored paid_amount (so it vanished).
+$hasOverpayment = ($overpayAmount_paymentCcy >= 0.01);
+
 $amountForCurrent_base = min($paid_base, $remainingBefore_base);
 
 $currentExtracted      = extractTaxFromInclusive($amountForCurrent_base, $latestTaxRate);
@@ -468,7 +478,7 @@ if ($isLkrPaymentForForeignCourse) {
 ════════════════════════════════════════════════════════════════════════════ */
 $nextInstallmentPayments = [];
 
-if ($overpayAmount_base > 0.001) {
+if ($hasOverpayment) { // ✅ v13: was ($overpayAmount_base > 0.001)
     $nextCheck = Database::search("
         SELECT COUNT(*) AS cnt
         FROM course_payments cp
@@ -515,7 +525,8 @@ if ($overpayAmount_base > 0.001) {
 
     $remainingOverpay_paymentCcy = $overpayAmount_paymentCcy;
 
-    while ($remainingOverpay_paymentCcy > 0.01 && ($nextRow = $nextPayments->fetch_assoc())) {
+    // ✅ v13: >= 0.01 (was > 0.01) so an overpayment of exactly 0.01 is not dropped
+    while ($remainingOverpay_paymentCcy >= 0.01 && ($nextRow = $nextPayments->fetch_assoc())) {
         $nextId = (int)$nextRow['course_payments_id'];
         $nextDisc = ($nextRow['discount_type_discount_type_id'] == 3)
             ? $nextRow['amount'] / 100.0 * $nextRow['discount']
@@ -524,9 +535,9 @@ if ($overpayAmount_base > 0.001) {
         // ✅ this installment's own penalty ledger total, always LKR — same
         // source table/column used for $mainPenaltyQ above, filtered by ITS OWN id
         $nextPenaltyQ = Database::search("
-        SELECT SUM(amount) AS penalty FROM `panelty_payments`
-        WHERE course_payments_course_payments_id = '{$nextId}'
-    ");
+            SELECT SUM(amount) AS penalty FROM `panelty_payments`
+            WHERE course_payments_course_payments_id = '{$nextId}'
+        ");
         $nextPenaltyAmount_LKR = 0.0;
         if ($nextPenaltyQ && $nextPenaltyQ->num_rows > 0) {
             $nextPenaltyAmount_LKR = (float)($nextPenaltyQ->fetch_assoc()['penalty'] ?? 0);
@@ -538,34 +549,34 @@ if ($overpayAmount_base > 0.001) {
             : $nextPenaltyAmount_LKR;
 
         $nextExistingQ = Database::search("
-    SELECT
-        COALESCE(SUM(
-            CASE
-                WHEN currencies_currency_id != '{$baseCurrencyId}' AND COALESCE(currency_exchange_rate, 0) > 0
-                THEN paid_amount / currency_exchange_rate
-                ELSE paid_amount
-            END
-        ), 0) AS paid_base,
-        COALESCE(SUM(
-            CASE
-                WHEN currencies_currency_id != '{$baseCurrencyId}' AND COALESCE(currency_exchange_rate, 0) > 0
-                THEN discount_amount / currency_exchange_rate
-                ELSE discount_amount
-            END
-        ), 0) AS receipt_discount_base,
-        COALESCE(SUM(
-            CASE
-                WHEN '{$baseCurrencyId}' != {$lkrCurrencyId} AND COALESCE(currency_exchange_rate, 0) > 0
-                THEN panelty_amount / currency_exchange_rate
-                WHEN '{$baseCurrencyId}' = {$lkrCurrencyId}
-                THEN panelty_amount
-                ELSE 0
-            END
-        ), 0) AS receipt_penalty_base
-    FROM course_payment_has_payments
-    WHERE course_payments_course_payments_id = '$nextId'
-      AND payment_status_payment_status_id IN (2, 3)
-");
+            SELECT
+                COALESCE(SUM(
+                    CASE
+                        WHEN currencies_currency_id != '{$baseCurrencyId}' AND COALESCE(currency_exchange_rate, 0) > 0
+                        THEN paid_amount / currency_exchange_rate
+                        ELSE paid_amount
+                    END
+                ), 0) AS paid_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN currencies_currency_id != '{$baseCurrencyId}' AND COALESCE(currency_exchange_rate, 0) > 0
+                        THEN discount_amount / currency_exchange_rate
+                        ELSE discount_amount
+                    END
+                ), 0) AS receipt_discount_base,
+                COALESCE(SUM(
+                    CASE
+                        WHEN '{$baseCurrencyId}' != {$lkrCurrencyId} AND COALESCE(currency_exchange_rate, 0) > 0
+                        THEN panelty_amount / currency_exchange_rate
+                        WHEN '{$baseCurrencyId}' = {$lkrCurrencyId}
+                        THEN panelty_amount
+                        ELSE 0
+                    END
+                ), 0) AS receipt_penalty_base
+            FROM course_payment_has_payments
+            WHERE course_payments_course_payments_id = '$nextId'
+              AND payment_status_payment_status_id IN (2, 3)
+        ");
         $nextExRow = $nextExistingQ->fetch_assoc();
         $nextExistingPaid_base   = (float)($nextExRow['paid_base']            ?? 0);
         $nextReceiptDisc_base    = (float)($nextExRow['receipt_discount_base'] ?? 0);
@@ -645,7 +656,7 @@ $receiptId = (int)Database::$connection->insert_id;
 ════════════════════════════════════════════════════════════════════════════ */
 $qn = fn($v) => $v !== null ? "'" . addslashes((string)$v) . "'" : 'NULL';
 
-if ($overpayAmount_paymentCcy > 0.001) {
+if ($hasOverpayment) { // ✅ v13: was ($overpayAmount_paymentCcy > 0.001)
     $paidAmountForCurrent_stored = round($paid_amount_original - $overpayAmount_paymentCcy, 2);
 }
 
@@ -657,7 +668,7 @@ $cols = "`course_payments_course_payments_id`, `payment_method_payment_method_id
 
 $vals = "'{$payment_id}', '{$method}',
          '{$paid_date}',
-         '" . round($paidAmountForCurrent_stored, 2) . "',  
+         '" . round($paidAmountForCurrent_stored, 2) . "',
          '" . round($discountForStorage,     2) . "',
          '" . round($penaltyForStorage,      2) . "',
          '3', '{$selectedCurrencyId}',
@@ -761,8 +772,8 @@ if ($latestTaxRate > 0) {
 if ($penaltyEntered_LKR > 0.001) {
     $log .= " | penalty=LKR " . number_format($penaltyEntered_LKR, 2);
 }
-if ($overpayAmount_base > 0.001) {
-    $log .= " | Overpayment → next installment(s)";
+if ($hasOverpayment) { // ✅ v13: was ($overpayAmount_base > 0.001); now logs the amount too
+    $log .= " | Overpayment " . $currencyLabel . " " . number_format($overpayAmount_paymentCcy, 2) . " → next installment(s)";
 }
 
 $logCols = "`course_payments_course_payments_id`, `course_payment_has_payment_id`, `users_user_id`, `date_updated`, `log`";
@@ -913,7 +924,7 @@ $status->breakdown = [
     'exchangeRate'        => $isLkrPaymentForForeignCourse ? $exchangeRate : null,
 ];
 
-if ($overpayAmount_base > 0.001) {
+if ($hasOverpayment) { // ✅ v13: was ($overpayAmount_base > 0.001)
     $status->overpayment = [
         'detected'         => true,
         'overpayAmountBase' => round($overpayAmount_base, 2),

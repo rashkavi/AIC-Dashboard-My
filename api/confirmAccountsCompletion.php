@@ -29,7 +29,7 @@ if (SessionUser::hasValidSession()) {
                         INNER JOIN `students_has_intakes` ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
                         WHERE `students_has_intakes`.`students_has_intakes_id` = '" . $student_id . "'");
 
-                        
+
                         if ($student->num_rows == 0) {
                             http_response_code(400);
                             $status->error = 'Invalid student';
@@ -62,8 +62,7 @@ if (SessionUser::hasValidSession()) {
                                             ON course_payments.payment_plan_has_students_has_intakes_id = payment_plan_has_students_has_intakes.payment_plan_has_students_has_intakes_id
                                         INNER JOIN students_has_intakes
                                             ON payment_plan_has_students_has_intakes.students_has_intakes_students_has_intakes_id = students_has_intakes.students_has_intakes_id
-                                        WHERE `payment_type_payment_type_id` IN ($paymentTypeIn)
-                                        AND `course_payment_has_payments`.`payment_status_payment_status_id` = 3
+                                        WHERE `course_payment_has_payments`.`payment_status_payment_status_id` = 3
                                         AND `students_has_intakes`.`students_has_intakes_id` = $studentIdSafe
                                         LIMIT 1");
 

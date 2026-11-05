@@ -144,6 +144,22 @@ if (SessionUser::hasValidSession()) {
 
                     $page_results = ($pageno - 1) * $result_per_page;
                     $students = Database::search("" . $query . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
+
+                    function programmeShortName($name, $short = null)
+                    {
+                        if (!empty($short)) {
+                            return $short;
+                        }
+                        $skip = ['with', 'of', 'and', 'in', 'the', 'for'];
+                        $words = preg_split('/[\s,()\-]+/', $name, -1, PREG_SPLIT_NO_EMPTY);
+                        $abbr = '';
+                        foreach ($words as $w) {
+                            if (!in_array(strtolower($w), $skip)) {
+                                $abbr .= strtoupper($w[0]);
+                            }
+                        }
+                        return $abbr;
+                    }
 ?>
                     <table class="table bl-solid m-0 p-0 g-0" id="students-table">
                         <thead>
@@ -265,7 +281,31 @@ if (SessionUser::hasValidSession()) {
 
                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["email"]; ?></span></td>
                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["whatsapp"]; ?></span></td>
-                                        <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["user_fname"] == null ? 'N/A' : $data["user_title"] . "." . $data["user_fname"] . " " . $data["user_lname"]; ?></span></td>
+                                        <td class="py-2 align-middle">
+                                            <?php
+                                            $counselors = Database::search("SELECT `title`.`title` AS 'c_title', `users`.`user_fname` AS 'c_fname', `users`.`user_lname` AS 'c_lname', `programmes`.`programme`
+                                                                                FROM `students_has_intakes`
+                                                                                INNER JOIN `users` ON `students_has_intakes`.`counselor_user_id` = `users`.`user_id`
+                                                                                INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id`
+                                                                                INNER JOIN `intakes` ON `students_has_intakes`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                                                INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                                                WHERE `students_has_intakes`.`students_student_id` = '" . intval($data['sId']) . "'
+                                                                                AND `students_has_intakes`.`status_status_id` = '1'");
+
+                                            if ($counselors->num_rows > 0) {
+                                                while ($c = $counselors->fetch_assoc()) {
+                                            ?>
+                                                    <div class="d-flex flex-column mb-1">
+                                                        <span class="text-14 main-text"><?= htmlspecialchars($c['c_title'] . "." . $c['c_fname'] . " " . $c['c_lname']); ?></span>
+                                                        <span class="text-12 sub-text" title="<?= htmlspecialchars($c['programme']); ?>"><?= htmlspecialchars(programmeShortName($c['programme'], '')); ?></span>
+                                                    </div>
+                                            <?php
+                                                }
+                                            } else {
+                                                echo '<span class="text-14 main-text">N/A</span>';
+                                            }
+                                            ?>
+                                        </td>
                                         <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["date_registered"]; ?></span></td>
 
                                         <td class="py-2 align-middle">

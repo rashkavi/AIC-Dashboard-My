@@ -121,8 +121,7 @@ function getSummaryAmounts($db, $pphsiId, $courseCurrencyId)
         while ($r = $res->fetch_assoc()) {
             $receiptCount++; // NEW
             $rate = resolveExchangeRate(null, $r, $courseCurrencyId);
-            $completed  += convertToCourseAmount($r['paid_amount'], $rate);
-            $discounts  += convertToCourseAmount($r['discount_amount'], $rate);
+            $completed  += convertToCourseAmount($r['paid_amount'] - $r['panelty_amount'], $rate);
             $penalties  += convertToCourseAmount($r['panelty_amount'], $rate);
             $taxAmounts += convertToCourseAmount($r['tax_amount'], $rate);
         }
@@ -255,96 +254,104 @@ if (!SessionUser::hasValidSession()) {
                         ($studentHasIntakeData['status_status_id_login_details'] == 1 || $studentHasIntakeData['status_status_id_login_details'] == null)
                         && ($studentHasIntakeData['status_status_id'] == 1 || $studentHasIntakeData['status_status_id'] == null)
                     );
+
+                    // Who can edit / remove payments (same rule as Edit / Add Receipt)
+                    $canManagePayments = (
+                        SessionUser::ifUserIsPro($sessionUserRole)
+                        || SessionUser::ifUserIsAccounts($sessionUserRole)
+                        || UserPermissions::validPermisisonType('payments', 0)
+                        || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
+                    );
 ?>
-<!DOCTYPE html>
-<html lang="en">
+                    <!DOCTYPE html>
+                    <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Intake Student Payments - Admin Dashboard | <?= Project::getBaseName() ?></title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
-    <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
-    <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
-    <link href="./assets/plugins/cropperjs/cropper.min.css" rel="stylesheet">
-    <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
-    <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
-    <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
-</head>
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <meta name="robots" content="noindex, nofollow">
+                        <title>Intake Student Payments - Admin Dashboard | <?= Project::getBaseName() ?></title>
+                        <link rel="stylesheet" href="./assets/css/style.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/css/skeleton.css?v=<?= Project::getVersion() ?>">
+                        <link rel="stylesheet" href="./assets/plugins/bootstrap/css/bootstrap.min.css?v=<?= Project::getVersion() ?>">
+                        <link href="./assets/plugins/cropperjs/cropper.min.css" rel="stylesheet">
+                        <script src="./assets/plugins/cropperjs/cropper.min.js"></script>
+                        <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+                        <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
+                    </head>
 
-<body class="overflow-hidden">
-    <div class="notifications"></div>
-    <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
-        <div id="appContainer" class="row p-0">
-            <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
-                <?php include "includes/side-menu.php";
-                if ($path == 0) {
-                    load_side_menu::load("Course Overview");
-                } else if ($path == "payments") {
-                    load_side_menu::load("Payments");
-                } else {
-                    load_side_menu::load("Registrations");
-                }
-                ?>
-            </div>
-            <div id="app-wrapper" class="app-wrapper p-0 m-0">
-                <div class="row p-0 m-0 g-0">
-                    <div class="col-12 p-0 m-0 g-0">
-                        <?php include "./includes/header.php";
-                        if ($path == 0) {
-                            selectItem::setSelected("Course Overview");
-                        } else if ($path == "payments") {
-                            selectItem::setSelected("Payments");
-                        } else {
-                            selectItem::setSelected("Registrations");
-                        }
-                        ?>
-                    </div>
-                    <div class="container p-4 m-0" id="skeleton-list">
-                        <?php include "./includes/components/skeleton-header.php";
-                        include "./includes/components/skeleton-dashboards.php"; ?>
-                    </div>
-                    <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
-                        <div class="row p-4 m-0 g-0">
-
-                            <!-- Page Header -->
-                            <div class="col-12 px-4 py-3 component-theme mb-4">
-                                <div class="row p-0 m-0 g-0">
-                                    <div class="col-12 col-md-10">
-                                        <div class="row">
-                                            <span class="main-topic lh-lg">Student Payments - #<?= $studentHasIntakeData['student_id'] ?></span>
-                                            <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
-                                                <ol class="breadcrumb m-0">
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $studentHasIntakeData['faculty_id'] ?>'>...</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $studentHasIntakeData['programme_id'] ?>'><?= $studentHasIntakeData['programme'] ?></a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intake-details?intake-id=<?= $studentHasIntakeData['intake_id'] ?>'><?= $studentHasIntakeData['intake'] ?></a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= ucwords(strtolower($studentHasIntakeData['title'] . "." . $studentHasIntakeData['first_name'] . " " . $studentHasIntakeData['last_name'])) ?></a></li>
-                                                </ol>
-                                            </nav>
-                                        </div>
-                                    </div>
-                                    <?php
-                                    if ($isStudentActive) :
-                                        if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])): ?>
-                                            <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
-                                                <button class="custom-btn w-100" type="button" onclick="location.href='add-payment-plan?student-id=<?= $id ?>'">Add Payment Plan</button>
-                                            </div>
-                                    <?php endif;
-                                    endif; ?>
+                    <body class="overflow-hidden">
+                        <div class="notifications"></div>
+                        <div class="col-12 vh-100 container-fluid overflow-hidden content-container">
+                            <div id="appContainer" class="row p-0">
+                                <div id="sideMenu" class="d-none d-xl-block d-flex flex-column sideMenuArea p-0 vh-100">
+                                    <?php include "includes/side-menu.php";
+                                    if ($path == 0) {
+                                        load_side_menu::load("Course Overview");
+                                    } else if ($path == "payments") {
+                                        load_side_menu::load("Payments");
+                                    } else {
+                                        load_side_menu::load("Registrations");
+                                    }
+                                    ?>
                                 </div>
-                            </div>
+                                <div id="app-wrapper" class="app-wrapper p-0 m-0">
+                                    <div class="row p-0 m-0 g-0">
+                                        <div class="col-12 p-0 m-0 g-0">
+                                            <?php include "./includes/header.php";
+                                            if ($path == 0) {
+                                                selectItem::setSelected("Course Overview");
+                                            } else if ($path == "payments") {
+                                                selectItem::setSelected("Payments");
+                                            } else {
+                                                selectItem::setSelected("Registrations");
+                                            }
+                                            ?>
+                                        </div>
+                                        <div class="container p-4 m-0" id="skeleton-list">
+                                            <?php include "./includes/components/skeleton-header.php";
+                                            include "./includes/components/skeleton-dashboards.php"; ?>
+                                        </div>
+                                        <div class="col-12 d-flex flex-column p-0 m-0 g-0 contentBodyArea vh-100 d-none" id="real-list">
+                                            <div class="row p-4 m-0 g-0">
 
-                            <div class="col-12 px-4 py-3 pe-4 g-0 component-theme mb-10">
-                                <div class="row p-0 m-0 g-0 align-content-center" id="accordionParent">
-                                    <span class="text-16 main-text fw-medium">Student Payment History</span>
+                                                <!-- Page Header -->
+                                                <div class="col-12 px-4 py-3 component-theme mb-4">
+                                                    <div class="row p-0 m-0 g-0">
+                                                        <div class="col-12 col-md-10">
+                                                            <div class="row">
+                                                                <span class="main-topic lh-lg">Student Payments - #<?= $studentHasIntakeData['student_id'] ?></span>
+                                                                <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
+                                                                    <ol class="breadcrumb m-0">
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='faculties'>Faculties</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='programmes?faculty-id=<?= $studentHasIntakeData['faculty_id'] ?>'>...</a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intakes?programme-id=<?= $studentHasIntakeData['programme_id'] ?>'><?= $studentHasIntakeData['programme'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='intake-details?intake-id=<?= $studentHasIntakeData['intake_id'] ?>'><?= $studentHasIntakeData['intake'] ?></a></li>
+                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= ucwords(strtolower($studentHasIntakeData['title'] . "." . $studentHasIntakeData['first_name'] . " " . $studentHasIntakeData['last_name'])) ?></a></li>
+                                                                    </ol>
+                                                                </nav>
+                                                            </div>
+                                                        </div>
+                                                        <?php
+                                                        if ($isStudentActive) :
+                                                            if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 12, $studentHasIntakeData['intake_id'])): ?>
+                                                                <div class="col-12 col-md-2 mt-3 m-md-0 d-flex justify-content-end align-items-center">
+                                                                    <button class="custom-btn w-100" type="button" onclick="location.href='add-payment-plan?student-id=<?= $id ?>'">Add Payment Plan</button>
+                                                                </div>
+                                                        <?php endif;
+                                                        endif; ?>
+                                                    </div>
+                                                </div>
 
-                                    <?php
-                                    // ============================================================
-                                    // SECTION 2: PAYMENT HISTORY SUMMARY per payment plan
-                                    // ============================================================
-                                    $categoryQuery = "
+                                                <div class="col-12 px-4 py-3 pe-4 g-0 component-theme mb-10">
+                                                    <div class="row p-0 m-0 g-0 align-content-center" id="accordionParent">
+                                                        <span class="text-16 main-text fw-medium">Student Payment History</span>
+
+                                                        <?php
+                                                        // ============================================================
+                                                        // SECTION 2: PAYMENT HISTORY SUMMARY per payment plan
+                                                        // ============================================================
+                                                        $categoryQuery = "
                                     SELECT
                                         `pshi`.`payment_plan_has_students_has_intakes_id` AS `pphsiId`,
                                         `pshi`.`amount`,
@@ -415,151 +422,151 @@ if (!SessionUser::hasValidSession()) {
                                     ORDER BY `pp`.`payment_plan_id` ASC
                                     ";
 
-                                    $paymentsCategory = Database::search($categoryQuery);
+                                                        $paymentsCategory = Database::search($categoryQuery);
 
-                                    if ($paymentsCategory && $paymentsCategory->num_rows > 0):
-                                        while ($data = $paymentsCategory->fetch_assoc()):
-                                            if ($data['discount_type_discount_type_id'] == 3) {
-                                                $data['discount'] = $data['amount'] * $data['discount'] / 100;
-                                            }
+                                                        if ($paymentsCategory && $paymentsCategory->num_rows > 0):
+                                                            while ($data = $paymentsCategory->fetch_assoc()):
+                                                                if ($data['discount_type_discount_type_id'] == 3) {
+                                                                    $data['discount'] = $data['amount'] * $data['discount'] / 100;
+                                                                }
 
-                                            $summary = getSummaryAmounts(null, $data['pphsiId'], $data['course_currency_id']);
-                                            $completed_payments         = $summary['completed'];
-                                            $awaiting_approval_payments = $summary['pending'];
-                                            $rejected_payments          = $summary['rejected'];
-                                            $given_discounts            = $summary['discounts'];
-                                            $given_penalties            = $summary['penalties'];
-                                            $paneltyPaymentsConverted   = $summary['paneltyPaymentsConverted'];
-                                            $taxAmounts                 = $summary['taxAmounts'];
+                                                                $summary = getSummaryAmounts(null, $data['pphsiId'], $data['course_currency_id']);
+                                                                $completed_payments         = $summary['completed'];
+                                                                $awaiting_approval_payments = $summary['pending'];
+                                                                $rejected_payments          = $summary['rejected'];
+                                                                $given_discounts            = $summary['discounts'];
+                                                                $given_penalties            = $summary['penalties'];
+                                                                $paneltyPaymentsConverted   = $summary['paneltyPaymentsConverted'];
+                                                                $taxAmounts                 = $summary['taxAmounts'];
 
-                                            // total penalties = LKR-source penalties (converted) + receipt-level penalties (converted)
-                                            $total_given_penalties = $paneltyPaymentsConverted + $given_penalties;
+                                                                // total penalties = LKR-source penalties (converted) + receipt-level penalties (converted)
+                                                                $total_given_penalties = $paneltyPaymentsConverted + $given_penalties;
 
-                                            // "Payable Amount" = what is actually owed INCLUDING tax
-                                            $payableAmountWithTax = calculateTaxInclusiveAmount($data['payable_amount'], $latestTaxRate);
+                                                                // "Payable Amount" = what is actually owed INCLUDING tax
+                                                                $payableAmountWithTax = calculateTaxInclusiveAmount($data['payable_amount'], $latestTaxRate);
 
-                                            // ============================================================
-                                            // FIX: Awaiting Payments with rounding tolerance
-                                            // Payable is grossed up + rounded once, while receipts are
-                                            // converted/taxed line by line, so a 0.01 residue can remain.
-                                            // ============================================================
-                                            $dp = (int)$data['decimal_places'];
+                                                                // ============================================================
+                                                                // FIX: Awaiting Payments with rounding tolerance
+                                                                // Payable is grossed up + rounded once, while receipts are
+                                                                // converted/taxed line by line, so a 0.01 residue can remain.
+                                                                // ============================================================
+                                                                $dp = (int)$data['decimal_places'];
 
-                                            $payableR   = round($payableAmountWithTax, $dp);
-                                            $settledR   = round($completed_payments, $dp);
-                                            $discountsR = round($given_discounts, $dp);
+                                                                $payableR   = round($payableAmountWithTax, $dp);
+                                                                $settledR   = round($completed_payments, $dp);
+                                                                $discountsR = round($given_discounts, $dp);
 
-                                            $awaiting_payments = round($payableR - $settledR - $discountsR, $dp);
+                                                                $awaiting_payments = round($payableR - $settledR - $discountsR, $dp);
 
-                                            // Tolerance: up to 1 smallest unit per receipt
-                                            $tolerance = max(1, (int)$summary['receiptCount']) * pow(10, -$dp);
-                                            if (abs($awaiting_payments) <= $tolerance) {
-                                                $awaiting_payments = 0;
-                                            }
-                                            $awaiting_payments = max(0, $awaiting_payments);
-                                    ?>
-                                            <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
-                                                <div class="row p-0 g-0 m-0">
-                                                    <div class="col-12">
-                                                        <div class="row">
-                                                            <div class="col-8 col-xl-8" data-bs-toggle="collapse" role="button"
-                                                                data-bs-target="#collapse-<?= $data['pphsiId'] ?>"
-                                                                aria-expanded="true" aria-controls="collapse-<?= $data['pphsiId'] ?>">
-                                                                <p class="text-16 dark-color fw-bold p-0 m-0 g-0">
-                                                                    <?= $data['payment_category'] ?> - <?= $data['code'] ?> <?= number_format($data['amount'], $data['decimal_places']) ?>
-                                                                </p>
-                                                                <span class="text-14 sub-text p-0 mt-1 g-0">Payment Plan : </span>
-                                                                <span class="text-14 sub-text mt-1 fw-medium"><?= $data['payment_plan'] ?></span>
-                                                            </div>
-                                                            <?php
-                                                            if ($isStudentActive) :
-                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])): ?>
-                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                            <button class="custom-danger-btn w-100" onclick="window.location.href='update-student-payment-plan?payment-paln-id=<?= $data['pphsiId'] ?>'">Update Payment Plan</button>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="col-6 col-xl-2 mt-2 mt-xl-0">
-                                                                        <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
-                                                                            <button class="custom-btn w-100" onclick="window.location.href='add-payment-intake-student?student-id=<?= $id ?>&payment-plan-id=<?= $data['pphsiId'] ?>'">Add Payment</button>
-                                                                        </div>
-                                                                    </div>
-                                                            <?php endif;
-                                                            endif; ?>
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="overflow-x-auto p-0 mt-3 g-0 collapse show" id="collapse-<?= $data['pphsiId'] ?>"
-                                                        data-bs-target="#accordionParent" aria-expanded="false" aria-controls="accordionParent">
-
-                                                        <!-- Summary Cards -->
-                                                        <div class="p-0 mb-4 g-0">
-                                                            <div class="row g-4 d-flex">
-                                                                <?php
-                                                                $cards = [
-                                                                    ['label' => 'Payable Amount',       'val' => $payableAmountWithTax, 'code' => $data['code']],
-                                                                    ['label' => 'Settled Amount',       'val' => $completed_payments, 'code' => $data['code']],
-                                                                    ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts, 'code' => $data['code']],
-                                                                    ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties, 'code' => 'LKR'],
-                                                                    ['label' => 'Total Paid Tax',       'val' => $taxAmounts, 'code' => $data['code']],
-                                                                    ['label' => 'Awaiting Payments',    'val' => $awaiting_payments, 'code' => $data['code']],
-                                                                    ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments, 'code' => $data['code']],
-                                                                    ['label' => 'Rejected Payment',     'val' => $rejected_payments, 'code' => $data['code']],
-                                                                ];
-                                                                foreach ($cards as $card):
-                                                                ?>
-                                                                    <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
-                                                                        <div class="bl-solid p-3 w-100">
-                                                                            <div class="d-flex flex-row align-items-center">
-                                                                                <label class="flex-grow-1 text-16 sub-text"><?= $card['label'] ?></label>
-                                                                                <iconify-icon icon="mdi:payment-settings" width="25" height="25" class="dark-theme"></iconify-icon>
-                                                                            </div>
-                                                                            <div class="mt-2">
-                                                                                <span class="text-24 dark-color fw-semibold lh-lg"><?= $card['code'] ?> <?= number_format($card['val'], $data['decimal_places']) ?></span>
+                                                                // Tolerance: up to 1 smallest unit per receipt
+                                                                $tolerance = max(1, (int)$summary['receiptCount']) * pow(10, -$dp);
+                                                                if (abs($awaiting_payments) <= $tolerance) {
+                                                                    $awaiting_payments = 0;
+                                                                }
+                                                                $awaiting_payments = max(0, $awaiting_payments);
+                                                        ?>
+                                                                <div class="col-12 bl-solid p-4 m-0 g-0 mt-3">
+                                                                    <div class="row p-0 g-0 m-0">
+                                                                        <div class="col-12">
+                                                                            <div class="row">
+                                                                                <div class="col-8 col-xl-8" data-bs-toggle="collapse" role="button"
+                                                                                    data-bs-target="#collapse-<?= $data['pphsiId'] ?>"
+                                                                                    aria-expanded="true" aria-controls="collapse-<?= $data['pphsiId'] ?>">
+                                                                                    <p class="text-16 dark-color fw-bold p-0 m-0 g-0">
+                                                                                        <?= $data['payment_category'] ?> - <?= $data['code'] ?> <?= number_format($data['amount'], $data['decimal_places']) ?>
+                                                                                    </p>
+                                                                                    <span class="text-14 sub-text p-0 mt-1 g-0">Payment Plan : </span>
+                                                                                    <span class="text-14 sub-text mt-1 fw-medium"><?= $data['payment_plan'] ?></span>
+                                                                                </div>
+                                                                                <?php
+                                                                                if ($isStudentActive) :
+                                                                                    if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::hasPermission('intake_payments', 13, $studentHasIntakeData['intake_id'])): ?>
+                                                                                        <div class="col-6 col-xl-2 mt-2 mt-xl-0">
+                                                                                            <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
+                                                                                                <button class="custom-danger-btn w-100" onclick="window.location.href='update-student-payment-plan?payment-paln-id=<?= $data['pphsiId'] ?>'">Update Payment Plan</button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="col-6 col-xl-2 mt-2 mt-xl-0">
+                                                                                            <div class="d-flex flex-row align-items-center justify-content-end m-0 p-0">
+                                                                                                <button class="custom-btn w-100" onclick="window.location.href='add-payment-intake-student?student-id=<?= $id ?>&payment-plan-id=<?= $data['pphsiId'] ?>'">Add Payment</button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                <?php endif;
+                                                                                endif; ?>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                <?php endforeach; ?>
-                                                            </div>
-                                                        </div>
 
-                                                        <!-- Detail Table -->
-                                                        <div class="table-responsive-wrapper">
-                                                            <div class="table-responsive overflow-visible">
-                                                                <table class="table bl-solid m-0 p-0 g-0">
-                                                                    <thead>
-                                                                        <tr class="br-t-5">
-                                                                            <th class="px-4 py-3 bg-table-header main-text fw-medium">
-                                                                                <div class="d-flex flex-row align-items-center">
-                                                                                    <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" onchange="tableCheckEvents()">
-                                                                                    <span class="text-14 main-text fw-medium mx-2">Payment</span>
+                                                                        <div class="overflow-x-auto p-0 mt-3 g-0 collapse show" id="collapse-<?= $data['pphsiId'] ?>"
+                                                                            data-bs-target="#accordionParent" aria-expanded="false" aria-controls="accordionParent">
+
+                                                                            <!-- Summary Cards -->
+                                                                            <div class="p-0 mb-4 g-0">
+                                                                                <div class="row g-4 d-flex">
+                                                                                    <?php
+                                                                                    $cards = [
+                                                                                        ['label' => 'Payable Amount',       'val' => $payableAmountWithTax, 'code' => $data['code']],
+                                                                                        ['label' => 'Settled Amount',       'val' => $completed_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Total Discount',       'val' => $data['total_discounts'] + $given_discounts, 'code' => $data['code']],
+                                                                                        ['label' => 'Total Penalty Amount', 'val' => $data['total_panelties'] + $total_given_penalties, 'code' => 'LKR'],
+                                                                                        ['label' => 'Total Paid Tax',       'val' => $taxAmounts, 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Payments',    'val' => $awaiting_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Awaiting Approval',    'val' => $awaiting_approval_payments, 'code' => $data['code']],
+                                                                                        ['label' => 'Rejected Payment',     'val' => $rejected_payments, 'code' => $data['code']],
+                                                                                    ];
+                                                                                    foreach ($cards as $card):
+                                                                                    ?>
+                                                                                        <div class="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
+                                                                                            <div class="bl-solid p-3 w-100">
+                                                                                                <div class="d-flex flex-row align-items-center">
+                                                                                                    <label class="flex-grow-1 text-16 sub-text"><?= $card['label'] ?></label>
+                                                                                                    <iconify-icon icon="mdi:payment-settings" width="25" height="25" class="dark-theme"></iconify-icon>
+                                                                                                </div>
+                                                                                                <div class="mt-2">
+                                                                                                    <span class="text-24 dark-color fw-semibold lh-lg"><?= $card['code'] ?> <?= number_format($card['val'], $data['decimal_places']) ?></span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    <?php endforeach; ?>
                                                                                 </div>
-                                                                            </th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Due Date</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Discount</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Tax</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Payable</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Paid Amount</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Date Paid</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Course Balance</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Penalty (LKR)</th>
-                                                                            <th class="py-3 bg-table-header text-14 main-text fw-medium">Payment Method</th>
-                                                                            <th class="py-3 bg-table-header">
-                                                                                <div class="d-flex flex-row align-items-center">
-                                                                                    <span class="text-14 main-text fw-medium">Status</span>
-                                                                                    <iconify-icon icon="ion:arrow-down-sharp" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
-                                                                                </div>
-                                                                            </th>
-                                                                            <th class="pe-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        <?php
-                                                                        // ============================================================
-                                                                        // SECTION 3: DETAIL ROWS per course_payment
-                                                                        // ============================================================
-                                                                        $detailQuery = "
+                                                                            </div>
+
+                                                                            <!-- Detail Table -->
+                                                                            <div class="table-responsive-wrapper">
+                                                                                <div class="table-responsive overflow-visible">
+                                                                                    <table class="table bl-solid m-0 p-0 g-0">
+                                                                                        <thead>
+                                                                                            <tr class="br-t-5">
+                                                                                                <th class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                                                    <div class="d-flex flex-row align-items-center">
+                                                                                                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" onchange="tableCheckEvents()">
+                                                                                                        <span class="text-14 main-text fw-medium mx-2">Payment</span>
+                                                                                                    </div>
+                                                                                                </th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Due Date</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Discount</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Tax</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Payable</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Paid Amount</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Date Paid</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Course Balance</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Penalty (LKR)</th>
+                                                                                                <th class="py-3 bg-table-header text-14 main-text fw-medium">Payment Method</th>
+                                                                                                <th class="py-3 bg-table-header">
+                                                                                                    <div class="d-flex flex-row align-items-center">
+                                                                                                        <span class="text-14 main-text fw-medium">Status</span>
+                                                                                                        <iconify-icon icon="ion:arrow-down-sharp" width="20" height="20" class="text-dark-color px-1"></iconify-icon>
+                                                                                                    </div>
+                                                                                                </th>
+                                                                                                <th class="pe-4 py-3 bg-table-header text-14 main-text fw-medium">Action</th>
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                            <?php
+                                                                                            // ============================================================
+                                                                                            // SECTION 3: DETAIL ROWS per course_payment
+                                                                                            // ============================================================
+                                                                                            $detailQuery = "
                                                                         SELECT
                                                                             `cp`.`course_payments_id`,
                                                                             `ps`.`payment_status`, `ps`.`payment_status_id`,
@@ -598,46 +605,46 @@ if (!SessionUser::hasValidSession()) {
                                                                         ORDER BY `cp`.`course_payments_id` ASC
                                                                         ";
 
-                                                                        $detailResults   = Database::search($detailQuery);
-                                                                        $results_count   = $detailResults ? $detailResults->num_rows : 0;
-                                                                        $result_per_page = 100;
-                                                                        $pageno          = 1;
-                                                                        $page_results    = ($pageno - 1) * $result_per_page;
-                                                                        $detailQueryPaged = $detailQuery . " LIMIT " . $result_per_page . " OFFSET " . $page_results;
-                                                                        $pagedResults    = Database::search($detailQueryPaged);
+                                                                                            $detailResults   = Database::search($detailQuery);
+                                                                                            $results_count   = $detailResults ? $detailResults->num_rows : 0;
+                                                                                            $result_per_page = 100;
+                                                                                            $pageno          = 1;
+                                                                                            $page_results    = ($pageno - 1) * $result_per_page;
+                                                                                            $detailQueryPaged = $detailQuery . " LIMIT " . $result_per_page . " OFFSET " . $page_results;
+                                                                                            $pagedResults    = Database::search($detailQueryPaged);
 
-                                                                        if ($pagedResults && $pagedResults->num_rows > 0):
-                                                                            while ($row = $pagedResults->fetch_assoc()):
+                                                                                            if ($pagedResults && $pagedResults->num_rows > 0):
+                                                                                                while ($row = $pagedResults->fetch_assoc()):
 
-                                                                                // CP-level discount
-                                                                                $discountAmount = ($row['discount_type_id'] == 3)
-                                                                                    ? $row['amount'] / 100 * $row['discount']
-                                                                                    : $row['discount'];
+                                                                                                    // CP-level discount
+                                                                                                    $discountAmount = ($row['discount_type_id'] == 3)
+                                                                                                        ? $row['amount'] / 100 * $row['discount']
+                                                                                                        : $row['discount'];
 
-                                                                                $totalDiscount   = $discountAmount;
-                                                                                $totalPenaltyLKR = $row['panelty_amount']; // raw LKR
-                                                                                $rowTaxAmounts   = 0;
+                                                                                                    $totalDiscount   = $discountAmount;
+                                                                                                    $totalPenaltyLKR = $row['panelty_amount']; // raw LKR
+                                                                                                    $rowTaxAmounts   = 0;
 
-                                                                                $convertedPaidTotal       = 0;
-                                                                                $receiptRows              = [];
-                                                                                $totalPaidAmount          = 0;
-                                                                                $totalReceiptPenaltiesLKR = 0;
-                                                                                $paidBeforePenalty        = 0;
-                                                                                $paidAfterPenalty         = 0;
+                                                                                                    $convertedPaidTotal       = 0;
+                                                                                                    $receiptRows              = [];
+                                                                                                    $totalPaidAmount          = 0;
+                                                                                                    $totalReceiptPenaltiesLKR = 0;
+                                                                                                    $paidBeforePenalty        = 0;
+                                                                                                    $paidAfterPenalty         = 0;
 
-                                                                                // Earliest penalty date for this course payment
-                                                                                $penaltyDateQuery = Database::search("
+                                                                                                    // Earliest penalty date for this course payment
+                                                                                                    $penaltyDateQuery = Database::search("
                                                                                     SELECT MIN(pp.date_added) as earliest_penalty_date
                                                                                     FROM panelty_payments pp
                                                                                     WHERE pp.course_payments_course_payments_id = '" . (int)$row['course_payments_id'] . "'
                                                                                 ");
-                                                                                $penaltyDate = null;
-                                                                                if ($penaltyDateQuery && $penaltyDateQuery->num_rows > 0) {
-                                                                                    $penaltyData = $penaltyDateQuery->fetch_assoc();
-                                                                                    $penaltyDate = $penaltyData['earliest_penalty_date'];
-                                                                                }
+                                                                                                    $penaltyDate = null;
+                                                                                                    if ($penaltyDateQuery && $penaltyDateQuery->num_rows > 0) {
+                                                                                                        $penaltyData = $penaltyDateQuery->fetch_assoc();
+                                                                                                        $penaltyDate = $penaltyData['earliest_penalty_date'];
+                                                                                                    }
 
-                                                                                $receipts = Database::search("
+                                                                                                    $receipts = Database::search("
                                                                                 SELECT
                                                                                     cpp.*,
                                                                                     pm.payment_method,
@@ -660,291 +667,447 @@ if (!SessionUser::hasValidSession()) {
                                                                                 GROUP BY cpp.course_payment_has_payment_id
                                                                                 ORDER BY cpp.date_paid ASC
                                                                                 ");
-                                                                                if ($receipts && $receipts->num_rows > 0) {
-                                                                                    while ($rec = $receipts->fetch_assoc()) {
-                                                                                        $rate = resolveExchangeRate(null, $rec, $row['course_currency_id']);
-                                                                                        $rec['converted_paid']         = convertToCourseAmount($rec['paid_amount'], $rate);
-                                                                                        $rec['is_foreign_currency']    = ($rate !== null);
-                                                                                        $rec['currency_exchange_rate'] = $rate;
-                                                                                        $receiptRows[] = $rec;
+                                                                                                    if ($receipts && $receipts->num_rows > 0) {
+                                                                                                        while ($rec = $receipts->fetch_assoc()) {
+                                                                                                            $rate = resolveExchangeRate(null, $rec, $row['course_currency_id']);
+                                                                                                            $rec['converted_paid']         = convertToCourseAmount($rec['paid_amount'], $rate);
+                                                                                                            $rec['is_foreign_currency']    = ($rate !== null);
+                                                                                                            $rec['currency_exchange_rate'] = $rate;
+                                                                                                            $receiptRows[] = $rec;
 
-                                                                                        if (in_array($rec['payment_status_id'], [2, 3])) {
-                                                                                            $convertedPaidTotal += $rec['converted_paid'];
-                                                                                            $totalPaidAmount    += $rec['converted_paid'];
-                                                                                            $totalDiscount      += convertToCourseAmount($rec['discount_amount'], $rate);
-                                                                                            $totalReceiptPenaltiesLKR += $rec['panelty_amount'];
-                                                                                            $rowTaxAmounts      += convertToCourseAmount($rec['tax_amount'], $rate);
+                                                                                                            if (in_array($rec['payment_status_id'], [2, 3])) {
+                                                                                                                $convertedPaidTotal += $rec['converted_paid'];
+                                                                                                                $totalPaidAmount    += $rec['converted_paid'];
+                                                                                                                $totalDiscount      += convertToCourseAmount($rec['discount_amount'], $rate);
+                                                                                                                $totalReceiptPenaltiesLKR += $rec['panelty_amount'];
+                                                                                                                $rowTaxAmounts      += convertToCourseAmount($rec['tax_amount'], $rate);
 
-                                                                                            // Allocate payment to course balance based on penalty date
-                                                                                            if ($penaltyDate && $rec['date_paid'] < $penaltyDate) {
-                                                                                                $paidBeforePenalty += $rec['converted_paid'];
-                                                                                            } else if ($penaltyDate) {
-                                                                                                $paidAfterPenalty += $rec['converted_paid'];
-                                                                                            } else {
-                                                                                                $paidBeforePenalty += $rec['converted_paid'];
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                }
+                                                                                                                // Allocate payment to course balance based on penalty date
+                                                                                                                if ($penaltyDate && $rec['date_paid'] < $penaltyDate) {
+                                                                                                                    $paidBeforePenalty += $rec['converted_paid'];
+                                                                                                                } else if ($penaltyDate) {
+                                                                                                                    $paidAfterPenalty += $rec['converted_paid'];
+                                                                                                                } else {
+                                                                                                                    $paidBeforePenalty += $rec['converted_paid'];
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
 
-                                                                                // Total penalty in LKR (course_payments + receipt penalties)
-                                                                                $totalPenaltyLKRDisplay = $totalPenaltyLKR + $totalReceiptPenaltiesLKR;
+                                                                                                    // Total penalty in LKR (course_payments + receipt penalties)
+                                                                                                    $totalPenaltyLKRDisplay = $totalPenaltyLKR + $totalReceiptPenaltiesLKR;
 
-                                                                                // payable = amount - discount + tax (NO penalties)
-                                                                                $payableAmount = $row['amount'] - $totalDiscount + $rowTaxAmounts;
+                                                                                                    // payable = amount - discount + tax (NO penalties)
+                                                                                                    $payableAmount = $row['amount'] - $totalDiscount + $rowTaxAmounts;
 
-                                                                                // Amount paid towards course fee (excluding penalty portion)
-                                                                                $coursePaymentReceived = $paidBeforePenalty;
-                                                                                $penaltyInCourse = convertPaneltyPaymentsAmount($totalPenaltyLKR, $row['course_currency_id']);
-                                                                                $coursePaymentReceived += max(0, $paidAfterPenalty - $penaltyInCourse);
+                                                                                                    // Amount paid towards course fee (excluding penalty portion)
+                                                                                                    $coursePaymentReceived = $paidBeforePenalty;
+                                                                                                    $penaltyInCourse = convertPaneltyPaymentsAmount($totalPenaltyLKR, $row['course_currency_id']);
+                                                                                                    $coursePaymentReceived += max(0, $paidAfterPenalty - $penaltyInCourse);
 
-                                                                                // ============================================================
-                                                                                // FIX: Course balance with rounding tolerance
-                                                                                // ============================================================
-                                                                                $rowDp = (int)$row['decimal_places'];
+                                                                                                    // ============================================================
+                                                                                                    // FIX: Course balance with rounding tolerance
+                                                                                                    // ============================================================
+                                                                                                    $rowDp = (int)$row['decimal_places'];
 
-                                                                                $balance = round($payableAmount - $coursePaymentReceived, $rowDp);
+                                                                                                    $balance = round($payableAmount - $coursePaymentReceived, $rowDp);
 
-                                                                                // Never leave a 0.01 residue on a fully paid row
-                                                                                $rowTolerance = max(1, count($receiptRows)) * pow(10, -$rowDp);
-                                                                                if (abs($balance) <= $rowTolerance) {
-                                                                                    $balance = 0;
-                                                                                }
+                                                                                                    // Never leave a 0.01 residue on a fully paid row
+                                                                                                    $rowTolerance = max(1, count($receiptRows)) * pow(10, -$rowDp);
+                                                                                                    if (abs($balance) <= $rowTolerance) {
+                                                                                                        $balance = 0;
+                                                                                                    }
 
-                                                                                $paidAmount = $convertedPaidTotal;
+                                                                                                    $paidAmount = $convertedPaidTotal;
 
-                                                                                // Gross up the remaining tax-exclusive base only when something is still owed
-                                                                                $balnceWithTax = $balance > 0 ? $balance / (100 - $latestTaxRate) * 100 : 0;
-                                                                                $rowTaxAmounts += $balnceWithTax - $balance;
+                                                                                                    // Gross up the remaining tax-exclusive base only when something is still owed
+                                                                                                    $balnceWithTax = $balance > 0 ? $balance / (100 - $latestTaxRate) * 100 : 0;
+                                                                                                    $rowTaxAmounts += $balnceWithTax - $balance;
 
-                                                                                $status_classes = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-success", "6" => "table-btn-success", "7" => "table-btn-danger", "9" => "table-btn-success"];
-                                                                                $sbutton_class  = $status_classes[$row['payment_status_id']] ?? 'table-btn-yellow';
-                                                                        ?>
-                                                                                <!-- CP Main Row -->
-                                                                                <tr>
-                                                                                    <td class="px-4 py-3 pe-0 align-middle">
-                                                                                        <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
-                                                                                            <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check">
-                                                                                            <span class="text-14 main-text mx-2"><?= $row['payment_type'] ?></span>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['due_date'] ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($row['amount'], $row['decimal_places']) ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalDiscount, $row['decimal_places']) ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($rowTaxAmounts, $row['decimal_places']) ?></span></td>
-                                                                                    <!-- Payable shows COURSE FEE ONLY (no penalties) -->
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($payableAmount, $row['decimal_places']) ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($coursePaymentReceived, $row['decimal_places']) ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
-                                                                                    <!-- Course Balance (no penalties); $balnceWithTax is never negative now -->
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($balnceWithTax, $row['decimal_places']) ?></span></td>
-                                                                                    <!-- Penalty column displays in LKR -->
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text">LKR <?= number_format($totalPenaltyLKRDisplay, 2) ?></span></td>
-                                                                                    <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
-                                                                                    <td class="py-3 align-middle">
-                                                                                        <button class="table-btn <?= $sbutton_class ?> w-100"><?= $row['payment_status'] ?></button>
-                                                                                    </td>
+                                                                                                    $status_classes = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-success", "6" => "table-btn-success", "7" => "table-btn-danger", "9" => "table-btn-success"];
+                                                                                                    $sbutton_class  = $status_classes[$row['payment_status_id']] ?? 'table-btn-yellow';
+                                                                                            ?>
+                                                                                                    <!-- CP Main Row -->
+                                                                                                    <tr>
+                                                                                                        <td class="px-4 py-3 pe-0 align-middle">
+                                                                                                            <div class="d-flex flex-row align-items-center w-100 p-0 g-0 m-0">
+                                                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check">
+                                                                                                                <span class="text-14 main-text mx-2"><?= $row['payment_type'] ?></span>
+                                                                                                            </div>
+                                                                                                        </td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['due_date'] ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($row['amount'], $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($totalDiscount, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($rowTaxAmounts, $row['decimal_places']) ?></span></td>
+                                                                                                        <!-- Payable shows COURSE FEE ONLY (no penalties) -->
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($payableAmount, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($coursePaymentReceived, $row['decimal_places']) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
+                                                                                                        <!-- Course Balance (no penalties); $balnceWithTax is never negative now -->
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $row['code'] . " " . number_format($balnceWithTax, $row['decimal_places']) ?></span></td>
+                                                                                                        <!-- Penalty column displays in LKR -->
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text">LKR <?= number_format($totalPenaltyLKRDisplay, 2) ?></span></td>
+                                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"></span></td>
+                                                                                                        <td class="py-3 align-middle">
+                                                                                                            <button class="table-btn <?= $sbutton_class ?> w-100"><?= $row['payment_status'] ?></button>
+                                                                                                        </td>
 
-                                                                                    <td class="px-4 py-3 align-middle">
-                                                                                        <div class="dropdown dropup position-relative">
-                                                                                            <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
-                                                                                            <ul class="dropdown-menu border-0 shadow w-100 br-5 z-3 position-absolute">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                        <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
+                                                                                                        <td class="px-4 py-3 align-middle">
+                                                                                                            <div class="dropdown dropup position-relative">
+                                                                                                                <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
+                                                                                                                <ul class="dropdown-menu border-0 shadow w-100 br-5 z-3 position-absolute">
+                                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                            <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
+                                                                                                                    <?php
+                                                                                                                    if (
+                                                                                                                        SessionUser::ifUserIsPro($sessionUserRole)
+                                                                                                                        || SessionUser::ifUserIsAccounts($sessionUserRole)
+                                                                                                                        || UserPermissions::validPermisisonType('payments', 0)
+                                                                                                                        || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
+                                                                                                                    ):
+                                                                                                                        if ($balance > 0): ?>
+                                                                                                                            <li>
+                                                                                                                                <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                    href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                    <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                    Add Receipt
+                                                                                                                                </a>
+                                                                                                                            </li>
+                                                                                                                        <?php endif; ?>
+
+                                                                                                                        <li>
+                                                                                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                Edit
+                                                                                                                            </a>
+                                                                                                                        </li>
+
+                                                                                                                        <?php if (count($receiptRows) === 0): ?>
+                                                                                                                            <li>
+                                                                                                                                <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                    onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
+                                                                                                                                    <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                    Remove
+                                                                                                                                </a>
+                                                                                                                            </li>
+                                                                                                                        <?php endif; ?>
+
+                                                                                                                    <?php else: ?>
+
+                                                                                                                        <?php if ($balance > 0): ?>
+                                                                                                                            <li>
+                                                                                                                                <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
+                                                                                                                                    href="add-receipt-to-registration-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                    <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                                    Add Receipt
+                                                                                                                                </a>
+                                                                                                                            </li>
+                                                                                                                        <?php endif; ?>
+
+                                                                                                                    <?php endif; ?>
+                                                                                                                </ul>
+                                                                                                            </div>
+                                                                                                        </td>
+                                                                                                    </tr>
+
+                                                                                                    <?php
+                                                                                                    // Receipt sub-rows
+                                                                                                    foreach ($receiptRows as $rec):
+                                                                                                        $mclasses = ["1" => "table-btn-orange", "2" => "table-btn-purple", "3" => "table-btn-pink"];
+                                                                                                        $mclass   = $mclasses[$rec['payment_method_id']] ?? 'table-btn-yellow';
+                                                                                                        $sclasses = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-orange", "6" => "table-btn-success", "7" => "table-btn-danger", "8" => "table-btn-success"];
+                                                                                                        $sclass   = $sclasses[$rec['payment_status_id']] ?? 'table-btn-yellow';
+
+                                                                                                        // "approved/completed" = status 3 and has a receipt_number
+                                                                                                        $isApproved   = ($rec['payment_status_id'] == 3 && !empty($rec['course_payment_receipts_course_payment_receipt_id']));
+                                                                                                        $receiptLabel = $isApproved ? '#' . htmlspecialchars($rec['receipt_number'] ?? $rec['course_payment_receipts_course_payment_receipt_id']) : null;
+                                                                                                    ?>
+                                                                                                        <!-- Receipt Sub-Row -->
+                                                                                                        <tr>
+                                                                                                            <td colspan="3" class="px-4 py-3 pe-0 align-middle">
+                                                                                                                <div class="d-flex flex-row align-items-center justify-content-start w-100 p-0 g-0 m-0">
+                                                                                                                    <iconify-icon icon="ci:arrow-sub-down-right" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                    <span class="text-14 mx-2 table-btn-success active text-white fw-semibold px-3 py-2">
+                                                                                                                        #R<?= $rec['course_payment_has_payment_id'] ?>
+                                                                                                                    </span>
+                                                                                                                    <?php if ($isApproved): ?>
+                                                                                                                        <a href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>"
+                                                                                                                            class="ms-2 text-14 main-text d-flex align-items-center text-decoration-none"
+                                                                                                                            title="View Receipt <?= htmlspecialchars($receiptLabel) ?>">
+                                                                                                                            <iconify-icon icon="bi:receipt" width="16" height="16" class="sub-text me-1"></iconify-icon>
+                                                                                                                            <span class="table-btn-success active text-white fw-semibold fw-semibold px-3 py-2" style="font-size:0.78rem;">
+                                                                                                                                <?= htmlspecialchars($receiptLabel) ?>
+                                                                                                                            </span>
+                                                                                                                        </a>
+                                                                                                                    <?php endif; ?>
+                                                                                                                </div>
+                                                                                                            </td>
+                                                                                                            <!-- Discount -->
+                                                                                                            <td class="py-2 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?= ($rec['discount_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['discount_amount'], $row['decimal_places']) ?>
+                                                                                                                </span>
+                                                                                                            </td>
+                                                                                                            <!-- Tax -->
+                                                                                                            <td class="py-3 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?= (empty($rec['tax_amount']) || $rec['tax_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['tax_amount'], $row['decimal_places']) ?>
+                                                                                                                </span>
+                                                                                                            </td>
+                                                                                                            <!-- Payable blank -->
+                                                                                                            <td class="py-3 align-middle text-end"></td>
+                                                                                                            <!-- Paid Amount: paid currency + conversion note if foreign -->
+                                                                                                            <td class="py-3 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?php if ($rec['paid_amount'] != 0): ?>
+                                                                                                                        <?= $rec['paid_currency_code'] . ' ' . number_format($rec['paid_amount'], $row['decimal_places']) ?>
+                                                                                                                        <?php if ($rec['is_foreign_currency']): ?>
+                                                                                                                            <br><small class="text-muted" title="Converted to course currency">
+                                                                                                                                (<?= htmlspecialchars($row['code'] ?? '') ?>
+                                                                                                                                <?= number_format($rec['converted_paid'], $rec['paid_decimal_places'] ?? 2) ?>
+                                                                                                                                @ <?= number_format($rec['currency_exchange_rate'] ?? 0, 2) ?>)
+                                                                                                                            </small>
+                                                                                                                        <?php endif; ?>
+                                                                                                                    <?php endif; ?>
+                                                                                                                </span>
+                                                                                                            </td>
+                                                                                                            <!-- Date Paid -->
+                                                                                                            <td class="py-3 align-middle"><span class="text-14 main-text"><?= $rec['date_paid'] ?></span></td>
+                                                                                                            <!-- Course Balance blank -->
+                                                                                                            <td class="py-3 align-middle"></td>
+                                                                                                            <!-- Receipt-level Penalty in LKR -->
+                                                                                                            <td class="py-3 align-middle text-end">
+                                                                                                                <span class="text-14 main-text">
+                                                                                                                    <?= (empty($rec['panelty_amount']) || $rec['panelty_amount'] == 0) ? '' : 'LKR ' . number_format($rec['panelty_amount'], 2) ?>
+                                                                                                                </span>
+                                                                                                            </td>
+                                                                                                            <!-- Payment Method -->
+                                                                                                            <td class="pe-4 py-2 align-middle">
+                                                                                                                <button class="table-btn <?= $mclass ?> w-100"><?= $rec['payment_method'] ?></button>
+                                                                                                            </td>
+                                                                                                            <!-- Status -->
+                                                                                                            <td class="py-3 align-middle">
+                                                                                                                <button class="table-btn <?= $sclass ?> w-100"><?= $rec['payment_status'] ?></button>
+                                                                                                            </td>
+                                                                                                            <!-- Action -->
+                                                                                                            <td class="px-4 py-3 align-middle">
+                                                                                                                <div class="dropdown dropup position-relative">
+                                                                                                                    <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
+                                                                                                                    <ul class="dropdown-menu border-0 shadow w-100 br-5 z-3 position-absolute">
+                                                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
+                                                                                                                                <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
+                                                                                                                        <?php if ($canManagePayments): ?>
+                                                                                                                            <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1 cursor-pointer" onclick="openRemovePaymentModal(<?= (int)$rec['course_payment_has_payment_id'] ?>)">
+                                                                                                                                    <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon> Remove</a></li>
+                                                                                                                        <?php endif; ?>
+
+                                                                                                                    </ul>
+                                                                                                                </div>
+                                                                                                            </td>
+                                                                                                        </tr>
                                                                                                 <?php
-                                                                                                if (
-                                                                                                    SessionUser::ifUserIsPro($sessionUserRole)
-                                                                                                    || SessionUser::ifUserIsAccounts($sessionUserRole)
-                                                                                                    || UserPermissions::validPermisisonType('payments', 0)
-                                                                                                    || UserPermissions::validPermisisonType('intake_payments', 24, $studentHasIntakeData['intake_id'] ?? null)
-                                                                                                ):
-                                                                                                    if ($balance > 0): ?>
-                                                                                                        <li>
-                                                                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
-                                                                                                                href="add-receipt-to-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                                Add Receipt
-                                                                                                            </a>
-                                                                                                        </li>
-                                                                                                    <?php endif; ?>
-
-                                                                                                    <li>
-                                                                                                        <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
-                                                                                                            href="update-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                            <iconify-icon icon="ic:sharp-edit" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                            Edit
-                                                                                                        </a>
-                                                                                                    </li>
-
-                                                                                                    <?php if (count($receiptRows) === 0): ?>
-                                                                                                        <li>
-                                                                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
-                                                                                                                onclick="removeRequestStudentPayment(<?= $row['course_payments_id'] ?>)">
-                                                                                                                <iconify-icon icon="material-symbols:delete-outline-rounded" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                                Remove
-                                                                                                            </a>
-                                                                                                        </li>
-                                                                                                    <?php endif; ?>
-
-                                                                                                <?php else: ?>
-
-                                                                                                    <?php if ($balance > 0): ?>
-                                                                                                        <li>
-                                                                                                            <a class="dropdown-item text-14 main-text d-flex align-items-center mb-1"
-                                                                                                                href="add-receipt-to-registration-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                                <iconify-icon icon="bi:receipt" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                                Add Receipt
-                                                                                                            </a>
-                                                                                                        </li>
-                                                                                                    <?php endif; ?>
-
-                                                                                                <?php endif; ?>
-                                                                                            </ul>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                </tr>
-
-                                                                                <?php
-                                                                                // Receipt sub-rows
-                                                                                foreach ($receiptRows as $rec):
-                                                                                    $mclasses = ["1" => "table-btn-orange", "2" => "table-btn-purple", "3" => "table-btn-pink"];
-                                                                                    $mclass   = $mclasses[$rec['payment_method_id']] ?? 'table-btn-yellow';
-                                                                                    $sclasses = ["0" => "table-btn-purple", "1" => "table-btn-yellow", "2" => "table-btn-orange", "3" => "table-btn-success", "4" => "table-btn-danger", "5" => "table-btn-orange", "6" => "table-btn-success", "7" => "table-btn-danger", "8" => "table-btn-success"];
-                                                                                    $sclass   = $sclasses[$rec['payment_status_id']] ?? 'table-btn-yellow';
-
-                                                                                    // "approved/completed" = status 3 and has a receipt_number
-                                                                                    $isApproved   = ($rec['payment_status_id'] == 3 && !empty($rec['course_payment_receipts_course_payment_receipt_id']));
-                                                                                    $receiptLabel = $isApproved ? '#' . htmlspecialchars($rec['receipt_number'] ?? $rec['course_payment_receipts_course_payment_receipt_id']) : null;
-                                                                                ?>
-                                                                                    <!-- Receipt Sub-Row -->
-                                                                                    <tr>
-                                                                                        <td colspan="3" class="px-4 py-3 pe-0 align-middle">
-                                                                                            <div class="d-flex flex-row align-items-center justify-content-start w-100 p-0 g-0 m-0">
-                                                                                                <iconify-icon icon="ci:arrow-sub-down-right" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                <span class="text-14 mx-2 table-btn-success active text-white fw-semibold px-3 py-2">
-                                                                                                    #R<?= $rec['course_payment_has_payment_id'] ?>
-                                                                                                </span>
-                                                                                                <?php if ($isApproved): ?>
-                                                                                                    <a href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>"
-                                                                                                        class="ms-2 text-14 main-text d-flex align-items-center text-decoration-none"
-                                                                                                        title="View Receipt <?= htmlspecialchars($receiptLabel) ?>">
-                                                                                                        <iconify-icon icon="bi:receipt" width="16" height="16" class="sub-text me-1"></iconify-icon>
-                                                                                                        <span class="table-btn-success active text-white fw-semibold fw-semibold px-3 py-2" style="font-size:0.78rem;">
-                                                                                                            <?= htmlspecialchars($receiptLabel) ?>
-                                                                                                        </span>
-                                                                                                    </a>
-                                                                                                <?php endif; ?>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <!-- Discount -->
-                                                                                        <td class="py-2 align-middle text-end">
-                                                                                            <span class="text-14 main-text">
-                                                                                                <?= ($rec['discount_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['discount_amount'], $row['decimal_places']) ?>
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <!-- Tax -->
-                                                                                        <td class="py-3 align-middle text-end">
-                                                                                            <span class="text-14 main-text">
-                                                                                                <?= (empty($rec['tax_amount']) || $rec['tax_amount'] == 0) ? '' : $rec['paid_currency_code'] . ' ' . number_format($rec['tax_amount'], $row['decimal_places']) ?>
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <!-- Payable blank -->
-                                                                                        <td class="py-3 align-middle text-end"></td>
-                                                                                        <!-- Paid Amount: paid currency + conversion note if foreign -->
-                                                                                        <td class="py-3 align-middle text-end">
-                                                                                            <span class="text-14 main-text">
-                                                                                                <?php if ($rec['paid_amount'] != 0): ?>
-                                                                                                    <?= $rec['paid_currency_code'] . ' ' . number_format($rec['paid_amount'], $row['decimal_places']) ?>
-                                                                                                    <?php if ($rec['is_foreign_currency']): ?>
-                                                                                                        <br><small class="text-muted" title="Converted to course currency">
-                                                                                                            (<?= htmlspecialchars($row['code'] ?? '') ?>
-                                                                                                            <?= number_format($rec['converted_paid'], $rec['paid_decimal_places'] ?? 2) ?>
-                                                                                                            @ <?= number_format($rec['currency_exchange_rate'] ?? 0, 2) ?>)
-                                                                                                        </small>
-                                                                                                    <?php endif; ?>
-                                                                                                <?php endif; ?>
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <!-- Date Paid -->
-                                                                                        <td class="py-3 align-middle"><span class="text-14 main-text"><?= $rec['date_paid'] ?></span></td>
-                                                                                        <!-- Course Balance blank -->
-                                                                                        <td class="py-3 align-middle"></td>
-                                                                                        <!-- Receipt-level Penalty in LKR -->
-                                                                                        <td class="py-3 align-middle text-end">
-                                                                                            <span class="text-14 main-text">
-                                                                                                <?= (empty($rec['panelty_amount']) || $rec['panelty_amount'] == 0) ? '' : 'LKR ' . number_format($rec['panelty_amount'], 2) ?>
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <!-- Payment Method -->
-                                                                                        <td class="pe-4 py-2 align-middle">
-                                                                                            <button class="table-btn <?= $mclass ?> w-100"><?= $rec['payment_method'] ?></button>
-                                                                                        </td>
-                                                                                        <!-- Status -->
-                                                                                        <td class="py-3 align-middle">
-                                                                                            <button class="table-btn <?= $sclass ?> w-100"><?= $rec['payment_status'] ?></button>
-                                                                                        </td>
-                                                                                        <!-- Action -->
-                                                                                        <td class="px-4 py-3 align-middle">
-                                                                                            <div class="dropdown dropup position-relative">
-                                                                                                <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
-                                                                                                <ul class="dropdown-menu border-0 shadow w-100 br-5 z-3 position-absolute">
-                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center mb-1" href="intake-student-payment?payment-id=<?= $row['course_payments_id'] ?>">
-                                                                                                            <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon> View</a></li>
-                                                                                                </ul>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                            <?php
-                                                                                endforeach; // receipts
-                                                                            endwhile; // detail rows
-                                                                        else:
-                                                                            ?>
-                                                                            <tr class="justify-content-center align-middle">
-                                                                                <td colspan="13" class="align-middle justify-content-center">
-                                                                                    <div class="d-flex flex-column align-items-center">
-                                                                                        <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        <?php endif; // detail rows
-                                                                        ?>
-                                                                    </tbody>
-                                                                </table>
+                                                                                                    endforeach; // receipts
+                                                                                                endwhile; // detail rows
+                                                                                            else:
+                                                                                                ?>
+                                                                                                <tr class="justify-content-center align-middle">
+                                                                                                    <td colspan="13" class="align-middle justify-content-center">
+                                                                                                        <div class="d-flex flex-column align-items-center">
+                                                                                                            <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                                                                        </div>
+                                                                                                    </td>
+                                                                                                </tr>
+                                                                                            <?php endif; // detail rows
+                                                                                            ?>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div><!-- end collapse -->
+                                                                    </div>
+                                                                </div><!-- end card -->
+                                                            <?php
+                                                            endwhile; // payment plans
+                                                        else:
+                                                            ?>
+                                                            <div class="col-12 px-4 py-3 component-theme h-100">
+                                                                <div class="row align-items-center justify-content-center h-100">
+                                                                    <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </div><!-- end collapse -->
-                                                </div>
-                                            </div><!-- end card -->
-                                        <?php
-                                        endwhile; // payment plans
-                                    else:
-                                        ?>
-                                        <div class="col-12 px-4 py-3 component-theme h-100">
-                                            <div class="row align-items-center justify-content-center h-100">
-                                                <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
+                                                        <?php endif; ?>
+                                                    </div><!-- end accordionParent -->
+                                                </div><!-- end history card -->
+
+                                            </div><!-- end row p-4 -->
+                                            <div class="flex-grow-1"></div>
+                                            <footer><?php include './includes/footer.php' ?></footer>
+                                        </div><!-- end real-list -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+
+
+                        <!-- ===================== Remove Payment Modal ===================== -->
+                        <div class="modal fade" id="removePaymentModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title main-text">Remove Payment</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="rpLoading" class="text-center py-4 sub-text">Loading payment details...</div>
+                                        <div id="rpError" class="alert alert-danger d-none mb-0"></div>
+
+                                        <div id="rpContent" class="d-none">
+                                            <div class="bl-solid p-3 mb-3">
+                                                <div class="d-flex justify-content-between"><span class="sub-text text-14">Payment</span><span class="main-text text-14 fw-medium" id="rpType"></span></div>
+                                                <div class="d-flex justify-content-between mt-1"><span class="sub-text text-14">Receipt</span><span class="main-text text-14 fw-medium" id="rpReceipt"></span></div>
+                                                <div class="d-flex justify-content-between mt-1"><span class="sub-text text-14">Paid amount</span><span class="main-text text-14 fw-medium" id="rpAmount"></span></div>
+                                                <div class="d-flex justify-content-between mt-1"><span class="sub-text text-14">Date paid</span><span class="main-text text-14 fw-medium" id="rpDate"></span></div>
+                                            </div>
+
+                                            <div class="alert alert-warning mb-3">
+                                                <div class="fw-semibold mb-1">This will permanently delete:</div>
+                                                <ul class="mb-0 ps-3" id="rpWillDelete"></ul>
+                                            </div>
+
+                                            <label class="text-14 sub-text mb-1" for="rpReason">Reason</label>
+                                            <textarea id="rpReason" class="form-control custom-input mb-3" rows="2" maxlength="150" placeholder="Why is this payment being removed?"></textarea>
+
+                                            <div class="form-check">
+                                                <input class="form-check-input custom-input" type="checkbox" id="rpConfirmCheck">
+                                                <label class="form-check-label text-14 main-text" for="rpConfirmCheck">
+                                                    I understand this cannot be undone.
+                                                </label>
                                             </div>
                                         </div>
-                                    <?php endif; ?>
-                                </div><!-- end accordionParent -->
-                            </div><!-- end history card -->
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="custom-btn px-3" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="custom-danger-btn px-3" id="rpConfirmBtn" disabled>Yes, Delete Payment</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                        </div><!-- end row p-4 -->
-                        <div class="flex-grow-1"></div>
-                        <footer><?php include './includes/footer.php' ?></footer>
-                    </div><!-- end real-list -->
-                </div>
-            </div>
-        </div>
-    </div>
-    </div>
+                        <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
+                        <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
+                        <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
 
-    <script src="./assets/plugins/bootstrap/js/bootstrap.bundle.min.js?v=<?= Project::getVersion() ?>"></script>
-    <script src="./assets/plugins/jquery/jquery-3.7.1.min.js"></script>
-    <script src="./assets/js/script.js?v=<?= Project::getVersion() ?>"></script>
-    <script src="./assets/js/functions.js?v=<?= Project::getVersion() ?>"></script>
-</body>
+                        <script>
+                            (function() {
+                                const API = './api/deleteStudentPaymentReceipt.php';
+                                const modalEl = document.getElementById('removePaymentModal');
+                                const loadingEl = document.getElementById('rpLoading');
+                                const errorEl = document.getElementById('rpError');
+                                const contentEl = document.getElementById('rpContent');
+                                const listEl = document.getElementById('rpWillDelete');
+                                const checkEl = document.getElementById('rpConfirmCheck');
+                                const confirmBtn = document.getElementById('rpConfirmBtn');
+                                const reasonEl = document.getElementById('rpReason');
+                                let currentId = null;
+                                let modal = null;
 
-</html>
+                                function addLi(text) {
+                                    const li = document.createElement('li');
+                                    li.textContent = text; // textContent → no HTML injection
+                                    listEl.appendChild(li);
+                                }
+
+                                function showError(msg) {
+                                    loadingEl.classList.add('d-none');
+                                    contentEl.classList.add('d-none');
+                                    errorEl.textContent = msg;
+                                    errorEl.classList.remove('d-none');
+                                }
+
+                                window.openRemovePaymentModal = function(id) {
+                                    currentId = id;
+                                    modal = modal || new bootstrap.Modal(modalEl);
+
+                                    // reset
+                                    errorEl.classList.add('d-none');
+                                    contentEl.classList.add('d-none');
+                                    loadingEl.classList.remove('d-none');
+                                    listEl.innerHTML = '';
+                                    checkEl.checked = false;
+                                    reasonEl.value = '';
+                                    confirmBtn.disabled = true;
+                                    confirmBtn.textContent = 'Yes, Delete Payment';
+                                    modal.show();
+
+                                    const fd = new FormData();
+                                    fd.append('action', 'preview');
+                                    fd.append('payment_receipt_id', id);
+
+                                    fetch(API, {
+                                            method: 'POST',
+                                            body: fd
+                                        })
+                                        .then(r => r.json())
+                                        .then(d => {
+                                            if (d.error) return showError(d.error);
+
+                                            document.getElementById('rpType').textContent = d.payment_type || '-';
+                                            document.getElementById('rpReceipt').textContent = d.receipt_number ? '#' + d.receipt_number : '-';
+                                            document.getElementById('rpAmount').textContent = d.amount;
+                                            document.getElementById('rpDate').textContent = d.date_paid;
+
+                                            addLi('This payment record (#R' + d.id + ') - ' + d.amount);
+                                            if (d.slip_count > 0) {
+                                                addLi(d.slip_count + ' uploaded payment slip' + (d.slip_count > 1 ? 's' : '') + ' (files will be removed)');
+                                            }
+                                            (d.linked || []).forEach(l => {
+                                                addLi((l.is_overpayment ? 'Overpayment applied to next installment: ' : 'Linked payment: ') +
+                                                    l.payment_type + ' (#R' + l.id + ') - ' + l.amount);
+                                            });
+                                            addLi('The related installment(s) will be re-opened if they were marked as paid.');
+
+                                            loadingEl.classList.add('d-none');
+                                            contentEl.classList.remove('d-none');
+                                        })
+                                        .catch(() => showError('Could not load payment details. Please try again.'));
+                                };
+
+                                checkEl.addEventListener('change', () => {
+                                    confirmBtn.disabled = !checkEl.checked;
+                                });
+
+                                confirmBtn.addEventListener('click', () => {
+                                    if (!currentId || !checkEl.checked) return;
+                                    confirmBtn.disabled = true;
+                                    confirmBtn.textContent = 'Deleting...';
+
+                                    const fd = new FormData();
+                                    fd.append('action', 'delete');
+                                    fd.append('payment_receipt_id', currentId);
+                                    fd.append('reason', reasonEl.value.trim());
+
+                                    fetch(API, {
+                                            method: 'POST',
+                                            body: fd
+                                        })
+                                        .then(r => r.json())
+                                        .then(d => {
+                                            if (d.error) {
+                                                showError(d.error);
+                                                return;
+                                            }
+                                            window.location.reload();
+                                        })
+                                        .catch(() => showError('Something went wrong while deleting. Nothing was changed.'));
+                                });
+                            })();
+                        </script>
+                    </body>
+
+                    </html>
 <?php
                 } // end permission check
             } // end student found
