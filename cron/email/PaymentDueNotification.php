@@ -76,8 +76,6 @@ $result = Database::search("
         ON s.login_details_login_details_id = ld.login_details_id
     WHERE cp.payment_status_payment_status_id = '" . STATUS_NOT_PAID . "'
       AND cp.due_date = '" . $dueDate . "'
-      AND ld.email IS NOT NULL
-      AND ld.email <> ''
     GROUP BY ld.email, student_name, s.student_id
 ");
 
