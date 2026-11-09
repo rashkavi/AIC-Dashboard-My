@@ -41,6 +41,39 @@ if (!SessionUser::hasValidSession()) {
                     $todayDate = $today->format('Y-m-d H:i:s');
 
                     $endDateObj = new DateTime($assignmentData["end_date"], $timezone);
+
+                    // Stored values split for the inputs ('' when not set)
+                    $startDateValue = $startTimeValue = $endDateValue = $endTimeValue = '';
+                    $lateDateValue = $lateTimeValue = $recDateValue = $recTimeValue = '';
+
+                    if (!empty($assignmentData['start_date'])) {
+                        $dt = new DateTime($assignmentData['start_date']);
+                        $startDateValue = $dt->format('Y-m-d');
+                        $startTimeValue = $dt->format('H:i');
+                    }
+                    if (!empty($assignmentData['end_date'])) {
+                        $dt = new DateTime($assignmentData['end_date']);
+                        $endDateValue = $dt->format('Y-m-d');
+                        $endTimeValue = $dt->format('H:i');
+                    }
+                    if (!empty($assignmentData['late_submission_end_date'])) {
+                        $dt = new DateTime($assignmentData['late_submission_end_date']);
+                        $lateDateValue = $dt->format('Y-m-d');
+                        $lateTimeValue = $dt->format('H:i');
+                    }
+                    if (!empty($assignmentData['recorrection_apply_end_date'])) {
+                        $dt = new DateTime($assignmentData['recorrection_apply_end_date']);
+                        $recDateValue = $dt->format('Y-m-d');
+                        $recTimeValue = $dt->format('H:i');
+                    }
+
+                    // Current recorrection fee = latest history row
+                    $recorrectionFeeValue = '';
+                    $latestFee = Database::search("SELECT `recorrection_fee` FROM `assignment_recorrection_fee` 
+                        WHERE `assignments_assignment_id`='" . $assignmentData['assignment_id'] . "' ORDER BY `recorrection_fee_id` DESC LIMIT 1");
+                    if ($latestFee->num_rows > 0) {
+                        $recorrectionFeeValue = $latestFee->fetch_assoc()['recorrection_fee'];
+                    }
 ?>
                     <!DOCTYPE html>
                     <html lang="en">
@@ -57,7 +90,7 @@ if (!SessionUser::hasValidSession()) {
 
                         <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
                         <script src="./assets/js/init.js?v=<?= Project::getVersion() ?>"></script>
-                        <script src="./assets/js/translations.js?= Project::getVersion() ?>"></script>
+                        <script src="./assets/js/translations.js?v=<?= Project::getVersion() ?>"></script>
                     </head>
 
                     <body class="overflow-hidden">
@@ -105,29 +138,24 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="row gy-3 align-content-center">
                                                         <div class="col-12 col-lg-4 d-flex flex-column">
                                                             <label for="" class="text-14 main-text required">Assignment Code</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="code" value="<?php echo $assignmentData['assignment_code'] ?>">
+                                                            <input type="text" class="form-control custom-input mt-2" id="code" value="<?php echo htmlspecialchars($assignmentData['assignment_code']) ?>">
                                                             <span class="text-12 text-dark-red" id="code-feedback"></span>
                                                         </div>
                                                         <div class="col-12 col-lg-8 d-flex flex-column">
                                                             <label for="" class="text-14 main-text required">Assignment Topic</label>
-                                                            <input type="text" class="form-control custom-input mt-2" id="topic" value="<?php echo $assignmentData['assignment'] ?>">
+                                                            <input type="text" class="form-control custom-input mt-2" id="topic" value="<?php echo htmlspecialchars($assignmentData['assignment']) ?>">
                                                             <span class="text-12 text-dark-red" id="topic-feedback"></span>
                                                         </div>
                                                         <div class="col-12 col-lg-6 d-flex flex-column">
                                                             <label for="" class="text-14 main-text">Start Date & Time</label>
                                                             <div class="col-12 mt-2">
                                                                 <div class="row gx-3">
-                                                                    <?php
-                                                                    $dateTime = new DateTime($assignmentData['start_date']);
-                                                                    $date = $dateTime->format('Y-m-d');
-                                                                    $time = $dateTime->format('H:i');
-                                                                    ?>
                                                                     <div class="col-6 d-flex flex-column">
-                                                                        <input type="date" class="col-6 form-control custom-input" id="start-date" value="<?php echo $assignmentData['start_date'] != null ? $date : "" ?>">
+                                                                        <input type="date" class="col-6 form-control custom-input" id="start-date" value="<?= $startDateValue ?>">
                                                                         <span class="text-12 text-dark-red" id="start-date-feedback"></span>
                                                                     </div>
                                                                     <div class="col-6 d-flex flex-column">
-                                                                        <input type="time" class="col-6 form-control custom-input" id="start-time" value="<?php echo $assignmentData['start_date'] != null ? $time : "" ?>">
+                                                                        <input type="time" class="col-6 form-control custom-input" id="start-time" value="<?= $startTimeValue ?>">
                                                                         <span class="text-12 text-dark-red" id="start-time-feedback"></span>
                                                                     </div>
                                                                 </div>
@@ -137,17 +165,12 @@ if (!SessionUser::hasValidSession()) {
                                                             <label for="" class="text-14 main-text">End Date & Time</label>
                                                             <div class="col-12 mt-2">
                                                                 <div class="row gx-3">
-                                                                    <?php
-                                                                    $dateTime = new DateTime($assignmentData['end_date']);
-                                                                    $date = $dateTime->format('Y-m-d');
-                                                                    $time = $dateTime->format('H:i');
-                                                                    ?>
                                                                     <div class="col-6 d-flex flex-column">
-                                                                        <input type="date" class="col-6 form-control custom-input" id="end-date" onchange="acceptFutureDate('end-date');" value="<?php echo $assignmentData['end_date'] != null ? $date : "" ?>">
+                                                                        <input type="date" class="col-6 form-control custom-input" id="end-date" onchange="acceptFutureDate('end-date');" value="<?= $endDateValue ?>">
                                                                         <span class="text-12 text-dark-red" id="end-date-feedback"></span>
                                                                     </div>
                                                                     <div class="col-6 d-flex flex-column">
-                                                                        <input type="time" class="col-6 form-control custom-input" id="end-time" value="<?php echo $assignmentData['end_date'] != null ? $time : "" ?>">
+                                                                        <input type="time" class="col-6 form-control custom-input" id="end-time" value="<?= $endTimeValue ?>">
                                                                         <span class="text-12 text-dark-red" id="end-time-feedback"></span>
                                                                     </div>
                                                                 </div>
@@ -176,7 +199,6 @@ if (!SessionUser::hasValidSession()) {
                                                                         </div>
                                                                     <?php
                                                                     }
-
                                                                     ?>
                                                                 </div>
                                                             </div>
@@ -213,135 +235,93 @@ if (!SessionUser::hasValidSession()) {
                                                             <select name="" class="form-select custom-select mt-2" id="assignment-status">
                                                                 <?php
                                                                 $assignmentStatus = Database::search("SELECT * FROM `assignment_status`");
-                                                                while ($status = $assignmentStatus->fetch_assoc()) {
+                                                                while ($statusRow = $assignmentStatus->fetch_assoc()) {
 
-                                                                    switch ($status['assignment_status_id']) {
+                                                                    switch ($statusRow['assignment_status_id']) {
                                                                         case 1:
                                                                             if ($assignmentData['assignment_status_assignment_status_id'] == 1) {
                                                                 ?>
-                                                                                <option value="<?= $status['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $status['assignment_status_id'] ? 'selected' : '' ?>><?= $status['assignment_status'] ?></option>
+                                                                                <option value="<?= $statusRow['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $statusRow['assignment_status_id'] ? 'selected' : '' ?>><?= $statusRow['assignment_status'] ?></option>
                                                                             <?php
                                                                             }
                                                                             break;
                                                                         case 2:
                                                                             if ($assignmentData['assignment_status_assignment_status_id'] != 1) {
                                                                             ?>
-                                                                                <option value="<?= $status['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $status['assignment_status_id'] ? 'selected' : '' ?>><?= $status['assignment_status'] ?></option>
+                                                                                <option value="<?= $statusRow['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $statusRow['assignment_status_id'] ? 'selected' : '' ?>><?= $statusRow['assignment_status'] ?></option>
                                                                             <?php
                                                                             }
                                                                             break;
                                                                         case 3:
                                                                             ?>
-                                                                            <option value="<?= $status['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $status['assignment_status_id'] ? 'selected' : '' ?>><?= $status['assignment_status'] ?></option>
+                                                                            <option value="<?= $statusRow['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $statusRow['assignment_status_id'] ? 'selected' : '' ?>><?= $statusRow['assignment_status'] ?></option>
                                                                             <?php
                                                                             break;
                                                                         case 4:
                                                                             if ($assignmentMarkReleased > 0) {
                                                                             ?>
-                                                                                <option value="<?= $status['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $status['assignment_status_id'] ? 'selected' : '' ?>><?= $status['assignment_status'] ?></option>
+                                                                                <option value="<?= $statusRow['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $statusRow['assignment_status_id'] ? 'selected' : '' ?>><?= $statusRow['assignment_status'] ?></option>
                                                                             <?php
                                                                             }
                                                                             break;
                                                                         case 5:
                                                                             if ($today > $endDateObj) {
                                                                             ?>
-                                                                                <option value="<?= $status['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $status['assignment_status_id'] ? 'selected' : '' ?>><?= $status['assignment_status'] ?></option>
+                                                                                <option value="<?= $statusRow['assignment_status_id'] ?>" <?= $assignmentData['assignment_status_assignment_status_id'] == $statusRow['assignment_status_id'] ? 'selected' : '' ?>><?= $statusRow['assignment_status'] ?></option>
                                                                 <?php
                                                                             }
                                                                     }
                                                                 }
                                                                 ?>
                                                             </select>
-                                                            <span class="text-12 text-dark-red" id="assignmnet-status-feedback"></span>
+                                                            <span class="text-12 text-dark-red" id="assignment-status-feedback"></span>
                                                         </div>
 
-                                                        <?php
-                                                        if ($assignmentData['assignment_status_assignment_status_id'] != 1) {
-                                                            if ($assignmentData['start_date'] != null && $assignmentData['end_date'] && $assignmentData['attachment']) {
+                                                        <!-- ======================= LATE SUBMISSION (always visible) ======================= -->
+                                                        <div class="col-12 col-lg-8 d-flex flex-column">
+                                                            <label for="" class="text-14 main-text">Late Submission End Date Time</label>
+                                                            <div class="col-12 mt-2">
+                                                                <div class="row gx-3">
+                                                                    <div class="col-6 d-flex flex-column">
+                                                                        <input type="date" class="col-6 form-control custom-input" id="late-submision-date" onchange="acceptFutureDate('late-submision-date');" value="<?= $lateDateValue ?>">
+                                                                        <span class="text-12 text-dark-red" id="late-submision-date-feedback"></span>
+                                                                    </div>
+                                                                    <div class="col-6 d-flex flex-column">
+                                                                        <input type="time" class="col-6 form-control custom-input" id="late-submision-time" value="<?= $lateTimeValue ?>">
+                                                                        <span class="text-12 text-dark-red" id="late-submision-time-feedback"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                                                if ($today > $endDateObj) {
-
-                                                        ?>
+                                                        <!-- ======================= RECORRECTION (always visible) ======================= -->
+                                                        <div class="col-12 d-flex flex-column">
+                                                            <label for="" class="text-14 sub-topic">Assignment Recorrection</label>
+                                                            <div class="col-12 mt-3">
+                                                                <div class="row gx-3">
+                                                                    <div class="col-12 col-lg-4 d-flex flex-column">
+                                                                        <label for="" class="text-14 main-text mb-2">Recorrection Fee</label>
+                                                                        <input type="number" min="0" step="0.01" class="col-6 form-control custom-input" id="recorrection-fee" value="<?= $recorrectionFeeValue ?>">
+                                                                        <span class="text-12 text-dark-red" id="recorrection-fee-feedback"></span>
+                                                                    </div>
                                                                     <div class="col-12 col-lg-8 d-flex flex-column">
-                                                                        <label for="" class="text-14 main-text">Late Submission End Date Time</label>
+                                                                        <label for="" class="text-14 main-text">Recorrection Apply End Date & Time</label>
                                                                         <div class="col-12 mt-2">
                                                                             <div class="row gx-3">
-                                                                                <?php
-                                                                                $dateTime = new DateTime($assignmentData['late_submission_end_date']);
-                                                                                $date = $dateTime->format('Y-m-d');
-                                                                                $time = $dateTime->format('H:i');
-                                                                                ?>
                                                                                 <div class="col-6 d-flex flex-column">
-                                                                                    <input type="date" class="col-6 form-control custom-input" id="late-submision-date" onchange="acceptFutureDate('late-submision-date');" value="<?php echo $assignmentData['late_submission_end_date'] != null ? $date : null ?>">
-                                                                                    <span class="text-12 text-dark-red" id="late-submision-date-feedback"></span>
+                                                                                    <input type="date" class="col-6 form-control custom-input" id="recorrection-end-date" onchange="acceptFutureDate('recorrection-end-date');" value="<?= $recDateValue ?>">
+                                                                                    <span class="text-12 text-dark-red" id="recorrection-end-date-feedback"></span>
                                                                                 </div>
                                                                                 <div class="col-6 d-flex flex-column">
-                                                                                    <input type="time" class="col-6 form-control custom-input" id="late-submision-time" value="<?php echo $assignmentData['late_submission_end_date'] != null ? $time : null ?>">
-                                                                                    <span class="text-12 text-dark-red" id="late-submision-time-feedback"></span>
+                                                                                    <input type="time" class="col-6 form-control custom-input" id="recorrection-end-time" value="<?= $recTimeValue ?>">
+                                                                                    <span class="text-12 text-dark-red" id="recorrection-end-time-feedback"></span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                <?php
-                                                                }
-
-                                                                if ($assignmentMarkReleased > 0) {
-
-                                                                ?>
-                                                                    <div class="col-12 d-flex flex-column">
-                                                                        <label for="" class="text-14 main-text">Assignment Recorrection</label>
-                                                                        <div class="col-12 mt-3">
-                                                                            <div class="row gx-3">
-                                                                                <div class="col-4 d-flex flex-column">
-                                                                                    <label for="" class="text-14 main-text mb-2">Recorrection Fee</label>
-                                                                                    <?php
-                                                                                    $recorectionFee = Database::search("SELECT `recorrection_fee` FROM `assignment_recorrection_fee` 
-                                                                WHERE `assignments_assignment_id`='" . $assignmentData['assignment_id'] . "' ORDER BY `recorrection_fee_id` DESC LIMIT 1");
-
-                                                                                    if ($recorectionFee->num_rows > 0) {
-                                                                                        $recorectionFee = $recorectionFee->fetch_assoc()['recorrection_fee'];
-                                                                                    ?>
-                                                                                        <input type="number" class="col-6 form-control custom-input" id="recorrection-fee" value="<?= $recorectionFee ?>">
-                                                                                    <?php
-                                                                                    } else {
-                                                                                    ?>
-                                                                                        <input type="number" class="col-6 form-control custom-input" id="recorrection-fee">
-                                                                                    <?php
-                                                                                    }
-
-                                                                                    ?>
-
-                                                                                    <span class="text-12 text-dark-red" id="recorrection-fee-feedback"></span>
-                                                                                </div>
-                                                                                <div class="col-12 col-lg-8 d-flex flex-column">
-                                                                                    <label for="" class="text-14 main-text">Recorrection Apply End Date & Time</label>
-                                                                                    <div class="col-12 mt-2">
-                                                                                        <div class="row gx-3">
-                                                                                            <?php
-                                                                                            $dateTime = new DateTime($assignmentData['recorrection_apply_end_date']);
-                                                                                            $date = $dateTime->format('Y-m-d');
-                                                                                            $time = $dateTime->format('H:i');
-                                                                                            ?>
-                                                                                            <div class="col-6 d-flex flex-column">
-                                                                                                <input type="date" class="col-6 form-control custom-input" id="recorrection-end-date" onchange="acceptFutureDate('late-submision-date');" value="<?php echo $assignmentData['recorrection_apply_end_date'] != null ? $date : "" ?>">
-                                                                                                <span class="text-12 text-dark-red" id="recorrection-end-date-feedback"></span>
-                                                                                            </div>
-                                                                                            <div class="col-6 d-flex flex-column">
-                                                                                                <input type="time" class="col-6 form-control custom-input" id="recorrection-end-time" value="<?php echo $assignmentData['recorrection_apply_end_date'] != null ? $time : "" ?>">
-                                                                                                <span class="text-12 text-dark-red" id="recorrection-end-time-feedback"></span>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                        <?php
-                                                                }
-                                                            }
-                                                        }
-                                                        ?>
-
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
                                                         <div class="col-12 d-flex flex-column">
                                                             <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
@@ -374,7 +354,6 @@ if (!SessionUser::hasValidSession()) {
                                 hour: '2-digit',
                                 minute: '2-digit'
                             });
-                            //console.log(currentTime);
 
                             document.getElementById('start-time').setAttribute("min", currentTime);
                             document.getElementById('end-time').setAttribute("min", currentTime);

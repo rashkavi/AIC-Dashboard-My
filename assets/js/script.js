@@ -7559,3 +7559,352 @@ const handleStudentTimeTablePagination = (studentId, action, pageId = null, tota
 
     filterStudentTimeTable(studentId);
 }
+
+const initializeAttendanceBreakdown = () => {
+    let bdMode = 'month'; // 'month' | 'range'
+    let bdTrendChart = null;
+    let bdStatusChart = null;
+
+    const escHtml = (str) => String(str ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    window.setBreakdownMode = function (mode) {
+        bdMode = mode;
+
+        const monthBtn = document.getElementById('bd-mode-month');
+        const rangeBtn = document.getElementById('bd-mode-range');
+
+        monthBtn.className = (mode === 'month') ? 'custom-btn' : 'custom-outline-btn';
+        rangeBtn.className = (mode === 'range') ? 'custom-btn' : 'custom-outline-btn';
+
+        document.getElementById('bd-month-wrapper').classList.toggle('d-none', mode !== 'month');
+        document.getElementById('bd-range-wrapper').classList.toggle('d-none', mode !== 'range');
+        loadBreakdown();
+    }
+
+    function getSelectedDateWindow() {
+        if (bdMode === 'month') {
+            const monthVal = document.getElementById('bd-month-input').value; // YYYY-MM
+            if (!monthVal) return null;
+            const [y, m] = monthVal.split('-').map(Number);
+            const start = `${y}-${String(m).padStart(2, '0')}-01`;
+            const lastDay = new Date(y, m, 0).getDate();
+            const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            return { start, end };
+        } else {
+            const start = document.getElementById('bd-start-date').value;
+            const end = document.getElementById('bd-end-date').value;
+            if (!start || !end) return null;
+            return { start, end };
+        }
+    }
+
+    function pctBadgeClass(pct) {
+        if (pct >= 80) return 'table-btn-success';
+        if (pct >= 65) return 'table-btn-yellow';
+        return 'table-btn-danger';
+    }
+
+    // Branch is sent as an ID. Faculty / Programme / Intake / Subject are sent
+    // as NAMES, so the same-named record in every branch matches together.
+    // "0" means "All".
+    function currentFilters() {
+        const val = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.value : '0';
+        };
+        return {
+            branch_id: val('branch-selector'),
+            faculty: val('faculty-selector'),
+            programme: val('programme-selector'),
+            intake: val('intake-selector'),
+            intake_id: window.BD_FIXED_INTAKE_ID || 0, // exact id when opened via ?intake-id=
+        };
+    }
+
+    function fetchFilterOptions(stage) {
+        return fetch('api/getCounselorFilterOptions.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.assign({ stage }, currentFilters()))
+        }).then(res => res.json());
+    }
+
+    function resetSelector(selector, placeholder) {
+        if (selector) selector.innerHTML = `<option value="0" selected>${placeholder}</option>`;
+    }
+
+    // Generic loader: fills a <select> with distinct names, keeping the
+    // previous selection if it still exists in the new list.
+    function fillNameSelector(stage, selectorId, placeholder, dataKey) {
+        const selector = document.getElementById(selectorId);
+        if (!selector) return Promise.resolve();
+        const previous = selector.value;
+        return fetchFilterOptions(stage).then(data => {
+            resetSelector(selector, placeholder);
+            let html = selector.innerHTML;
+            (data[dataKey] || []).forEach(name => {
+                html += `<option value="${escHtml(name)}">${escHtml(name)}</option>`;
+            });
+            selector.innerHTML = html;
+            const stillThere = Array.from(selector.options).some(o => o.value === previous);
+            selector.value = stillThere ? previous : '0';
+        }).catch(err => console.log(err));
+    }
+
+    const refreshFaculties = () => fillNameSelector('faculties', 'faculty-selector', 'All Faculties', 'faculties');
+    const refreshProgrammes = () => fillNameSelector('programmes', 'programme-selector', 'All Programmes', 'programmes');
+    const refreshIntakes = () => fillNameSelector('intakes', 'intake-selector', 'All Intakes', 'intakes');
+    const refreshSubjects = () => fillNameSelector('subjects', 'subject-selector', 'All Subjects', 'subjects');
+
+    // Branch changed -> everything underneath is re-scoped to that branch.
+    window.onBranchChanged = async function () {
+        resetSelector(document.getElementById('faculty-selector'), 'All Faculties');
+        resetSelector(document.getElementById('programme-selector'), 'All Programmes');
+        resetSelector(document.getElementById('intake-selector'), 'All Intakes');
+        resetSelector(document.getElementById('subject-selector'), 'All Subjects');
+
+        await Promise.all([refreshFaculties(), refreshProgrammes(), refreshIntakes(), refreshSubjects()]);
+        loadBreakdown();
+    }
+
+    // Faculty narrowed -> reload Programme/Intake/Subject underneath it.
+    window.onFacultyChanged = async function () {
+        resetSelector(document.getElementById('programme-selector'), 'All Programmes');
+        resetSelector(document.getElementById('intake-selector'), 'All Intakes');
+        resetSelector(document.getElementById('subject-selector'), 'All Subjects');
+
+        await Promise.all([refreshProgrammes(), refreshIntakes(), refreshSubjects()]);
+        loadBreakdown();
+    }
+
+    // Programme narrowed -> reload Intake/Subject underneath it.
+    window.onProgrammeChanged = async function () {
+        resetSelector(document.getElementById('intake-selector'), 'All Intakes');
+        resetSelector(document.getElementById('subject-selector'), 'All Subjects');
+
+        await Promise.all([refreshIntakes(), refreshSubjects()]);
+        loadBreakdown();
+    }
+
+    // Intake narrowed -> reload Subject options underneath it.
+    window.onIntakeChanged = async function () {
+        resetSelector(document.getElementById('subject-selector'), 'All Subjects');
+        await refreshSubjects();
+        loadBreakdown();
+    }
+
+    window.loadBreakdown = function () {
+        const feedback = document.getElementById('bd-filter-feedback');
+        feedback.innerText = '';
+
+        const window_ = getSelectedDateWindow();
+        if (!window_) {
+            feedback.innerText = 'Please select a valid date range.';
+            return;
+        }
+
+        const tableBody = document.getElementById('bd-table-body');
+        if (tableBody) tableBody.innerHTML = '<tr id="bd-table-loading"><td colspan="9" class="text-center py-4 text-14 sub-text">Loading breakdown...</td></tr>';
+
+        const atRiskBody = document.getElementById('bd-at-risk-body');
+        if (atRiskBody) atRiskBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-14 bd-at-risk-empty">Loading...</td></tr>';
+
+        const subjectSelector = document.getElementById('subject-selector');
+
+        fetch('api/getAttendanceBreakdown.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.assign({
+                subject: subjectSelector ? subjectSelector.value : '0',
+                start_date: window_.start,
+                end_date: window_.end
+            }, currentFilters()))
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    feedback.innerText = data.error;
+                    if (tableBody) tableBody.innerHTML = '<tr id="bd-table-loading"><td colspan="9" class="text-center py-4 text-14 sub-text">' + escHtml(data.error) + '</td></tr>';
+                    if (atRiskBody) atRiskBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-14 bd-at-risk-empty">' + escHtml(data.error) + '</td></tr>';
+                    return;
+                }
+                renderCards(data);
+                renderTrendChart(data.trend);
+                renderStatusChart(data.status_breakdown);
+                renderStudentTable(data.students);
+                renderAtRiskTable(data.at_risk);
+            })
+            .catch((error) => {
+                console.log(error);
+                feedback.innerText = 'Something went wrong loading the breakdown. Please try again.';
+                if (tableBody) tableBody.innerHTML = '<tr id="bd-table-loading"><td colspan="9" class="text-center py-4 text-14 sub-text">Failed to load data.</td></tr>';
+                if (atRiskBody) atRiskBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-14 bd-at-risk-empty">Failed to load data.</td></tr>';
+            });
+    }
+
+    function renderCards(data) {
+        document.getElementById('bd-value-total-students').innerText = data.total_students;
+        document.getElementById('bd-value-lectures-held').innerText = data.lectures_held;
+        document.getElementById('bd-value-avg-attendance').innerText = data.average_attendance + '%';
+        document.getElementById('bd-value-at-risk-count').innerText = (data.at_risk || []).length;
+
+        document.getElementById('bd-at-risk-count-badge').innerText = (data.at_risk || []).length;
+        document.getElementById('bd-students-count-badge').innerText = (data.students || []).length;
+    }
+
+    function renderTrendChart(trend) {
+        const ctx = document.getElementById('bd-trend-chart').getContext('2d');
+        const labels = (trend || []).map(t => t.date_label);
+        const values = (trend || []).map(t => t.attendance_pct);
+
+        if (bdTrendChart) {
+            bdTrendChart.data.labels = labels;
+            bdTrendChart.data.datasets[0].data = values;
+            bdTrendChart.update();
+            return;
+        }
+
+        bdTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: values,
+                    borderColor: '#F0C71F',
+                    backgroundColor: 'rgba(240,199,31,0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function renderStatusChart(statusBreakdown) {
+        const ctx = document.getElementById('bd-status-chart').getContext('2d');
+        const labels = ['Present', 'Watched', 'Absent'];
+        const sb = statusBreakdown || {};
+        const values = [sb.PRESENT || 0, sb.WATCHED ||0, sb.ABSENT || 0];
+        const colors = ['#22c55e', '#3b82f6', '#ef4444'];
+
+        if (bdStatusChart) {
+            bdStatusChart.data.datasets[0].data = values;
+            bdStatusChart.update();
+            return;
+        }
+
+        bdStatusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 10, font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+
+    function studentAvatarHtml(s) {
+        const initials = (((s.first_name || '')[0] || '') + ((s.last_name || '')[0] || '')).toUpperCase();
+        return s.profile_img ?
+            `<img src="./assets/imgs/students/${escHtml(s.profile_img)}" class="hwr-40" alt="">` :
+            `<div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium">${escHtml(initials)}</div>`;
+    }
+
+    function contextLineHtml(s) {
+        return `<span class="text-12 sub-text bd-context-line">${escHtml(s.faculty)}<br>${escHtml(s.programme)} - ${escHtml(s.intake)}</span>`;
+    }
+
+    function renderStudentTable(students) {
+        const tableBody = document.getElementById('bd-table-body');
+
+        if (!students || students.length === 0) {
+            tableBody.innerHTML = '<tr id="bd-table-loading"><td colspan="9" class="text-center py-4 text-14 sub-text">No lectures found for this selection in the chosen period.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        students.forEach(s => {
+            const rowClass = s.absence_streak >= 3 ? 'bd-at-risk-row' : '';
+            html += `
+                <tr class="${rowClass}">
+                    <td class="px-4 py-3 align-middle">
+                        <div class="d-flex align-items-center">
+                            ${studentAvatarHtml(s)}
+                            <span class="text-14 main-text mx-2">${escHtml(s.title)}. ${escHtml(s.first_name)} ${escHtml(s.last_name)}</span>
+                        </div>
+                    </td>
+                    <td class="py-2 align-middle"><span class="text-14 main-text">${escHtml(s.sId)}</span></td>
+                    <td class="py-2 align-middle">${contextLineHtml(s)}</td>
+                    <td class="py-2 align-middle text-center"><span class="text-14 main-text">${s.present_days}</span></td>
+                    <td class="py-2 align-middle text-center"><span class="text-14 main-text">${s.watched_days}</span></td>
+                    <td class="py-2 align-middle text-center"><span class="text-14 main-text">${s.absent_days}</span></td>
+                    <td class="py-2 align-middle text-center"><span class="text-14 main-text">${s.lectures_held}</span></td>
+                    <td class="py-2 align-middle text-center">
+                        <span class="table-btn ${pctBadgeClass(s.attendance_pct)} d-inline-flex align-items-center py-1 px-2 text-12">${s.attendance_pct}%</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableBody.innerHTML = html;
+    }
+
+    function renderAtRiskTable(atRisk) {
+        const atRiskBody = document.getElementById('bd-at-risk-body');
+
+        if (!atRisk || atRisk.length === 0) {
+            atRiskBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-14 bd-at-risk-empty">No students with 3+ consecutive absences in this period.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        atRisk.forEach(s => {
+            const lastAttended = s.last_attended_date ?
+                new Date(s.last_attended_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) :
+                'Never in period';
+
+            html += `
+                <tr class="bd-at-risk-row">
+                    <td class="px-4 py-3 align-middle">
+                        <div class="d-flex align-items-center">
+                            ${studentAvatarHtml(s)}
+                            <span class="text-14 main-text mx-2">${escHtml(s.title)}. ${escHtml(s.first_name)} ${escHtml(s.last_name)}</span>
+                        </div>
+                    </td>
+                    <td class="py-2 align-middle"><span class="text-14 main-text">${escHtml(s.sId)}</span></td>
+                    <td class="py-2 align-middle">${contextLineHtml(s)}</td>
+                    <td class="py-2 align-middle text-center">
+                        <span class="table-btn bd-streak-badge d-inline-flex align-items-center py-1 px-2 text-12">${s.absence_streak} in a row</span>
+                    </td>
+                    <td class="py-2 align-middle text-center"><span class="text-14 main-text">${lastAttended}</span></td>
+                </tr>
+            `;
+        });
+
+        atRiskBody.innerHTML = html;
+    }
+
+    // Page open: populate the name dropdowns, then load the full breakdown.
+    Promise.all([refreshFaculties(), refreshProgrammes(), refreshIntakes(), refreshSubjects()])
+        .finally(() => loadBreakdown());
+}

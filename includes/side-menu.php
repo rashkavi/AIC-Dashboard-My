@@ -47,10 +47,15 @@ class load_side_menu
             ]);
 
             $menuItems = array_merge($menuItems, [
+                ["Attendance", "akar-icons:circle-check", "attendance", "attendance"],
+            ]);
+
+            $menuItems = array_merge($menuItems, [
                 ["Assignments", "carbon:assignment-action-usage", "manage-assignments", "manage-assignments"],
             ]);
         }
 
+       
         if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) ||  SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || UserPermissions::hasPermission('users', 5) || UserPermissions::hasPermission('users', 6)) {
             $menuItems = array_merge($menuItems, [
                 ["Payments", "f7:wallet", "payments", "payments"],

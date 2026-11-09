@@ -350,6 +350,50 @@ if (!SessionUser::hasValidSession()) {
                                                         </div>
 
                                                         <div class="col-12 d-flex flex-column">
+                                                            <label for="" class="text-14 main-text">Late Submission End Date Time</label>
+                                                            <div class="col-12 mt-2">
+                                                                <div class="row gx-3">
+                                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                                        <input type="date" class="col-6 form-control custom-input" id="late-submision-date" onchange="acceptFutureDate('late-submision-date');">
+                                                                        <span class="text-12 text-dark-red" id="late-submision-date-feedback"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                                        <input type="time" class="col-6 form-control custom-input" id="late-submision-time">
+                                                                        <span class="text-12 text-dark-red" id="late-submision-time-feedback"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-12 d-flex flex-column">
+                                                            <label for="" class="text-14 sub-topic">Assignment Recorrection</label>
+                                                            <div class="col-12 mt-3">
+                                                                <div class="row gx-3">
+                                                                    <div class="col-12 col-lg-3 d-flex flex-column">
+                                                                        <label for="" class="text-14 main-text mb-2">Recorrection Fee</label>
+                                                                        <input type="number" class="col-6 form-control custom-input" id="recorrection-fee">
+                                                                        <span class="text-12 text-dark-red" id="recorrection-fee-feedback"></span>
+                                                                    </div>
+                                                                    <div class="col-12 col-lg-6 d-flex flex-column">
+                                                                        <label for="" class="text-14 main-text">Recorrection Apply End Date & Time</label>
+                                                                        <div class="col-12 mt-2">
+                                                                            <div class="row gx-3">
+                                                                                <div class="col-6 d-flex flex-column">
+                                                                                    <input type="date" class="col-6 form-control custom-input" id="recorrection-end-date" onchange="acceptFutureDate('late-submision-date');">
+                                                                                    <span class="text-12 text-dark-red" id="recorrection-end-date-feedback"></span>
+                                                                                </div>
+                                                                                <div class="col-6 d-flex flex-column">
+                                                                                    <input type="time" class="col-6 form-control custom-input" id="recorrection-end-time">
+                                                                                    <span class="text-12 text-dark-red" id="recorrection-end-time-feedback"></span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-12 d-flex flex-column">
                                                             <div class="row p-0 m-0 gx-4 gy-3 justify-content-end">
                                                                 <div class="col-12 col-md-6 col-lg-4 p-0 px-md-3 pe-md-0 m-0">
                                                                     <button class="w-100 custom-btn" id="save-single-assignment" onclick="addMainAssignment(this);">Save Assgnment</button>
@@ -605,6 +649,11 @@ if (!SessionUser::hasValidSession()) {
                         form.append("end_date", $("#end-date").val());
                         form.append("end_time", $("#end-time").val());
                         form.append("plagiarism_report", $("#plagiarism-report").val());
+                        form.append("late_date", $("#late-submision-date").val());
+                        form.append("late_time", $("#late-submision-time").val());
+                        form.append("recorrection_date", $("#recorrection-end-date").val());
+                        form.append("recorrection_time", $("#recorrection-end-time").val());
+                        form.append("recorrection_fee", $("#recorrection-fee").val());
 
                         var files = $("#file-selector-input")[0].files;
                         for (var i = 0; i < files.length; i++) {

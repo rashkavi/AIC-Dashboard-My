@@ -86,9 +86,9 @@ if (SessionUser::hasValidSession()) {
                                 ";
                             }
 
-                            // if ($lectureData["lecture_type_id"] == 2) {
-                            //     $query .= " INNER JOIN `attendance` ON (`students`.`student_id`=`attendance`.`students_student_id` AND `attendance`.`time_table_time_table_id`='" . $lectureData["time_table_id"] . "')";
-                            // }
+                            if ($lectureData["lecture_type_id"] == 2) {
+                                $query .= " INNER JOIN `attendance` ON (`students`.`student_id`=`attendance`.`students_student_id` AND `attendance`.`time_table_time_table_id`='" . $lectureData["time_table_id"] . "')";
+                            }
 
                             $query .= " WHERE `students_has_intakes`.`intakes_intake_id`='" . $lectureData["intake_id"] . "' AND `students_has_intakes`.`status_status_id`='1'";
 

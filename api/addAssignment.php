@@ -25,6 +25,7 @@ if (SessionUser::hasValidSession()) {
             $end_time = isset($_POST['end_time']) ? $_POST['end_time'] : '';
             $plagiarism_report = isset($_POST['plagiarism_report']) ? $_POST['plagiarism_report'] : 0;
             $attachment = '';
+            $extra = ['late' => null, 'recorrection' => null, 'fee' => null];
             if (empty($subject_id)) {
                 $status->error = 'Subject ID is required';
             } else if ($subject_id == 0) {
@@ -118,6 +119,10 @@ if (SessionUser::hasValidSession()) {
                         if (empty($plagiarism_report)) {
                             $status->plagiarism_report = 'Please select a plagiarism report status';
                         }
+
+                        // ---- Late submission + recorrection (dates + fee) ----
+                        $extra = parseLateAndRecorrection($status, $_POST, $end_date, $end_time);
+
                         if (isset($_FILES["file"])) {
                             $allowed_file_extensions = array("application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                             $file_ex = $_FILES["file"]["type"];
@@ -172,6 +177,10 @@ if (SessionUser::hasValidSession()) {
                                 $assignment_table_insert_columns .= ",`assignment_status_assignment_status_id`";
                                 $assignment_table_insert_values .= ",'1'";
                             }
+
+                            // Late submission end + recorrection apply end (nullable columns)
+                            appendLateAndRecorrection($assignment_table_insert_columns, $assignment_table_insert_values, $extra);
+
                             if (isset($_FILES["file"])) {
                                 $assignment_table_insert_columns .= ",`attachment`";
                                 $assignment_table_insert_values .= ",'" . $attachment . "'";
@@ -181,6 +190,10 @@ if (SessionUser::hasValidSession()) {
                             $assignmnet_log_table_insert_columns = "`users_user_id`,`assignments_assignment_id`,`log`,`date_time`";
                             $assignmnet_log_table_insert_values = "'" . $sessionUserObject['user_id'] . "','" . $assignmentId . "','Add Assignmnet','" . $date . "'";
                             Database::iud("INSERT INTO `assignments_logs` (" . $assignmnet_log_table_insert_columns . ") VALUES (" . $assignmnet_log_table_insert_values . ")");
+
+                            // Recorrection fee goes in its own table
+                            insertRecorrectionFee($extra, (int)$assignmentId, (int)$sessionUserObject['user_id'], $date);
+
                             if (isset($_FILES["file"])) {
                                 $qcv_path = "../assets/uploads/assignments-attachments/" . $attachment;
                                 move_uploaded_file($_FILES["file"]["tmp_name"], $qcv_path);
@@ -290,4 +303,106 @@ function sendNewAssignmentEmail(int $intakeId, int $assignmentId, int $userId): 
         error_log('New assignment email failed: ' . $e->getMessage());
         return 'Assignment added, but the notification email could not be sent';
     }
+}
+
+/**
+ * Validates late-submission + recorrection inputs.
+ * Writes errors onto $status, returns values ready for INSERT (null = not provided).
+ */
+function parseLateAndRecorrection(stdClass $status, array $post, string $end_date, string $end_time): array
+{
+    $late_date = trim($post['late_date'] ?? '');
+    $late_time = trim($post['late_time'] ?? '');
+    $rec_date  = trim($post['recorrection_date'] ?? '');
+    $rec_time  = trim($post['recorrection_time'] ?? '');
+    $rec_fee   = trim($post['recorrection_fee'] ?? '');
+
+    $out = ['late' => null, 'recorrection' => null, 'fee' => null];
+
+    $endDT  = (!empty($end_date) && !empty($end_time)) ? new DateTime("$end_date $end_time") : null;
+    $lateDT = null;
+
+    // ---- Late submission ----
+    if ($late_date !== '' || $late_time !== '') {
+        if ($late_date === '') {
+            $status->late_date = 'A late submission date is required for the selected time.';
+        }
+        if ($late_time === '') {
+            $status->late_time = 'A late submission time is required for the selected date.';
+        }
+        if (!isset($status->late_date) && !isset($status->late_time)) {
+            if ($endDT === null) {
+                $status->late_date = 'Set the assignment end date & time before adding a late submission date.';
+            } else {
+                $lateDT = new DateTime("$late_date $late_time");
+                if ($lateDT <= $endDT) {
+                    $status->late_date = 'Late submission end must be after the assignment end date & time.';
+                } else {
+                    $out['late'] = $lateDT->format('Y-m-d H:i');
+                }
+            }
+        }
+    }
+
+    // ---- Recorrection ----
+    if ($rec_date !== '' || $rec_time !== '') {
+        if ($rec_date === '') {
+            $status->recorrection_date = 'A recorrection end date is required for the selected time.';
+        }
+        if ($rec_time === '') {
+            $status->recorrection_time = 'A recorrection end time is required for the selected date.';
+        }
+        if (!isset($status->recorrection_date) && !isset($status->recorrection_time)) {
+            $baseDT = $lateDT ?? $endDT;
+            if ($baseDT === null) {
+                $status->recorrection_date = 'Set the assignment end date & time before adding a recorrection date.';
+            } else {
+                $recDT = new DateTime("$rec_date $rec_time");
+                if ($recDT <= $baseDT) {
+                    $status->recorrection_date = $lateDT
+                        ? 'Recorrection end must be after the late submission end.'
+                        : 'Recorrection end must be after the assignment end date & time.';
+                } else {
+                    $out['recorrection'] = $recDT->format('Y-m-d H:i');
+                }
+            }
+        }
+    }
+
+    // ---- Recorrection fee ----
+    if ($rec_fee !== '') {
+        if (!is_numeric($rec_fee) || (float)$rec_fee < 0) {
+            $status->recorrection_fee = 'Recorrection fee must be a valid non-negative number.';
+        } else if ((float)$rec_fee > 0 && $out['recorrection'] === null && !isset($status->recorrection_date)) {
+            $status->recorrection_date = 'Set a recorrection end date & time for the fee.';
+        } else {
+            $out['fee'] = round((float)$rec_fee, 2);
+        }
+    }
+
+    return $out;
+}
+
+/** Appends the optional date columns/values to the assignments INSERT strings. */
+function appendLateAndRecorrection(string &$cols, string &$vals, array $extra): void
+{
+    if ($extra['late'] !== null) {
+        $cols .= ",`late_submission_end_date`";
+        $vals .= ",'" . $extra['late'] . "'";
+    }
+    if ($extra['recorrection'] !== null) {
+        $cols .= ",`recorrection_apply_end_date`";
+        $vals .= ",'" . $extra['recorrection'] . "'";
+    }
+}
+
+/** Inserts the recorrection fee row for a newly created assignment (no-op when no fee was given). */
+function insertRecorrectionFee(array $extra, int $assignmentId, int $userId, string $dateTime): void
+{
+    if ($extra['fee'] === null) {
+        return;
+    }
+    Database::iud("INSERT INTO `assignment_recorrection_fee`
+        (`recorrection_fee`,`assignments_assignment_id`,`users_user_id`,`date_added`)
+        VALUES ('" . $extra['fee'] . "','" . $assignmentId . "','" . $userId . "','" . $dateTime . "')");
 }

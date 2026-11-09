@@ -1510,22 +1510,25 @@ const editAssignment = (btn, id) => {
     const form = new FormData();
     form.append("assignment_id", id);
     form.append("code", $("#code").val());
-    form.append("topic", $("#topic").val())
+    form.append("topic", $("#topic").val());
     form.append("start_date", $("#start-date").val());
     form.append("start_time", $("#start-time").val());
     form.append("end_date", $("#end-date").val());
     form.append("end_time", $("#end-time").val());
-    form.append("file", $("#file-selector-input").prop("files")[0]);
     form.append("plagiarism_report", $("#plagiarism-report").val());
     form.append("assignment_status", $("#assignment-status").val());
 
-    if ($("#assignment-status").val() == 4 || $("#assignment-status").val() == 5) {
-        form.append("late_submi_end_date", $("#late-submision-date").val());
-        form.append("late_submi_end_time", $("#late-submision-time").val());
-        form.append("recorection_fee", $("#recorrection-fee").val());
-        form.append("recorrection_end_date", $("#recorrection-end-date").val());
-        form.append("recorrection_end_time", $("#recorrection-end-time").val());
+    const file = $("#file-selector-input").prop("files")[0];
+    if (file) {
+        form.append("file", file);
     }
+
+    // Late submission + recorrection are always sent
+    form.append("late_date", $("#late-submision-date").val());
+    form.append("late_time", $("#late-submision-time").val());
+    form.append("recorrection_date", $("#recorrection-end-date").val());
+    form.append("recorrection_time", $("#recorrection-end-time").val());
+    form.append("recorrection_fee", $("#recorrection-fee").val());
 
     fetch('api/editAssignment.php', {
         method: "POST",
@@ -1548,24 +1551,24 @@ const editAssignment = (btn, id) => {
                     start_time: ["#start-time", "#start-time-feedback"],
                     end_date: ["#end-date", "#end-date-feedback"],
                     end_time: ["#end-time", "#end-time-feedback"],
-                    file: ["#file-info", "#file-feedback"],
+                    file: ["#file-selector-input", "#file-feedback"],
                     plagiarism_report: ["#plagiarism-report", "#plagiarism-report-feedback"],
                     assi_status: ["#assignment-status", "#assignment-status-feedback"],
-                    late_submi_end_date: ["#late-submision-date", "#late-submision-date-feedback"],
-                    recorection_fee: ["#recorrection-fee-date", "#recorrection-fee-date-feedback"],
-                    recorrection_end_date: ["#recorrection-end-date", "#recorrection-end-date-feedback"],
-                    recorrection_end_time: ["#recorrection-end-time", "#recorrection-end-time-feedback"]
+                    late_date: ["#late-submision-date", "#late-submision-date-feedback"],
+                    late_time: ["#late-submision-time", "#late-submision-time-feedback"],
+                    recorrection_date: ["#recorrection-end-date", "#recorrection-end-date-feedback"],
+                    recorrection_time: ["#recorrection-end-time", "#recorrection-end-time-feedback"],
+                    recorrection_fee: ["#recorrection-fee", "#recorrection-fee-feedback"]
                 };
 
                 applyValidation(response, validationMap);
                 toggleBtnLoader(btn, false);
-
             }
         })
         .catch((error) => {
             toggleBtnLoader(btn, false);
-            showToast("error", "An error occured. Please try again later.");
-        })
+            showToast("error", "An error occurred. Please try again later.");
+        });
 }
 
 const loadLevels = () => {

@@ -77,6 +77,16 @@ if (SessionUser::hasValidSession()) {
 
                                                         INNER JOIN `students_has_intakes`
                                                             ON `students`.`student_id` = `students_has_intakes`.`students_student_id`
+
+                                                        INNER JOIN `intakes`
+                                                            ON `students_has_intakes`.`intakes_intake_id` = `intakes`.`intake_id`
+
+                                                        INNER JOIN `programmes`
+                                                            ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                        INNER JOIN `faculties`
+                                                            ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+                                                        INNER JOIN `branches`
+                                                            ON `faculties`.`branches_branch_id` = `branches`.`branch_id`
                                                          
                                                          INNER JOIN `lead_student_status`
                                                              ON `students_has_intakes`.`lead_student_status_lead_student_status_id` = `lead_student_status`.`lead_student_status_id`

@@ -444,7 +444,7 @@ if (!SessionUser::hasValidSession()) {
         </body>
 
         </html>
-<?php
+        <?php
     }
 }
 ?>
