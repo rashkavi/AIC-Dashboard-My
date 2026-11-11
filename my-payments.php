@@ -148,6 +148,20 @@ if (!SessionUser::hasValidSession()) {
                                             </div>
                                         </div>
 
+                                        <div class="col-12">
+                                            <?php
+                                            $dashboardUserId = $sessionUserObject['user_id'];
+                                            $dashboardLinks = [
+                                                'paid' => 'my-payments-history',
+                                                'paidDetails' => 'lecturer-payment-details',
+                                                'scheduled' => 'my-scheduled-payments',
+                                                'pendingLectures' => 'my-lecture-payments',
+                                                'pendingAssignments' => 'my-assignments-payments',
+                                            ];
+                                            include "./includes/components/lecturer-payments-dashboard.php";
+                                            ?>
+                                        </div>
+
                                         <div class="col-12 px-4 py-3 component-theme mb-10">
                                             <div class="row p-0 m-0 g-0 align-content-center">
                                                 <div class="col-12 col-md-10 d-flex align-items-center p-0 m-0 g-0 align-content-center">
