@@ -363,7 +363,89 @@ if (!SessionUser::hasValidSession()) {
                                                 <?php
                                                 }
 
-                                               
+                                                $assignmentPaymentsQuery = "SELECT 
+                                                        `assignment_payments`.`assignment_payments_id`,
+                                                        `assignment_payments`.`amount`,
+                                                        `assignment_payments`.`date_added`,
+                                                        `assignments`.`assignment_code`,
+                                                        `assignments`.`assignment`,
+                                                        `subjects`.`subject`,
+                                                        `programmes`.`programme`,
+                                                        `lecturers`.`per_assignment_fee`,
+                                                        COUNT(`assignment_payments_has_marked_assignments`.`assignment_payments_has_marked_assignment_id`) AS marked_count
+                                                        FROM `assignment_payments`
+                                                        INNER JOIN `lecturers` ON `lecturers`.`lecturers_id` = `assignment_payments`.`lecturers_lecturers_id`
+                                                        INNER JOIN `assignments` ON `assignments`.`assignment_id` = `assignment_payments`.`assignments_assignment_id`
+                                                        INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+                                                        INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                                                        INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                        LEFT JOIN `assignment_payments_has_marked_assignments` ON `assignment_payments_has_marked_assignments`.`assignment_payments_id` = `assignment_payments`.`assignment_payments_id`
+                                                        WHERE `assignment_payments`.`earning_status_earning_status_id` = '2'
+                                                        AND `assignment_payments`.`lecturers_paid_payments_lecturers_paid_payment_id` = '" . $paymentId . "'
+                                                        GROUP BY `assignment_payments`.`assignment_payments_id`, `assignment_payments`.`amount`, `assignment_payments`.`date_added`, `assignments`.`assignment_code`, `assignments`.`assignment`, `subjects`.`subject`, `programmes`.`programme`, `lecturers`.`per_assignment_fee`
+                                                        ORDER BY `assignment_payments`.`date_added` DESC";
+
+                                                $assignmentPayments = Database::search($assignmentPaymentsQuery);
+                                                if ($assignmentPayments->num_rows > 0) {
+                                                ?>
+                                                    <div class="col-12 p-4 component-theme mt-4">
+                                                        <div class="row p-0 m-0 g-0">
+                                                            <div class="col-12">
+                                                                <div class="row p-0 m-0 g-0 align-content-center">
+                                                                    <span class="sub-topic mb-4">Payment Including Assignment Payments</span>
+                                                                    <div class="table-responsive-wrapper">
+                                                                        <div class="table-responsive" id="assignments-table-container">
+                                                                            <table class="table bl-solid m-0 p-0 g-0" id="assignments-table">
+                                                                                <thead>
+                                                                                    <tr class="br-t-5">
+                                                                                        <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                                            <div class="d-flex flex-row align-items-center">
+                                                                                                <span class="text-14 main-text fw-medium">Scheduled Date</span>
+                                                                                            </div>
+                                                                                        </th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Programme</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Subject</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Assignment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Marked Assignments</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Fee Per Assignment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Scheduled Payment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody id="assignment-table-data">
+                                                                                    <?php
+                                                                                    while ($data = $assignmentPayments->fetch_assoc()) {
+                                                                                    ?>
+                                                                                        <tr>
+                                                                                            <td class="px-4 pe-0 py-3 pe-0 align-middle">
+                                                                                                <div class="d-flex flex-row align-items-center p-0 g-0 m-0">
+                                                                                                    <p class="text-14 main-text"><?= date("Y-m-d", strtotime($data['date_added'])) ?></br><?= date("h:i A", strtotime($data['date_added'])) ?></p>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["programme"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["subject"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["assignment_code"] . " - " . $data["assignment"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["marked_count"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["per_assignment_fee"], 2) ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["amount"], 2) ?></span></td>
+                                                                                            <td class="py-2 align-middle">
+                                                                                                <button class="table-btn table-btn-dark-theme active w-100" onclick="window.location.href='lecturer-assignment-payment?payment-id=<?= $data['assignment_payments_id']; ?>'">View</button>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <?php
+                                                }
                                                 ?>
 
                                             </div>
