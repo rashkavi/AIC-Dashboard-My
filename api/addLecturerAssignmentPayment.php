@@ -47,7 +47,7 @@ if (SessionUser::hasValidSession()) {
                             sha.assignments_assignment_id = '" . $assignmentId . "'
                             AND lhsaa.lecturers_lecturers_id = '" . $lecturerId . "'
                         GROUP BY 
-                            lhsaa.lecturers_lecturers_id
+                            lhsaa.lecturers_lecturers_id, user_fname, user_lname, title, profile_img, per_assignment_fee, users.user_id
                         ";
 
                         $isValidLecture = Database::search($query);

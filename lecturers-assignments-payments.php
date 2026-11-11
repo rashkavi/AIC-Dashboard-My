@@ -63,7 +63,7 @@ if (!SessionUser::hasValidSession()) {
             AND `completed_payment`.`assignments_assignment_id` = `sha`.`assignments_assignment_id`)
         WHERE `lhsaa`.`submission_sts_submission_sts_id` = '2'";
 
-        $groupBy = " GROUP BY `lhsaa`.`lecturers_lecturers_id`, `sha`.`assignments_assignment_id`";
+        $groupBy = " GROUP BY `lhsaa`.`lecturers_lecturers_id`, `sha`.`assignments_assignment_id`, `lecturers`.`per_assignment_fee`, `users`.`user_id`, `users`.`user_fname`, `users`.`user_lname`, `users`.`profile_img`, `title`.`title`, `assignments`.`assignment_code`, `assignments`.`assignment`, `assignments`.`assignment_id`, `subjects`.`subject`, `levels`.`level`, `intakes`.`intake`, `programmes`.`programme`, `faculties`.`faculty`";
         $orderBy = " ORDER BY `payment_status` DESC, `assignments`.`assignment_id` DESC";
 
         $pendingApprovalAssignmentPayments = Database::search("SELECT COUNT(*) AS 'count' FROM (" . $query . $groupBy . " HAVING `payment_status` = '4') AS `pending_payments`")->fetch_assoc();

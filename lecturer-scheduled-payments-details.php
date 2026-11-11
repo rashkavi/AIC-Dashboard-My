@@ -486,7 +486,7 @@ if (!SessionUser::hasValidSession()) {
                                                         LEFT JOIN `assignment_payments_has_marked_assignments` ON `assignment_payments_has_marked_assignments`.`assignment_payments_id` = `assignment_payments`.`assignment_payments_id`
                                                         WHERE `assignment_payments`.`users_user_id` = '" . $lecturerId . "'
                                                         AND `assignment_payments`.`earning_status_earning_status_id` = '1'
-                                                        GROUP BY `assignment_payments`.`assignment_payments_id`
+                                                        GROUP BY `assignment_payments`.`assignment_payments_id`, `assignment_payments`.`amount`, `assignment_payments`.`date_added`, `assignments`.`assignment_code`, `assignments`.`assignment`, `subjects`.`subject`, `programmes`.`programme`, `lecturers`.`per_assignment_fee`
                                                         ORDER BY `assignment_payments`.`date_added` DESC";
 
                                                 $assignmentPayments = Database::search($assignmentPaymentsQuery);
