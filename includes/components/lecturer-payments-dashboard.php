@@ -138,113 +138,6 @@ usort($dashboardPendingRows, function ($a, $b) {
 $dashboardPendingRows = array_slice($dashboardPendingRows, 0, 5);
 
 $dashboardShowLecturer = empty($dashboardUserId);
-?>
-<div class="container p-0 m-0 g-0 mb-4">
-    <div class="row g-4 d-flex">
-        <div class="col-12 col-lg-6 col-xxl-3 d-flex align-items-stretch">
-            <div class="component-theme p-3 w-100">
-                <div class="d-flex flex-row align-items-center">
-                    <div class="hwr-70 table-btn-green-blue d-flex align-items-center justify-content-center"> <iconify-icon icon="bx:money-withdraw" width="32" height="32" class="text-dark-green"></iconify-icon></div>
-                    <div class="d-flex flex-column flex-grow-1 px-4">
-                        <div class="text-xs font-weight-bold text-dark-green text-uppercase mb-1">TOTAL PAID</div>
-                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($dashboardPaid['total'], 2) ?></div>
-                        <span class="text-12 sub-text"><?= $dashboardPaid['count'] ?> payouts</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-6 col-xxl-3 d-flex align-items-stretch">
-            <div class="component-theme p-3 w-100">
-                <div class="d-flex flex-row align-items-center">
-                    <div class="hwr-70 table-btn-purple d-flex align-items-center justify-content-center"> <iconify-icon icon="mingcute:schedule-line" width="32" height="32" class="text-dark-purple"></iconify-icon></div>
-                    <div class="d-flex flex-column flex-grow-1 px-4">
-                        <div class="text-xs font-weight-bold text-dark-purple text-uppercase mb-1">SCHEDULED</div>
-                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($dashboardScheduledTotal, 2) ?></div>
-                        <span class="text-12 sub-text"><?= $dashboardScheduledLectures['count'] ?> lectures / <?= $dashboardScheduledAssignments['count'] ?> assignments</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-6 col-xxl-3 d-flex align-items-stretch">
-            <div class="component-theme p-3 w-100">
-                <div class="d-flex flex-row align-items-center">
-                    <div class="hwr-70 table-btn-orange d-flex align-items-center justify-content-center"> <iconify-icon icon="material-symbols:pending-outline" width="32" height="32" class="text-dark-orange"></iconify-icon></div>
-                    <div class="d-flex flex-column flex-grow-1 px-4">
-                        <div class="text-xs font-weight-bold text-dark-orange text-uppercase mb-1">PENDING</div>
-                        <div class="stat-value mb-0 text-gray-800"><?= $dashboardPendingCount ?> items</div>
-                        <span class="text-12 sub-text"><?= $dashboardPendingLecturesCount ?> lectures / <?= $dashboardPendingAssignments['count'] ?> assignments (LKR <?= number_format($dashboardPendingAssignments['total'], 2) ?>)</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-6 col-xxl-3 d-flex align-items-stretch">
-            <div class="component-theme p-3 w-100">
-                <div class="d-flex flex-row align-items-center">
-                    <div class="hwr-70 table-btn-danger d-flex align-items-center justify-content-center"> <iconify-icon icon="zondicons:close-outline" width="32" height="32"></iconify-icon></div>
-                    <div class="d-flex flex-column flex-grow-1 px-4">
-                        <div class="text-xs font-weight-bold text-uppercase mb-1">REJECTED</div>
-                        <div class="stat-value mb-0 text-gray-800">LKR <?= number_format($dashboardRejectedTotal, 2) ?></div>
-                        <span class="text-12 sub-text"><?= $dashboardRejectedCount ?> payments</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php
-/* one latest list card */
-if (!function_exists('lecturerPaymentsDashboardList')) {
-    function lecturerPaymentsDashboardList($topic, $viewAllLinks, $rows, $showLecturer)
-    {
-?>
-        <div class="col-12 col-xxl-4 d-flex align-items-stretch">
-            <div class="component-theme p-4 w-100">
-                <div class="d-flex flex-row align-items-center justify-content-between mb-3">
-                    <span class="sub-topic"><?= $topic ?></span>
-                    <div class="d-flex align-items-center">
-                        <?php foreach ($viewAllLinks as $label => $link) { ?>
-                            <a href="<?= $link ?>" class="text-14 dark-theme text-decoration-none fw-medium ms-3"><?= $label ?></a>
-                        <?php } ?>
-                    </div>
-                </div>
-                <?php
-                if (count($rows) > 0) {
-                    foreach ($rows as $row) {
-                ?>
-                        <div class="d-flex flex-row align-items-center py-2 border-bottom <?= !empty($row['link']) ? 'cursor-pointer' : '' ?>" <?= !empty($row['link']) ? "onclick=\"window.location.href='" . $row['link'] . "'\"" : '' ?>>
-                            <?php if ($showLecturer) {
-                                if (!empty($row['profile_img']) && file_exists('./assets/imgs/users/' . $row['profile_img'])) { ?>
-                                    <img src="./assets/imgs/users/<?= $row['profile_img'] ?>" class="hwr-40" alt="User image">
-                                <?php } else { ?>
-                                    <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= lecturerPaymentsDashboardInitials($row['user_fname'], $row['user_lname']) ?></div>
-                            <?php }
-                            } ?>
-                            <div class="d-flex flex-column flex-grow-1 px-2">
-                                <span class="text-14 main-text"><?= $row['main'] ?></span>
-                                <span class="text-12 sub-text"><?= $row['sub'] ?></span>
-                            </div>
-                            <div class="d-flex flex-column align-items-end">
-                                <span class="text-14 main-text fw-medium"><?= $row['amount'] ?></span>
-                                <span class="table-btn <?= $row['badge_class'] ?> text-12 px-2"><?= $row['badge'] ?></span>
-                            </div>
-                        </div>
-                    <?php
-                    }
-                } else {
-                    ?>
-                    <div class="d-flex flex-column align-items-center py-3">
-                        <img src="./assets/imgs/common/no-data.png" class="no-data-icon" alt="No data" />
-                    </div>
-                <?php
-                }
-                ?>
-            </div>
-        </div>
-<?php
-    }
-}
-
 $dashboardPaidRows = [];
 while ($row = $dashboardLatestPaid->fetch_assoc()) {
     $dashboardPaidRows[] = [
@@ -290,17 +183,6 @@ foreach ($dashboardPendingRows as $row) {
         'user_lname' => $lecturer['user_lname'],
     ];
 }
-?>
-<div class="container p-0 m-0 g-0 mb-4">
-    <div class="row g-4 d-flex">
-        <?php
-        lecturerPaymentsDashboardList("Latest Paid", ["View all" => $dashboardLinks['paid']], $dashboardPaidRows, $dashboardShowLecturer);
-        lecturerPaymentsDashboardList("Latest Scheduled", ["View all" => $dashboardLinks['scheduled']], $dashboardScheduledRows, $dashboardShowLecturer);
-        lecturerPaymentsDashboardList("Pending", ["View all lectures" => $dashboardLinks['pendingLectures'], "Assignments" => $dashboardLinks['pendingAssignments']], $dashboardPendingListRows, $dashboardShowLecturer);
-        ?>
-    </div>
-</div>
-<?php
 /* ---------- charts ---------- */
 $dashboardMonthLabels = [];
 $dashboardMonthPaid = [];
@@ -334,27 +216,167 @@ $dashboardChartData = [
     'lecture' => [(float) $dashboardCompletedLectures['total'], (float) $dashboardScheduledLectures['total']],
     'assignment' => [(float) $dashboardCompletedAssignments['total'], (float) $dashboardScheduledAssignments['total']],
 ];
+
+$dashboardThisMonthPaid = $dashboardMonthPaid[date('Y-m')] ?? 0;
+$dashboardLastPayout = Database::search("SELECT MAX(`date_paid`) AS 'last' FROM `lecturers_paid_payments` WHERE 1=1" . $dashboardUserFilter)->fetch_assoc()['last'];
+$dashboardStatusLegend = [
+    ['label' => 'Paid', 'color' => '#48CD50', 'value' => $dashboardChartData['status'][0]],
+    ['label' => 'Scheduled', 'color' => '#AF52DE', 'value' => $dashboardChartData['status'][1]],
+    ['label' => 'Pending', 'color' => '#FF9500', 'value' => $dashboardChartData['status'][2]],
+    ['label' => 'Rejected', 'color' => '#D85E44', 'value' => $dashboardChartData['status'][3]],
+];
+
+/* one stat card */
+if (!function_exists('lecturerPaymentsDashboardStat')) {
+    function lecturerPaymentsDashboardStat($label, $value, $lines, $icon, $iconBg, $textClass)
+    {
 ?>
-<div class="container p-0 m-0 g-0 mb-4">
-    <div class="row g-4 d-flex">
-        <div class="col-12 col-xxl-4 d-flex align-items-stretch">
-            <div class="component-theme p-4 w-100">
-                <span class="sub-topic">Paid - Last 6 Months</span>
-                <div class="mt-3" style="height: 240px;"><canvas id="lpdMonthlyPaidChart"></canvas></div>
+        <div class="col-12 col-md-6 col-xl-3 d-flex align-items-stretch">
+            <div class="component-theme p-3 w-100 h-100">
+                <div class="d-flex flex-row align-items-center">
+                    <div class="hwr-70 flex-shrink-0 <?= $iconBg ?> d-flex align-items-center justify-content-center"><iconify-icon icon="<?= $icon ?>" width="32" height="32" class="<?= $textClass ?>"></iconify-icon></div>
+                    <div class="d-flex flex-column flex-grow-1 ps-3">
+                        <div class="text-12 fw-bold <?= $textClass ?> text-uppercase mb-1"><?= $label ?></div>
+                        <div class="stat-value mb-1 text-gray-800"><?= $value ?></div>
+                        <?php foreach ($lines as $line) { ?>
+                            <span class="text-12 sub-text"><?= $line ?></span>
+                        <?php } ?>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
+    <?php
+    }
+}
+
+/* one latest list card */
+if (!function_exists('lecturerPaymentsDashboardList')) {
+    function lecturerPaymentsDashboardList($topic, $count, $viewAllLinks, $rows, $showLecturer, $emptyText)
+    {
+    ?>
+        <div class="col-12 col-xl-4 d-flex align-items-stretch">
+            <div class="component-theme p-4 w-100 h-100 d-flex flex-column">
+                <div class="d-flex flex-row align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="sub-topic"><?= $topic ?></span>
+                        <span class="table-btn table-btn-primary text-12 px-2 ms-2"><?= $count ?></span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <?php foreach ($viewAllLinks as $label => $link) { ?>
+                            <a href="<?= $link ?>" class="text-14 dark-theme text-decoration-none fw-medium ms-3 text-nowrap"><?= $label ?> <iconify-icon icon="mingcute:right-line" width="14" height="14"></iconify-icon></a>
+                        <?php } ?>
+                    </div>
+                </div>
+                <?php
+                if (count($rows) > 0) {
+                    foreach ($rows as $row) {
+                ?>
+                        <div class="d-flex flex-row align-items-center py-2 border-bottom <?= !empty($row['link']) ? 'cursor-pointer' : '' ?>" <?= !empty($row['link']) ? "onclick=\"window.location.href='" . $row['link'] . "'\"" : '' ?>>
+                            <?php if ($showLecturer) {
+                                if (!empty($row['profile_img']) && file_exists('./assets/imgs/users/' . $row['profile_img'])) { ?>
+                                    <img src="./assets/imgs/users/<?= $row['profile_img'] ?>" class="hwr-40 flex-shrink-0" alt="User image">
+                                <?php } else { ?>
+                                    <div class="d-flex hwr-40 flex-shrink-0 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?= lecturerPaymentsDashboardInitials($row['user_fname'], $row['user_lname']) ?></div>
+                                <?php }
+                            } else { ?>
+                                <div class="d-flex hwr-40 flex-shrink-0 <?= $row['badge_class'] ?> align-items-center justify-content-center"><iconify-icon icon="<?= $row['icon'] ?>" width="20" height="20"></iconify-icon></div>
+                            <?php } ?>
+                            <div class="d-flex flex-column flex-grow-1 px-2 overflow-hidden">
+                                <span class="text-14 main-text text-truncate"><?= $row['main'] ?></span>
+                                <span class="text-12 sub-text text-truncate"><?= $row['sub'] ?></span>
+                            </div>
+                            <div class="d-flex flex-column align-items-end flex-shrink-0">
+                                <span class="text-14 main-text fw-medium"><?= $row['amount'] ?></span>
+                                <span class="table-btn <?= $row['badge_class'] ?> text-12 px-2"><?= $row['badge'] ?></span>
+                            </div>
+                        </div>
+                    <?php
+                    }
+                } else {
+                    ?>
+                    <div class="d-flex flex-column align-items-center justify-content-center flex-grow-1 py-4 text-center">
+                        <div class="hwr-40 bg-light-theme dark-theme d-flex align-items-center justify-content-center mb-2"><iconify-icon icon="solar:inbox-line-linear" width="22" height="22"></iconify-icon></div>
+                        <span class="text-14 main-text"><?= $emptyText ?></span>
+                    </div>
+                <?php
+                }
+                ?>
+            </div>
+        </div>
+<?php
+    }
+}
+
+foreach ($dashboardPaidRows as $i => $row) {
+    $dashboardPaidRows[$i]['icon'] = 'bx:money-withdraw';
+}
+foreach ($dashboardScheduledRows as $i => $row) {
+    $dashboardScheduledRows[$i]['icon'] = 'mingcute:schedule-line';
+}
+foreach ($dashboardPendingListRows as $i => $row) {
+    $dashboardPendingListRows[$i]['icon'] = $row['badge'] == 'Lecture' ? 'solar:presentation-graph-linear' : 'solar:document-text-linear';
+}
+?>
+<div class="w-100 mb-4">
+    <div class="row g-4">
+        <?php
+        lecturerPaymentsDashboardStat("Total Paid", "LKR " . number_format($dashboardPaid['total'], 2), [
+            $dashboardPaid['count'] . " payouts" . ($dashboardLastPayout ? " · last on " . date("Y-m-d", strtotime($dashboardLastPayout)) : ""),
+            "This month: LKR " . number_format($dashboardThisMonthPaid, 2),
+        ], "bx:money-withdraw", "table-btn-green-blue", "text-dark-green");
+        lecturerPaymentsDashboardStat("Scheduled", "LKR " . number_format($dashboardScheduledTotal, 2), [
+            "Lectures: LKR " . number_format($dashboardScheduledLectures['total'], 2) . " (" . $dashboardScheduledLectures['count'] . ")",
+            "Assignments: LKR " . number_format($dashboardScheduledAssignments['total'], 2) . " (" . $dashboardScheduledAssignments['count'] . ")",
+        ], "mingcute:schedule-line", "table-btn-purple", "text-dark-purple");
+        lecturerPaymentsDashboardStat("Pending", $dashboardPendingCount . " items", [
+            $dashboardPendingLecturesCount . " lectures not scheduled yet",
+            $dashboardPendingAssignments['count'] . " assignments · LKR " . number_format($dashboardPendingAssignments['total'], 2),
+        ], "material-symbols:pending-outline", "table-btn-orange", "text-dark-orange");
+        lecturerPaymentsDashboardStat("Rejected", "LKR " . number_format($dashboardRejectedTotal, 2), [
+            "Lectures: " . $dashboardRejectedLectures['count'] . " · Assignments: " . $dashboardRejectedAssignments['count'],
+            "LKR " . number_format($dashboardRejectedLectures['total'], 2) . " / LKR " . number_format($dashboardRejectedAssignments['total'], 2),
+        ], "zondicons:close-outline", "table-btn-danger", "text-danger");
+        ?>
+    </div>
+
+    <div class="row g-4 mt-0">
+        <div class="col-12 col-xl-6 d-flex align-items-stretch">
+            <div class="component-theme p-4 w-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="sub-topic">Paid - Last 6 Months</span>
+                    <span class="text-14 sub-text">LKR <?= number_format(array_sum($dashboardChartData['monthPaid']), 2) ?></span>
+                </div>
+                <div class="mt-3" style="height: 260px;"><canvas id="lpdMonthlyPaidChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3 d-flex align-items-stretch">
             <div class="component-theme p-4 w-100">
                 <span class="sub-topic">Amount by Status</span>
-                <div class="mt-3" style="height: 240px;"><canvas id="lpdStatusChart"></canvas></div>
+                <div class="mt-3 mx-auto" style="height: 160px; max-width: 160px;"><canvas id="lpdStatusChart"></canvas></div>
+                <div class="mt-3">
+                    <?php foreach ($dashboardStatusLegend as $item) { ?>
+                        <div class="d-flex align-items-center justify-content-between py-1">
+                            <span class="text-14 main-text d-flex align-items-center"><span class="d-inline-block rounded-circle me-2" style="width:10px;height:10px;background:<?= $item['color'] ?>"></span><?= $item['label'] ?></span>
+                            <span class="text-14 main-text fw-medium">LKR <?= number_format($item['value'], 2) ?></span>
+                        </div>
+                    <?php } ?>
+                </div>
             </div>
         </div>
-        <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
+        <div class="col-12 col-md-6 col-xl-3 d-flex align-items-stretch">
             <div class="component-theme p-4 w-100">
                 <span class="sub-topic">Lectures vs Assignments</span>
-                <div class="mt-3" style="height: 240px;"><canvas id="lpdTypeChart"></canvas></div>
+                <div class="mt-3" style="height: 260px;"><canvas id="lpdTypeChart"></canvas></div>
             </div>
         </div>
+    </div>
+
+    <div class="row g-4 mt-0">
+        <?php
+        lecturerPaymentsDashboardList("Latest Paid", $dashboardPaid['count'], ["View all" => $dashboardLinks['paid']], $dashboardPaidRows, $dashboardShowLecturer, "No payouts yet");
+        lecturerPaymentsDashboardList("Latest Scheduled", $dashboardScheduledCount, ["View all" => $dashboardLinks['scheduled']], $dashboardScheduledRows, $dashboardShowLecturer, "Nothing scheduled right now");
+        lecturerPaymentsDashboardList("Pending", $dashboardPendingCount, ["Lectures" => $dashboardLinks['pendingLectures'], "Assignments" => $dashboardLinks['pendingAssignments']], $dashboardPendingListRows, $dashboardShowLecturer, "Nothing pending");
+        ?>
     </div>
 </div>
 <script>
@@ -399,7 +421,7 @@ $dashboardChartData = [
                 responsive: true,
                 maintainAspectRatio: false,
                 cutout: '65%',
-                plugins: { legend: { position: 'right' }, tooltip: lpdStatusEmpty ? { enabled: false } : lpdTooltip }
+                plugins: { legend: { display: false }, tooltip: lpdStatusEmpty ? { enabled: false } : lpdTooltip }
             }
         });
 
