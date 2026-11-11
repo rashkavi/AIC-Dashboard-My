@@ -300,3 +300,124 @@ foreach ($dashboardPendingRows as $row) {
         ?>
     </div>
 </div>
+<?php
+/* ---------- charts ---------- */
+$dashboardMonthLabels = [];
+$dashboardMonthPaid = [];
+for ($i = 5; $i >= 0; $i--) {
+    $monthKey = date('Y-m', strtotime(date('Y-m-01') . " -$i months"));
+    $dashboardMonthLabels[$monthKey] = date('M Y', strtotime($monthKey . '-01'));
+    $dashboardMonthPaid[$monthKey] = 0;
+}
+$dashboardMonthlyPaidResult = Database::search("SELECT DATE_FORMAT(`date_paid`, '%Y-%m') AS 'month', IFNULL(SUM(`amount`),0) AS 'total'
+    FROM `lecturers_paid_payments`
+    WHERE `date_paid` >= '" . array_key_first($dashboardMonthPaid) . "-01'" . $dashboardUserFilter . "
+    GROUP BY DATE_FORMAT(`date_paid`, '%Y-%m')");
+while ($row = $dashboardMonthlyPaidResult->fetch_assoc()) {
+    if (isset($dashboardMonthPaid[$row['month']])) {
+        $dashboardMonthPaid[$row['month']] = (float) $row['total'];
+    }
+}
+
+$dashboardCompletedLectures = Database::search("SELECT IFNULL(SUM(`amount`),0) AS 'total' FROM `lecturer_payments` WHERE `earning_status_earning_status_id` = '2'" . $dashboardUserFilter)->fetch_assoc();
+$dashboardCompletedAssignments = Database::search("SELECT IFNULL(SUM(`amount`),0) AS 'total' FROM `assignment_payments` WHERE `earning_status_earning_status_id` = '2'" . $dashboardUserFilter)->fetch_assoc();
+
+$dashboardChartData = [
+    'monthLabels' => array_values($dashboardMonthLabels),
+    'monthPaid' => array_values($dashboardMonthPaid),
+    'status' => [
+        (float) $dashboardPaid['total'],
+        (float) $dashboardScheduledTotal,
+        (float) $dashboardPendingAssignments['total'],
+        (float) $dashboardRejectedTotal,
+    ],
+    'lecture' => [(float) $dashboardCompletedLectures['total'], (float) $dashboardScheduledLectures['total']],
+    'assignment' => [(float) $dashboardCompletedAssignments['total'], (float) $dashboardScheduledAssignments['total']],
+];
+?>
+<div class="container p-0 m-0 g-0 mb-4">
+    <div class="row g-4 d-flex">
+        <div class="col-12 col-xxl-4 d-flex align-items-stretch">
+            <div class="component-theme p-4 w-100">
+                <span class="sub-topic">Paid - Last 6 Months</span>
+                <div class="mt-3" style="height: 240px;"><canvas id="lpdMonthlyPaidChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
+            <div class="component-theme p-4 w-100">
+                <span class="sub-topic">Amount by Status</span>
+                <div class="mt-3" style="height: 240px;"><canvas id="lpdStatusChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6 col-xxl-4 d-flex align-items-stretch">
+            <div class="component-theme p-4 w-100">
+                <span class="sub-topic">Lectures vs Assignments</span>
+                <div class="mt-3" style="height: 240px;"><canvas id="lpdTypeChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    window.addEventListener('load', function() {
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+        const lpdData = <?= json_encode($dashboardChartData) ?>;
+        const lpdMoney = (value) => 'LKR ' + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const lpdTooltip = {
+            callbacks: {
+                label: (ctx) => (ctx.dataset.label ? ctx.dataset.label + ': ' : (ctx.label ? ctx.label + ': ' : '')) + lpdMoney(ctx.parsed.y !== undefined ? ctx.parsed.y : ctx.parsed)
+            }
+        };
+
+        new Chart(document.getElementById('lpdMonthlyPaidChart'), {
+            type: 'bar',
+            data: {
+                labels: lpdData.monthLabels,
+                datasets: [{ label: 'Paid', data: lpdData.monthPaid, backgroundColor: '#21409B', borderRadius: 6, maxBarThickness: 32 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: lpdTooltip },
+                scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+            }
+        });
+
+        const lpdStatusEmpty = lpdData.status.every((value) => value === 0);
+        new Chart(document.getElementById('lpdStatusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: lpdStatusEmpty ? ['No Data'] : ['Paid', 'Scheduled', 'Pending', 'Rejected'],
+                datasets: [{
+                    data: lpdStatusEmpty ? [1] : lpdData.status,
+                    backgroundColor: lpdStatusEmpty ? ['#E5EAF7'] : ['#48CD50', '#AF52DE', '#FF9500', '#D85E44'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { position: 'right' }, tooltip: lpdStatusEmpty ? { enabled: false } : lpdTooltip }
+            }
+        });
+
+        new Chart(document.getElementById('lpdTypeChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Completed', 'Scheduled'],
+                datasets: [
+                    { label: 'Lectures', data: lpdData.lecture, backgroundColor: '#3658C9', borderRadius: 6, maxBarThickness: 32 },
+                    { label: 'Assignments', data: lpdData.assignment, backgroundColor: '#fd53bc', borderRadius: 6, maxBarThickness: 32 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, tooltip: lpdTooltip },
+                scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
+            }
+        });
+    });
+</script>
