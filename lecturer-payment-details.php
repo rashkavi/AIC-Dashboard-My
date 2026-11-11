@@ -45,7 +45,10 @@ if (!SessionUser::hasValidSession()) {
             } else {
                 $paymentData = $payment->fetch_assoc();
 
-                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments'))) {
+                // lecturer can view only own payments
+                $isOwnLecturerPayment = SessionUser::ifUserIsLecturer($sessionUserRole) && $paymentData['lecturer_user_id'] == $sessionUserObject['user_id'];
+
+                if (!(SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments') || $isOwnLecturerPayment)) {
                     header("Location: ./dashboard");
                 } else {
 
@@ -99,9 +102,14 @@ if (!SessionUser::hasValidSession()) {
                                                                 <span class="main-topic lh-lg">Lecturer Paid Payment Details</span>
                                                                 <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                                     <ol class="breadcrumb m-0">
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="payments" href="./payments">Payments</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments">Lecturer Payments</a></li>
-                                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments-history">Payment History</a></li>
+                                                                        <?php if ($isOwnLecturerPayment) { ?>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href="./my-payments">My Payments</a></li>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./my-payments-history">Payment History</a></li>
+                                                                        <?php } else { ?>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" data-i18n="payments" href="./payments">Payments</a></li>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments">Lecturer Payments</a></li>
+                                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none" href="./lecturers-payments-history">Payment History</a></li>
+                                                                        <?php } ?>
                                                                         <li class="breadcrumb-item"><a class="sub-text text-decoration-none"><?= $paymentData["lecturer_title"] . "." . $paymentData["lecturer_fname"] . " " . $paymentData["lecturer_lname"] ?></a></li>
                                                                     </ol>
                                                                 </nav>

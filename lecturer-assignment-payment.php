@@ -27,10 +27,12 @@ if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['payment-id']) && !empt
 
 UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
 
-if (!(SessionUser::ifUserIsPro($sessionUserRole)
+$isPaymentsUser = SessionUser::ifUserIsPro($sessionUserRole)
     || SessionUser::ifUserIsAcademic($sessionUserRole)
     || SessionUser::ifUserIsAccounts($sessionUserRole)
-    || UserPermissions::validPermisisonType('payments'))) {
+    || UserPermissions::validPermisisonType('payments');
+
+if (!($isPaymentsUser || SessionUser::ifUserIsLecturer($sessionUserRole))) {
     header("Location: ./dashboard");
     exit;
 }
@@ -51,6 +53,7 @@ $paymentResult = Database::search("SELECT
         `earning_status`.`earning_status_id`,
         `earning_status`.`earning_status`,
         `lecturers`.`per_assignment_fee`,
+        `lecturers`.`users_user_id` AS lecturer_user_id,
         `title`.`title`,
         `users`.`user_fname`,
         `users`.`user_lname`,
@@ -68,6 +71,12 @@ if ($paymentResult->num_rows == 0) {
 }
 
 $paymentData = $paymentResult->fetch_assoc();
+
+/* lecturer can view only own assignment payments (read only) */
+if (!$isPaymentsUser && $paymentData['lecturer_user_id'] != $sessionUserObject['user_id']) {
+    header("Location: ./my-assignments-payments");
+    exit;
+}
 
 /* Scheduled by (first log user of the payment, users_user_id on assignment_payments is the lecturer) */
 $scheduledBy = Database::search("SELECT `title`.`title`, `users`.`user_fname`, `users`.`user_lname`
@@ -186,9 +195,14 @@ function e($value)
                                             <span class="main-topic lh-lg">Assignment Payment Details</span>
                                             <nav style="--bs-breadcrumb-divider: url(&#34;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z' fill='%236c757d'/%3E%3C/svg%3E&#34;);" aria-label="breadcrumb">
                                                 <ol class="breadcrumb m-0">
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./payments'>Payments</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-payemnts'>Lecturers Payments</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-assignments-payments'>Lecturers Assignment Payments</a></li>
+                                                    <?php if ($isPaymentsUser) { ?>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./payments'>Payments</a></li>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-payments'>Lecturers Payments</a></li>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-assignments-payments'>Lecturers Assignment Payments</a></li>
+                                                    <?php } else { ?>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./my-payments'>My Payments</a></li>
+                                                        <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./my-assignments-payments'>Assignment Payments</a></li>
+                                                    <?php } ?>
                                                 </ol>
                                             </nav>
                                         </div>
@@ -395,7 +409,7 @@ function e($value)
                             </div>
 
                             <!-- Update scheduled payment (only while status = Scheduled and not yet paid) -->
-                            <?php if ($statusId == 1 && !$isPaid) { ?>
+                            <?php if ($statusId == 1 && !$isPaid && $isPaymentsUser) { ?>
                                 <div class="col-12 mt-4">
                                     <div class="row p-4 m-0 g-0 component-theme">
                                         <span class="sub-topic">Update Scheduled Assignment Payment</span>
