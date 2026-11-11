@@ -47,8 +47,8 @@ if (SessionUser::hasValidSession()) {
                         GROUP BY users_user_id
                     ) ap ON ap.users_user_id = u.user_id
             
-                    WHERE u.user_id = '" . $userId . "' AND lp.users_user_id IS NOT NULL 
-                    OR ap.users_user_id IS NOT NULL
+                    WHERE u.user_id = '" . $userId . "' AND (lp.users_user_id IS NOT NULL 
+                    OR ap.users_user_id IS NOT NULL)
                     GROUP BY u.user_id";
 
                         $result = Database::search($query);
@@ -126,8 +126,8 @@ if (SessionUser::hasValidSession()) {
                                     WHERE `assignment_payments_id` IN (" . implode(",", $assignmentPayments) . ")");
 
                                         foreach ($assignmentPayments as $payment) {
-                                            Database::iud("INSERT INTO `assignment_payments_logs` (`assignment_payments_assignment_payments_id`, `note`, `date_updated`, `users_user_id`,`log`) VALUES
-                                    ('" . $payment . "', '" . Database::escape($note) . "', '" . $today->format('Y-m-d H:i:s') . "', '" . $sessionUserObject['user_id'] . "','Marked as paid')");
+                                            Database::iud("INSERT INTO `assignment_payments_logs` (`assignment_payments_assignment_payments_id`, `note`, `date_updated`, `users_user_id`) VALUES
+                                    ('" . $payment . "', 'Marked as paid', '" . $today->format('Y-m-d H:i:s') . "', '" . $sessionUserObject['user_id'] . "')");
                                         }
                                     }
 

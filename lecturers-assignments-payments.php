@@ -12,6 +12,61 @@ if (!SessionUser::hasValidSession()) {
     } else {
         $sessionUserObject = SessionUser::getCurrentUserObject();
         UserPermissions::setUserPermissions($sessionUserObject['user_permissions']);
+
+        // one row per lecturer + assignment for the marked assignments
+        // payment_status => 1 Scheduled, 2 Completed, 3 Rejected, 4 Pending Approval (not scheduled yet)
+        $query = "SELECT 
+            `lhsaa`.`lecturers_lecturers_id`,
+            `sha`.`assignments_assignment_id`,
+            COUNT(DISTINCT `lhsaa`.`lecturers_has_students_has_assignments_id`) AS marked_count,
+            COUNT(DISTINCT `paid`.`lecturers_has_students_has_assignments_id`) AS paid_count,
+            `lecturers`.`per_assignment_fee`,
+            `users`.`user_id`, `users`.`user_fname`, `users`.`user_lname`, `users`.`profile_img`, `title`.`title`,
+            `assignments`.`assignment_code`, `assignments`.`assignment`,
+            `subjects`.`subject`, `levels`.`level`, `intakes`.`intake`, `programmes`.`programme`, `faculties`.`faculty`,
+            MAX(`open_payment`.`assignment_payments_id`) AS assignment_payments_id,
+            MAX(`open_payment`.`amount`) AS amount,
+            MAX(`completed_payment`.`assignment_payments_id`) AS completed_payment_id,
+            MAX(`completed_payment`.`completed_amount`) AS completed_amount,
+            (CASE 
+                WHEN MAX(`open_payment`.`assignment_payments_id`) IS NOT NULL THEN MAX(`open_payment`.`earning_status_earning_status_id`)
+                WHEN COUNT(DISTINCT `lhsaa`.`lecturers_has_students_has_assignments_id`) > COUNT(DISTINCT `paid`.`lecturers_has_students_has_assignments_id`) THEN 4
+                ELSE 2
+            END) AS payment_status
+        FROM `lecturers_has_students_has_assignments` AS `lhsaa`
+        INNER JOIN `students_has_assignments` AS `sha` ON `lhsaa`.`students_has_assignments_students_has_assignments_id` = `sha`.`students_has_assignments_id`
+        INNER JOIN `lecturers` ON `lecturers`.`lecturers_id` = `lhsaa`.`lecturers_lecturers_id`
+        INNER JOIN `users` ON `users`.`user_id` = `lecturers`.`users_user_id`
+        INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
+        INNER JOIN `assignments` ON `assignments`.`assignment_id` = `sha`.`assignments_assignment_id`
+        INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+        INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+        INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+        INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
+        LEFT JOIN (
+            SELECT `apma`.`lecturers_has_students_has_assignments_id`
+            FROM `assignment_payments_has_marked_assignments` AS `apma`
+            INNER JOIN `assignment_payments` AS `ap` ON `ap`.`assignment_payments_id` = `apma`.`assignment_payments_id`
+            WHERE `ap`.`earning_status_earning_status_id` = '2'
+            GROUP BY `apma`.`lecturers_has_students_has_assignments_id`
+        ) AS `paid` ON `paid`.`lecturers_has_students_has_assignments_id` = `lhsaa`.`lecturers_has_students_has_assignments_id`
+        LEFT JOIN `assignment_payments` AS `open_payment` ON (`open_payment`.`lecturers_lecturers_id` = `lhsaa`.`lecturers_lecturers_id`
+            AND `open_payment`.`assignments_assignment_id` = `sha`.`assignments_assignment_id`
+            AND `open_payment`.`earning_status_earning_status_id` IN ('1','3'))
+        LEFT JOIN (
+            SELECT `lecturers_lecturers_id`, `assignments_assignment_id`, MAX(`assignment_payments_id`) AS assignment_payments_id, SUM(`amount`) AS completed_amount
+            FROM `assignment_payments`
+            WHERE `earning_status_earning_status_id` = '2'
+            GROUP BY `lecturers_lecturers_id`, `assignments_assignment_id`
+        ) AS `completed_payment` ON (`completed_payment`.`lecturers_lecturers_id` = `lhsaa`.`lecturers_lecturers_id`
+            AND `completed_payment`.`assignments_assignment_id` = `sha`.`assignments_assignment_id`)
+        WHERE `lhsaa`.`submission_sts_submission_sts_id` = '2'";
+
+        $groupBy = " GROUP BY `lhsaa`.`lecturers_lecturers_id`, `sha`.`assignments_assignment_id`";
+        $orderBy = " ORDER BY `payment_status` DESC, `assignments`.`assignment_id` DESC";
+
+        $pendingApprovalAssignmentPayments = Database::search("SELECT COUNT(*) AS 'count' FROM (" . $query . $groupBy . " HAVING `payment_status` = '4') AS `pending_payments`")->fetch_assoc();
 ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -64,7 +119,7 @@ if (!SessionUser::hasValidSession()) {
                                                         <ol class="breadcrumb m-0">
                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" onclick="window.location.href='./payments';">Payments</a></li>
                                                             <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" onclick="window.location.href='./lecturers-payments';">Lecturers Payments</a></li>
-                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" onclick="window.location.href='./lecturers-lecture-payments';">Lecturers Lecture Payments</a></li>
+                                                            <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" onclick="window.location.href='./lecturers-assignments-payments';">Lecturers Assignment Payments</a></li>
                                                         </ol>
                                                     </nav>
                                                 </div>
@@ -78,10 +133,7 @@ if (!SessionUser::hasValidSession()) {
                                                 <div class="row p-0 gy-3 gx-3 align-content-center justify-content-end">
                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column">
                                                         <div class="d-flex custom-div align-items-center justify-content-center">
-                                                            <?php
-                                                            $pendingApprovallecturePayemnts = Database::search("SELECT COUNT(*) as 'count' FROM `assignment_payments` WHERE `earning_status_earning_status_id`='1'")->fetch_assoc();
-                                                            ?>
-                                                            <span class="text-14 dark-theme fw-medium"><?= $pendingApprovallecturePayemnts['count'] ?> pending Confirmation</span>
+                                                            <span class="text-14 dark-theme fw-medium"><?= $pendingApprovalAssignmentPayments['count'] ?> pending Approval</span>
                                                         </div>
                                                     </div>
                                                     <div class="col-12 col-md-8 col-lg-7 d-flex flex-column">
@@ -93,8 +145,9 @@ if (!SessionUser::hasValidSession()) {
                                                     <div class="col-12 col-md-4 col-lg-2 d-flex flex-column justify-content-end">
                                                         <select class="form-select custom-select" aria-label="Default select example" id="sort-selector" onchange="handleLecturersAssignmentsPaymentsPagination('filter')">
                                                             <option selected value="0">- Filter Data -</option>
-                                                            <option value="1">Pending</option>
-                                                            <option value="2">Approved</option>
+                                                            <option value="4">Pending Approval</option>
+                                                            <option value="1">Scheduled</option>
+                                                            <option value="2">Completed</option>
                                                             <option value="3">Rejected</option>
                                                         </select>
                                                     </div>
@@ -133,7 +186,7 @@ if (!SessionUser::hasValidSession()) {
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Lecturer Name</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
-                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Request Officer</th>
+                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Marked Assignments</th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
                                                                         <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Amount</th>
@@ -145,21 +198,7 @@ if (!SessionUser::hasValidSession()) {
                                                                 <tbody id="user-table-data">
                                                                     <?php
 
-                                                                    $query = "SELECT * FROM `assignment_payments` 
-                                                                INNER JOIN `lecturers` ON `lecturers`.`lecturers_id` = `assignment_payments`.`lecturers_lecturers_id`
-                                                                INNER JOIN `users` ON `users`.`user_id` = `lecturers`.`users_user_id`
-                                                                INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
-                                                                INNER JOIN `assignments` ON `assignments`.`assignment_id` = `assignment_payments`.`assignments_assignment_id` 
-                                                                INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
-                                                                INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
-                                                                INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
-                                                                INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
-                                                                INNER JOIN `faculties` ON `programmes`.`faculties_faculty_id` = `faculties`.`faculty_id`
-                                                                INNER JOIN `earning_status` ON `earning_status`.`earning_status_id` = `assignment_payments`.`earning_status_earning_status_id`
-                                                                ORDER BY `assignment_payments`.`assignment_payments_id` DESC
-                                                                ";
-
-                                                                    $results = Database::search($query);
+                                                                    $results = Database::search($query . $groupBy . $orderBy);
                                                                     $pageno = 1;
                                                                     $results_count = $results->num_rows;
                                                                     $result_per_page = 10;  // Consistent variable name
@@ -171,20 +210,41 @@ if (!SessionUser::hasValidSession()) {
                                                                     }
 
                                                                     $page_results = ($pageno - 1) * $result_per_page;
-                                                                    $payments = Database::search("" . $query . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
+                                                                    $payments = Database::search("" . $query . $groupBy . $orderBy . " LIMIT " . $result_per_page . " OFFSET " . $page_results . "");
 
                                                                     if ($payments->num_rows > 0) {
                                                                         while ($data = $payments->fetch_assoc()) {
+                                                                            $status_classes = [
+                                                                                "1" => "table-btn-yellow",
+                                                                                "2" => "table-btn-success",
+                                                                                "3" => "table-btn-danger",
+                                                                                "4" => "table-btn-pink",
+                                                                            ];
+                                                                            $status_names = [
+                                                                                "1" => "Scheduled",
+                                                                                "2" => "Completed",
+                                                                                "3" => "Rejected",
+                                                                                "4" => "Pending Approval",
+                                                                            ];
+                                                                            $unpaidCount = $data['marked_count'] - $data['paid_count'];
+                                                                            if ($data['payment_status'] == 4) {
+                                                                                $amount = $unpaidCount * $data['per_assignment_fee'];
+                                                                            } else if ($data['payment_status'] == 2) {
+                                                                                $amount = $data['completed_amount'];
+                                                                            } else {
+                                                                                $amount = $data['amount'];
+                                                                            }
+                                                                            $viewPaymentId = !empty($data['assignment_payments_id']) ? $data['assignment_payments_id'] : $data['completed_payment_id'];
                                                                     ?>
                                                                             <tr>
                                                                                 <td class="px-4 pe-0 py-3 pe-0 align-middle">
                                                                                     <div class="d-flex flex-row align-items-center p-0 g-0 m-0">
-                                                                                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check" id="check-user<?php echo $data["user_id"]; ?>" onchange="checkRowEvents(<?php echo $data['user_id']; ?>);">
-                                                                                        <p class="text-14 main-text mx-2"><?= $data['faculty'] . "/" . $data['programme'] . "/" . $data['intake'] . "/" . $data['level'] . "/" . $data['subject'] ?></p>
+                                                                                        <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2 row-check">
+                                                                                        <p class="text-14 main-text mx-2"><?= $data['assignment_code'] . " - " . $data['assignment'] ?></br><span class="sub-text text-12"><?= $data['faculty'] . "/" . $data['programme'] . "/" . $data['intake'] . "/" . $data['level'] . "/" . $data['subject'] ?></span></p>
                                                                                     </div>
                                                                                 </td>
                                                                                 <td colspan="3" class="py-2 align-middle">
-                                                                                    <div class="flex-grow-1 d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['user_id']; ?>)">
+                                                                                    <div class="flex-grow-1 d-flex align-items-center">
                                                                                         <?php
                                                                                         if (!empty($data["profile_img"]) && file_exists('./assets/imgs/users/' . $data["profile_img"])) {
                                                                                         ?>
@@ -203,70 +263,50 @@ if (!SessionUser::hasValidSession()) {
                                                                                 </td>
 
                                                                                 <td colspan="3" class="py-2 align-middle">
-                                                                                    <div class="d-flex align-items-center cursor-pointer" onclick="toggleCheckbox(<?php echo $data['user_id']; ?>)">
-                                                                                        <?php
-                                                                                        $requestUser = Database::search("SELECT * FROM `assignment_payments_logs`
-                                                                                    INNER JOIN `users` ON `assignment_payments_logs`.`users_user_id` = `users`.`user_id`
-                                                                                    INNER JOIN `title` ON `users`.`title_title_id` = `title`.`title_id` 
-                                                                                    WHERE `assignment_payments_assignment_payments_id`='" . $data['assignment_payments_id'] . "' ORDER BY `assignment_payments_logs`.`assignment_payments_logs_id` ASC LIMIT 1");
-                                                                                        if ($requestUser->num_rows > 0) {
-                                                                                            $requestUserData = $requestUser->fetch_assoc();
-                                                                                            if (!empty($requestUserData["profile_img"]) && file_exists('./assets/imgs/users/' . $requestUserData["profile_img"])) {
-                                                                                        ?>
-                                                                                                <img src="./assets/imgs/users/<?php echo $requestUserData["profile_img"]; ?>" class="hwr-40" alt="User image">
-                                                                                            <?php
-                                                                                            } else {
-                                                                                                $firstNameInitial = strtoupper(substr($requestUserData["user_fname"], 0, 1));
-                                                                                                $lastNameInitial = strtoupper(substr($requestUserData["user_lname"], 0, 1));
-                                                                                            ?>
-                                                                                                <div class="d-flex hwr-40 dark-theme bg-light-theme align-items-center justify-content-center fw-medium"><?php echo $firstNameInitial . $lastNameInitial; ?></div>
-                                                                                            <?php
-                                                                                            }
-                                                                                            ?>
-                                                                                            <span class="text-14 main-text mx-2"><?php echo $requestUserData["title"] . "." . $requestUserData["user_fname"] . " " . $requestUserData["user_lname"]; ?></span>
-                                                                                        <?php
-                                                                                        } else {
-                                                                                        ?>
-                                                                                            <span class="text-14 main-text mx-2">N/A</span>
-                                                                                        <?php
-                                                                                        }
-                                                                                        ?>
-                                                                                    </div>
-
+                                                                                    <span class="text-14 main-text"><?= $data['marked_count'] ?> Marked / <?= $data['paid_count'] ?> Paid</span></br>
+                                                                                    <span class="text-12 sub-text">LKR <?= number_format($data['per_assignment_fee'], 2) ?> per assignment</span>
                                                                                 </td>
 
-                                                                                <td colspan="2" class="py-2 align-middle"><span class="text-14 main-text">LKR <?= $data["amount"]; ?></span></td>
+                                                                                <td colspan="2" class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($amount, 2); ?></span></td>
                                                                                 <td class="py-2 align-middle">
-                                                                                    <?php
-                                                                                    $status_classes = [
-                                                                                        "1"     => "table-btn-yellow",
-                                                                                        "2"  => "table-btn-success",
-                                                                                        "3"  => "table-btn-danger",
-                                                                                    ];
-                                                                                    $sbutton_class = $status_classes[$data["earning_status_id"]];
-                                                                                    ?>
-                                                                                    <button class="table-btn <?php echo $sbutton_class; ?> w-100"> <?php echo $data["earning_status"]; ?></button>
+                                                                                    <button class="table-btn <?php echo $status_classes[$data['payment_status']]; ?> w-100"> <?php echo $status_names[$data['payment_status']]; ?></button>
                                                                                 </td>
                                                                                 <?php
 
-                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || UserPermissions::hasPermission('users', 4) || UserPermissions::hasPermission('users', 10)) {
+                                                                                if (SessionUser::ifUserIsPro($sessionUserRole) || SessionUser::ifUserIsAcademic($sessionUserRole) || SessionUser::ifUserIsAccounts($sessionUserRole) || UserPermissions::validPermisisonType('payments')) {
                                                                                 ?>
                                                                                     <td class="py-3 pe-4 align-middle">
                                                                                         <div class="dropdown">
                                                                                             <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton2" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
                                                                                             <ul class="dropdown-menu border-0 shadow w-100 br-5" aria-labelledby="dropdownMenuButton2">
-                                                                                                <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="lecturer-assignment-payment?payment-id=<?php echo $data['assignment_payments_id']; ?>">
-                                                                                                        <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                        View</a></li>
                                                                                                 <?php
-                                                                                                if ($data['earning_status_earning_status_id'] == 1) {
+                                                                                                if (!empty($viewPaymentId)) {
                                                                                                 ?>
-                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="updateLecturerAssignmentPayment(<?= $data['assignment_payments_id'] ?>,2)">
+                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="lecturer-assignment-payment?payment-id=<?php echo $viewPaymentId; ?>">
+                                                                                                            <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                            View</a></li>
+                                                                                                <?php
+                                                                                                }
+                                                                                                if ($data['payment_status'] == 4) {
+                                                                                                ?>
+                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer" onclick="addLecturerAssignmentPayment('<?= $data['lecturers_lecturers_id'] ?>', '<?= $data['assignments_assignment_id'] ?>')">
                                                                                                             <iconify-icon icon="mdi:approve" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                            Approve</a></li>
-                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center" onclick="updateLecturerAssignmentPayment(<?= $data['assignment_payments_id'] ?>,3)">
+                                                                                                            Schedule Payment</a></li>
+                                                                                                <?php
+                                                                                                } else if ($data['payment_status'] == 1) {
+                                                                                                ?>
+                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer" onclick="addLecturerAssignmentPayment('<?= $data['lecturers_lecturers_id'] ?>', '<?= $data['assignments_assignment_id'] ?>')">
+                                                                                                            <iconify-icon icon="mdi:refresh" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                            Re-calculate Payment</a></li>
+                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer" onclick="updateLecturerAssignmentPayment(<?= $data['assignment_payments_id'] ?>,3)">
                                                                                                             <iconify-icon icon="zondicons:close-outline" width="20" height="20" class="sub-text me-3"></iconify-icon>
-                                                                                                            Reject</a></li>
+                                                                                                            Reject Payment</a></li>
+                                                                                                <?php
+                                                                                                } else if ($data['payment_status'] == 3) {
+                                                                                                ?>
+                                                                                                    <li><a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer" onclick="addLecturerAssignmentPayment('<?= $data['lecturers_lecturers_id'] ?>', '<?= $data['assignments_assignment_id'] ?>')">
+                                                                                                            <iconify-icon icon="mdi:calendar-refresh" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                            Re-schedule Payment</a></li>
                                                                                                 <?php
                                                                                                 }
                                                                                                 ?>

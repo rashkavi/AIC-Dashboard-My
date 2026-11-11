@@ -14211,6 +14211,41 @@ const updateScheduledLecturerLecturePayment = (btn, id) => {
         });
 }
 
+const updateScheduledLecturerAssignmentPayment = (btn, id) => {
+    toggleBtnLoader(btn, true);
+    const data = {
+        paymentId: id,
+        amount: $("#amount").val(),
+        note: $("#note").val()
+    }
+    const validationMap = {
+        amount: ['amount', 'amount-feedback']
+    }
+    fetch('api/updateScheduledLecturerAssignmentPayment.php', {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    })
+        .then((res) => res.json())
+        .then((response) => {
+            toggleBtnLoader(btn, false);
+            if (response.done) {
+                showToast("success", response.done);
+                setTimeout(() => { window.location.reload(); }, 3000)
+            } else if (response.error) {
+                showToast("error", response.error);
+            } else {
+                applyValidation(response, validationMap);
+            }
+        })
+        .catch((error) => {
+            toggleBtnLoader(btn, false);
+            showToast("error", "An error occurred. Please try again later.");
+        });
+}
+
 const markAsCompleteLecturerLecturePayment = (btn, id) => {
     toggleBtnLoader(btn, true);
     const data = {

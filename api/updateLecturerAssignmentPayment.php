@@ -23,29 +23,28 @@ if (SessionUser::hasValidSession()) {
                     if (empty($lecturerPayemntId) || $lecturerPayemntId == 0) {
                         $status->error = 'Lecturer assignemnt payment id is required';
                     } else {
-                        $isValidLecture = Database::search("SELECT COUNT(*) as 'count' FROM `assignment_payments` WHERE `assignment_payments_id` = '" . $lecturerPayemntId . "'");
+                        $isValidLecture = Database::search("SELECT * FROM `assignment_payments` WHERE `assignment_payments_id` = '" . $lecturerPayemntId . "'");
 
-                        $isValidLectureData = $isValidLecture->fetch_assoc();
-                        if ($isValidLectureData['count'] == 0) {
+                        if ($isValidLecture->num_rows == 0) {
                             $status->error = 'Lecture assignment payment not found';
                         } else {
-                            if (empty($paymentStatus) || $paymentStatus == 0 || ($paymentStatus != 2 && $paymentStatus != 3)) {
+                            $isValidLectureData = $isValidLecture->fetch_assoc();
+                            // completed status (2) is set only from scheduled payments => mark as paid
+                            if (empty($paymentStatus) || $paymentStatus != 3) {
                                 $status->error = 'Invalid payment status';
+                            } else if ($isValidLectureData['earning_status_earning_status_id'] != 1) {
+                                $status->error = 'Only scheduled payments can be rejected';
                             } else {
 
                                 Database::iud("UPDATE `assignment_payments` SET `earning_status_earning_status_id`='" . $paymentStatus . "' WHERE `assignment_payments_id`='" . $lecturerPayemntId . "'");
 
-                                if ($paymentStatus == 2) {
-                                    $note = 'payment accepted';
-                                } else {
-                                    $note = 'payment rejected';
-                                }
+                                $note = 'payment rejected';
 
                                 $lecturer_payments_log_columns = "`assignment_payments_assignment_payments_id`, `note`, `date_updated`, `users_user_id`";
                                 $lecturer_payments_log_values = "'" . $lecturerPayemntId . "','" . $note . "', '" . $today->format('Y-m-d H:i:s') . "', '" . $sessionUserObject['user_id'] . "'";
 
                                 Database::iud("INSERT INTO `assignment_payments_logs`(" . $lecturer_payments_log_columns . ") VALUES(" . $lecturer_payments_log_values . ")");
-                                $status->done = 'Lecturer payment updated successfully';
+                                $status->done = 'Lecturer assignment payment rejected successfully';
                             }
                         }
                     }

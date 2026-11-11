@@ -21,7 +21,7 @@ if ($sessionUserRole == null) {
 $sessionUserObject = SessionUser::getCurrentUserObject();
 
 if (!($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['payment-id']) && !empty($_GET['payment-id']))) {
-    header("Location: ./lecturers-assignment-payments");
+    header("Location: ./lecturers-assignments-payments");
     exit;
 }
 
@@ -63,18 +63,19 @@ $paymentResult = Database::search("SELECT
     WHERE `assignment_payments`.`assignment_payments_id` = '" . $id . "'");
 
 if ($paymentResult->num_rows == 0) {
-    header("Location: ./lecturers-assignment-payments");
+    header("Location: ./lecturers-assignments-payments");
     exit;
 }
 
 $paymentData = $paymentResult->fetch_assoc();
 
-/* Scheduled by (users_user_id on assignment_payments) */
+/* Scheduled by (first log user of the payment, users_user_id on assignment_payments is the lecturer) */
 $scheduledBy = Database::search("SELECT `title`.`title`, `users`.`user_fname`, `users`.`user_lname`
-    FROM `assignment_payments`
-    INNER JOIN `users` ON `users`.`user_id` = `assignment_payments`.`users_user_id`
+    FROM `assignment_payments_logs`
+    INNER JOIN `users` ON `users`.`user_id` = `assignment_payments_logs`.`users_user_id`
     INNER JOIN `title` ON `title`.`title_id` = `users`.`title_title_id`
-    WHERE `assignment_payments`.`assignment_payments_id` = '" . $id . "'");
+    WHERE `assignment_payments_logs`.`assignment_payments_assignment_payments_id` = '" . $id . "'
+    ORDER BY `assignment_payments_logs`.`assignment_payments_logs_id` ASC LIMIT 1");
 $scheduledByName = 'N/A';
 if ($scheduledBy->num_rows > 0) {
     $sb = $scheduledBy->fetch_assoc();
@@ -187,7 +188,7 @@ function e($value)
                                                 <ol class="breadcrumb m-0">
                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./payments'>Payments</a></li>
                                                     <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-payemnts'>Lecturers Payments</a></li>
-                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-assignment-payments'>Lecturers Assignment Payments</a></li>
+                                                    <li class="breadcrumb-item"><a class="sub-text text-decoration-none cursor-pointer" href='./lecturers-assignments-payments'>Lecturers Assignment Payments</a></li>
                                                 </ol>
                                             </nav>
                                         </div>
