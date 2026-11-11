@@ -253,9 +253,23 @@ if (!SessionUser::hasValidSession()) {
                                                                                             ];
                                                                                             $status = "Pending";
                                                                                             $sbutton_class = $status_classes[$status];
+                                                                                            // open (scheduled / rejected) payment first, else the latest completed payment
                                                                                             $lectureAssignmentPayment = Database::search("SELECT * FROM `assignment_payments` 
                                                                                             WHERE `lecturers_lecturers_id` = '" . $data["lecturers_id"] . "' 
-                                                                                            AND `assignments_assignment_id` = '" . $id . "' ORDER BY `assignment_payments_id` DESC LIMIT 1");
+                                                                                            AND `assignments_assignment_id` = '" . $id . "' 
+                                                                                            ORDER BY (`earning_status_earning_status_id` = '2') ASC, `assignment_payments_id` DESC LIMIT 1");
+
+                                                                                            // marked assignments not paid yet (not in a completed payment)
+                                                                                            $unpaidMarked = Database::search("SELECT COUNT(*) AS 'count' FROM `lecturers_has_students_has_assignments` AS `lhsaa`
+                                                                                            INNER JOIN `students_has_assignments` AS `sha` ON `lhsaa`.`students_has_assignments_students_has_assignments_id` = `sha`.`students_has_assignments_id`
+                                                                                            WHERE `lhsaa`.`lecturers_lecturers_id` = '" . $data["lecturers_id"] . "' 
+                                                                                            AND `sha`.`assignments_assignment_id` = '" . $id . "' 
+                                                                                            AND `lhsaa`.`submission_sts_submission_sts_id` = '2'
+                                                                                            AND `lhsaa`.`lecturers_has_students_has_assignments_id` NOT IN (
+                                                                                                SELECT `apma`.`lecturers_has_students_has_assignments_id` FROM `assignment_payments_has_marked_assignments` AS `apma`
+                                                                                                INNER JOIN `assignment_payments` AS `ap` ON `ap`.`assignment_payments_id` = `apma`.`assignment_payments_id`
+                                                                                                WHERE `ap`.`earning_status_earning_status_id` = '2'
+                                                                                            )")->fetch_assoc()['count'];
                                                                                             if ($lectureAssignmentPayment->num_rows > 0) {
                                                                                                 $payment = $lectureAssignmentPayment->fetch_assoc();
 
@@ -271,13 +285,19 @@ if (!SessionUser::hasValidSession()) {
                                                                                                 }
                                                                                             }
 
+                                                                                            if ($status == "Completed" && $unpaidMarked > 0) {
+                                                                                                // new marked assignments after the last completed payment
+                                                                                                $status = "Pending";
+                                                                                                $sbutton_class = $status_classes[$status];
+                                                                                            }
+
                                                                                             ?>
                                                                                             <button class="table-btn <?php echo $sbutton_class; ?> w-100"> <?php echo $status; ?></button>
                                                                                         </td>
                                                                                         <td class="py-3 align-middle">
                                                                                             <?php
                                                                                             if ($data["total_count"] == $data["marked_count"]) {
-                                                                                                if ($lectureAssignmentPayment->num_rows > 0) {
+                                                                                                if ($lectureAssignmentPayment->num_rows > 0 && ($payment["earning_status_earning_status_id"] != 2 || $unpaidMarked == 0)) {
                                                                                             ?>
                                                                                                     <button class="table-btn table-btn-dark-theme active w-75" onclick="window.location.href='lecturer-assignment-payment?payment-id=<?php echo $payment['assignment_payments_id']; ?>'">View</button>
                                                                                                 <?php
