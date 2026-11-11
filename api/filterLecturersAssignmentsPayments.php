@@ -76,7 +76,7 @@ if (SessionUser::hasValidSession()) {
                         $query .= " AND (`user_fname` LIKE '%" . $search_text . "%' OR `user_lname` LIKE '%" . $search_text . "%' OR `user_email` LIKE '%" . $search_text . "%' OR `user_mobile` LIKE '%" . $search_text . "%' OR `assignment_code` LIKE '%" . $search_text . "%' OR `assignment` LIKE '%" . $search_text . "%' OR `subject` LIKE '%" . $search_text . "%')";
                     }
 
-                    $query .= " GROUP BY `lhsaa`.`lecturers_lecturers_id`, `sha`.`assignments_assignment_id`";
+                    $query .= " GROUP BY `lhsaa`.`lecturers_lecturers_id`, `sha`.`assignments_assignment_id`, `lecturers`.`per_assignment_fee`, `users`.`user_id`, `users`.`user_fname`, `users`.`user_lname`, `users`.`profile_img`, `title`.`title`, `assignments`.`assignment_code`, `assignments`.`assignment`, `assignments`.`assignment_id`, `subjects`.`subject`, `levels`.`level`, `intakes`.`intake`, `programmes`.`programme`, `faculties`.`faculty`";
 
                     if ($user_sort != 0) {
                         $query .= " HAVING `payment_status` = '" . (int) $user_sort . "'";

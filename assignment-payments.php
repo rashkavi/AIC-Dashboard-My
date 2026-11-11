@@ -73,7 +73,7 @@ if (!SessionUser::hasValidSession()) {
                     WHERE 
                         sha.assignments_assignment_id = '$id'
                     GROUP BY 
-                        lhsaa.lecturers_lecturers_id
+                        lhsaa.lecturers_lecturers_id, user_fname, user_lname, title, profile_img, per_assignment_fee
                     ";
 
                     $results = Database::search($query);
