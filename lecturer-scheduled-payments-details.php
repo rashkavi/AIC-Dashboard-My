@@ -40,8 +40,8 @@ if (!SessionUser::hasValidSession()) {
             GROUP BY users_user_id
         ) ap ON ap.users_user_id = u.user_id
 
-        WHERE u.user_id = '" . $lecturerId . "' AND lp.users_user_id IS NOT NULL 
-        OR ap.users_user_id IS NOT NULL";
+        WHERE u.user_id = '" . $lecturerId . "' AND (lp.users_user_id IS NOT NULL 
+        OR ap.users_user_id IS NOT NULL)";
 
             $result = Database::search($query);
             if ($result->num_rows == 0) {
@@ -465,7 +465,112 @@ if (!SessionUser::hasValidSession()) {
                                                     </div>
                                                 <?php
                                                 }
-                                                
+
+                                                $assignmentPaymentsQuery = "SELECT 
+                                                        `assignment_payments`.`assignment_payments_id`,
+                                                        `assignment_payments`.`amount`,
+                                                        `assignment_payments`.`date_added`,
+                                                        `assignments`.`assignment_code`,
+                                                        `assignments`.`assignment`,
+                                                        `subjects`.`subject`,
+                                                        `programmes`.`programme`,
+                                                        `lecturers`.`per_assignment_fee`,
+                                                        COUNT(`assignment_payments_has_marked_assignments`.`assignment_payments_has_marked_assignment_id`) AS marked_count
+                                                        FROM `assignment_payments`
+                                                        INNER JOIN `lecturers` ON `lecturers`.`lecturers_id` = `assignment_payments`.`lecturers_lecturers_id`
+                                                        INNER JOIN `assignments` ON `assignments`.`assignment_id` = `assignment_payments`.`assignments_assignment_id`
+                                                        INNER JOIN `subjects` ON `assignments`.`subjects_subject_id` = `subjects`.`subject_id`
+                                                        INNER JOIN `levels` ON `subjects`.`levels_level_id` = `levels`.`level_id`
+                                                        INNER JOIN `intakes` ON `levels`.`intakes_intake_id` = `intakes`.`intake_id`
+                                                        INNER JOIN `programmes` ON `intakes`.`programmes_programme_id` = `programmes`.`programme_id`
+                                                        LEFT JOIN `assignment_payments_has_marked_assignments` ON `assignment_payments_has_marked_assignments`.`assignment_payments_id` = `assignment_payments`.`assignment_payments_id`
+                                                        WHERE `assignment_payments`.`users_user_id` = '" . $lecturerId . "'
+                                                        AND `assignment_payments`.`earning_status_earning_status_id` = '1'
+                                                        GROUP BY `assignment_payments`.`assignment_payments_id`
+                                                        ORDER BY `assignment_payments`.`date_added` DESC";
+
+                                                $assignmentPayments = Database::search($assignmentPaymentsQuery);
+                                                if ($assignmentPayments->num_rows > 0) {
+                                                ?>
+                                                    <div class="col-12 p-4 component-theme mt-4">
+                                                        <div class="row p-0 m-0 g-0">
+                                                            <div class="col-12">
+                                                                <div class="row p-0 m-0 g-0 align-content-center">
+                                                                    <span class="sub-topic mb-4">Scheduled Assignments Payments</span>
+                                                                    <div class="table-responsive-wrapper">
+                                                                        <div class="table-responsive" id="assignments-table-container">
+                                                                            <table class="table bl-solid m-0 p-0 g-0" id="assignments-table">
+                                                                                <thead>
+                                                                                    <tr class="br-t-5">
+                                                                                        <th scope="col" class="px-4 py-3 bg-table-header main-text fw-medium">
+                                                                                            <div class="d-flex flex-row align-items-center">
+                                                                                                <input type="checkbox" class="form-check-input text-20 mt-0 mb-0 me-2" id="ap-check-all" onchange="assignmentsPaymentsCheckEvents()">
+                                                                                                <span class="text-14 main-text fw-medium mx-2">Scheduled Date</span>
+                                                                                            </div>
+                                                                                        </th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Programme</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Subject</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Assignment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Marked Assignments</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Fee Per Assignment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Scheduled Payment</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium">Status</th>
+                                                                                        <th scope="col" class="py-3 bg-table-header text-14 main-text fw-medium"></th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody id="assignment-table-data">
+                                                                                    <?php
+                                                                                    while ($data = $assignmentPayments->fetch_assoc()) {
+                                                                                    ?>
+                                                                                        <tr>
+                                                                                            <td class="px-4 pe-0 py-3 pe-0 align-middle">
+                                                                                                <div class="d-flex flex-row align-items-center p-0 g-0 m-0">
+                                                                                                    <input type="checkbox"
+                                                                                                        class="form-check-input text-20 mt-0 mb-0 me-2 ap-row-check"
+                                                                                                        data-amount="<?= $data['amount'] ?>"
+                                                                                                        value="<?= $data['assignment_payments_id'] ?>"
+                                                                                                        id="ap-<?= $data['assignment_payments_id']; ?>"
+                                                                                                        onchange="assignmentPaymentsCheckRowEvents(<?= $data['assignment_payments_id']; ?>)">
+                                                                                                    <p class="text-14 main-text mx-2"><?= date("Y-m-d", strtotime($data['date_added'])) ?></br><?= date("h:i A", strtotime($data['date_added'])) ?></p>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["programme"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["subject"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["assignment_code"] . " - " . $data["assignment"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text"><?= $data["marked_count"]; ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["per_assignment_fee"], 2) ?></span></td>
+                                                                                            <td class="py-2 align-middle"><span class="text-14 main-text">LKR <?= number_format($data["amount"], 2) ?></span></td>
+                                                                                            <td class="py-3 align-middle">
+                                                                                                <label class="table-btn table-btn-yellow text-center w-100">Awaiting Payment</label>
+                                                                                            </td>
+                                                                                            <td class="py-3 align-middle">
+                                                                                                <div class="dropdown">
+                                                                                                    <iconify-icon icon="charm:menu-kebab" width="20" height="20" class="justify-content-center sub-text cursor-pointer" id="dropdownMenuButton3" data-bs-toggle="dropdown" aria-expanded="false"></iconify-icon>
+                                                                                                    <ul class="dropdown-menu border-0 shadow br-5" aria-labelledby="dropdownMenuButton3">
+                                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center" href="lecturer-assignment-payment?payment-id=<?= $data['assignment_payments_id']; ?>">
+                                                                                                                <iconify-icon icon="solar:eye-broken" width="20" height="20" class="sub-text me-3"></iconify-icon>
+                                                                                                                View</a></li>
+                                                                                                        <hr class="mt-1 mb-1 mb-0 me-2 mx-2">
+                                                                                                        <li><a class="dropdown-item text-14 main-text d-flex align-items-center cursor-pointer" onclick="updateLecturerAssignmentPayment(<?= $data['assignment_payments_id']; ?>,3)">
+                                                                                                                <iconify-icon icon="icon-park-outline:reject" width="20" height="20" class="sub-text-color me-3"></iconify-icon>
+                                                                                                                Reject Payment</a></li>
+                                                                                                    </ul>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    <?php
+                                                                                    }
+                                                                                    ?>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                <?php
+                                                }
                                                 ?>
 
                                             </div>

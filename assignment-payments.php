@@ -247,24 +247,24 @@ if (!SessionUser::hasValidSession()) {
                                                                                             <?php
                                                                                             $status_classes = [
                                                                                                 "Pending"  => "table-btn-yellow",
-                                                                                                "Pending Approval"     => "table-btn-pink",
-                                                                                                "Approval"     => "table-btn-success",
+                                                                                                "Scheduled"     => "table-btn-pink",
+                                                                                                "Completed"     => "table-btn-success",
                                                                                                 "Rejected"  => "table-btn-danger",
                                                                                             ];
                                                                                             $status = "Pending";
                                                                                             $sbutton_class = $status_classes[$status];
                                                                                             $lectureAssignmentPayment = Database::search("SELECT * FROM `assignment_payments` 
                                                                                             WHERE `lecturers_lecturers_id` = '" . $data["lecturers_id"] . "' 
-                                                                                            AND `assignments_assignment_id` = '" . $id . "'");
+                                                                                            AND `assignments_assignment_id` = '" . $id . "' ORDER BY `assignment_payments_id` DESC LIMIT 1");
                                                                                             if ($lectureAssignmentPayment->num_rows > 0) {
                                                                                                 $payment = $lectureAssignmentPayment->fetch_assoc();
 
                                                                                                 if ($payment["earning_status_earning_status_id"] == 1) {
-                                                                                                    $sbutton_class = $status_classes['Pending Approval'];
-                                                                                                    $status = "Pending Approval";
+                                                                                                    $sbutton_class = $status_classes['Scheduled'];
+                                                                                                    $status = "Scheduled";
                                                                                                 } else if ($payment["earning_status_earning_status_id"] == 2) {
-                                                                                                    $sbutton_class = $status_classes['Approval'];
-                                                                                                    $status = "Approval";
+                                                                                                    $sbutton_class = $status_classes['Completed'];
+                                                                                                    $status = "Completed";
                                                                                                 } else if ($payment["earning_status_earning_status_id"] == 3) {
                                                                                                     $sbutton_class = $status_classes['Rejected'];
                                                                                                     $status = "Rejected";
